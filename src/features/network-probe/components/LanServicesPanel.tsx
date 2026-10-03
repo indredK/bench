@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { LanServicesResult } from "@/lib/tauri/types/network-probe"
 
 interface LanServicesPanelProps {
@@ -53,6 +54,11 @@ export function LanServicesPanel({
           {result.message ? (
             <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
           ) : null}
+          {result.truncated ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+              {t("networkProbe.lanSvc.truncated", { limit: 512 })}
+            </p>
+          ) : null}
           <p className="text-muted-foreground text-xs">
             {t("networkProbe.lanSvc.meta", {
               count: result.items.length,
@@ -62,17 +68,23 @@ export function LanServicesPanel({
           {result.items.length === 0 ? (
             <p className="text-muted-foreground text-sm">{t("networkProbe.lanSvc.empty")}</p>
           ) : (
-            <ul className="space-y-1 font-mono text-xs">
-              {result.items.map((it, idx) => (
-                <li key={`${it.protocol}-${it.name}-${idx}`}>
+            <VirtualizedResultList
+              items={result.items}
+              getKey={(item, index) => `${item.protocol}-${item.name}-${index}`}
+              ariaLabel={t("networkProbe.lanSvc.listLabel")}
+              className="space-y-1 font-mono text-xs"
+              itemClassName="break-all border-b border-border/50 py-1"
+              estimatedItemHeight={44}
+              renderItem={(it) => (
+                <>
                   [{it.protocol}] {it.name}
                   {it.serviceType ? ` · ${it.serviceType}` : ""}
                   {it.host ? ` · ${it.host}` : ""}
                   {it.port ? `:${it.port}` : ""}
                   {it.detail ? ` — ${it.detail}` : ""}
-                </li>
-              ))}
-            </ul>
+                </>
+              )}
+            />
           )}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>

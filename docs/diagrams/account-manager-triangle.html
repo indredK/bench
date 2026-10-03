@@ -1369,9 +1369,9 @@
             ],
             tech: [
               "<strong>深链入口（外部登录代理）</strong>：外部 App 或浏览器通过自定义协议 <strong>bench-auth://authorize</strong>（RFC 8252 的推广形态）唤起 Bench；Deep Link 只由 Rust App 根 listener 接收，Windows 经 <strong>tauri-plugin-single-instance</strong>（deep-link feature）把第二实例参数交回主实例并聚焦主窗口",
-              "<strong>签发一次性票据</strong>：<code>handle_browser_open</code> 归一化为 BrowserOpenResult（ticket / expiry / target / returnUrl / host / isAuthorize / matches），签发 <strong>5 分钟一次性 ticket</strong>；后续启动登录的 IPC 只接受 <code>ticketId + accountId</code>，不接受 renderer 重传 target/return",
-              "<strong>非授权链接导流</strong>：解析结果为非 bench-auth 且非 authorize-like 的普通 URL 时，第二步提示「该链接不是登录授权链接」并提供「改用快速登录打开」（URL 预填，即 C1 链路）",
-              "<strong>确认后拉起登录</strong>：<code>proxyLogin(ticketId, accountId)</code> 在后端拉起隔离 WebView 完成登录，命中 return URL 后把原始 callback 交还外部 App；解析/确认中对话框不可关闭（防重入）",
+              "<strong>签发一次性票据</strong>：<code>handle_browser_open</code> 归一化为脱敏 BrowserOpenResult（ticket / expiry / host / isAuthorize / hasReturnUrl / returnScheme / matches）；深链完整 target、return URL 与 OAuth state 只保留在 Rust 端 5 分钟 ticket，renderer 不接收原始深链 URL 或 state；手动粘贴 URL 仅存在弹窗临时输入态，关闭即清除",
+              "<strong>非授权链接导流</strong>：解析结果为非 bench-auth 且非 authorize-like 的普通 URL 时，第二步提示「该链接不是登录授权链接」；手动粘贴的链接可预填快速登录，来自外部应用的深链不回传原 URL，用户需在快速登录里重新粘贴",
+              "<strong>确认后拉起登录</strong>：<code>proxyLogin(ticketId, accountId)</code> 在后端拉起隔离 WebView 完成登录，命中 return URL 后把原始 callback 交还外部 App；命令不向 renderer 回传 state 或占位凭据，打开回调应用也由 Rust 按 ticket 执行；解析/确认中对话框不可关闭（防重入）",
             ],
             limits: [
               "callback 必须精确匹配 scheme、host、有效端口与 path；请求带 state 时 callback 必须回传相同 state",

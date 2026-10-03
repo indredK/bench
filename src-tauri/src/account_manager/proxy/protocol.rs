@@ -14,17 +14,6 @@ pub struct AuthProxyRequest {
     pub site: Option<String>,
 }
 
-/// 外部登录代理的结果
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthProxyResult {
-    pub token: String,
-    pub token_type: String,
-    pub state: Option<String>,
-    pub station_id: String,
-    pub account_id: String,
-}
-
 /// 解析 bench-auth://authorize URL 并提取参数。
 /// 格式: bench-auth://authorize?target=<url>&return=<url>&state=<str>&site=<station-id>
 pub fn parse_auth_proxy_url(input: &str) -> Result<AuthProxyRequest, String> {

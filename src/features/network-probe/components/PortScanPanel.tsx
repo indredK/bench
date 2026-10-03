@@ -8,6 +8,7 @@ import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirm
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { PortSampleEvent, PortScanResult } from "@/lib/tauri/types/network-probe"
 
 interface PortScanPanelProps {
@@ -17,7 +18,7 @@ interface PortScanPanelProps {
   streaming: PortSampleEvent[]
   toolEnabled: boolean
   toolStatus?: string
-  onRun: (target: string, ports: string) => void
+  onRun: (target: string, ports: string, fingerprint: boolean) => void
   onCancel: () => void
 }
 
@@ -26,8 +27,8 @@ function isPrivateOrLocal(host: string): boolean {
   if (h === "localhost" || h === "::1") return true
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h)
   if (!m) return false
-  const a = Number(m[1])
-  const b = Number(m[2])
+  const [a, b, c, d] = m.slice(1).map(Number)
+  if ([a, b, c, d].some((octet) => octet > 255)) return false
   if (a === 10 || a === 127) return true
   if (a === 192 && b === 168) return true
   if (a === 172 && b >= 16 && b <= 31) return true
@@ -35,23 +36,47 @@ function isPrivateOrLocal(host: string): boolean {
   return false
 }
 
-function estimatePortCount(spec: string): number {
-  let n = 0
-  for (const part of spec.split(/[,\s]+/)) {
+const MAX_PORTS = 256
+const MAX_PORT_SPEC_LENGTH = 4096
+
+function parsePortSpec(spec: string): { count: number; valid: boolean } {
+  if (spec.length > MAX_PORT_SPEC_LENGTH) return { count: 0, valid: false }
+
+  const uniquePorts = new Set<number>()
+  for (const part of spec.split(/[ ,]+/)) {
     const p = part.trim()
     if (!p) continue
-    if (p.includes("-")) {
-      const [a, b] = p.split("-")
-      const start = Number(a)
-      const end = Number(b)
-      if (Number.isFinite(start) && Number.isFinite(end) && end >= start) {
-        n += end - start + 1
+
+    const range = /^(\d+)-(\d+)$/.exec(p)
+    if (range) {
+      const start = Number(range[1])
+      const end = Number(range[2])
+      if (
+        !Number.isInteger(start) ||
+        !Number.isInteger(end) ||
+        start < 1 ||
+        end > 65535 ||
+        end < start
+      ) {
+        return { count: uniquePorts.size, valid: false }
       }
-    } else if (Number.isFinite(Number(p))) {
-      n += 1
+      for (let port = start; port <= end; port += 1) {
+        uniquePorts.add(port)
+        if (uniquePorts.size > MAX_PORTS) return { count: uniquePorts.size, valid: false }
+      }
+    } else if (/^\d+$/.test(p)) {
+      const port = Number(p)
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        return { count: uniquePorts.size, valid: false }
+      }
+      uniquePorts.add(port)
+      if (uniquePorts.size > MAX_PORTS) return { count: uniquePorts.size, valid: false }
+    } else {
+      return { count: uniquePorts.size, valid: false }
     }
   }
-  return n
+
+  return { count: uniquePorts.size, valid: uniquePorts.size > 0 }
 }
 
 export function PortScanPanel({
@@ -67,6 +92,7 @@ export function PortScanPanel({
   const { t } = useTranslation()
   const [target, setTarget] = useState("127.0.0.1")
   const [ports, setPorts] = useState("22,80,443,8080")
+  const [fingerprint, setFingerprint] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   const samples = result?.samples?.length ? result.samples : streaming
@@ -74,19 +100,19 @@ export function PortScanPanel({
     ? result.openPorts
     : samples.filter((s) => s.state === "open").map((s) => s.port)
 
-  const portCount = useMemo(() => estimatePortCount(ports), [ports])
+  const { count: portCount, valid: portSpecValid } = useMemo(() => parsePortSpec(ports), [ports])
   const needsConfirm = useMemo(() => {
     const host = target.trim()
     if (!host) return false
-    return !isPrivateOrLocal(host) || portCount > 64
-  }, [target, portCount])
+    return fingerprint || !isPrivateOrLocal(host) || portCount > 64
+  }, [target, portCount, fingerprint])
 
   const start = () => {
     if (needsConfirm) {
       setConfirmOpen(true)
       return
     }
-    onRun(target.trim(), ports.trim())
+    onRun(target.trim(), ports.trim(), fingerprint)
   }
 
   return (
@@ -103,7 +129,7 @@ export function PortScanPanel({
             </p>
           ) : (
             <p className="text-xs text-amber-700 dark:text-amber-400">
-              {t("networkProbe.ports.degradedHint")}
+              {t("networkProbe.ports.capabilityHint")}
             </p>
           )}
           <div className="flex flex-wrap items-end gap-2">
@@ -129,17 +155,39 @@ export function PortScanPanel({
                 onChange={(e) => setPorts(e.target.value)}
                 autoComplete="off"
                 disabled={loading}
+                aria-invalid={!portSpecValid}
+                aria-describedby={!portSpecValid ? "np-ports-range-error" : undefined}
               />
+              {!portSpecValid ? (
+                <p id="np-ports-range-error" className="text-destructive text-xs" role="alert">
+                  {t("networkProbe.ports.invalidPortSpec")}
+                </p>
+              ) : null}
             </div>
+            <label className="flex min-h-10 items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={fingerprint}
+                onChange={(event) => setFingerprint(event.target.checked)}
+                disabled={loading}
+                aria-describedby={fingerprint ? "np-ports-fingerprint-hint" : undefined}
+              />
+              {t("networkProbe.ports.fingerprintOption")}
+            </label>
             <CommandHint
-              hint={t("networkProbe.cmd.scanPorts", {
-                target: target.trim() || "…",
-                ports: ports.trim() || "…",
-              })}
+              hint={t(
+                fingerprint
+                  ? "networkProbe.cmd.scanPortsFingerprint"
+                  : "networkProbe.cmd.scanPorts",
+                {
+                  target: target.trim() || "…",
+                  ports: ports.trim() || "…",
+                },
+              )}
             >
               <Button
                 type="button"
-                disabled={loading || !toolEnabled || !target.trim() || !ports.trim()}
+                disabled={loading || !toolEnabled || !target.trim() || !portSpecValid}
                 onClick={start}
               >
                 {loading ? t("networkProbe.ports.running") : t("networkProbe.ports.run")}
@@ -153,6 +201,11 @@ export function PortScanPanel({
               </CommandHint>
             ) : null}
           </div>
+          {fingerprint ? (
+            <p id="np-ports-fingerprint-hint" className="text-muted-foreground text-xs">
+              {t("networkProbe.ports.fingerprintHint")}
+            </p>
+          ) : null}
         </>
       }
     >
@@ -161,19 +214,75 @@ export function PortScanPanel({
           {t("networkProbe.ports.openList", { ports: open.join(", ") })}
         </p>
       ) : null}
-      {result?.message ? (
+      {result?.cancelled ? (
+        <p className="text-muted-foreground text-xs">{t("networkProbe.ports.cancelled")}</p>
+      ) : result?.mode === "tcp-connect" && result.fingerprintStatus === "not-requested" ? (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {t("networkProbe.ports.tcpConnectFallback")}
+        </p>
+      ) : result?.message ? (
         <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
       ) : null}
+      {result && !result.cancelled && result.fingerprintStatus !== "not-requested" ? (
+        <section aria-live="polite" className="space-y-1 text-sm">
+          <p>{t(`networkProbe.ports.scanModes.${result.mode}`)}</p>
+          <p>{t(`networkProbe.ports.fingerprintStatus.${result.fingerprintStatus}`)}</p>
+          {result.osFingerprint ? (
+            <p>
+              {t("networkProbe.ports.osGuess", {
+                name: result.osFingerprint.name,
+                accuracy: result.osFingerprint.accuracy,
+              })}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+      {result && !result.cancelled && result.fingerprintStatus === "not-requested" ? (
+        <p className="text-muted-foreground text-xs">
+          {t(`networkProbe.ports.scanModes.${result.mode}`)}
+        </p>
+      ) : null}
       {samples.length > 0 ? (
-        <ul className="text-muted-foreground space-y-0.5 font-mono text-xs">
-          {samples.map((s) => (
-            <li key={`${s.port}-${s.state}`}>
+        <VirtualizedResultList
+          items={samples}
+          getKey={(sample) => `${sample.port}-${sample.state}`}
+          ariaLabel={t("networkProbe.ports.listLabel")}
+          className="text-muted-foreground space-y-0.5 font-mono text-xs"
+          itemClassName="border-b border-border/50 py-1"
+          estimatedItemHeight={36}
+          renderItem={(s) => (
+            <>
               {s.port}: {s.state}
-              {s.serviceHint ? ` (${s.serviceHint})` : ""}
+              {s.serviceHint ? (
+                <span className="ml-1 font-sans">
+                  {s.serviceHint}
+                  {s.serviceMethod
+                    ? ` · ${t(`networkProbe.ports.serviceMethods.${s.serviceMethod}`)}`
+                    : ""}
+                  {s.serviceProduct || s.serviceVersion
+                    ? ` · ${[s.serviceProduct, s.serviceVersion].filter(Boolean).join(" ")}`
+                    : ""}
+                </span>
+              ) : null}
+              {s.riskTags?.length ? (
+                <span className="ml-2 inline-flex flex-wrap gap-1 font-sans">
+                  {s.riskTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                    >
+                      {t(`networkProbe.ports.risks.${tag}`)}
+                    </span>
+                  ))}
+                </span>
+              ) : null}
               {s.rttMs != null ? ` · ${s.rttMs.toFixed(0)} ms` : ""}
-            </li>
-          ))}
-        </ul>
+            </>
+          )}
+        />
+      ) : null}
+      {samples.some((sample) => sample.riskTags?.length) ? (
+        <p className="text-muted-foreground text-xs">{t("networkProbe.ports.riskNote")}</p>
       ) : null}
       {result?.commandHint ? (
         <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
@@ -185,15 +294,23 @@ export function PortScanPanel({
         title={t("networkProbe.ports.confirmTitle")}
         description={t("networkProbe.ports.confirmDesc", {
           target: target.trim(),
+          ports: ports.trim(),
           count: portCount,
+          fingerprint: t(
+            fingerprint ? "networkProbe.ports.fingerprintOn" : "networkProbe.ports.fingerprintOff",
+          ),
         })}
-        consequence={t("networkProbe.ports.confirmConsequence")}
+        consequence={t(
+          fingerprint
+            ? "networkProbe.ports.confirmConsequenceFingerprint"
+            : "networkProbe.ports.confirmConsequenceBasic",
+        )}
         confirmLabel={t("networkProbe.ports.confirmRun")}
         cancelLabel={t("networkProbe.ports.cancel")}
         loading={loading}
         onConfirm={() => {
           setConfirmOpen(false)
-          onRun(target.trim(), ports.trim())
+          onRun(target.trim(), ports.trim(), fingerprint)
         }}
       />
     </ProbePanelShell>

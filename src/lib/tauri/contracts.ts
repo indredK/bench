@@ -31,7 +31,6 @@ import type {
   AuthProfile,
   AuthProxyDrainResult,
   AuthProxyInboxStatus,
-  AuthProxyResult,
   BrowserCaptureOutcome,
   BrowserDailySyncOutcome,
   BrowserInjectStatus,
@@ -420,11 +419,12 @@ export const TAURI_COMMAND_CONTRACTS = {
     { stationId: string },
     LoginFingerprintDetail | null
   >()("get_login_fingerprint_detail"),
-  proxy_login: defineTauriCommand<{ accountId: string; ticketId: string }, AuthProxyResult>()(
-    "proxy_login",
-  ),
+  proxy_login: defineTauriCommand<{ accountId: string; ticketId: string }, void>()("proxy_login"),
   handle_browser_open: defineTauriCommand<{ url: string }, BrowserOpenResult>()(
     "handle_browser_open",
+  ),
+  open_auth_proxy_return_url: defineTauriCommand<{ ticketId: string }, void>()(
+    "open_auth_proxy_return_url",
   ),
   get_auth_proxy_inbox_status: defineTauriCommand<undefined, AuthProxyInboxStatus>()(
     "get_auth_proxy_inbox_status",
@@ -853,9 +853,10 @@ export const TAURI_COMMAND_CONTRACTS = {
   network_probe_check_dnssec: defineTauriCommand<{ domain: string }, DnsSecCheckResult>()(
     "network_probe_check_dnssec",
   ),
-  network_probe_scan_ports: defineTauriCommand<{ target: string; ports: string }, PortScanResult>()(
-    "network_probe_scan_ports",
-  ),
+  network_probe_scan_ports: defineTauriCommand<
+    { target: string; ports: string; fingerprint: boolean },
+    PortScanResult
+  >()("network_probe_scan_ports"),
   network_probe_probe_nat: defineTauriCommand<undefined, NatProbeResult>()(
     "network_probe_probe_nat",
   ),
@@ -1186,6 +1187,7 @@ export const TAURI_COMMANDS = {
     getLoginFingerprintDetail: commandName("get_login_fingerprint_detail"),
     proxyLogin: commandName("proxy_login"),
     handleBrowserOpen: commandName("handle_browser_open"),
+    openAuthProxyReturnUrl: commandName("open_auth_proxy_return_url"),
     getAuthProxyInboxStatus: commandName("get_auth_proxy_inbox_status"),
     drainAuthProxyRequest: commandName("drain_auth_proxy_request"),
     proxyLoginNewAccount: commandName("proxy_login_new_account"),
@@ -1509,6 +1511,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   get_login_fingerprint_detail: ["stationId"],
   proxy_login: ["accountId", "ticketId"],
   handle_browser_open: ["url"],
+  open_auth_proxy_return_url: ["ticketId"],
   get_auth_proxy_inbox_status: [],
   drain_auth_proxy_request: [],
   proxy_login_new_account: ["ticketId", "username"],
@@ -1698,7 +1701,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   network_probe_run_pollution_check: ["domain"],
   network_probe_whois: ["query"],
   network_probe_check_dnssec: ["domain"],
-  network_probe_scan_ports: ["target", "ports"],
+  network_probe_scan_ports: ["target", "ports", "fingerprint"],
   network_probe_probe_nat: [],
   network_probe_probe_ntp: [],
   network_probe_discover_lan: [],

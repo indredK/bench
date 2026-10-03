@@ -8,6 +8,8 @@ use std::time::{Duration, Instant};
 use tokio::net::UdpSocket;
 use tokio::time::{timeout, timeout_at, Instant as TokioInstant};
 
+const MAX_ITEMS_PER_PROTOCOL: usize = 256;
+
 pub async fn browse_lan_services() -> AppResult<LanServicesResult> {
     let started = Instant::now();
     let command_hint =
@@ -16,8 +18,10 @@ pub async fn browse_lan_services() -> AppResult<LanServicesResult> {
     let mut items = Vec::new();
     let mut seen = BTreeSet::new();
 
+    let mut truncated = false;
     match browse_mdns().await {
-        Ok(list) => {
+        Ok((list, was_truncated)) => {
+            truncated |= was_truncated;
             for it in list {
                 let key = format!("{}|{}|{}", it.protocol, it.name, it.detail);
                 if seen.insert(key) {
@@ -36,7 +40,8 @@ pub async fn browse_lan_services() -> AppResult<LanServicesResult> {
     }
 
     match browse_ssdp().await {
-        Ok(list) => {
+        Ok((list, was_truncated)) => {
+            truncated |= was_truncated;
             for it in list {
                 let key = format!("{}|{}|{}", it.protocol, it.name, it.detail);
                 if seen.insert(key) {
@@ -56,6 +61,7 @@ pub async fn browse_lan_services() -> AppResult<LanServicesResult> {
 
     Ok(LanServicesResult {
         items,
+        truncated,
         message: Some(
             "Read-only discovery. No UPnP Write / AddPortMapping actions are exposed.".into(),
         ),
@@ -64,7 +70,7 @@ pub async fn browse_lan_services() -> AppResult<LanServicesResult> {
     })
 }
 
-async fn browse_mdns() -> AppResult<Vec<LanServiceItem>> {
+async fn browse_mdns() -> AppResult<(Vec<LanServiceItem>, bool)> {
     let sock = UdpSocket::bind("0.0.0.0:0")
         .await
         .map_err(|e| AppError::new("MDNS_BIND", e.to_string()))?;
@@ -78,11 +84,16 @@ async fn browse_mdns() -> AppResult<Vec<LanServiceItem>> {
         .map_err(|e| AppError::new("MDNS_SEND", e.to_string()))?;
 
     let mut out = Vec::new();
+    let mut truncated = false;
     let deadline = TokioInstant::now() + Duration::from_millis(1200);
     let mut buf = [0u8; 1500];
     while TokioInstant::now() < deadline {
         match timeout_at(deadline, sock.recv_from(&mut buf)).await {
             Ok(Ok((n, from))) => {
+                if out.len() >= MAX_ITEMS_PER_PROTOCOL {
+                    truncated = true;
+                    break;
+                }
                 let text = String::from_utf8_lossy(&buf[..n]);
                 // Best-effort: surface responder + any printable service labels.
                 let labels = extract_printable_labels(&buf[..n]);
@@ -97,24 +108,33 @@ async fn browse_mdns() -> AppResult<Vec<LanServiceItem>> {
                     });
                 } else {
                     for lab in labels.into_iter().take(8) {
-                        out.push(LanServiceItem {
-                            protocol: "mdns".into(),
-                            name: lab.clone(),
-                            service_type: Some(qname.into()),
-                            host: Some(from.ip().to_string()),
-                            port: None,
-                            detail: format!("label from {from}; raw_hint={}", truncate(&text, 80)),
-                        });
+                        if !push_bounded(
+                            &mut out,
+                            LanServiceItem {
+                                protocol: "mdns".into(),
+                                name: lab.clone(),
+                                service_type: Some(qname.into()),
+                                host: Some(from.ip().to_string()),
+                                port: None,
+                                detail: format!(
+                                    "label from {from}; raw_hint={}",
+                                    truncate(&text, 80)
+                                ),
+                            },
+                            &mut truncated,
+                        ) {
+                            break;
+                        }
                     }
                 }
             }
             _ => break,
         }
     }
-    Ok(out)
+    Ok((out, truncated))
 }
 
-async fn browse_ssdp() -> AppResult<Vec<LanServiceItem>> {
+async fn browse_ssdp() -> AppResult<(Vec<LanServiceItem>, bool)> {
     let sock = UdpSocket::bind("0.0.0.0:0")
         .await
         .map_err(|e| AppError::new("SSDP_BIND", e.to_string()))?;
@@ -133,34 +153,56 @@ async fn browse_ssdp() -> AppResult<Vec<LanServiceItem>> {
         .map_err(|e| AppError::new("SSDP_SEND", e.to_string()))?;
 
     let mut out = Vec::new();
+    let mut truncated = false;
     let deadline = TokioInstant::now() + Duration::from_millis(2000);
     let mut buf = [0u8; 2048];
     while TokioInstant::now() < deadline {
         match timeout_at(deadline, sock.recv_from(&mut buf)).await {
             Ok(Ok((n, from))) => {
+                if out.len() >= MAX_ITEMS_PER_PROTOCOL {
+                    truncated = true;
+                    break;
+                }
                 let text = String::from_utf8_lossy(&buf[..n]);
                 let st = header_value(&text, "ST").unwrap_or_else(|| "ssdp:all".into());
                 let server = header_value(&text, "SERVER").unwrap_or_else(|| from.ip().to_string());
                 let location = header_value(&text, "LOCATION").unwrap_or_default();
                 // Do NOT fetch LOCATION for write actions — only display.
-                out.push(LanServiceItem {
-                    protocol: "ssdp".into(),
-                    name: server,
-                    service_type: Some(st),
-                    host: Some(from.ip().to_string()),
-                    port: Some(1900),
-                    detail: if location.is_empty() {
-                        "no LOCATION".into()
-                    } else {
-                        format!("LOCATION={location} (display only)")
+                push_bounded(
+                    &mut out,
+                    LanServiceItem {
+                        protocol: "ssdp".into(),
+                        name: server,
+                        service_type: Some(st),
+                        host: Some(from.ip().to_string()),
+                        port: Some(1900),
+                        detail: if location.is_empty() {
+                            "no LOCATION".into()
+                        } else {
+                            format!("LOCATION={location} (display only)")
+                        },
                     },
-                });
+                    &mut truncated,
+                );
             }
             _ => break,
         }
     }
     let _ = timeout(Duration::from_millis(1), async {}).await;
-    Ok(out)
+    Ok((out, truncated))
+}
+
+fn push_bounded(
+    items: &mut Vec<LanServiceItem>,
+    item: LanServiceItem,
+    truncated: &mut bool,
+) -> bool {
+    if items.len() >= MAX_ITEMS_PER_PROTOCOL {
+        *truncated = true;
+        return false;
+    }
+    items.push(item);
+    true
 }
 
 fn build_dns_ptr_query(name: &str) -> Vec<u8> {
@@ -220,4 +262,36 @@ fn header_value(msg: &str, key: &str) -> Option<String> {
 fn truncate(s: &str, n: usize) -> String {
     let t: String = s.chars().take(n).collect();
     t.replace('\n', " ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bounds_protocol_results_and_reports_omitted_items() {
+        let mut items = Vec::new();
+        let mut truncated = false;
+        for index in 0..=MAX_ITEMS_PER_PROTOCOL {
+            push_bounded(
+                &mut items,
+                LanServiceItem {
+                    protocol: "ssdp".into(),
+                    name: format!("device-{index}"),
+                    service_type: None,
+                    host: None,
+                    port: None,
+                    detail: String::new(),
+                },
+                &mut truncated,
+            );
+        }
+
+        assert_eq!(items.len(), MAX_ITEMS_PER_PROTOCOL);
+        assert!(truncated);
+        assert_eq!(
+            items.last().map(|item| item.name.as_str()),
+            Some("device-255")
+        );
+    }
 }

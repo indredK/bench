@@ -19,7 +19,7 @@ import { CloseBehaviorDialog } from "@/components/common/CloseBehaviorDialog"
 import { SettingsDialog } from "@/components/common/SettingsDialog"
 import { UpdateDialog } from "@/components/common/UpdateDialog"
 import { useNotificationCenterStore } from "@/components/layout/notification-center/store"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useReducedMotionProps } from "@/lib/motion-utils"
 import { appFeatures, createNavigationItems, createConfigItems } from "@/features/registry"
 import { requestFeatureRefresh } from "@/features/refresh"
@@ -35,6 +35,7 @@ import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
 import { canUseFeature, canUseTauriCommands } from "@/platform/capabilities"
 import type { AuthProxyInboxStatus } from "@/lib/tauri/types/account-manager"
 import { parseCommandError } from "@/lib/tauri/errors"
+import { AuthProxyProvider, useAuthProxy } from "@/features/account-manager/hooks/useAuthProxy"
 
 function AuthProxyNavigationListener() {
   const [, navigate] = useLocation()
@@ -72,6 +73,30 @@ function AuthProxyNavigationListener() {
       unlisten?.()
     }
   }, [navigate])
+
+  return null
+}
+
+function AuthProxyRouteBridge() {
+  const { authProxyRequest } = useAuthProxy()
+  const [location, navigate] = useLocation()
+  const locationRef = useRef(location)
+  locationRef.current = location
+  const lastNavigatedTicketRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const ticketId = authProxyRequest?.ticketId ?? null
+    if (!ticketId) {
+      lastNavigatedTicketRef.current = null
+      return
+    }
+    if (lastNavigatedTicketRef.current === ticketId) return
+
+    lastNavigatedTicketRef.current = ticketId
+    if (locationRef.current !== "/account-manager") {
+      navigate("/account-manager")
+    }
+  }, [authProxyRequest?.ticketId, navigate])
 
   return null
 }
@@ -241,22 +266,25 @@ function App() {
   return (
     <>
       <Router hook={useHashLocation}>
-        <AuthProxyNavigationListener />
-        <GlobalContextMenu className="app-root bg-background flex h-screen overflow-hidden">
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <CustomTitlebar />
-            <div className="flex flex-1 overflow-hidden">
-              <NavigationShell
-                layout={navLayout.layoutId}
-                items={sidebarItems}
-                configItems={configItems}
-                onPrefs={handleOpenPrefs}
-              >
-                <AnimatedRoutes />
-              </NavigationShell>
+        <AuthProxyProvider>
+          <AuthProxyNavigationListener />
+          <AuthProxyRouteBridge />
+          <GlobalContextMenu className="app-root bg-background flex h-screen overflow-hidden">
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <CustomTitlebar />
+              <div className="flex flex-1 overflow-hidden">
+                <NavigationShell
+                  layout={navLayout.layoutId}
+                  items={sidebarItems}
+                  configItems={configItems}
+                  onPrefs={handleOpenPrefs}
+                >
+                  <AnimatedRoutes />
+                </NavigationShell>
+              </div>
             </div>
-          </div>
-        </GlobalContextMenu>
+          </GlobalContextMenu>
+        </AuthProxyProvider>
       </Router>
 
       <AboutDialog

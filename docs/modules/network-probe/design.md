@@ -83,16 +83,16 @@
 
 > 选型原则：**能用成熟库就绝不自研**。traceroute/MTR 复用 `trippy-core`。
 
-| crate                                         | 用途                        | 特权                         | 交付档           | 验证状态                                  |
-| --------------------------------------------- | --------------------------- | ---------------------------- | ---------------- | ----------------------------------------- |
-| `trippy-core`                                 | traceroute + MTR            | 需特权（`trippy-privilege`） | MVP-B            | ✅ 0.13.0，MSRV 1.78，spike 通过          |
-| `surge-ping`                                  | 轻量 ICMP ping              | 平台相关；不足则 HTTP 兜底   | MVP-A            | ✅ 活跃；macOS/Windows 需真机验 ICMP 权限 |
-| `hickory-resolver`                            | DNS 查询 / 多 resolver      | 免特权                       | MVP-A / Adv      | ✅ 正确 crate 名（非笼统 hickory-dns）    |
-| `netdev` + `if-addrs`                         | 接口/网关/MAC + 变更通知    | 免特权                       | MVP-A            | ✅                                        |
-| `system-configuration`(mac) / `ipconfig`(win) | 系统 DNS / 代理             | 免特权                       | MVP-A/B          | 平台分支                                  |
-| `reqwest` + `rustls`                          | HTTP / SSL / Captive / 测速 | 免特权                       | MVP + Post-MVP-C | 既有栈                                    |
-| `pnet` + `socket2` + `etherparse` + `pcap`    | SYN / ARP / 抓包            | 需特权                       | Post-MVP-Adv     | 标准底层                                  |
-| `ipnetwork` 等                                | 网段 / 辅助                 | 免特权                       | 按需             | —                                         |
+| crate                                         | 用途                             | 特权                         | 交付档           | 验证状态                                                  |
+| --------------------------------------------- | -------------------------------- | ---------------------------- | ---------------- | --------------------------------------------------------- |
+| `trippy-core`                                 | traceroute + MTR                 | 需特权（`trippy-privilege`） | MVP-B            | ✅ 0.13.0，MSRV 1.78，spike 通过                          |
+| `surge-ping`                                  | 轻量 ICMP ping                   | 平台相关；不足则 HTTP 兜底   | MVP-A            | ✅ 活跃；macOS/Windows 需真机验 ICMP 权限                 |
+| `hickory-resolver`                            | DNS 查询 / 多 resolver / DoT TLS | 免特权                       | MVP-A / Adv      | ✅ 正确 crate 名；DoT 启用 `tls-ring` 并验证真实 DNS 查询 |
+| `netdev` + `if-addrs`                         | 接口/网关/MAC + 变更通知         | 免特权                       | MVP-A            | ✅                                                        |
+| `system-configuration`(mac) / `ipconfig`(win) | 系统 DNS / 代理                  | 免特权                       | MVP-A/B          | 平台分支                                                  |
+| `reqwest` + `rustls`                          | HTTP / SSL / Captive / 测速      | 免特权                       | MVP + Post-MVP-C | 既有栈                                                    |
+| `pnet` + `socket2` + `etherparse` + `pcap`    | SYN / ARP / 抓包                 | 需特权                       | Post-MVP-Adv     | 标准底层                                                  |
+| `ipnetwork` 等                                | 网段 / 辅助                      | 免特权                       | 按需             | —                                                         |
 
 **特权与降级（摘要，细节 §11.4）**
 
@@ -104,6 +104,7 @@
 
 1. traceroute/ping 引擎不自研 → `trippy-core`。
 2. DNS crate = **`hickory-resolver`**。
+   DoT 成功条件是 TLS 证书校验通过且 DNS 查询完成；TCP 853 可连接不能单独作为成功信号。
 3. L0/L1 用 `netdev` + `if-addrs`。
 4. SYN/ARP 无 turnkey Rust 库 → Post-MVP 自研或 `nmap` fallback。
 5. `trippy-core` 0.13.0 与当前 rustc 兼容；运行时仍依赖特权层。
@@ -527,13 +528,13 @@ src/features/network-probe/
 
 ### 9.5 隐私与落盘
 
-| 数据              | 策略                                                           |
-| ----------------- | -------------------------------------------------------------- |
-| 体检/站点采样历史 | 本地可关；默认保留条数上限；不含 Cookie/密码                   |
-| 抓包              | 默认只统计计数器；原始 pcap 落盘需显式开启且本地路径可选       |
-| hosts / 公网 IP   | 可进报告；导出前提示敏感                                       |
-| 日志              | 脱敏；禁止把完整包 payload 打进 info 日志                      |
-| agent token       | 只存系统安全存储或用户配置加密通道（实现期对齐 Keychain 惯例） |
+| 数据              | 策略                                                                                                                  |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 体检/站点采样历史 | 体检最近 10 次仅本地保存并记录采集时间；可选择历史基线仅对比状态，畸形/超限缓存忽略；清空需二次确认；不含 Cookie/密码 |
+| 抓包              | 默认只统计计数器；原始 pcap 落盘需显式开启且本地路径可选                                                              |
+| hosts / 公网 IP   | 可进报告；导出前提示敏感                                                                                              |
+| 日志              | 脱敏；禁止把完整包 payload 打进 info 日志                                                                             |
+| agent token       | 只存系统安全存储或用户配置加密通道（实现期对齐 Keychain 惯例）                                                        |
 
 ### 9.6 远程与放大
 

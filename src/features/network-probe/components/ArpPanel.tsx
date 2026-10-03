@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
 
 interface ArpPanelProps {
@@ -109,16 +110,22 @@ export function ArpPanel({
               ) : null}
             </div>
           ) : (
-            <ul className="space-y-1 font-mono text-xs">
-              {result.neighbors.map((n) => (
-                <li key={n.ip}>
+            <VirtualizedResultList
+              items={result.neighbors}
+              getKey={(neighbor) => neighbor.ip}
+              ariaLabel={t("networkProbe.arp.listLabel")}
+              className="space-y-1 font-mono text-xs"
+              itemClassName="break-all py-0.5"
+              estimatedItemHeight={28}
+              renderItem={(n) => (
+                <>
                   {n.ip}
                   {n.mac ? ` · ${n.mac}` : " · (incomplete)"}
                   {n.iface ? ` · ${n.iface}` : ""}
                   {n.source ? ` · ${n.source}` : ""}
-                </li>
-              ))}
-            </ul>
+                </>
+              )}
+            />
           )}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>

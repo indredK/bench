@@ -445,7 +445,7 @@ impl AccountManagerState {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         tickets.retain(|_, existing| existing.expires_at_ts > now);
-        let ticket = tickets.remove(ticket_id).ok_or_else(|| {
+        let ticket = tickets.get(ticket_id).cloned().ok_or_else(|| {
             AccountManagerError::invalid_input("auth proxy ticket is invalid, expired, or used")
         })?;
         if !allow_new_account {
@@ -462,7 +462,49 @@ impl AccountManagerState {
                 ));
             }
         }
+        tickets.remove(ticket_id);
         Ok(ticket)
+    }
+
+    /// Put an unused ticket back after a login attempt fails before opening its window.
+    /// Tickets remain short-lived and the map stays bounded under concurrent deep links.
+    pub fn restore_auth_proxy_ticket(&self, ticket: AuthProxyTicket) -> bool {
+        let now = chrono::Utc::now().timestamp();
+        if ticket.expires_at_ts <= now {
+            return false;
+        }
+        let mut tickets = self
+            .auth_proxy_tickets
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        tickets.retain(|_, existing| existing.expires_at_ts > now);
+        if tickets.contains_key(&ticket.id) {
+            return true;
+        }
+        if tickets.len() >= MAX_AUTH_PROXY_TICKETS {
+            return false;
+        }
+        tickets.insert(ticket.id.clone(), ticket);
+        true
+    }
+
+    /// Return the already validated callback URL for a ticket without exposing it
+    /// through renderer state or consuming the one-time login ticket.
+    pub fn auth_proxy_return_url(&self, ticket_id: &str) -> AccountManagerResult<String> {
+        let now = chrono::Utc::now().timestamp();
+        let tickets = self
+            .auth_proxy_tickets
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let ticket = tickets
+            .get(ticket_id)
+            .filter(|ticket| ticket.expires_at_ts > now)
+            .ok_or_else(|| {
+                AccountManagerError::invalid_input("auth proxy ticket is invalid, expired, or used")
+            })?;
+        ticket.return_url.clone().ok_or_else(|| {
+            AccountManagerError::invalid_input("auth proxy ticket has no return app")
+        })
     }
 
     pub(crate) fn enqueue_auth_proxy_url(
@@ -584,6 +626,9 @@ mod tests {
             .is_err());
         assert!(state
             .consume_auth_proxy_ticket(&ticket.id, Some("acct-1"), false)
+            .is_ok());
+        assert!(state
+            .consume_auth_proxy_ticket(&ticket.id, Some("acct-1"), false)
             .is_err());
 
         let valid = state.issue_auth_proxy_ticket(
@@ -599,6 +644,55 @@ mod tests {
         assert!(state
             .consume_auth_proxy_ticket(&valid.id, Some("acct-1"), false)
             .is_err());
+    }
+
+    #[test]
+    fn failed_auth_proxy_login_can_restore_unexpired_ticket_once() {
+        let state = AccountManagerState::new();
+        let issued = state.issue_auth_proxy_ticket(
+            "https://example.com/login".into(),
+            None,
+            None,
+            "example.com".into(),
+            vec!["acct-1".into()],
+        );
+        let consumed = state
+            .consume_auth_proxy_ticket(&issued.id, Some("acct-1"), false)
+            .expect("issued ticket should be consumed");
+
+        assert!(state.restore_auth_proxy_ticket(consumed));
+        assert!(state
+            .consume_auth_proxy_ticket(&issued.id, Some("acct-1"), false)
+            .is_ok());
+        assert!(!state.restore_auth_proxy_ticket(AuthProxyTicket {
+            expires_at_ts: chrono::Utc::now().timestamp() - 1,
+            ..issued
+        }));
+    }
+
+    #[test]
+    fn auth_proxy_return_url_can_be_opened_without_consuming_login_ticket() {
+        let state = AccountManagerState::new();
+        let ticket = state.issue_auth_proxy_ticket(
+            "https://example.com/login?state=secret".into(),
+            Some("demo:/callback?state=secret".into()),
+            Some("secret".into()),
+            "example.com".into(),
+            vec!["acct-1".into()],
+        );
+
+        assert_eq!(
+            state.auth_proxy_return_url(&ticket.id).unwrap(),
+            "demo:/callback?state=secret"
+        );
+        assert_eq!(
+            state.auth_proxy_return_url(&ticket.id).unwrap(),
+            "demo:/callback?state=secret"
+        );
+        assert!(state
+            .consume_auth_proxy_ticket(&ticket.id, Some("acct-1"), false)
+            .is_ok());
+        assert!(state.auth_proxy_return_url(&ticket.id).is_err());
     }
 
     #[test]

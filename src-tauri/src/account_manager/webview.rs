@@ -249,11 +249,17 @@ pub fn open_login_window<R: Runtime>(
         .build()
         .map_err(|e| AccountManagerError::store_fail(format!("build login window: {e}")))?;
     if let Some(saved) = saved_session {
-        super::session::inject_session(&window, &saved)?;
+        if let Err(error) = super::session::inject_session(&window, &saved) {
+            let _ = window.close();
+            return Err(error);
+        }
     }
-    window
-        .navigate(parsed)
-        .map_err(|e| AccountManagerError::store_fail(format!("navigate login window: {e}")))?;
+    if let Err(error) = window.navigate(parsed) {
+        let _ = window.close();
+        return Err(AccountManagerError::store_fail(format!(
+            "navigate login window: {error}"
+        )));
+    }
     Ok(())
 }
 

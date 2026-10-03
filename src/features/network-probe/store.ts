@@ -43,6 +43,12 @@ import type {
   Ipv6StackResult,
   PathMtuResult,
 } from "@/lib/tauri/types/network-probe"
+import {
+  createReportSnapshot,
+  parseReportHistory,
+  serializeReportHistory,
+  type HealthReportSnapshot,
+} from "@/features/network-probe/report-history"
 
 const SECURITY_AUTH_KEY = "network-probe:security-authorized"
 const REPORT_HISTORY_KEY = "network-probe:report-history"
@@ -66,22 +72,19 @@ function persistSecurityAuthorized(value: boolean) {
   }
 }
 
-function loadReportHistory(): HealthScanResult[] {
+function loadReportHistory(): HealthReportSnapshot[] {
   if (typeof localStorage === "undefined") return []
   try {
-    const raw = localStorage.getItem(REPORT_HISTORY_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as HealthScanResult[]
-    return Array.isArray(parsed) ? parsed.slice(0, 10) : []
+    return parseReportHistory(localStorage.getItem(REPORT_HISTORY_KEY))
   } catch {
     return []
   }
 }
 
-function persistReportHistory(history: HealthScanResult[]) {
+function persistReportHistory(history: HealthReportSnapshot[]) {
   if (typeof localStorage === "undefined") return
   try {
-    localStorage.setItem(REPORT_HISTORY_KEY, JSON.stringify(history.slice(0, 10)))
+    localStorage.setItem(REPORT_HISTORY_KEY, serializeReportHistory(history))
   } catch {
     // ignore
   }
@@ -149,7 +152,7 @@ interface NetworkProbeState {
   pcapResult: PcapDiagResult | null
   multiNodeDnsResult: MultiNodeDnsResult | null
   probeNodes: ProbeNode[]
-  reportHistory: HealthScanResult[]
+  reportHistory: HealthReportSnapshot[]
   securityAuthorized: boolean
   /** 按探测种类分槽的活动会话; 多类探测并发时取消目标各自独立, 不会互相抢占。 */
   activeSessionIdByKind: Record<NetworkProbeKind, string | null>
@@ -164,6 +167,7 @@ interface NetworkProbeState {
   loadingSites: boolean
   loadingHealth: boolean
   loadingFix: boolean
+  loadingServices: boolean
   loadingOffline: boolean
   loadingTraceroute: boolean
   loadingIpv6: boolean
@@ -180,7 +184,8 @@ interface NetworkProbeState {
   loadingPcap: boolean
   loadingMultiNode: boolean
   loadingNodes: boolean
-  error: LocalizedError | null
+  agentAction: "add" | `remove:${string}` | null
+  errors: LocalizedError[]
 
   setL1: (l1Id: NetworkProbeL1) => void
   setL2: (l2Id: string) => void
@@ -237,6 +242,7 @@ interface NetworkProbeState {
   setActiveSessionId: (kind: NetworkProbeKind, sessionId: string | null) => void
   clearActiveSessionId: (kind: NetworkProbeKind, expectedSessionId?: string | null) => void
   setCancelRequestedSessionId: (kind: NetworkProbeKind, sessionId: string | null) => void
+  clearCancelRequestedSessionId: (kind: NetworkProbeKind, expectedSessionId: string) => void
   appendCommandLog: (line: string) => void
   clearCommandLog: () => void
   setLoadingSummary: (loading: boolean) => void
@@ -247,6 +253,7 @@ interface NetworkProbeState {
   setLoadingSites: (loading: boolean) => void
   setLoadingHealth: (loading: boolean) => void
   setLoadingFix: (loading: boolean) => void
+  setLoadingServices: (loading: boolean) => void
   setLoadingOffline: (loading: boolean) => void
   setLoadingTraceroute: (loading: boolean) => void
   setLoadingIpv6: (loading: boolean) => void
@@ -263,7 +270,9 @@ interface NetworkProbeState {
   setLoadingPcap: (loading: boolean) => void
   setLoadingMultiNode: (loading: boolean) => void
   setLoadingNodes: (loading: boolean) => void
-  setError: (error: LocalizedError | null) => void
+  setAgentAction: (action: "add" | `remove:${string}` | null) => void
+  setError: (error: LocalizedError) => void
+  clearError: (key: string, scope?: string) => void
 }
 
 const DEFAULT_L2: NetworkProbeL2ByL1 = {
@@ -389,6 +398,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   loadingSites: false,
   loadingHealth: false,
   loadingFix: false,
+  loadingServices: false,
   loadingOffline: false,
   loadingTraceroute: false,
   loadingIpv6: false,
@@ -405,7 +415,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   loadingPcap: false,
   loadingMultiNode: false,
   loadingNodes: false,
-  error: null,
+  agentAction: null,
+  errors: [],
 
   setL1: (l1Id) => {
     const nav = { ...get().nav, l1Id }
@@ -528,7 +539,10 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setProbeNodes: (probeNodes) => set({ probeNodes }),
   pushReportHistory: (scan) =>
     set((state) => {
-      const reportHistory = [scan, ...state.reportHistory].slice(0, 10)
+      const reportHistory = [
+        createReportSnapshot(scan),
+        ...state.reportHistory.filter((snapshot) => snapshot.result.sessionId !== scan.sessionId),
+      ].slice(0, 10)
       persistReportHistory(reportHistory)
       return { reportHistory }
     }),
@@ -567,6 +581,16 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
         [kind]: sessionId,
       },
     })),
+  clearCancelRequestedSessionId: (kind, expectedSessionId) =>
+    set((state) => {
+      if (state.cancelRequestedSessionIdByKind[kind] !== expectedSessionId) return {}
+      return {
+        cancelRequestedSessionIdByKind: {
+          ...state.cancelRequestedSessionIdByKind,
+          [kind]: null,
+        },
+      }
+    }),
   appendCommandLog: (line) =>
     set((state) => ({
       commandLog: [...state.commandLog.slice(-199), `${new Date().toISOString()} ${line}`],
@@ -580,6 +604,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLoadingSites: (loadingSites) => set({ loadingSites }),
   setLoadingHealth: (loadingHealth) => set({ loadingHealth }),
   setLoadingFix: (loadingFix) => set({ loadingFix }),
+  setLoadingServices: (loadingServices) => set({ loadingServices }),
   setLoadingOffline: (loadingOffline) => set({ loadingOffline }),
   setLoadingTraceroute: (loadingTraceroute) => set({ loadingTraceroute }),
   setLoadingIpv6: (loadingIpv6) => set({ loadingIpv6 }),
@@ -596,7 +621,22 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLoadingPcap: (loadingPcap) => set({ loadingPcap }),
   setLoadingMultiNode: (loadingMultiNode) => set({ loadingMultiNode }),
   setLoadingNodes: (loadingNodes) => set({ loadingNodes }),
-  setError: (error) => set({ error }),
+  setAgentAction: (agentAction) => set({ agentAction }),
+  setError: (error) =>
+    set((state) => ({
+      errors: [
+        ...state.errors.filter(
+          (current) => current.key !== error.key || current.scope !== error.scope,
+        ),
+        error,
+      ],
+    })),
+  clearError: (key, scope) =>
+    set((state) => ({
+      errors: state.errors.filter(
+        (error) => error.key !== key || (scope != null && error.scope !== scope),
+      ),
+    })),
 }))
 
 export { OFFLINE_SUBS }

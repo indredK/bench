@@ -695,7 +695,10 @@
       "switchAccountFailed": "Failed to switch account",
       "proxyLoginFailed": "Proxy login failed. Please try again.",
       "authProxyHandleFailed": "Failed to handle external login request",
+      "authProxyReturnFailed": "Failed to open the return app.",
       "authProxyInboxDropped": "Some older external sign-in requests were discarded because too many arrived at once.",
+      "authProxyQueueFull": "The sign-in request queue is full. This request was ignored; try again later.",
+      "authProxyQueued": "This request will be handled after the current sign-in request is closed.",
       "authProxyInboxRejected": "One or more invalid external sign-in requests were rejected.",
       "loadExternalAppsFailed": "Failed to load external apps",
       "revokeExternalAppSuccess": "Authorization revoked",
@@ -756,7 +759,7 @@
       "newAccountNamePlaceholder": "Account name (optional)",
       "rememberChoice": "Auto-allow this app next time",
       "proxyHint": "bench signs in with this account in an isolated window (usually already signed in) and hands the result back to the external app automatically. bench never reads or stores the app's password or tokens.",
-      "openReturnUrl": "Open return URL",
+      "openReturnUrl": "Open callback app",
       "starting": "Starting sign-in...",
       "confirm": "Confirm sign-in",
       "loginStarted": "Sign-in started; bench will return to the external app automatically once complete (credentials are auto-filled for you to submit if a fresh login is needed)",
@@ -783,15 +786,16 @@
         "newAccount": "Use a new account",
         "newAccountHint": "Sign in fresh in an isolated window. On success it is saved and grouped under {{host}} automatically.",
         "targetLabel": "Target",
-        "returnLabel": "Return URL",
+        "returnLabel": "Callback app",
         "externalAppFallback": "external app",
         "urlPlaceholder": "Paste sign-in URL",
         "startLogin": "Start sign-in",
         "invalidUrl": "Invalid link. Paste a bench-auth:// or http(s):// URL.",
-        "parseFailed": "Failed to parse the link: {{message}}",
+        "parseFailed": "Could not process this link. Check it and try again.",
         "loadStationsFailed": "Failed to load the station list.",
         "notAuthLinkTitle": "This link is not an authorization link",
         "notAuthLinkHint": "It has no callback URL, so the sign-in result can't be returned to an external app. If you just want to open it with an account, use Quick Open instead.",
+        "deepLinkQuickLoginHint": "To protect sensitive parameters, this external link is not copied into Quick Open. Copy it from the original app and paste it into Quick Open.",
         "switchToQuickLogin": "Open with Quick Open"
       },
       "startLogin": "Start sign-in",
@@ -823,6 +827,7 @@
       "close": "Close"
     },
     "loadFailedTitle": "Failed to load gateway data",
+    "refreshingData": "Refreshing data…",
     "sessionKeeper": {
       "title": "Session Keeper",
       "viewLogs": "Logs",
@@ -1222,6 +1227,7 @@
     "PATH_NOT_ABSOLUTE": "The path must be absolute.",
     "PATH_TRAVERSAL": "The path must not contain '..'.",
     "TASK_FAILED": "A background task failed to complete.",
+    "TARGET_RESOLUTION_FAILED": "The target hostname could not be resolved. Check the name or try again.",
     "SETTING_VERIFICATION_FAILED": "macOS did not confirm the setting change.",
     "DEFAULT_BROWSER_UNKNOWN": "macOS did not report a default browser.",
     "DEFAULT_BROWSER_CHANGE_FAILED": "macOS rejected the default browser change.",
@@ -1862,6 +1868,8 @@
     "fix": {
       "hint": "Privilege-free self-heal actions. Backend re-validates services and DNS against a whitelist.",
       "service": "Network service",
+      "loadingServices": "Loading network services…",
+      "noServices": "No network services found",
       "dnsPreset": "DNS preset",
       "flush": "Flush DNS",
       "switchDns": "Switch DNS",
@@ -2049,28 +2057,68 @@
       "empty": "No RDAP body returned."
     },
     "dnssec": {
-      "hint": "DNSSEC hints plus DoH/DoT reachability. Full AD-bit chain validation is not asserted in this build.",
+      "hint": "DNS queries are encrypted and the DNSSEC trust chain is validated on this device. Network errors or incomplete proofs show Unknown.",
       "domain": "Domain",
       "run": "Check DNSSEC / DoH",
       "running": "Checking…",
       "status": "DNSSEC status",
+      "statusSecure": "Secure",
+      "statusInsecure": "Not authenticated (possibly unsigned)",
+      "statusBogus": "Validation failed",
+      "statusUnknown": "Unknown",
       "doh": "DoH",
       "dot": "DoT",
       "okMs": "ok · {{ms}} ms",
-      "fail": "unreachable / failed"
+      "fail": "unreachable / failed",
+      "technicalDetails": "Technical details"
     },
     "ports": {
       "hint": "TCP connect scan of a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",
-      "degradedHint": "Degraded mode: TCP connect only. Install adv-scanner / nmap for SYN stealth.",
+      "capabilityHint": "Basic scans use TCP connect; detected Nmap may use SYN. Service and OS fingerprinting is optional.",
       "target": "Target",
       "range": "Ports",
+      "invalidPortSpec": "Enter 1–256 unique ports from 1 to 65535, using commas or ranges.",
+      "fingerprintOption": "Identify services and OS",
+      "fingerprintHint": "When Nmap is installed, run light service probes and attempt OS detection. This sends extra probes; vulnerability scripts stay off.",
       "run": "Scan ports",
       "running": "Scanning…",
       "cancel": "Cancel",
+      "cancelled": "Port scan cancelled.",
+      "tcpConnectFallback": "Only the basic TCP connect scan completed.",
       "openList": "Open: {{ports}}",
+      "listLabel": "Port scan results",
+      "osGuess": "OS estimate: {{name}} (Nmap match {{accuracy}}%)",
+      "fingerprintStatus": {
+        "complete": "Nmap identified service details and an OS estimate; verify both manually.",
+        "partial": "Nmap returned only partial fingerprint data; missing data does not prove a service or OS is absent.",
+        "unavailable": "Nmap fingerprinting could not run; the basic TCP connect scan completed, and common service names are inferred from port numbers.",
+        "inconclusive": "Nmap did not obtain enough evidence for a service or OS fingerprint.",
+        "cancelled": "Nmap fingerprinting was cancelled.",
+        "not-requested": "Not requested"
+      },
+      "serviceMethods": {
+        "well-known-port": "inferred from common port",
+        "nmap-services": "Nmap service table",
+        "nmap-version": "Nmap service probe"
+      },
+      "scanModes": {
+        "tcp-connect": "Basic TCP connect",
+        "nmap-syn": "Nmap SYN scan",
+        "nmap-connect": "Nmap TCP connect fallback"
+      },
+      "risks": {
+        "cleartext-protocol": "may be unencrypted",
+        "remote-admin": "remote administration service",
+        "data-service": "data service",
+        "file-sharing": "file-sharing service"
+      },
+      "riskNote": "Risk labels only suggest reviewing exposure and access controls; they do not mean a vulnerability was found. Port numbers and remote fingerprints can be wrong.",
       "confirmTitle": "Confirm port scan scope",
-      "confirmDesc": "Target {{target}} · about {{count}} ports. Public hosts or large ranges need an extra confirm.",
-      "confirmConsequence": "Only scan assets you own or are authorized to test. TCP connect only (no SYN).",
+      "confirmDesc": "Target {{target}} · ports {{ports}} (about {{count}}) · Nmap fingerprinting: {{fingerprint}}. Public hosts, large ranges, and fingerprint probes need an extra confirm.",
+      "confirmConsequenceBasic": "Only scan assets you own or are authorized to test. Nmap port scans are capped at 50 packets/s and 16 parallel probes; a process stops after 35s. The built-in fallback uses up to 32 concurrent TCP connects with an 800ms timeout each.",
+      "confirmConsequenceFingerprint": "Only scan assets you own or are authorized to test. Service and OS probes add traffic; Nmap's port scan is capped at 50 packets/s and 16 parallel probes, while fingerprint probes use separate timing and OS detection runs at most once. The process stops after 35s; vulnerability scripts stay off.",
+      "fingerprintOn": "on",
+      "fingerprintOff": "off",
       "confirmRun": "Scan anyway"
     },
     "arp": {
@@ -2085,6 +2133,7 @@
       "openSettings": "Open system network settings",
       "cidr": "Sweep CIDR: {{cidr}}",
       "meta": "{{count}} neighbors · mode={{mode}} · {{ms}} ms",
+      "listLabel": "Discovered LAN devices",
       "cancelled": "LAN discovery was cancelled mid-sweep."
     },
     "lanSvc": {
@@ -2093,7 +2142,9 @@
       "run": "Browse LAN services",
       "running": "Browsing…",
       "empty": "No mDNS/SSDP responses in the listen window.",
-      "meta": "{{count}} services · {{ms}} ms"
+      "meta": "{{count}} services · {{ms}} ms",
+      "listLabel": "Discovered LAN services",
+      "truncated": "Showing at most {{limit}} results. Some network announcements may be omitted."
     },
     "pcap": {
       "hint": "Short counter-only packet sample (RST / retransmit hints). Full pcap write stays opt-in.",
@@ -2104,11 +2155,23 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "Compare DNS answers from this Mac and Globalping locations. Register HTTPS agents for self-hosted probes.",
+      "hint": "Compare DNS answers from this Mac and Globalping locations. Remote checks send the domain to Globalping. Register HTTPS agents for self-hosted probes.",
       "run": "Compare DNS (multi-node)",
       "running": "Comparing…",
       "refresh": "Refresh nodes",
+      "refreshingAction": "Refreshing…",
+      "loading": "Loading probe nodes…",
+      "refreshing": "Refreshing probe nodes…",
+      "loadFailed": "Could not load probe nodes. Use Refresh nodes to retry.",
+      "empty": "No probe nodes are available yet.",
       "listTitle": "Probe nodes",
+      "answersLabel": "DNS answers by probe node",
+      "answerOk": "OK",
+      "answerFailed": "Failed",
+      "answerNotFound": "Domain not found",
+      "answerNoRecords": "No records",
+      "answerTimedOut": "Timed out",
+      "technicalDetails": "Technical details",
       "addTitle": "Add agent",
       "addHint": "Endpoint must be https:// or wss://. Arbitrary shell actions are rejected.",
       "labelPlaceholder": "Label",
@@ -2116,14 +2179,41 @@
       "endpointPlaceholder": "https://agent.example:8443",
       "addAgent": "Add agent",
       "removeAgent": "Remove",
+      "working": "Working…",
       "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
     },
     "nat": {
-      "hint": "STUN Binding against a public server to learn your mapped address / NAT exposure.",
+      "hint": "Compare STUN mappings and, when available, RFC 5780 mapping and filtering behavior.",
       "run": "Probe NAT",
       "running": "Probing…",
       "type": "Result",
-      "mapped": "Mapped address"
+      "mappingBehavior": "Mapping behavior",
+      "filteringBehavior": "Filtering behavior",
+      "behaviorHint": "Results describe behavior for this server and local port on this network path at the time of the probe.",
+      "mapped": "Mapped address",
+      "technicalDetails": "Technical details",
+      "behavior": {
+        "noNat": "No NAT detected",
+        "endpointIndependent": "Endpoint-independent",
+        "addressDependent": "Address-dependent",
+        "addressAndPortDependent": "Address and port-dependent",
+        "unsupported": "Not supported by the STUN server",
+        "inconclusive": "Inconclusive"
+      },
+      "status": {
+        "blocked": "No valid response",
+        "insufficient": "Not enough responses",
+        "consistent": "Mapping is consistent",
+        "varies": "Mappings differ",
+        "unknown": "Unknown result"
+      },
+      "explanation": {
+        "blocked": "No configured STUN server returned a valid mapping. A timeout does not prove that UDP is blocked.",
+        "insufficient": "Only one server responded, so its mapped address cannot be compared with another server.",
+        "consistent": "At least two servers returned the same mapped address. This does not identify the NAT filtering type.",
+        "varies": "Servers returned different mapped addresses. NAT behavior, server placement, or network routes can cause this difference.",
+        "unknown": "The result could not be classified. Review the technical details if needed."
+      }
     },
     "ntp": {
       "hint": "Query pool.ntp.org for clock offset. Large skew can break TLS and auth.",
@@ -2150,6 +2240,20 @@
       "historyEmpty": "No saved health scans yet. Run a health scan to keep history.",
       "clearHistory": "Clear history",
       "historyItem": "{{session}}… · {{count}} checks · {{ms}} ms · {{opinions}} opinions",
+      "historyPrivacyHint": "Snapshots stay on this device and may contain network details. Clear history to remove them.",
+      "clearHistoryTitle": "Clear health history?",
+      "clearHistoryDescription": "Remove all saved health snapshots from this device?",
+      "clearHistoryConsequence": "This cannot be undone from Bench.",
+      "clearHistoryConfirm": "Clear history",
+      "cancel": "Cancel",
+      "timeUnknown": "Time unavailable",
+      "compareWith": "Compare latest scan with",
+      "comparingSnapshots": "Comparing {{previous}} with latest scan {{current}} · {{count}} status changes",
+      "compareStatusOnly": "Only check statuses are compared; detailed network data is not shown.",
+      "changesLabel": "Health check status changes",
+      "noStatusChanges": "No status changes between these scans.",
+      "needTwoSnapshots": "Run another health scan to compare it with this snapshot.",
+      "notPresent": "Not present",
       "privacyHint": "Exports may include public IP, Wi‑Fi SSID, hosts overrides, and local addresses. Share only with people you trust."
     },
     "traceroute": {
@@ -2202,7 +2306,8 @@
       "pollution": "detectPollution(local, '{{domain}}')",
       "whois": "whois('{{query}}')",
       "dnssec": "checkDnsSec('{{domain}}')",
-      "scanPorts": "scanPorts(local, '{{target}}', '{{ports}}') // tcp-connect",
+      "scanPorts": "scanPorts(local, '{{target}}', '{{ports}}') // tcp-connect / nmap port table",
+      "scanPortsFingerprint": "scanPorts(local, '{{target}}', '{{ports}}', fingerprint=true) // nmap -sV -O",
       "arp": "scanLan(local) // arp-cache",
       "lanSvc": "browseLanServices(local) // mDNS+SSDP",
       "pcap": "startPacketCapture(local) // tcpdump counters",
@@ -2260,6 +2365,7 @@
       "servicesFailed": "Failed to list network services.",
       "fixFailed": "Fix action failed.",
       "offlineFailed": "Offline diagnostics failed.",
+      "egressFailed": "Public IP lookup failed.",
       "tracerouteFailed": "Traceroute failed.",
       "ipv6Failed": "IPv6 stack check failed.",
       "mtuFailed": "Path MTU probe failed.",

@@ -640,8 +640,25 @@ pub struct PortSampleEvent {
     pub state: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_hint: Option<String>,
+    /// well-known-port | nmap-services | nmap-version
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service_method: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service_product: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service_version: Option<String>,
+    /// Stable i18n keys; tags are advisory and do not imply a vulnerability.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub risk_tags: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rtt_ms: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortOsFingerprint {
+    pub name: String,
+    pub accuracy: u8,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -651,6 +668,10 @@ pub struct PortScanResult {
     pub mode: String,
     pub open_ports: Vec<u16>,
     pub samples: Vec<PortSampleEvent>,
+    /// not-requested | complete | partial | unavailable | inconclusive | cancelled
+    pub fingerprint_status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub os_fingerprint: Option<PortOsFingerprint>,
     pub cancelled: bool,
     pub session_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -661,8 +682,12 @@ pub struct PortScanResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NatProbeResult {
-    /// stun-mapped | blocked-or-timeout | unknown | fail
+    /// blocked-or-timeout | insufficient-evidence | consistent-mapping | mapping-varies
     pub nat_type: String,
+    /// no-nat | endpoint-independent | address-dependent | address-and-port-dependent | unsupported | inconclusive
+    pub mapping_behavior: String,
+    /// endpoint-independent | address-dependent | address-and-port-dependent | unsupported | inconclusive
+    pub filtering_behavior: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mapped_address: Option<String>,
     pub stun_server: String,
@@ -735,6 +760,8 @@ pub struct LanServiceItem {
 #[serde(rename_all = "camelCase")]
 pub struct LanServicesResult {
     pub items: Vec<LanServiceItem>,
+    #[serde(default)]
+    pub truncated: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     pub elapsed_ms: f64,
@@ -765,7 +792,11 @@ pub struct NodeDnsAnswer {
     pub ok: bool,
     pub answers: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

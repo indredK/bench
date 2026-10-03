@@ -10,8 +10,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 pub const PACK_PROGRESS_EVENT: &str = "network-probe:pack-progress";
@@ -109,9 +110,43 @@ fn platform_id() -> &'static str {
 }
 
 fn nmap_status() -> String {
-    match Command::new("nmap").arg("-V").output() {
-        Ok(out) if out.status.success() => "found".into(),
-        _ => "not_found".into(),
+    let mut child = match Command::new("nmap")
+        .arg("-V")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return "not_found".into(),
+        Err(_) => return "unavailable".into(),
+    };
+    let started = Instant::now();
+    let deadline = Duration::from_secs(1);
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                return if status.success() {
+                    "found"
+                } else {
+                    "unavailable"
+                }
+                .into();
+            }
+            Ok(None) if started.elapsed() < deadline => {
+                thread::sleep(Duration::from_millis(25));
+            }
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return "timeout".into();
+            }
+            Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return "unavailable".into();
+            }
+        }
     }
 }
 
@@ -348,18 +383,16 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
     tools.insert("multiNode".into(), s("partial")); // Globalping + agent registry
     tools.insert("agent".into(), s("partial"));
 
-    let adv_installed = app
-        .map(|a| is_pack_installed(a, "adv-scanner"))
-        .unwrap_or(false);
     let pcap_installed = app
         .map(|a| is_pack_installed(a, "pcap-diag"))
         .unwrap_or(false);
     let nmap = nmap_status();
 
-    // TCP connect always available (degraded); SYN when nmap found.
+    // The port scanner currently invokes Nmap directly; an installed adv-scanner
+    // marker is not evidence that its binary is actually used on this path.
     tools.insert(
         "portScan".into(),
-        if nmap == "found" || adv_installed {
+        if nmap == "found" {
             s("supported")
         } else {
             s("degraded")
@@ -376,13 +409,14 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
             s("degraded")
         },
     );
-    if adv_installed {
-        tools.insert("fingerprint".into(), s("degraded"));
-    } else if nmap == "found" {
-        tools.insert("fingerprint".into(), s("unsupported"));
-    } else {
-        tools.insert("fingerprint".into(), s("missing_pack"));
-    }
+    tools.insert(
+        "fingerprint".into(),
+        if nmap == "found" {
+            s("partial")
+        } else {
+            s("degraded")
+        },
+    );
 
     let mut packs = HashMap::new();
     if let Some(app) = app {
@@ -506,4 +540,35 @@ pub async fn install_capability_pack_verify_fail<R: Runtime>(
                 .into(),
         command_hint: format!("installCapabilityPack('{pack_id}') // hash-mismatch test"),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn no_app_context_reports_privilege_free_degraded_modes() {
+        let capabilities = build_capabilities(None::<&AppHandle<tauri::Wry>>);
+
+        assert_eq!(capabilities.privilege_level, "none");
+        assert_eq!(
+            capabilities.tools.get("arp").map(String::as_str),
+            Some("degraded")
+        );
+        assert_eq!(
+            capabilities.tools.get("pcap").map(String::as_str),
+            Some("degraded")
+        );
+
+        let nmap_found =
+            capabilities.external_tools.get("nmap").map(String::as_str) == Some("found");
+        assert_eq!(
+            capabilities.tools.get("portScan").map(String::as_str),
+            Some(if nmap_found { "supported" } else { "degraded" }),
+        );
+        assert_eq!(
+            capabilities.tools.get("fingerprint").map(String::as_str),
+            Some(if nmap_found { "partial" } else { "degraded" }),
+        );
+    }
 }

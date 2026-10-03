@@ -416,9 +416,11 @@ export interface WhoisInfo {
   commandHint: string
 }
 
+export type DnsSecStatus = "secure" | "insecure" | "bogus" | "unknown"
+
 export interface DnsSecCheckResult {
   domain: string
-  dnssecStatus: string
+  dnssecStatus: DnsSecStatus
   dnssecDetail?: string
   dohOk: boolean
   dohRttMs?: number
@@ -433,7 +435,19 @@ export interface PortSampleEvent {
   port: number
   state: string
   serviceHint?: string
+  serviceMethod?: "well-known-port" | "nmap-services" | "nmap-version"
+  serviceProduct?: string
+  serviceVersion?: string
+  riskTags?: string[]
   rttMs?: number
+}
+
+export type PortFingerprintStatus =
+  "not-requested" | "complete" | "partial" | "unavailable" | "inconclusive" | "cancelled"
+
+export interface PortOsFingerprint {
+  name: string
+  accuracy: number
 }
 
 export interface PortScanResult {
@@ -441,14 +455,29 @@ export interface PortScanResult {
   mode: string
   openPorts: number[]
   samples: PortSampleEvent[]
+  fingerprintStatus: PortFingerprintStatus
+  osFingerprint?: PortOsFingerprint
   cancelled: boolean
   sessionId: string
   message?: string
   commandHint: string
 }
 
+export type NatProbeStatus =
+  "blocked-or-timeout" | "insufficient-evidence" | "consistent-mapping" | "mapping-varies"
+
+export type NatBehaviorStatus =
+  | "no-nat"
+  | "endpoint-independent"
+  | "address-dependent"
+  | "address-and-port-dependent"
+  | "unsupported"
+  | "inconclusive"
+
 export interface NatProbeResult {
-  natType: string
+  natType: NatProbeStatus
+  mappingBehavior: NatBehaviorStatus
+  filteringBehavior: NatBehaviorStatus
   mappedAddress?: string
   stunServer: string
   detail?: string
@@ -497,6 +526,7 @@ export interface LanServiceItem {
 
 export interface LanServicesResult {
   items: LanServiceItem[]
+  truncated: boolean
   message?: string
   elapsedMs: number
   commandHint: string
@@ -520,7 +550,9 @@ export interface NodeDnsAnswer {
   nodeLabel: string
   ok: boolean
   answers: string[]
+  statusCodeName?: string
   detail?: string
+  errorCode?: string
 }
 
 export interface MultiNodeDnsResult {

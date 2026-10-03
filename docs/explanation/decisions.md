@@ -2,6 +2,16 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-041 · NAT 探测复用 webrtc-rs STUN 协议库，保留应用侧传输门控
+
+- **日期**：2026-10-03
+- **状态**：采纳（限 STUN 协议编码/解码，不引入完整 WebRTC/ICE）
+- **背景**：网络探测原有 STUN wire 编码与地址解析为手写逻辑，维护者需自行承担 RFC 字段、地址属性和报文边界的正确性。webrtc-rs 提供 Sans-I/O `rtc-stun`，协议实现与 socket/runtime 解耦，可接入现有 Tokio 探测流程。
+- **决议**：固定使用 webrtc-rs `rtc-stun 0.21.0`（上游当前稳定线），处理 Binding 消息编解码、映射属性解析与 CSPRNG transaction ID；应用继续拥有每服务器独立 UDP socket、DNS + 探测总截止时间、来源地址关联和严格 envelope/属性长度/重复属性校验。保留默认 `crypto-ring` feature，不接入其完整 ICE/TURN 客户端。
+- **边界**：多服务器映射比较只输出 `insufficient-evidence`、`consistent-mapping` 或 `mapping-varies` 等观察结论，不推断 Full Cone / Restricted / Port-Restricted；RFC 5780 映射/过滤行为使用独立探测序列报告，并保持“已接入实现、待 macOS 真机验收”的状态，不把单一服务器/时刻的观测包装成永久 NAT 属性。
+- **理由**：复用成熟协议代码降低自行维护 wire parser 的风险，同时保留应用对超时、来源验证、资源上限和用户可见不确定性的控制。
+- **相关**：[design-discover.md §3.3](../modules/network-probe/design-discover.md) · [webrtc-rs/rtc](https://github.com/webrtc-rs/rtc) · [D-016](#d-016--network-probe-mvp-a--b范围)
+
 ## D-040 · 新增「直读本机 Chrome 落盘登录态」作为 I3 兜底入向（修正一条基于错误事实的红线）
 
 - **日期**：2026-09-19

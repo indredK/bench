@@ -13,6 +13,7 @@ export type AccountManagerState = {
   stations: RelayStation[]
   accounts: StationAccount[]
   loading: boolean
+  reloading: boolean
   loadError: string | null
   capabilities: AccountManagerCapabilities | null
   selectedStationId: string
@@ -56,6 +57,7 @@ export type AccountManagerActions = {
   setStations: (stations: RelayStation[] | ((prev: RelayStation[]) => RelayStation[])) => void
   setAccounts: (accounts: StationAccount[] | ((prev: StationAccount[]) => StationAccount[])) => void
   setLoading: (loading: boolean) => void
+  setReloading: (reloading: boolean) => void
   setLoadError: (error: string | null) => void
   setCapabilities: (capabilities: AccountManagerCapabilities | null) => void
   setSelectedStationId: (id: string) => void
@@ -97,6 +99,7 @@ export const initialAccountManagerState: AccountManagerState = {
   stations: [],
   accounts: [],
   loading: true,
+  reloading: false,
   loadError: null,
   capabilities: null,
   selectedStationId: "",

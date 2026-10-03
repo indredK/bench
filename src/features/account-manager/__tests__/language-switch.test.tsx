@@ -3,14 +3,18 @@
  *   zh↔en 切换后三栏标签、错误文案（经 translateError）、空态文案即时更新，
  *   且不残留旧语言；长文本落在 truncate 容器内不破版。
  */
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, render, screen, within } from "@testing-library/react"
 import { afterEach, beforeAll, describe, expect, it } from "vitest"
 import { I18nextProvider } from "react-i18next"
 import i18n from "@/i18n/config"
 import { StationColumn } from "@/features/account-manager/components/StationColumn"
 import { AccountColumn } from "@/features/account-manager/components/AccountColumn"
 import { DetailColumn } from "@/features/account-manager/components/DetailColumn"
-import { describeRegionError, makeRegionError } from "@/features/account-manager/errors"
+import {
+  describeRegionError,
+  isRegionErrorVisible,
+  makeRegionError,
+} from "@/features/account-manager/errors"
 import {
   DEFAULT_LOGIN_DETECTION,
   type RelayStation,
@@ -146,7 +150,33 @@ describe("account-manager language switch (A1-6)", () => {
     expect(screen.getByText("站点列表 (1)")).toBeTruthy()
   })
 
+  it("exposes account selection and card actions as separate accessible controls", () => {
+    renderColumns()
+
+    const card = screen.getByRole("article", { name: account.username })
+    const accountSelection = within(card).getByRole("button", { name: account.username })
+
+    expect(accountSelection).toHaveAttribute("aria-pressed", "true")
+    expect(
+      within(card).getByRole("button", { name: i18n.t("accountManager.detail.copy") }),
+    ).toBeTruthy()
+    expect(
+      within(card).getByRole("button", { name: i18n.t("accountManager.card.login") }),
+    ).toBeTruthy()
+  })
+
   it("translates structured errors via translateError in the current language", async () => {
+    const payload = makeRegionError(
+      { code: "IO_ERROR", message: "https://private.example/?token=do-not-store" },
+      "accountManager.errors.refreshAccount",
+      { scope: { stationId: "station-a", accountId: "account-a" } },
+    )
+    expect(payload).not.toHaveProperty("error")
+    expect(JSON.stringify(payload)).not.toContain("do-not-store")
+    expect(isRegionErrorVisible(payload, "station-a", "account-a")).toBe(true)
+    expect(isRegionErrorVisible(payload, "station-a", "account-b")).toBe(false)
+    expect(isRegionErrorVisible(payload, "station-b", "account-a")).toBe(false)
+
     expect(
       describeRegionError(
         i18n.t.bind(i18n),

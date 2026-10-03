@@ -6,6 +6,10 @@ use std::path::Path;
 const BUNDLED_EXTENSIONS_DIR: &str = "resources/extensions";
 
 fn main() {
+    // Tauri embeds frontendDist into the app binary. The shared target cache
+    // must rebuild that asset manifest when the generated frontend changes.
+    println!("cargo:rerun-if-changed=../dist");
+
     // tauri-build 会校验 bundle.resources 的每个源路径必须存在。staging 目录
     // 由 beforeBuildCommand 生成，`cargo clippy` / `cargo test` 不会触发它，
     // 因此在干净 checkout（含 CI）上会因路径缺失直接 build script 失败

@@ -36,9 +36,9 @@
   - [ ] Windows / Linux：入口不显示（`CHROME_IMPORT_PLATFORM_UNSUPPORTED`），且双平台 CI 编译通过（新依赖全部挂在 macOS target 下）。
 - [x] **I3/I5 日常浏览器双向互通**（代码已实现，待真机验收）：`bench-companion` 通过 Native Messaging + loopback bridge 读取/写入默认浏览器的 Cookie、Web Storage 与 IndexedDB；首次站点访问需在扩展弹窗授予 host 权限，注入前自动备份并支持回滚。扩展版本 **0.10.0**：采集与授权作用域按可注册域泛到同站全部子域（[D-039](../../explanation/decisions.md#d-039--扩展采集作用域--可注册域泛到同站全部子域删除站点特例硬编码)，不再硬编码 `api.trae.cn`），并按任务回执上报真实注入终态（[D-038](../../explanation/decisions.md#d-038--出向同步必须回报真实终态注入任务回执--cdp-等存储恢复落库)）；host-only Cookie 注入时仍按原 host 回写。
 
-## 待实现（2026-09-09 规划轮 F1–F4：登录指纹 · 入口收敛 · 日志增强 · 弹窗修复）
+## 已实现、待验收（2026-09-09 规划轮 F1–F4：登录指纹 · 入口收敛 · 日志增强 · 弹窗修复）
 
-> 状态：**已调研、未实现**。本节是本轮规划的唯一详细方案（调研结论 / 技术讨论 / 任务分解 / 验收标准），实施按「任务分配总表」顺序执行；完成后本节整体移除，设计边界同步 `design.md`、功能同步 `product-specs/account-manager.md`。
+> 状态：**代码任务已完成；真机与端到端验收未完成**。F1–F4 的实现任务均已勾选；下列未勾选验收项仍是发布前置证据，不能据此把 R01 标为完成。保留本节作为验收清单，确认所有验收证据后再归档，并同步设计边界到 `design.md`、功能到 `product-specs/account-manager.md`。
 > 背景（用户反馈 4 项）：① 快速登录与外部登录疑似重叠；② 登录态识别不可靠，需在详情栏底部新增「登录指纹采样」按钮；③ 账号日志信息量不足；④ 外部登录弹窗第二步选项卡两行文字溢出。
 
 ### F1. 快速登录 × 外部登录：重叠调研与入口收敛
@@ -140,7 +140,7 @@
 
 - [ ] 采样 → 确认 → 账号立即显示已登录 + 日志记录；同站其它账号自动刷新，指纹缺失者直接判未登录（无 HTTP/WebView 开销）
 - [ ] 指纹与 authProfile 一次采样同时生成，「尚未检测认证配置」区域随之消失
-- [x] detail/日志/DTO 无 cookie 值、storage 值明文（键名列表不出后端）——实现为 `fingerprints` map 隔离 + DTO 只出计数
+- [x] Cookie 值与 storage 值不进入 DTO、日志或指纹明细；普通 `RelayStation` DTO 只出摘要。用户主动打开二级明细时，`get_login_fingerprint_detail` 会返回 cookie/storage 特征名及域、path、长度等元数据，**不会返回凭据值**。
 
 ### F3. 账号日志增强
 
@@ -270,6 +270,13 @@
 ## 变更记录
 
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
+
+- 2026-10-03：复核 F1–F4 状态后，将标题从“待实现”改为“已实现、待验收”，明确代码任务已勾选但真机/端到端验收仍未通过；同步产品说明中的登录指纹入口、确认/明细弹窗与 DTO 摘要字段，并修正“键名不出后端”的过期描述。指纹特征是否需静态加密仍待安全边界决策。
+- 2026-09-30：R01 代码审计补齐区域错误作用对象与敏感信息边界（store 只留错误码）、后台重载旧数据保留与刷新态、无重试动作时隐藏按钮、CRUD 重载按钮明确标为「刷新」、弹窗写入失败 toast 和 retry 防重入；Auth Proxy deep-link inbox 按 owner 从 proxy 命令拆出，深链目标/回调 URL 与 OAuth state 保留在 Rust ticket，renderer 只接收脱敏元数据；手动粘贴 URL 仅留在弹窗临时输入态，关闭后清除。回调应用由 Rust 按 ticket 打开，登录 IPC 不回传 state 或占位凭据；原 IPC 名称保持不变。lint、critical、Rust account-manager tests、clippy、cfg guard、前端构建通过；macOS 真机截图待隔离测试用户后补。
+
+- 2026-10-03：修复 Auth Proxy inbox drain 与 `authProxyPending` 通知并发时的 lost wake-up：drain 过程中记录通知，空结果后继续消费；并发通知伴随 IPC 失败时最多额外重试一次，避免无限重试。复审又发现路由卸载会丢失已 drain 的 ticket，现将协调器提升到 App 生命周期，新 ticket 自动导航到 Account Manager，路由视图卸载/重挂载保留 active ticket；浏览器环境不注册 Tauri listener。新增竞态、路由生命周期与 browser-mode 回归测试；lint:fe、生产构建、critical 259 项、前端全量 359 项、Rust 630 项（1 项 skipped）、clippy、cfg hygiene 与格式检查通过。macOS 隔离测试用户的界面与 Deep Link 验收待执行。
+- 2026-10-03：继续 R01 并修复三处并发/失败恢复问题：Account Manager 跨路由共享 load 序号，阻止旧 IPC 响应覆盖新页面数据；Auth Proxy 在同一串行 mutation 中幂等创建 Station 并写入新账号；ticket 校验失败不消费票据，登录启动失败时按 owner 回滚新建元数据、关闭新 WebView，并恢复仍有效的 ticket。新增路由乱序加载、同 host 幂等、回滚归属、ticket 恢复及窗口失败回归。验证通过：lint:fe（含 i18n/doc 链接）、critical 263、前端全量 363、前端构建、Rust 635 项（1 项 ignored）、clippy、cfg hygiene、fmt 与 diff whitespace 检查。隔离 macOS 账号真机 UI/Deep Link 验收仍待执行；Windows traceroute 状态差异按用户要求记录，留待后续 Windows 回归。
+- 2026-10-03：a11y 复审发现账号卡片的 `role="button"` 包含多个子按钮，导致屏幕阅读器无法分别识别卡片动作。卡片改为有名称的 article，以账号名 toggle button 提供键盘选择与焦点样式，复制/登录等操作仍是独立按钮；新增屏幕阅读器角色可见性回归。定向语言/卡片测试 4 项、critical 264 项和 lint:fe 通过。macOS 隔离账户真机验收待执行。
 
 - 2026-09-10：新增规划 **F5 浏览器会话注入**（一键在浏览器中打开账号会话，仅调研未实现）：调研 `explanation/browser-session-injection-research.md`。四方案对比（CDP+托管 profile / 扩展注入日常浏览器 / 直写 Cookies DB / cookies.txt 导出），推荐 CDP + Bench 托管 profile 先行（隔离语义与「每账号独立 data directory」原则一致——见交互图 C2 技术实现、凭据链路不出 Rust 内存、零扩展依赖），扩展注入为 M3 进阶，后两者因红线冲突排除；M1 任务分解与 D-A~D-D 决策点待确认后实施。
 - 2026-09-10：落地**登录判定规则包（rulepack）**（调研：`explanation/login-detection-rulepack-research.md`，规格：`reference/login-rulepack-spec.md`）——①`login_rules.rs` 新模块：声明式 JSON 规则（loginCheck 服务端权威探针 + text/selector fallback 弱证据），fail-closed 校验（deny_unknown_fields / id=可注册域 / kind 白名单），bundled 内置集（`ruledata/`：trae.cn `CheckLogin Result.IsLogin` 实测 + github.com `api/user` 401/200 实测）+ 远程拉取（command-market 登录规则板块 `rules.json`，零配置官方源 + `BENCH_LOGIN_RULES_URL/DIR` env，缓存 `$APPDATA/login-rules/`，启动后台拉取 + 24h TTL 惰性刷新，失败静默沿用）；②判定融合：优先级 = 用户手配 Custom > 规则包 > 旧预设，证据分层不变，loginCheck 为强判据短路（`loginCheck` reason）；③**修复 L0b 弱肯定越权**（trae.cn 误判根因）：probe/keeper 两路「指纹 present → Ready」改为继续走文本分类链，仅保留「全缺失 → 未登录」否定短路；④仓库侧：kindred-plugin-market/command-market 新增 `rules.json` + `rules/` + `build-rules.mjs` + CI 重算（与命令市场独立 schema，老客户端零影响）。安全铁律：loginCheck 同可注册域 + GET/POST 白名单 + 不跟随重定向（携带账号 cookie 的请求，同域约束下投毒无法外泄）。测试 +9（校验/匹配/fallback 判定/JSON 路径）；门禁全绿（clippy/test 492/check:be-cfg 368）。**注意：trae CheckLogin 实测仅接受 POST（GET 404），`login-state-detection-research.md` 的 GET 记录已修正**。UI 规则来源标注待后续轮（未新增 IPC，contracts 无改动）。

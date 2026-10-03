@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { KeyRound, ArrowRight, Loader2, Link2, RotateCw } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -23,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { openExternal } from "@/platform/shell"
 import { cn } from "@/lib/utils"
 import type {
   AuthProxyMatch,
@@ -35,7 +35,7 @@ import type {
 import { accountManagerRepository } from "@/features/account-manager/services/account-manager.repository"
 import { NEW_ACCOUNT } from "@/features/account-manager/hooks/useAuthProxy"
 import type { AuthProxyConfirmInput } from "@/features/account-manager/hooks/useAuthProxy"
-import { getErrorMessage, parseCommandError, translateError } from "@/lib/tauri/errors"
+import { parseCommandError, translateError } from "@/lib/tauri/errors"
 
 // ═══════════════════════════════════════════════
 // Wizard step constants
@@ -67,29 +67,11 @@ function statusLabel(status: StationAccount["status"], t: (k: string) => string)
   return t(`accountManager.status.${status}`)
 }
 
-function deriveExternalAppName(url: string, t?: (k: string) => string): string {
-  try {
-    const u = new URL(url)
-    return (
-      u.protocol.replace(":", "") ||
-      (t ? t("accountManager.authProxy.wizard.externalAppFallback") : "external app")
-    )
-  } catch {
-    return t ? t("accountManager.authProxy.wizard.externalAppFallback") : "external app"
-  }
-}
-
-function safeHost(url: string): string {
-  try {
-    return new URL(url).host
-  } catch {
-    return url
-  }
-}
-
-function safeTruncate(str: string, max = 60): string {
-  if (str.length <= max) return str
-  return str.slice(0, max) + "\u2026"
+function deriveExternalAppName(
+  scheme: string | null | undefined,
+  t: (k: string) => string,
+): string {
+  return scheme || t("accountManager.authProxy.wizard.externalAppFallback")
 }
 
 // ═══════════════════════════════════════════════
@@ -148,6 +130,7 @@ export function AuthProxyDialog({
 
   // Step 3
   const [confirming, setConfirming] = useState(false)
+  const [openingReturnUrl, setOpeningReturnUrl] = useState(false)
 
   // Step 1 内联错误：非法 URL / 解析失败均有可见反馈（A1-1）。
   const [parseError, setParseError] = useState<string | null>(null)
@@ -172,6 +155,7 @@ export function AuthProxyDialog({
       setSelectedAccountId(null)
       setNewAccountName("")
       setConfirming(false)
+      setOpeningReturnUrl(false)
     }
   }, [initialHost, initialIsAuthorize, initialMatches, initialRequest, open])
 
@@ -269,10 +253,8 @@ export function AuthProxyDialog({
       setParsedRequest({
         ticketId: result.ticketId,
         expiresAtTs: result.expiresAtTs,
-        target: result.target,
-        returnUrl: result.returnUrl ?? "",
-        state: null,
-        site: result.host,
+        hasReturnUrl: result.hasReturnUrl,
+        returnScheme: result.returnScheme ?? null,
       })
       setParsedHost(result.host)
       setParsedMatches(result.matches)
@@ -294,10 +276,8 @@ export function AuthProxyDialog({
       setParseError(
         translateError(
           t,
-          error,
-          t("accountManager.authProxy.wizard.parseFailed", {
-            message: getErrorMessage(error, parsed.message),
-          }),
+          { code: parsed.code, message: "" },
+          t("accountManager.authProxy.wizard.parseFailed"),
         ),
       )
     } finally {
@@ -332,20 +312,40 @@ export function AuthProxyDialog({
   }
 
   const handleCloseReturnUrl = async () => {
-    if (!parsedRequest) return
+    if (!parsedRequest?.hasReturnUrl || openingReturnUrl) return
+    setOpeningReturnUrl(true)
     try {
-      await openExternal(parsedRequest.returnUrl)
+      await accountManagerRepository.openAuthProxyReturnUrl(parsedRequest.ticketId)
     } catch (error) {
-      console.warn("[auth-proxy] open return url failed:", parseCommandError(error).code)
+      const parsed = parseCommandError(error)
+      toast.error(
+        translateError(
+          t,
+          { code: parsed.code, message: "" },
+          t("accountManager.toasts.authProxyReturnFailed"),
+        ),
+      )
+    } finally {
+      setOpeningReturnUrl(false)
     }
   }
 
   /// 普通链接(非 authorize-like 且无回调)→ 引导改用快速登录打开。
-  const isPlainUrl = !parsedIsAuthorize && !parsedRequest?.returnUrl
+  const isPlainUrl = !parsedIsAuthorize && !parsedRequest?.hasReturnUrl
 
   const handleSwitchToQuickLogin = () => {
-    if (!onSwitchToQuickLogin) return
-    onSwitchToQuickLogin(url.trim() || parsedRequest?.target || "")
+    const urlToOpen = url.trim()
+    if (!onSwitchToQuickLogin || !urlToOpen) return
+    onSwitchToQuickLogin(urlToOpen)
+  }
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (parsing || confirming) return
+    if (!nextOpen) {
+      setUrl("")
+      setParseError(null)
+    }
+    onOpenChange(nextOpen)
   }
 
   // ═══════════════════════════════════════════════
@@ -420,7 +420,7 @@ export function AuthProxyDialog({
     const stations = mergedMatches
     const hasExistingAccounts = selectedStationAccounts.length > 0
     const usingExisting = !isNewAccount && selectedAccountId !== null
-    const hostForHint = parsedHost || safeHost(parsedRequest?.target ?? "")
+    const hostForHint = parsedHost
 
     return (
       <div className="space-y-4">
@@ -453,10 +453,16 @@ export function AuthProxyDialog({
                 {t("accountManager.authProxy.wizard.notAuthLinkHint")}
               </p>
             </div>
-            <Button type="button" size="sm" variant="outline" onClick={handleSwitchToQuickLogin}>
-              <Link2 size={13} />
-              {t("accountManager.authProxy.wizard.switchToQuickLogin")}
-            </Button>
+            {url.trim() ? (
+              <Button type="button" size="sm" variant="outline" onClick={handleSwitchToQuickLogin}>
+                <Link2 size={13} />
+                {t("accountManager.authProxy.wizard.switchToQuickLogin")}
+              </Button>
+            ) : (
+              <p className="text-muted-foreground w-full text-xs">
+                {t("accountManager.authProxy.wizard.deepLinkQuickLoginHint")}
+              </p>
+            )}
           </div>
         )}
         {/* Station selector */}
@@ -620,7 +626,7 @@ export function AuthProxyDialog({
   }
 
   const renderStep3Confirm = () => {
-    const appProtocol = parsedRequest ? deriveExternalAppName(parsedRequest.returnUrl, t) : ""
+    const appProtocol = deriveExternalAppName(parsedRequest?.returnScheme, t)
     const selectedAccount = flatAccounts.find((fa) => fa.account.id === selectedAccountId)
     const acct = selectedAccount?.account
 
@@ -631,9 +637,7 @@ export function AuthProxyDialog({
           <span className="text-muted-foreground text-xs">
             {t("accountManager.authProxy.wizard.targetLabel")}
           </span>
-          <p className="text-sm font-medium break-all">
-            {parsedRequest ? safeHost(parsedRequest.target) : ""}
-          </p>
+          <p className="text-sm font-medium break-all">{parsedHost}</p>
         </div>
 
         {/* Return URL */}
@@ -642,7 +646,7 @@ export function AuthProxyDialog({
             {t("accountManager.authProxy.wizard.returnLabel")}
           </span>
           <p className="text-sm font-medium break-all">
-            {parsedRequest ? `${appProtocol}://${safeTruncate(parsedRequest.returnUrl, 80)}` : ""}
+            {parsedRequest?.hasReturnUrl ? appProtocol : ""}
           </p>
         </div>
 
@@ -682,12 +686,7 @@ export function AuthProxyDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!parsing && !confirming) onOpenChange(next)
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent size="lg">
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center gap-2">
@@ -754,14 +753,18 @@ export function AuthProxyDialog({
               )}
             </Button>
           )}
-          {step === STEP_CONFIRM && parsedRequest && (
+          {step === STEP_CONFIRM && parsedRequest?.hasReturnUrl && (
             <Button
               variant="ghost"
               size="sm"
               onClick={handleCloseReturnUrl}
-              disabled={parsing || confirming}
+              disabled={parsing || confirming || openingReturnUrl}
             >
-              <Link2 size={14} />
+              {openingReturnUrl ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Link2 size={14} />
+              )}
               {t("accountManager.authProxy.openReturnUrl")}
             </Button>
           )}
