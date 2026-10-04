@@ -179,7 +179,11 @@ export function MultiNodePanel({
           </ul>
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
-      ) : null}
+      ) : (
+        <p className="text-muted-foreground text-sm" aria-live="polite">
+          {loading ? t("networkProbe.nodes.resultsLoading") : t("networkProbe.nodes.resultsEmpty")}
+        </p>
+      )}
     </ProbePanelShell>
   )
 }

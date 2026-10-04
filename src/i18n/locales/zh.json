@@ -2107,6 +2107,8 @@
       "hint": "对比本机与 Globalping 多地的 DNS 答案；远端查询会将域名发送给 Globalping。可注册 HTTPS agent 作为自有探测节点。",
       "run": "多节点对比 DNS",
       "running": "对比中…",
+      "resultsLoading": "正在比较 DNS 答案，探测完成后会显示在这里。",
+      "resultsEmpty": "运行多节点 DNS 查询后，结果会显示在这里。",
       "refresh": "刷新节点",
       "listTitle": "探测节点",
       "addTitle": "添加 agent",
