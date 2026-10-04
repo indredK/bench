@@ -140,7 +140,7 @@ L1 → L2 映射：
 - **ping 全丢包提示**：`packetsReceived === 0` 时命令日志追加「可能需 Local Network 权限」提示（不静默）。
 - **测速冷却**：测速源失败/不可达时 `speedCooldownUntil = now + 30s`，期间「开始测速」禁用并倒计时提示（`测速源失败 — {{seconds}} 秒后可重试`），冷却结束自动恢复；取消成功不计入冷却。
 - **测速冷却双重防护**：除按钮禁用外，`runSpeedTest` 用例入口 `if (speedCooldownUntil > now) return` 短路（连点/脚本调用也不触发）；冷却以 **500ms interval** 倒计时刷新；**源下拉在 `loading || coolingDown` 时同样 disabled**；结果卡 `unavailable`（`!ok && !cancelled && downloadMbps==null`）额外显示「测速源不可用」琥珀提示。
-- **重新运行前状态复位（流式状态机）**：所有可重复探测（health / sites / traceroute / speed / ports / lan / pcap）每次开始时清空上一轮最终结果并释放旧 `activeSessionId`；有流式数据的面板同时调用 `resetXxxStreaming()` 清空上次采样。**新一轮失败或运行中都不能把旧结果显示成当前结果**；`finally` 里统一清理活动会话以复位取消状态。
+- **重新运行前状态复位（所有探测面板）**：所有可重复探测与诊断每次开始时先清空该动作对应的上一轮结果；概览刷新清空 summary/firewall/hosts，一键诊断清空五项快照并保持 all-or-nothing。**新一轮失败或运行中都不能把旧结果显示成当前结果**。health / sites / traceroute / speed / ports / lan / pcap 等长任务还会释放旧 `activeSessionId`；有流式数据的面板同时调用 `resetXxxStreaming()` 清空上次采样；`finally` 里统一清理活动会话以复位取消状态。
 - **流式采样去重**：`site-sample` / `port-sample` 按 target/port 合并去重（`upsert*`），单卡多次测试保留历史并绘制近 20 次 Sparkline；完成后对未取消的站点包结果保留已测卡片（取消提示「已完成的卡片结果会保留」）。
 
 ## 6. 安全（security）L1（全部要求 SecurityAuthGate 已授权）

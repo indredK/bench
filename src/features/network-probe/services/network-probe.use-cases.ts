@@ -74,6 +74,9 @@ export const networkProbeUseCases = {
     if (store.loadingSummary) return
     store.setLoadingSummary(true)
     store.setError(null)
+    store.setSummary(null)
+    store.setFirewall(null)
+    store.setHosts(null)
     try {
       const [summary, firewall, hosts] = await Promise.all([
         networkProbeRepository.getLocalNetworkSummary(),
@@ -98,6 +101,7 @@ export const networkProbeUseCases = {
     if (store.loadingTcp) return
     store.setLoadingTcp(true)
     store.setError(null)
+    store.setTcpResult(null)
     try {
       const result = await networkProbeRepository.tcpConnect(host.trim(), port)
       store.setTcpResult(result)
@@ -116,6 +120,7 @@ export const networkProbeUseCases = {
     if (store.loadingPing) return
     store.setLoadingPing(true)
     store.setError(null)
+    store.setPingResult(null)
     store.resetPingStreaming()
     store.appendCommandLog(`pingHost('${target.trim()}', ${count})`)
     let unlisten: (() => void) | undefined
@@ -149,6 +154,7 @@ export const networkProbeUseCases = {
     if (store.loadingDns) return
     store.setLoadingDns(true)
     store.setError(null)
+    store.setDnsResult(null)
     try {
       const result = await networkProbeRepository.dnsLookup(domain.trim(), rrType, resolver)
       store.setDnsResult(result)
@@ -167,6 +173,7 @@ export const networkProbeUseCases = {
     if (store.loadingProbe) return
     store.setLoadingProbe(true)
     store.setError(null)
+    store.setProbeResult(null)
     try {
       const result = await networkProbeRepository.probeTarget(input.trim())
       store.setProbeResult(result)
@@ -458,6 +465,7 @@ export const networkProbeUseCases = {
     if (store.loadingIpv6) return
     store.setLoadingIpv6(true)
     store.setError(null)
+    store.setIpv6Result(null)
     try {
       const result = await networkProbeRepository.checkIpv6Stack()
       store.setIpv6Result(result)
@@ -476,6 +484,7 @@ export const networkProbeUseCases = {
     if (store.loadingMtu) return
     store.setLoadingMtu(true)
     store.setError(null)
+    store.setMtuResult(null)
     try {
       const result = await networkProbeRepository.probePathMtu(target.trim() || "1.1.1.1")
       store.setMtuResult(result)
@@ -494,6 +503,12 @@ export const networkProbeUseCases = {
     if (store.loadingOffline) return
     store.setLoadingOffline(true)
     store.setError(null)
+    // all-or-nothing: a failed refresh must not leave an older composite diagnosis visible.
+    store.setCaptiveResult(null)
+    store.setPublicIpInfo(null)
+    store.setProxyVpnStatus(null)
+    store.setIpv6Result(null)
+    store.setMtuResult(null)
     try {
       const [captive, publicIp, proxyVpn, ipv6, mtu] = await Promise.all([
         networkProbeRepository.detectCaptivePortal(),
@@ -522,6 +537,7 @@ export const networkProbeUseCases = {
     if (store.loadingOffline) return
     store.setLoadingOffline(true)
     store.setError(null)
+    store.setPublicIpInfo(null)
     try {
       const publicIp = await networkProbeRepository.getPublicIpInfo()
       store.setPublicIpInfo(publicIp)
@@ -681,6 +697,7 @@ export const networkProbeUseCases = {
     if (store.loadingPollution) return
     store.setLoadingPollution(true)
     store.setError(null)
+    store.setPollutionResult(null)
     store.appendCommandLog(`detectPollution(local, '${domain.trim()}')`)
     try {
       const result = await networkProbeRepository.runPollutionCheck(domain.trim())
@@ -798,6 +815,7 @@ export const networkProbeUseCases = {
     if (store.loadingNat) return
     store.setLoadingNat(true)
     store.setError(null)
+    store.setNatResult(null)
     store.appendCommandLog("probeNat(local)")
     try {
       const result = await networkProbeRepository.probeNat()
@@ -817,6 +835,7 @@ export const networkProbeUseCases = {
     if (store.loadingNtp) return
     store.setLoadingNtp(true)
     store.setError(null)
+    store.setNtpResult(null)
     store.appendCommandLog("probeNtp(local)")
     try {
       const result = await networkProbeRepository.probeNtp()
@@ -864,6 +883,7 @@ export const networkProbeUseCases = {
     if (store.loadingLanServices) return
     store.setLoadingLanServices(true)
     store.setError(null)
+    store.setLanServicesResult(null)
     store.appendCommandLog("browseLanServices(local)")
     try {
       const result = await networkProbeRepository.browseLanServices()
@@ -931,6 +951,7 @@ export const networkProbeUseCases = {
     if (store.loadingMultiNode) return
     store.setLoadingMultiNode(true)
     store.setError(null)
+    store.setMultiNodeDnsResult(null)
     store.appendCommandLog(`dnsLookup(multi, '${domain.trim()}')`)
     try {
       const result = await networkProbeRepository.compareDnsMulti(domain.trim(), [
