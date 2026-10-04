@@ -72,25 +72,34 @@ macOS 注意：
 
 ### 3.2 局域网服务（mDNS / SSDP）
 
-| 协议          | macOS 路径                                                                            | 产出                                                    |
-| ------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| mDNS / DNS-SD | Bonjour：`dns_sd` API 或成熟 crate（如 `mdns-sd`）浏览 `_services._dns-sd._udp.local` | 服务名、类型、端口、TXT                                 |
-| SSDP / UPnP   | UDP 1900 M-SEARCH；解析 `LOCATION` 后 HTTP GET device desc（限长）                    | 设备类型、友微名、控制 URL（只展示，不调用危险 action） |
+| 协议          | macOS 路径                                                      | 产出                                                            |
+| ------------- | --------------------------------------------------------------- | --------------------------------------------------------------- |
+| mDNS / DNS-SD | `mdns-sd` 浏览 `_services._dns-sd._udp.local`，再解析各服务实例 | 服务名、类型、主机/IP、端口、最多 16 条 TXT 属性                |
+| SSDP / UPnP   | `ssdp-client` 发送 `SearchTarget::All` 并解析响应               | ST/USN/SERVER 与 LOCATION 的 HTTP(S) 主机/端口；不请求 LOCATION |
 
 护栏：
 
 - 不自动调用 UPnP `AddPortMapping` 等写操作。
-- 浏览器式超时；同一 UUID 去重。
+- mDNS 最多浏览 32 种服务类型；mDNS 与 SSDP 各最多返回 256 条，SSDP 按 USN 去重（缺失时用 ST + LOCATION 兜底）。
+- 总等待时间有界；协议失败单独显示为本地化错误，不计入发现数量；技术错误详情默认折叠。
 - 结果虚拟化（设备可能很多）。
 
 ### 3.3 NAT 类型（STUN）
 
-| 项     | 约定                                                                                              |
-| ------ | ------------------------------------------------------------------------------------------------- |
-| 协议   | STUN Binding（RFC 8489）；多服务器对照                                                            |
-| 分类   | 至少：Open / Full Cone / Restricted / Port-Restricted / Symmetric / UDP Blocked（映射到产品文案） |
-| 实现   | 轻量 STUN client（评估 `hightower-stun` 或自研最小 Binding）；**不必**引入完整 ICE/TURN 栈        |
-| 服务器 | 可配列表（Google STUN 等公共源）；失败转移；遵守配额                                              |
+| 项     | 约定                                                                                                                             |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| 协议   | STUN Binding（RFC 8489）；多服务器对照                                                                                           |
+| 分类   | 映射与过滤分开报告：Endpoint-Independent / Address-Dependent / Address-and-Port-Dependent；不再使用 Full Cone / Symmetric 旧标签 |
+| 实现   | `rtc-stun` 编解码 + Tokio 传输；行为探测只实现 RFC 5780 所需的 Binding/CHANGE-REQUEST 序列，不引入完整 ICE/TURN 栈               |
+| 服务器 | 普通映射对照使用内置多源；RFC 5780 使用 `stun.voipgate.com:3478` 并运行时核验 OTHER-ADDRESS/CHANGE-REQUEST 能力                  |
+
+当前实现对普通 STUN 源并发发起 Binding，每个源独立使用 IPv4 UDP socket，UDP 等待最多 3 秒，DNS 与整段单服务器探测有 5 秒总截止时间。`rtc-stun 0.21.0`（webrtc-rs Sans-I/O STUN 协议库）负责报文编解码与 CSPRNG transaction ID；Tokio 负责 socket、总超时和来源校验。应用在库解码前严格核对报文长度/对齐，拒绝重复或格式不符的映射属性，再解析 XOR-MAPPED-ADDRESS（IPv4/IPv6）并兼容 MAPPED-ADDRESS。此依赖只用于 STUN 协议层，不引入完整 WebRTC/ICE 栈。
+
+普通 STUN 多源对照只报告映射证据：无响应是 `blocked-or-timeout`（超时不能证明 UDP 被阻断）；仅一个服务器成功是 `insufficient-evidence`；多个映射一致为 `consistent-mapping`；映射不同为 `mapping-varies`，不挑选任意地址，也不据此推断过滤类型。
+
+RFC 5780 行为探测默认使用 `stun.voipgate.com:3478`（[Pion `stun-nat-behaviour` 示例](https://github.com/pion/stun/blob/main/cmd/stun-nat-behaviour/README.md)的默认端点），每次都运行时检查服务能力：响应必须包含唯一的 XOR-MAPPED-ADDRESS；旧式 MAPPED-ADDRESS 可选，若存在则必须唯一且与 XOR 值一致。缺 OTHER-ADDRESS、服务端以 420 拒绝 CHANGE-REQUEST，或接受请求后仍从主地址回包时显示 `unsupported`；无响应、地址无效或其他错误显示 `inconclusive`。OTHER-ADDRESS 只接受不同端口、不同 IPv4 且公开可路由的地址，避免服务器响应诱导本机向私网/保留地址发送探测报文。映射行为比较同一源端口对主地址、备用 IP+主端口、备用 IP+备用端口的结果；过滤行为另建源 socket，避免映射测试的备用端点流量污染过滤状态。过滤测试核对实际回包来源。RFC 5780 结果是特定服务器/本地端口/路径/时刻的观测；备用端点无回复可能受服务器或路径影响，详情会披露这个限制。
+
+当前 macOS 开发网络把 `stun.voipgate.com` 解析到 `198.18.0.90`（RFC 2544 基准测试网），因此端点被安全检查拒绝，尚未实测公网服务的 RFC 5780 能力；D4-1 仍需真机应用验证后关闭。评估了 Rust crate [`stun-client`](https://github.com/yoshd/stun-client)：它是 async-std 小型客户端，并通过本机网卡枚举判定 NAT，不适合接入现有 Tokio/路由模型；Bench 保留 `rtc-stun` 协议层，由 Tokio 编排 RFC 5780 的少量业务序列，不引入第二套运行时。
 
 与「公网出口」区别：出口要的是 **IP/ASN**；NAT 要的是 **映射行为**。可共用一次 Binding 的 XOR-MAPPED-ADDRESS 作出口候选，但 UI 分面板。
 
@@ -132,6 +141,8 @@ type ProbeNode = {
 DNS 判定必须区分探测状态和 DNS 响应码：只有探测 `finished` 且 `statusCode=0`（NOERROR）算查询成功；NXDOMAIN 显示为域名不存在，NOERROR 空答案显示为无记录。Globalping `rawOutput` 仅放在默认折叠的技术详情中。字段语义以[官方 API 规格](https://github.com/jsdelivr/globalping/blob/master/public/v1/spec.yaml)为准。
 
 远端查询会把输入域名发送到 Globalping；面板必须在执行按钮附近明确展示接收方，避免用户把内部域名误认为只在本机解析。结果摘要使用 polite live region，供屏幕阅读器获知异步查询完成。
+
+首次查询前，结果区显示双语操作提示；首次查询进行中显示 polite 状态文案，避免表单下方留白。已有结果时重新查询继续显示旧结果，直到新结果返回。
 
 交互式 DNS 测量启用 `inProgressUpdates` 并按**顶层测量状态**轮询；单个已完成的 probe 不代表整个测量已结束。每次响应后至少等待 700 ms（官方要求不快于 500 ms），单请求最多 8 秒，测量创建后最多等待 45 秒。该上限覆盖 API 规定的最多 30 秒 probe 超时和至少 10 秒通信/收尾缓冲；到期保留已收到的部分结果并明确显示「等待超时」，不把未完成结果显示为普通 DNS 失败或空答案。
 
@@ -215,8 +226,9 @@ listProbeNodes(): ProbeNode[]
 
 - [ ] ARP 有特权路径 + ping 降级；CIDR 硬顶
 - [ ] 需要 pack 时正确返回 `missing_pack` 并完成安装校验流（D-017）
-- [ ] mDNS/SSDP 只读浏览；无 UPnP 写操作
-- [ ] STUN NAT 分类 + 多源故障转移
+- [x] mDNS/SSDP 只读浏览；本地 Bonjour 与 SSDP fixture 的当前 Rust 实现真机测试通过，覆盖服务类型/端口/TXT、SSDP LOCATION 元数据与 USN 去重；无 UPnP 写操作
+- [x] 多源 STUN Binding、映射地址提取、来源/transaction 校验与单源超时
+- [ ] RFC 5780 NAT 行为/过滤端到端真机验收（逻辑已接入；详见待验证清单）
 - [ ] NTP offset 阈值；不擅自改系统钟
 
 **C**
