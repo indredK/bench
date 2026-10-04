@@ -90,7 +90,15 @@ export function SpeedPanel({
   })()
 
   const unavailable =
-    result != null && !result.ok && !result.cancelled && result.downloadMbps == null
+    result != null && !result.cancelled && result.downloadMbps == null && result.uploadMbps == null
+  const partial =
+    result != null &&
+    result.ok &&
+    !result.cancelled &&
+    (result.pingMs == null ||
+      result.jitterMs == null ||
+      result.downloadMbps == null ||
+      result.uploadMbps == null)
 
   return (
     <ProbePanelShell
@@ -179,6 +187,11 @@ export function SpeedPanel({
           {unavailable ? (
             <p className="text-xs text-amber-700 dark:text-amber-400">
               {t("networkProbe.speed.sourceUnavailable")}
+            </p>
+          ) : null}
+          {partial ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.speed.partial")}
             </p>
           ) : null}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

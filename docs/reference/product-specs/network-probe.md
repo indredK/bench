@@ -201,7 +201,8 @@ L1 → L2 映射：
 - **capabilities 能力声明**：后端 `build_capabilities` 返回 platform / privilegeLevel / tools 状态（supported/partial/degraded/unsupported/missing_pack）/ externalTools（如 nmap）；前端 `toolEnabled` 依此控制按钮可用性与降级提示。`nmap -V` 在阻塞池执行，最多 2 秒；超时或失败会终止并回收进程组，按 `not_found` 降级，不阻塞能力加载。
 - **defaults 目录**：`get_network_probe_defaults` 返回 DNS 预设、站点包、探测目标、强制门户、公网 IP API、MTU 目标等默认资源；支持用户覆盖（`saveDefaultsOverride`）与重置（`resetDefaults`）。
 - **面板复用**：offline 内的 ipv6/mtu/egress 复用同一 `Ipv6Panel`/`MtuPanel`/`EgressPanel`（`dualFrom` 区分来源），避免双入口冲突。
-- **测速护栏**：LibreSpeed 硬上限 32/8 MB、失败 30s 冷却。
+- **测速护栏**：LibreSpeed 硬上限 32/8 MB；`ok` 至少要求下载或上传产生一个吞吐样本，只有 ping 时视为无有效带宽结果并进入 30s 冷却。
+- **测速部分结果**：单向吞吐可用时保留有效指标；其他指标缺失时显示本地化的部分结果提示，不把 ping 单独当作带宽测速成功。
 - **测速状态反馈**：只显示已知阶段的本地化名称；`running` 等内部详情不透传，错误与取消状态用 locale，采样 ping 显示 `ms`、下载/上传显示 `Mbps`。
 - **体检健壮性**：VPN/utun 默认路由无 gateway 行不误报；识别 DNS Fake-IP（198.18/15）与本地系统代理；`reach.public_name` 在 Fake-IP 下跳过 ICMP。
 
@@ -260,16 +261,17 @@ L1 → L2 映射：
 
 ### 13.2 常见失败场景与行为
 
-| 场景                                     | 行为/提示                                                  | 恢复/降级                                                                                    |
-| ---------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 网络断开/超时                            | 各探测命令返回对应错误码 → 错误横幅                        | 重试；`caps.localNetworkHint` 提示「全部探测丢失可能是权限/防火墙/真实断网，不要当唯一结论」 |
-| 权限拒绝（Local Network / TCC / 无特权） | `ICMP_UNAVAILABLE`、arp `emptyPermission`、pcap 无特权     | 降级到 tcpdump 计数 / ARP 缓存读取；给出「打开系统网络设置」入口，不静默                     |
-| 平台不支持（Windows/Linux）              | `UNSUPPORTED` 或能力矩阵 `unsupported`                     | 面板隐藏/禁用 + toolDisabled 提示；firewall 返回 status=unsupported + detail                 |
-| 能力包缺失                               | `tools.<key> = missing_pack`                               | 面板禁用 + 「管理能力包」入口跳转安装；安装后自动刷新                                        |
-| 外部工具缺失（如 nmap）                  | externalTools 反映                                         | 端口扫描降级为 TCP connect（degraded），提示安装 adv-scanner/nmap 可启用 SYN                 |
-| 测速源不可达                             | `!result.ok && !cancelled`                                 | 30s 冷却倒计时禁用，可换源；取消成功不计冷却                                                 |
-| 取消命令本身失败                         | `cancelFailed`                                             | 错误横幅提示；清除本次会话的 pending 标记以允许重试；会话取消在前后端均幂等                  |
-| 一键诊断部分子项失败                     | `runOfflineDiagnostics` 用 `Promise.all`，任一失败整体失败 | `offlineFailed` 错误横幅、已成功子项不落 store；改用各子面板单独运行可逐项定位               |
+| 场景                                     | 行为/提示                                                     | 恢复/降级                                                                                    |
+| ---------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 网络断开/超时                            | 各探测命令返回对应错误码 → 错误横幅                           | 重试；`caps.localNetworkHint` 提示「全部探测丢失可能是权限/防火墙/真实断网，不要当唯一结论」 |
+| 权限拒绝（Local Network / TCC / 无特权） | `ICMP_UNAVAILABLE`、arp `emptyPermission`、pcap 无特权        | 降级到 tcpdump 计数 / ARP 缓存读取；给出「打开系统网络设置」入口，不静默                     |
+| 平台不支持（Windows/Linux）              | `UNSUPPORTED` 或能力矩阵 `unsupported`                        | 面板隐藏/禁用 + toolDisabled 提示；firewall 返回 status=unsupported + detail                 |
+| 能力包缺失                               | `tools.<key> = missing_pack`                                  | 面板禁用 + 「管理能力包」入口跳转安装；安装后自动刷新                                        |
+| 外部工具缺失（如 nmap）                  | externalTools 反映                                            | 端口扫描降级为 TCP connect（degraded），提示安装 adv-scanner/nmap 可启用 SYN                 |
+| 测速源不可达或没有带宽样本               | `!result.ok && !cancelled`（`ok` 要求至少一个上下行吞吐样本） | 30s 冷却倒计时禁用，可换源；取消成功不计冷却                                                 |
+| 部分测速结果                             | 至少一个吞吐方向成功，但其他指标缺失                          | 保留有效数值并显示部分结果提示；不把缺失方向当成 0                                           |
+| 取消命令本身失败                         | `cancelFailed`                                                | 错误横幅提示；清除本次会话的 pending 标记以允许重试；会话取消在前后端均幂等                  |
+| 一键诊断部分子项失败                     | `runOfflineDiagnostics` 用 `Promise.all`，任一失败整体失败    | `offlineFailed` 错误横幅、已成功子项不落 store；改用各子面板单独运行可逐项定位               |
 
 ### 13.3 幂等 / 取消 / 并发保护
 

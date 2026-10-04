@@ -201,7 +201,9 @@ pub async fn run_speed_test<R: Runtime>(
     }
 
     cancelled = cancelled || cancellation.is_cancelled();
-    let ok = ping_ms.is_some() || download_mbps.is_some() || upload_mbps.is_some();
+    // Ping confirms latency only; a bandwidth test needs at least one usable
+    // throughput sample to avoid treating broken transfer endpoints as success.
+    let ok = has_bandwidth_sample(download_mbps, upload_mbps);
     Ok(SpeedTestResult {
         source_id: source.id,
         source_name: source.name,
@@ -216,7 +218,7 @@ pub async fn run_speed_test<R: Runtime>(
             Some("Speed test cancelled.".into())
         } else if !ok {
             Some(
-                "Speed source unreachable or returned no usable samples. Wait before retrying (cooldown)."
+                "Speed source returned no usable bandwidth samples. Wait before retrying (cooldown)."
                     .into(),
             )
         } else {
@@ -224,6 +226,10 @@ pub async fn run_speed_test<R: Runtime>(
         },
         command_hint,
     })
+}
+
+fn has_bandwidth_sample(download_mbps: Option<f64>, upload_mbps: Option<f64>) -> bool {
+    download_mbps.is_some() || upload_mbps.is_some()
 }
 
 fn emit_sample<R: Runtime>(app: Option<&AppHandle<R>>, phase: &str, value: f64, detail: &str) {
@@ -297,6 +303,14 @@ mod tests {
     use super::*;
     use futures_util::stream::{self, pending};
     use std::convert::Infallible;
+
+    #[test]
+    fn bandwidth_test_requires_a_download_or_upload_sample() {
+        assert!(!has_bandwidth_sample(None, None));
+        assert!(has_bandwidth_sample(Some(12.5), None));
+        assert!(has_bandwidth_sample(None, Some(4.2)));
+        assert!(has_bandwidth_sample(Some(12.5), Some(4.2)));
+    }
 
     #[tokio::test]
     async fn download_stream_stops_counting_at_the_configured_limit() {

@@ -10,6 +10,7 @@ const i18nState = vi.hoisted(() => ({
       "networkProbe.speed.cancelled": "已取消",
       "networkProbe.speed.running": "测速中…",
       "networkProbe.speed.sourceUnavailable": "测速源不可达。",
+      "networkProbe.speed.partial": "测速部分完成，部分指标无结果。",
       "networkProbe.speed.phase.ping": "测量延迟",
       "networkProbe.speed.phase.download": "下载中",
       "networkProbe.speed.phase.upload": "上传中",
@@ -20,6 +21,8 @@ const i18nState = vi.hoisted(() => ({
       "networkProbe.speed.cancelled": "cancelled",
       "networkProbe.speed.running": "Testing…",
       "networkProbe.speed.sourceUnavailable": "Speed source unavailable.",
+      "networkProbe.speed.partial":
+        "The speed test has partial results; some metrics are unavailable.",
       "networkProbe.speed.phase.ping": "Measuring ping",
       "networkProbe.speed.phase.download": "Downloading",
       "networkProbe.speed.phase.upload": "Uploading",
@@ -105,6 +108,29 @@ describe("SpeedPanel feedback", () => {
     expect(
       screen.queryByText(/Speed source unreachable or returned no usable samples/),
     ).not.toBeInTheDocument()
+  })
+
+  it("explains when a usable test has missing metrics", () => {
+    renderPanel({
+      result: result({ ok: true, pingMs: 12, jitterMs: 1, downloadMbps: 42 }),
+    })
+
+    expect(screen.getByText("测速部分完成，部分指标无结果。")).toBeInTheDocument()
+    expect(screen.queryByText("测速源不可达。")).not.toBeInTheDocument()
+  })
+
+  it("does not show a partial warning when every metric is available", () => {
+    renderPanel({
+      result: result({
+        ok: true,
+        pingMs: 12,
+        jitterMs: 1,
+        downloadMbps: 42,
+        uploadMbps: 8,
+      }),
+    })
+
+    expect(screen.queryByText("测速部分完成，部分指标无结果。")).not.toBeInTheDocument()
   })
 
   it("does not append the English running state to the translated phase", () => {
