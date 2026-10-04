@@ -16,6 +16,13 @@ pub struct ProbeNode {
     pub capabilities: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingTokenStatus {
+    pub available: bool,
+    pub configured: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkProbeCapabilities {
@@ -725,11 +732,31 @@ pub struct NtpProbeResult {
     pub offset_seconds: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rtt_seconds: Option<f64>,
+    pub sources: Vec<NtpProbeSourceResult>,
+    /// ok | warn | high | fail
     pub severity: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
     pub elapsed_ms: f64,
     pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NtpProbeSourceResult {
+    pub server: String,
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset_seconds: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rtt_seconds: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stratum: Option<u8>,
+    /// NTP_DNS | NTP_BIND | NTP_TIMEOUT | NTP_PROTOCOL | NTP_CLOCK | NTP_UNAVAILABLE
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -772,17 +799,30 @@ pub struct LanServiceItem {
     pub host: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub port: Option<u16>,
-    pub detail: String,
+    pub txt_properties: Vec<String>,
+    pub addresses: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usn: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LanServicesResult {
     pub items: Vec<LanServiceItem>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
+    pub failures: Vec<LanServiceFailure>,
+    pub truncated: bool,
     pub elapsed_ms: f64,
     pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LanServiceFailure {
+    pub protocol: String,
+    pub code: String,
+    pub message: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -801,22 +841,38 @@ pub struct PcapDiagResult {
     pub command_hint: String,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum MultiNodeMeasurementType {
+    Dns,
+    Ping,
+    Http,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NodeDnsAnswer {
+pub struct ProbeResultMetric {
+    pub key: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeProbeMeasurementResult {
     pub node_id: String,
     pub node_label: String,
     pub ok: bool,
-    pub answers: Vec<String>,
+    pub summary: Vec<ProbeResultMetric>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MultiNodeDnsResult {
-    pub domain: String,
-    pub answers: Vec<NodeDnsAnswer>,
+pub struct MultiNodeProbeResult {
+    pub target: String,
+    pub measurement_type: MultiNodeMeasurementType,
+    pub results: Vec<NodeProbeMeasurementResult>,
     pub elapsed_ms: f64,
     pub command_hint: String,
 }

@@ -30,7 +30,8 @@ pub async fn run_traceroute<R: Runtime>(
         .unwrap_or(DEFAULT_ROUNDS as u32)
         .clamp(1, MAX_ROUNDS as u32) as usize;
 
-    let session_id = super::session::new_session_id();
+    let session = super::session::new_session();
+    let session_id = session.id().to_owned();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -71,7 +72,6 @@ pub async fn run_traceroute<R: Runtime>(
         }
     }
 
-    super::session::clear_session(&session_id);
     Ok(result)
 }
 

@@ -4,11 +4,14 @@ use super::types::{PortSampleEvent, PortScanResult, ScanSessionEvent};
 use super::validate::validate_host;
 use crate::error::{AppError, AppResult};
 use std::net::IpAddr;
+use std::process::{Command, Output};
 use std::str::FromStr;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Runtime};
 use tokio::net::TcpStream;
-use tokio::time::timeout;
+use tokio::time::{interval, timeout, Instant as TokioInstant, MissedTickBehavior};
 
 pub const PORT_SAMPLE_EVENT: &str = "network-probe:port-sample";
 pub const SCAN_SESSION_EVENT: &str = "network-probe:scan-session";
@@ -16,6 +19,8 @@ pub const SCAN_SESSION_EVENT: &str = "network-probe:scan-session";
 const MAX_PORTS: usize = 256;
 const DEFAULT_TIMEOUT_MS: u64 = 800;
 const CONCURRENCY: usize = 32;
+const NMAP_TIMEOUT: Duration = Duration::from_secs(35);
+const NMAP_CANCEL_POLL: Duration = Duration::from_millis(50);
 
 pub async fn scan_ports_tcp<R: Runtime>(
     app: Option<&AppHandle<R>>,
@@ -37,14 +42,8 @@ pub async fn scan_ports_tcp<R: Runtime>(
         )));
     }
 
-    // S-SEC-03: prefer nmap SYN when nmap is present; fall back to TCP connect.
-    if nmap_available() {
-        if let Ok(Some(syn)) = try_nmap_syn(app, &target, &ports).await {
-            return Ok(syn);
-        }
-    }
-
-    let session_id = super::session::new_session_id();
+    let session = super::session::new_session();
+    let session_id = session.id().to_owned();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -53,6 +52,25 @@ pub async fn scan_ports_tcp<R: Runtime>(
                 kind: "ports".into(),
             },
         );
+    }
+
+    // S-SEC-03: prefer nmap SYN when available; otherwise fall back to TCP connect.
+    // Both paths share this session so cancellation can never restart as a new scan.
+    if !super::session::is_cancelled(&session_id) {
+        match try_nmap_syn(app, &target, &ports, &session_id).await {
+            NmapProbeOutcome::Completed(Some(result))
+                if !super::session::is_cancelled(&session_id) =>
+            {
+                return Ok(result);
+            }
+            NmapProbeOutcome::Cancelled => {
+                return Ok(cancelled_port_scan(target, session_id, ports.len()));
+            }
+            NmapProbeOutcome::Completed(Some(_)) => {
+                return Ok(cancelled_port_scan(target, session_id, ports.len()));
+            }
+            NmapProbeOutcome::Completed(None) | NmapProbeOutcome::Fallback => {}
+        }
     }
 
     let command_hint = format!(
@@ -108,7 +126,6 @@ pub async fn scan_ports_tcp<R: Runtime>(
     }
 
     cancelled = cancelled || super::session::is_cancelled(&session_id);
-    super::session::clear_session(&session_id);
     open_ports.sort_unstable();
 
     Ok(PortScanResult {
@@ -176,84 +193,51 @@ fn service_hint(port: u16) -> Option<String> {
     )
 }
 
-fn nmap_available() -> bool {
-    std::process::Command::new("nmap")
-        .arg("-V")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+/// Nmap is optional. A missing executable or failed scan falls back to built-in TCP connect.
+/// Cancellation is terminal and must not fall through to another scanner.
+enum NmapProbeOutcome {
+    Completed(Option<PortScanResult>),
+    Cancelled,
+    Fallback,
 }
 
-/// Try unprivileged TCP SYN-ish via `nmap -sT` (connect) first; if root-capable `-sS` works use that.
-/// Returns Ok(None) to fall back to built-in TCP connect scanner.
 async fn try_nmap_syn<R: Runtime>(
     app: Option<&AppHandle<R>>,
     target: &str,
     ports: &[u16],
-) -> AppResult<Option<PortScanResult>> {
-    let session_id = super::session::new_session_id();
-    if let Some(app) = app {
-        let _ = app.emit(
-            SCAN_SESSION_EVENT,
-            &ScanSessionEvent {
-                session_id: session_id.clone(),
-                kind: "ports".into(),
-            },
-        );
-    }
+    session_id: &str,
+) -> NmapProbeOutcome {
     let port_arg = ports
         .iter()
         .map(|p| p.to_string())
         .collect::<Vec<_>>()
         .join(",");
-    let target_owned = target.to_string();
-    let session_for_block = session_id.clone();
-
-    let output = tauri::async_runtime::spawn_blocking(move || {
-        // Prefer -sS (SYN); fall back to -sT (connect) without root.
-        let run = |scan: &str| {
-            std::process::Command::new("nmap")
-                .args([
-                    "-Pn",
-                    scan,
-                    "--max-retries",
-                    "1",
-                    "--host-timeout",
-                    "30s",
-                    "-p",
-                    &port_arg,
-                    &target_owned,
-                ])
-                .output()
-        };
-        match run("-sS") {
-            Ok(out)
-                if (out.status.success() || !out.stdout.is_empty())
-                    && !String::from_utf8_lossy(&out.stderr)
-                        .to_ascii_lowercase()
-                        .contains("requires root") =>
-            {
-                Ok(out)
+    let deadline = TokioInstant::now() + NMAP_TIMEOUT;
+    let command = nmap_command("-sS", &port_arg, target);
+    let output = match run_cancellable_command(command, session_id, deadline).await {
+        NmapCommandOutcome::Completed(out) if nmap_requires_connect_scan(&out) => {
+            let connect = nmap_command("-sT", &port_arg, target);
+            match run_cancellable_command(connect, session_id, deadline).await {
+                NmapCommandOutcome::Completed(out) => out,
+                NmapCommandOutcome::Cancelled => return NmapProbeOutcome::Cancelled,
+                NmapCommandOutcome::TimedOut | NmapCommandOutcome::Failed => {
+                    return NmapProbeOutcome::Fallback;
+                }
             }
-            _ => run("-sT").map_err(|e| AppError::io(format!("nmap: {e}"))),
         }
-    })
-    .await
-    .map_err(|e| AppError::task_failed(format!("nmap join: {e}")))?;
-
-    let cancelled = super::session::is_cancelled(&session_for_block);
-    super::session::clear_session(&session_for_block);
-
-    let out = match output {
-        Ok(o) => o,
-        Err(_) => return Ok(None),
+        NmapCommandOutcome::Completed(out) => out,
+        NmapCommandOutcome::Cancelled => return NmapProbeOutcome::Cancelled,
+        NmapCommandOutcome::TimedOut | NmapCommandOutcome::Failed => {
+            return NmapProbeOutcome::Fallback;
+        }
     };
-    let text = String::from_utf8_lossy(&out.stdout);
+
+    let text = String::from_utf8_lossy(&output.stdout);
     if text.to_ascii_lowercase().contains("requires root")
         || text.to_ascii_lowercase().contains("not permitted")
         || text.is_empty()
     {
-        return Ok(None);
+        return NmapProbeOutcome::Fallback;
     }
 
     let mut samples = Vec::new();
@@ -291,16 +275,16 @@ async fn try_nmap_syn<R: Runtime>(
         }
     }
     if samples.is_empty() {
-        return Ok(None);
+        return NmapProbeOutcome::Completed(None);
     }
     open_ports.sort_unstable();
-    Ok(Some(PortScanResult {
+    NmapProbeOutcome::Completed(Some(PortScanResult {
         target: target.into(),
         mode: "nmap-syn-or-connect".into(),
         open_ports,
         samples,
-        cancelled,
-        session_id,
+        cancelled: false,
+        session_id: session_id.into(),
         message: Some(
             "nmap present: used -sS when permitted, otherwise -sT. No exploit scripts (-sC/-sV off)."
                 .into(),
@@ -310,6 +294,117 @@ async fn try_nmap_syn<R: Runtime>(
             ports.len()
         ),
     }))
+}
+
+fn nmap_command(scan: &str, port_arg: &str, target: &str) -> Command {
+    let mut command = Command::new("nmap");
+    command.args([
+        "-Pn",
+        scan,
+        "--max-retries",
+        "1",
+        "--host-timeout",
+        "30s",
+        "-p",
+        port_arg,
+        target,
+    ]);
+    command
+}
+
+fn nmap_requires_connect_scan(output: &Output) -> bool {
+    let stdout = String::from_utf8_lossy(&output.stdout).to_ascii_lowercase();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_ascii_lowercase();
+    [stdout.as_str(), stderr.as_str()].iter().any(|text| {
+        text.contains("requires root")
+            || text.contains("not permitted")
+            || text.contains("operation not permitted")
+    })
+}
+
+enum NmapCommandOutcome {
+    Completed(Output),
+    Cancelled,
+    TimedOut,
+    Failed,
+}
+
+struct CancelOnDrop(Arc<AtomicBool>);
+
+impl Drop for CancelOnDrop {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::SeqCst);
+    }
+}
+
+async fn run_cancellable_command(
+    mut command: Command,
+    session_id: &str,
+    deadline: TokioInstant,
+) -> NmapCommandOutcome {
+    if super::session::is_cancelled(session_id) {
+        return NmapCommandOutcome::Cancelled;
+    }
+
+    let cancel_flag = Arc::new(AtomicBool::new(false));
+    let _cancel_on_drop = CancelOnDrop(cancel_flag.clone());
+    let worker_cancel_flag = cancel_flag.clone();
+    let remaining = deadline.saturating_duration_since(TokioInstant::now());
+    let mut worker = tokio::task::spawn_blocking(move || {
+        if worker_cancel_flag.load(Ordering::SeqCst) {
+            return Err(crate::subprocess::SubprocessError {
+                kind: crate::subprocess::SubprocessErrorKind::Aborted,
+                exit_code: None,
+            });
+        }
+        crate::subprocess::run_output_with_timeout(
+            &mut command,
+            remaining,
+            Some(worker_cancel_flag),
+        )
+    });
+    let mut cancel_poll = interval(NMAP_CANCEL_POLL);
+    cancel_poll.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    loop {
+        tokio::select! {
+            result = &mut worker => {
+                if super::session::is_cancelled(session_id) {
+                    return NmapCommandOutcome::Cancelled;
+                }
+                return match result {
+                    Ok(Ok(output)) => NmapCommandOutcome::Completed(output),
+                    Ok(Err(error)) if error.kind == crate::subprocess::SubprocessErrorKind::Timeout => {
+                        NmapCommandOutcome::TimedOut
+                    }
+                    Ok(Err(error)) if error.kind == crate::subprocess::SubprocessErrorKind::Aborted => {
+                        NmapCommandOutcome::Cancelled
+                    }
+                    Ok(Err(_)) | Err(_) => NmapCommandOutcome::Failed,
+                };
+            }
+            _ = cancel_poll.tick() => {
+                if super::session::is_cancelled(session_id) {
+                    cancel_flag.store(true, Ordering::SeqCst);
+                    let _ = worker.await;
+                    return NmapCommandOutcome::Cancelled;
+                }
+            }
+        }
+    }
+}
+
+fn cancelled_port_scan(target: String, session_id: String, port_count: usize) -> PortScanResult {
+    let command_hint = format!("scanPorts(local, '{target}', {port_count} ports) // cancelled");
+    PortScanResult {
+        target,
+        mode: "cancelled".into(),
+        open_ports: Vec::new(),
+        samples: Vec::new(),
+        cancelled: true,
+        session_id,
+        message: Some("Port scan cancelled.".into()),
+        command_hint,
+    }
 }
 
 fn validate_scan_target(target: &str) -> AppResult<()> {
@@ -337,6 +432,54 @@ fn validate_scan_target(target: &str) -> AppResult<()> {
     }
     // Hostname: ok if validate_host passed.
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn nmap_child_is_killed_when_its_scan_session_is_cancelled() {
+        let session = super::super::session::new_session();
+        let session_id = session.id().to_owned();
+        let executable = std::env::current_exe().expect("test executable is available");
+        let mut command = Command::new(executable);
+        command
+            .args([
+                "--exact",
+                "net_probe::ports::tests::nmap_child_fixture",
+                "--nocapture",
+            ])
+            .env("BENCH_TEST_NMAP_CHILD_SLEEP", "1");
+
+        let started = Instant::now();
+        let cancel_id = session_id.clone();
+        let cancel = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(150)).await;
+            super::super::session::cancel_scan(&cancel_id);
+        });
+        let result = timeout(
+            Duration::from_secs(3),
+            run_cancellable_command(
+                command,
+                &session_id,
+                TokioInstant::now() + Duration::from_secs(10),
+            ),
+        )
+        .await
+        .expect("cancelling nmap must not wait for its natural exit");
+        cancel.await.expect("cancellation task completes");
+
+        assert!(matches!(result, NmapCommandOutcome::Cancelled));
+        assert!(started.elapsed() < Duration::from_secs(3));
+    }
+
+    #[test]
+    fn nmap_child_fixture() {
+        if std::env::var_os("BENCH_TEST_NMAP_CHILD_SLEEP").is_some() {
+            std::thread::sleep(Duration::from_secs(60));
+        }
+    }
 }
 
 /// Parse "80,443,8000-8010" into port list.

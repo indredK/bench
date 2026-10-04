@@ -5,6 +5,9 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeOpenSettingsButton } from "@/features/network-probe/components/ProbeOpenSettingsButton"
+import { ProbeCancelButton } from "@/features/network-probe/components/ProbeCancelButton"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
 
 interface ArpPanelProps {
@@ -13,6 +16,8 @@ interface ArpPanelProps {
   toolEnabled: boolean
   toolStatus?: string
   canCancel?: boolean
+  cancelling?: boolean
+  openingSettings?: boolean
   onRun: () => void
   onCancel?: () => void
   onOpenSettings?: () => void
@@ -24,6 +29,8 @@ export function ArpPanel({
   toolEnabled,
   toolStatus,
   canCancel,
+  cancelling = false,
+  openingSettings = false,
   onRun,
   onCancel,
   onOpenSettings,
@@ -62,16 +69,19 @@ export function ArpPanel({
               </Button>
             </CommandHint>
             {canCancel && onCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("common.cancel")}
-                </Button>
-              </CommandHint>
+              <ProbeCancelButton
+                canCancel={canCancel}
+                cancelling={cancelling}
+                cancelLabel={t("common.cancel")}
+                onCancel={onCancel}
+              />
             ) : null}
             {onOpenSettings ? (
-              <Button type="button" variant="outline" onClick={onOpenSettings}>
-                {t("networkProbe.arp.openSettings")}
-              </Button>
+              <ProbeOpenSettingsButton
+                label={t("networkProbe.arp.openSettings")}
+                opening={openingSettings}
+                onOpen={onOpenSettings}
+              />
             ) : null}
           </div>
         </>
@@ -109,16 +119,20 @@ export function ArpPanel({
               ) : null}
             </div>
           ) : (
-            <ul className="space-y-1 font-mono text-xs">
-              {result.neighbors.map((n) => (
-                <li key={n.ip}>
-                  {n.ip}
-                  {n.mac ? ` · ${n.mac}` : " · (incomplete)"}
-                  {n.iface ? ` · ${n.iface}` : ""}
-                  {n.source ? ` · ${n.source}` : ""}
-                </li>
-              ))}
-            </ul>
+            <VirtualizedResultList
+              items={result.neighbors}
+              ariaLabel={t("networkProbe.arp.results")}
+              getItemKey={(neighbor) => neighbor.ip}
+              className="font-mono text-xs"
+              renderItem={(neighbor) => (
+                <span className="break-words">
+                  {neighbor.ip}
+                  {neighbor.mac ? ` · ${neighbor.mac}` : " · (incomplete)"}
+                  {neighbor.iface ? ` · ${neighbor.iface}` : ""}
+                  {neighbor.source ? ` · ${neighbor.source}` : ""}
+                </span>
+              )}
+            />
           )}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>

@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeCancelButton } from "@/features/network-probe/components/ProbeCancelButton"
 import type {
   SpeedSampleEvent,
   SpeedSource,
@@ -22,6 +23,7 @@ import type {
 interface SpeedPanelProps {
   loading: boolean
   canCancel: boolean
+  cancelling?: boolean
   sources: SpeedSource[]
   result: SpeedTestResult | null
   sample: SpeedSampleEvent | null
@@ -36,6 +38,7 @@ interface SpeedPanelProps {
 export function SpeedPanel({
   loading,
   canCancel,
+  cancelling = false,
   sources,
   result,
   sample,
@@ -71,14 +74,31 @@ export function SpeedPanel({
   const coolingDown = cooldownSec > 0
 
   const phaseLabel =
-    sample?.phase != null
-      ? t(`networkProbe.speed.phase.${sample.phase}`, {
-          defaultValue: sample.phase,
-        })
+    sample?.phase === "ping" || sample?.phase === "download" || sample?.phase === "upload"
+      ? t(`networkProbe.speed.phase.${sample.phase}`)
       : null
+  const phaseDetail = (() => {
+    const detail = sample?.detail
+    if (!detail || detail === "running" || detail === "sample" || detail === "done") return null
+    if (detail === "cancelled") return t("networkProbe.speed.cancelled")
+    if (detail === "empty-body") return t("networkProbe.speed.emptyResponse")
+    if (detail.startsWith("http:")) {
+      return t("networkProbe.speed.httpError", { status: detail.slice("http:".length) })
+    }
+    if (detail.startsWith("error:")) return t("networkProbe.speed.requestFailed")
+    return null
+  })()
 
   const unavailable =
-    result != null && !result.ok && !result.cancelled && result.downloadMbps == null
+    result != null && !result.cancelled && result.downloadMbps == null && result.uploadMbps == null
+  const partial =
+    result != null &&
+    result.ok &&
+    !result.cancelled &&
+    (result.pingMs == null ||
+      result.jitterMs == null ||
+      result.downloadMbps == null ||
+      result.uploadMbps == null)
 
   return (
     <ProbePanelShell
@@ -133,11 +153,12 @@ export function SpeedPanel({
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("networkProbe.speed.cancel")}
-                </Button>
-              </CommandHint>
+              <ProbeCancelButton
+                canCancel={canCancel}
+                cancelling={cancelling}
+                cancelLabel={t("networkProbe.speed.cancel")}
+                onCancel={onCancel}
+              />
             ) : null}
           </div>
         </>
@@ -147,9 +168,9 @@ export function SpeedPanel({
         <p className="text-muted-foreground font-mono text-xs">
           {phaseLabel}
           {sample.detail === "sample" || sample.detail === "done"
-            ? ` · ${sample.value.toFixed(1)}`
-            : sample.detail
-              ? ` · ${sample.detail}`
+            ? ` · ${sample.value.toFixed(1)} ${sample.phase === "ping" ? "ms" : "Mbps"}`
+            : phaseDetail
+              ? ` · ${phaseDetail}`
               : null}
         </p>
       ) : null}
@@ -168,8 +189,10 @@ export function SpeedPanel({
               {t("networkProbe.speed.sourceUnavailable")}
             </p>
           ) : null}
-          {result.message ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
+          {partial ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.speed.partial")}
+            </p>
           ) : null}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Metric

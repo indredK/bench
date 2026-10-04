@@ -670,15 +670,16 @@ mod tests {
 
     /// env 重定向是进程级全局状态，测试并行时互相覆盖会串用例 → 用互斥锁串行化。
     static TRASH_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    static TEMP_DIR_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
     fn temp_dir() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "pt-test-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let sequence = TEMP_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir =
+            std::env::temp_dir().join(format!("pt-test-{}-{now}-{sequence}", std::process::id(),));
         fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -822,7 +823,6 @@ mod tests {
         assert!(result.errors.is_empty());
         assert!(target.join("IMG_0002.JPG").exists());
         assert!(!src.join("sub/IMG_0002.JPG").exists());
-        std::env::remove_var("PHOTO_TRIAGE_TEST_TRASH_ROOT");
         let _ = fs::remove_dir_all(&src);
         let _ = fs::remove_dir_all(&target);
     }

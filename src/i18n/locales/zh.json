@@ -1573,6 +1573,10 @@
   "networkProbe": {
     "title": "网络探测",
     "subtitle": "急救诊断与主动探测（模块 1.0 / MVP A+B）。",
+    "common": {
+      "cancelling": "正在取消…",
+      "openingSettings": "正在打开网络设置…"
+    },
     "nav": {
       "l1": "一级分区",
       "l2": "工具",
@@ -1862,6 +1866,9 @@
     "fix": {
       "hint": "免特权自愈操作。后端会复核网络服务与 DNS 白名单。",
       "service": "网络服务",
+      "servicesLoading": "正在加载网络服务…",
+      "servicesEmpty": "没有可用的网络服务",
+      "refreshServices": "刷新服务",
       "dnsPreset": "DNS 预设",
       "flush": "刷新 DNS",
       "switchDns": "切换 DNS",
@@ -2012,8 +2019,12 @@
       "running": "测速中…",
       "cancel": "取消",
       "cancelled": "已取消",
+      "emptyResponse": "测速源返回了空响应。",
+      "requestFailed": "测速请求失败。",
+      "httpError": "HTTP {{status}}",
       "cooldown": "测速源失败 — {{seconds}} 秒后可重试",
-      "sourceUnavailable": "该测速源似乎不可达。冷却结束后可换源再试。",
+      "sourceUnavailable": "该测速源没有返回有效的带宽数据。冷却结束后可换源再试。",
+      "partial": "测速部分完成，部分指标无结果。",
       "ping": "延迟",
       "jitter": "抖动",
       "download": "下载",
@@ -2068,6 +2079,10 @@
       "running": "扫描中…",
       "cancel": "取消",
       "openList": "开放：{{ports}}",
+      "results": "端口扫描结果",
+      "resultCancelled": "端口扫描已取消。",
+      "resultTcpConnect": "本次使用 TCP connect 扫描。",
+      "resultNmap": "本次使用 nmap 进行 SYN 或 TCP connect 探测；未启用 NSE 脚本。",
       "confirmTitle": "确认端口扫描范围",
       "confirmDesc": "目标 {{target}} · 约 {{count}} 个端口。公网主机或较大范围需二次确认。",
       "confirmConsequence": "仅扫描自有或已授权资产。当前为 TCP connect（无 SYN）。",
@@ -2085,6 +2100,7 @@
       "openSettings": "打开系统网络设置",
       "cidr": "扫描网段：{{cidr}}",
       "meta": "{{count}} 个邻居 · mode={{mode}} · {{ms}} ms",
+      "results": "局域网邻居列表",
       "cancelled": "局域网发现已在扫描中取消。"
     },
     "lanSvc": {
@@ -2092,8 +2108,21 @@
       "readOnlyHint": "只读发现。不暴露 UPnP Write / AddPortMapping。",
       "run": "浏览局域网服务",
       "running": "浏览中…",
+      "partialFailure": "部分发现协议失败，结果可能不完整。",
+      "allFailed": "所有发现协议均失败，无法判断局域网内是否存在服务。",
+      "protocolFailure": "{{protocol}} 浏览失败。",
+      "technicalDetails": "查看技术详情",
+      "txt": "TXT：{{value}}",
+      "addresses": "地址：{{value}}",
+      "usn": "USN：{{value}}",
+      "location": "LOCATION（仅展示，不会访问）：{{value}}",
+      "mdns": "mDNS",
+      "ssdp": "SSDP",
+      "otherProtocol": "其他协议",
+      "truncated": "发现列表或服务详情受到限制，结果可能不完整。",
       "empty": "监听窗口内无 mDNS/SSDP 响应。",
-      "meta": "{{count}} 个服务 · {{ms}} ms"
+      "meta": "{{count}} 个服务 · {{ms}} ms",
+      "results": "局域网服务列表"
     },
     "pcap": {
       "hint": "短时只计计数器的抓包采样（RST / 重传提示）。完整 pcap 落盘保持可选。",
@@ -2104,19 +2133,64 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "对比本机与 Globalping 多地的 DNS 答案。可注册 HTTPS agent 作为自有探测节点。",
-      "run": "多节点对比 DNS",
-      "running": "对比中…",
+      "hint": "从本机和 Globalping 多地并行对比 DNS、Ping 或 HTTP HEAD。",
+      "remotePrivacy": "远端探点会收到目标和探测类型；HTTP 使用 HEAD，不下载页面内容。",
+      "measurementLabel": "探测类型",
+      "targetLabel": "探测目标",
+      "types": {
+        "dns": "DNS（A 记录）",
+        "ping": "Ping（3 个包）",
+        "http": "HTTP HEAD"
+      },
+      "locationsLabel": "Globalping 区域（最多 3 个）",
+      "locationsHint": "每个区域选 1 个在线探点；取消一个后可选择其他区域。",
+      "locations": {
+        "world": "全球",
+        "us": "美国",
+        "europe": "欧洲",
+        "asia": "亚洲"
+      },
+      "run": "运行多节点对比",
+      "running": "探测中…",
+      "statusOk": "正常",
+      "statusFail": "失败",
+      "failedHint": "此节点未返回有效的探测数据。",
+      "technicalDetails": "技术详情",
       "refresh": "刷新节点",
+      "refreshing": "正在刷新节点…",
+      "addingAgent": "正在添加…",
+      "removingAgent": "正在移除…",
       "listTitle": "探测节点",
+      "agentExecutionPending": "已登记的自有 agent 暂未接入远程测量。",
       "addTitle": "添加 agent",
       "addHint": "端点必须为 https:// 或 wss://。任意 shell 动作会被拒绝。",
       "labelPlaceholder": "名称",
       "domainPlaceholder": "example.com",
+      "httpPlaceholder": "https://example.com",
       "endpointPlaceholder": "https://agent.example:8443",
       "addAgent": "添加 agent",
       "removeAgent": "移除",
-      "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
+      "meta": "{{type}} · {{target}} · {{count}} 个节点 · {{ms}} ms",
+      "tokenTitle": "Globalping API token",
+      "tokenHint": "可选。保存到 macOS 钥匙串以提高额度；测量时由后端使用。",
+      "tokenConfigured": "已保存到系统钥匙串；表单和命令日志不会显示 token。",
+      "tokenUnavailable": "系统钥匙串不可用，无法安全保存 token。",
+      "tokenPlaceholder": "粘贴 Globalping token",
+      "tokenSave": "安全保存",
+      "tokenSaving": "保存中…",
+      "tokenClear": "移除 token",
+      "metrics": {
+        "dnsAnswer": "{{value}}",
+        "resolvedAddress": "解析地址：{{value}}",
+        "rttAvg": "平均 RTT：{{value}}",
+        "rttMin": "最小 RTT：{{value}}",
+        "rttMax": "最大 RTT：{{value}}",
+        "packetCount": "数据包：{{value}}",
+        "packetLoss": "丢包率：{{value}}",
+        "httpStatus": "HTTP 状态码：{{value}}",
+        "ttfb": "首字节时间：{{value}}",
+        "timing": "耗时：{{value}}"
+      }
     },
     "nat": {
       "hint": "先查询常见 STUN 映射地址。填写支持 RFC 5780 的服务器后，还会报告该服务器上的映射与过滤行为。",
@@ -2190,11 +2264,28 @@
       }
     },
     "ntp": {
-      "hint": "查询 pool.ntp.org 时钟偏移。过大偏差可能影响 TLS 与鉴权。",
+      "hint": "通过 Apple、Cloudflare、Google 和阿里云 NTP 多源估算本机时钟偏差；只读取，不修改系统时间。",
       "run": "探测 NTP",
       "running": "探测中…",
-      "offset": "偏移 {{seconds}} 秒（{{severity}}）",
-      "fail": "NTP 探测失败"
+      "offset": "多源中位偏移 {{milliseconds}} ms",
+      "rtt": "多源 RTT 中位数 {{milliseconds}} ms",
+      "sources": "NTP 服务器结果",
+      "sourceMetrics": "偏移 {{offset}} ms · RTT {{rtt}} ms · 层级 {{stratum}}",
+      "sourceErrors": {
+        "dns": "域名解析失败",
+        "bind": "无法打开 UDP 套接字",
+        "timeout": "请求超时",
+        "clock": "本机时钟早于 Unix 纪元，无法计算",
+        "response": "服务器响应无效或不可达",
+        "unknown": "探测失败"
+      },
+      "severity": {
+        "ok": "正常",
+        "warn": "警告",
+        "high": "严重"
+      },
+      "technicalDetails": "技术详情",
+      "fail": "没有收到有效的 NTP 响应"
     },
     "report": {
       "hint": "导出最近一次体检，并浏览本会话命令日志。",
@@ -2213,7 +2304,34 @@
       "historyTitle": "近期体检快照",
       "historyEmpty": "尚无保存的体检。运行一次一键体检后会保留历史。",
       "clearHistory": "清空历史",
+      "clearHistoryConfirmTitle": "清空体检历史？",
+      "clearHistoryConfirmDescription": "这会从本机删除最近保存的体检快照，无法在 Bench 中恢复。",
+      "clearHistoryConfirmAction": "清空历史",
+      "clearHistoryConfirmCancel": "保留历史",
       "historyItem": "{{session}}… · {{count}} 项检查 · {{ms}} ms · {{opinions}} 条建议",
+      "historyRank": "最近第 {{rank}} 次",
+      "legacySnapshotDate": "旧快照（未记录时间）",
+      "historyOption": "{{date}} · 最近第 {{rank}} 次 · {{session}}… · {{count}} 项",
+      "comparisonTitle": "体检快照对比",
+      "comparisonHint": "可选择最近 10 次已完成体检中的任意两次。新快照记录本机保存时间。",
+      "comparisonNeedTwo": "至少完成两次体检后即可对比。",
+      "snapshotA": "快照 A",
+      "snapshotB": "快照 B",
+      "comparisonSummary": "检查：新增 {{added}} · 移除 {{removed}} · 内容变化 {{changed}} · 未变化 {{unchanged}}。建议数：{{opinionsA}} → {{opinionsB}}；耗时：{{elapsedA}} → {{elapsedB}} ms。",
+      "showUnchanged": "同时显示未变化的检查项",
+      "checkComparisonTable": "两次体检的检查项对比",
+      "checkColumn": "检查项",
+      "notInSnapshot": "此快照没有该项",
+      "change": {
+        "added": "新增",
+        "removed": "已移除",
+        "changed": "内容变化",
+        "unchanged": "未变化"
+      },
+      "noCheckChanges": "两次体检的检查项没有差异。",
+      "opinionChanges": "建议变化",
+      "noOpinionChanges": "建议没有变化。",
+      "relatedChecks": "关联检查",
       "privacyHint": "导出内容可能含公网 IP、Wi‑Fi SSID、hosts 异常与本机地址。请仅分享给可信对象。"
     },
     "traceroute": {
@@ -2227,6 +2345,7 @@
       "cancelled": "已取消",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "尚无跳点。运行追踪以填充表格。",
+      "results": "Traceroute 跳点结果表",
       "mode": {
         "privileged": "特权 ICMP",
         "unprivileged": "无特权 UDP",
@@ -2268,7 +2387,7 @@
       "dnssec": "checkDnsSec('{{domain}}')",
       "scanPorts": "scanPorts(local, '{{target}}', '{{ports}}') // tcp-connect",
       "arp": "scanLan(local) // arp-cache",
-      "lanSvc": "browseLanServices(local) // mDNS+SSDP",
+      "lanSvc": "browseLanServices(local) // DNS-SD+SSDP",
       "pcap": "startPacketCapture(local) // tcpdump counters",
       "compareDns": "dnsLookup(multi, domain)",
       "addAgent": "addAgent(label, https://…)",
@@ -2285,6 +2404,7 @@
       "gatekeeperNote": "ad-hoc / 未签名构建不得宣称 sidecar 已获 Gatekeeper 信任（D-010）。",
       "empty": "当前平台无可用能力包。",
       "refresh": "刷新",
+      "refreshing": "正在刷新…",
       "install": "安装",
       "installing": "安装中…",
       "uninstall": "卸载",
@@ -2342,7 +2462,8 @@
       "lanSvcFailed": "局域网服务浏览失败。",
       "pcapFailed": "包级诊断失败。",
       "nodesFailed": "列举探测节点失败。",
-      "multiNodeFailed": "多节点 DNS 对比失败。",
+      "multiNodeFailed": "多节点探测失败。",
+      "globalpingTokenFailed": "Globalping token 保存或移除失败。",
       "agentFailed": "Agent 注册操作失败。"
     }
   },

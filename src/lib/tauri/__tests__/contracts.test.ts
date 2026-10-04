@@ -58,6 +58,7 @@ import type {
   McpTargetStatus,
   NmRegistration,
 } from "@/lib/tauri/types/browser-ext"
+import type { NtpProbeResult, NtpProbeSourceResult } from "@/lib/tauri/types/network-probe"
 
 describe("Tauri contracts", () => {
   it("keeps grouped command constants derived from the canonical command contracts", () => {
@@ -112,6 +113,34 @@ describe("Tauri contracts", () => {
     const rustStructFields = parseRustStructFields(rustSource)
 
     const checks: Array<[string, string, string[]]> = [
+      [
+        "NtpProbeResult",
+        "camel",
+        dtoKeys<NtpProbeResult>([
+          "server",
+          "ok",
+          "offsetSeconds",
+          "rttSeconds",
+          "sources",
+          "severity",
+          "detail",
+          "elapsedMs",
+          "commandHint",
+        ]),
+      ],
+      [
+        "NtpProbeSourceResult",
+        "camel",
+        dtoKeys<NtpProbeSourceResult>([
+          "server",
+          "ok",
+          "offsetSeconds",
+          "rttSeconds",
+          "stratum",
+          "errorCode",
+          "detail",
+        ]),
+      ],
       [
         "AccountManagerCapability",
         "camel",
@@ -531,6 +560,36 @@ describe("Tauri contracts", () => {
       }
     }
   })
+
+  it("keeps every network probe IPC interface aligned with its Rust DTO", () => {
+    const tsSource = readFileSync(
+      resolve(process.cwd(), "src/lib/tauri/types/network-probe.ts"),
+      "utf8",
+    )
+    const rustSource = readFileSync(
+      resolve(process.cwd(), "src-tauri/src/net_probe/types.rs"),
+      "utf8",
+    )
+    const tsFields = parseTypeScriptInterfaceFields(tsSource)
+    const rustFields = parseRustStructFields(rustSource)
+
+    expect(Object.keys(tsFields).sort()).toEqual(Object.keys(rustFields).sort())
+
+    for (const [name, frontendKeys] of Object.entries(tsFields)) {
+      const declaration = rustSource.match(
+        new RegExp(`((?:\\s*#\\[[^\\]]+\\]\\s*)+)pub struct ${name}\\b`),
+      )?.[1]
+      expect(declaration, `${name} must have a serde declaration`).toBeDefined()
+      expect(declaration, `${name} must serialize field names as camelCase`).toContain(
+        'rename_all = "camelCase"',
+      )
+
+      expect(
+        rustFields[name]?.map(snakeToCamelCase),
+        `${name} Rust fields should exactly match the TypeScript interface`,
+      ).toEqual(frontendKeys)
+    }
+  })
 })
 
 // Commands whose frontend contract passes the struct fields directly as
@@ -671,6 +730,20 @@ function parseRustStructFields(rustSource: string): Record<string, string[]> {
   }
 
   return fieldsByStruct
+}
+
+function parseTypeScriptInterfaceFields(tsSource: string): Record<string, string[]> {
+  const fieldsByInterface: Record<string, string[]> = {}
+  const interfaceRegex = /^export interface ([A-Za-z0-9_]+)\s*\{([\s\S]*?)^\}/gm
+
+  for (const match of tsSource.matchAll(interfaceRegex)) {
+    const [, interfaceName, body] = match
+    fieldsByInterface[interfaceName] = Array.from(body.matchAll(/^  ([A-Za-z0-9_]+)\??\s*:/gm)).map(
+      (fieldMatch) => fieldMatch[1],
+    )
+  }
+
+  return fieldsByInterface
 }
 
 function dtoKeys<T extends object>(keys: Array<Extract<keyof T, string>>): string[] {

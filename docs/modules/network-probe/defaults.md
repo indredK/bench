@@ -220,6 +220,8 @@ ASN（可选第二跳）：
 | `google`     | `time.google.com`               |
 | `cn-ali`     | `ntp.aliyun.com`（cn 区域优先） |
 
+当前面板并发查询这四个内置来源，逐源展示 offset、RTT、stratum 和本地化错误；汇总 offset 与 RTT 均取有效样本的中位数。`warn` 使用偏差绝对值 `>500ms`，`high` 使用 `>2000ms`。
+
 阈值建议：`warn > 500ms`，`high > 2000ms`（相对中位源）。
 
 ### 8.3 测速源（`speed_sources`）· S-TT-04

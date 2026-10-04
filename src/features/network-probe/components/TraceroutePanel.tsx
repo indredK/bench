@@ -7,12 +7,15 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeCancelButton } from "@/features/network-probe/components/ProbeCancelButton"
+import { VirtualizedTracerouteTable } from "@/features/network-probe/components/VirtualizedTracerouteTable"
 import type { TracerouteHop, TracerouteResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
 interface TraceroutePanelProps {
   loading: boolean
   canCancel: boolean
+  cancelling?: boolean
   result: TracerouteResult | null
   streamingHops: TracerouteHop[]
   toolEnabled: boolean
@@ -24,6 +27,7 @@ interface TraceroutePanelProps {
 export function TraceroutePanel({
   loading,
   canCancel,
+  cancelling = false,
   result,
   streamingHops,
   toolEnabled,
@@ -112,11 +116,12 @@ export function TraceroutePanel({
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("networkProbe.traceroute.cancel")}
-                </Button>
-              </CommandHint>
+              <ProbeCancelButton
+                canCancel={canCancel}
+                cancelling={cancelling}
+                cancelLabel={t("networkProbe.traceroute.cancel")}
+                onCancel={onCancel}
+              />
             ) : null}
           </div>
         </>
@@ -143,68 +148,57 @@ export function TraceroutePanel({
       ) : null}
 
       {hops.length > 0 ? (
-        <div className="overflow-auto rounded-lg border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted/50 text-muted-foreground text-xs">
-              <tr>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.ttl")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.addr")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.asn")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.loss")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.avg")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.best")}</th>
-                <th className="px-2 py-1.5 font-medium">
-                  {t("networkProbe.traceroute.col.worst")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {hops.map((hop) => (
-                <tr key={hop.ttl} className="border-t">
-                  <td className="px-2 py-1.5 font-mono text-xs">{hop.ttl}</td>
-                  <td className="max-w-[12rem] truncate px-2 py-1.5 font-mono text-xs">
-                    {hop.addrs.length > 0 ? hop.addrs.join(", ") : "*"}
-                  </td>
-                  <td
-                    className="max-w-[10rem] truncate px-2 py-1.5 text-xs"
-                    title={hop.asName ?? hop.asn}
-                  >
-                    {hop.asn ? (
-                      <span>
-                        <span className="font-mono">{hop.asn}</span>
-                        {hop.asName ? (
-                          <span className="text-muted-foreground"> {hop.asName}</span>
-                        ) : null}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td
-                    className={cn(
-                      "px-2 py-1.5 font-mono text-xs",
-                      hop.lossPercent >= 50 && "text-destructive",
-                      hop.lossPercent > 0 &&
-                        hop.lossPercent < 50 &&
-                        "text-amber-700 dark:text-amber-400",
-                    )}
-                  >
-                    {hop.lossPercent.toFixed(0)}%
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs">
-                    {hop.avgRttMs != null ? hop.avgRttMs.toFixed(1) : "—"}
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs">
-                    {hop.bestRttMs != null ? hop.bestRttMs.toFixed(1) : "—"}
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs">
-                    {hop.worstRttMs != null ? hop.worstRttMs.toFixed(1) : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <VirtualizedTracerouteTable
+          hops={hops}
+          ariaLabel={t("networkProbe.traceroute.results")}
+          followTail={loading}
+          columnLabels={[
+            t("networkProbe.traceroute.col.ttl"),
+            t("networkProbe.traceroute.col.addr"),
+            t("networkProbe.traceroute.col.asn"),
+            t("networkProbe.traceroute.col.loss"),
+            t("networkProbe.traceroute.col.avg"),
+            t("networkProbe.traceroute.col.best"),
+            t("networkProbe.traceroute.col.worst"),
+          ]}
+          renderCells={(hop) => [
+            <span className="font-mono text-xs">{hop.ttl}</span>,
+            <span
+              className="block max-w-[12rem] truncate font-mono text-xs"
+              title={hop.addrs.join(", ")}
+            >
+              {hop.addrs.length > 0 ? hop.addrs.join(", ") : "*"}
+            </span>,
+            <span className="block max-w-[10rem] truncate text-xs" title={hop.asName ?? hop.asn}>
+              {hop.asn ? (
+                <>
+                  <span className="font-mono">{hop.asn}</span>
+                  {hop.asName ? <span className="text-muted-foreground"> {hop.asName}</span> : null}
+                </>
+              ) : (
+                "—"
+              )}
+            </span>,
+            <span
+              className={cn(
+                "font-mono text-xs",
+                hop.lossPercent >= 50 && "text-destructive",
+                hop.lossPercent > 0 && hop.lossPercent < 50 && "text-amber-700 dark:text-amber-400",
+              )}
+            >
+              {hop.lossPercent.toFixed(0)}%
+            </span>,
+            <span className="font-mono text-xs">
+              {hop.avgRttMs != null ? hop.avgRttMs.toFixed(1) : "—"}
+            </span>,
+            <span className="font-mono text-xs">
+              {hop.bestRttMs != null ? hop.bestRttMs.toFixed(1) : "—"}
+            </span>,
+            <span className="font-mono text-xs">
+              {hop.worstRttMs != null ? hop.worstRttMs.toFixed(1) : "—"}
+            </span>,
+          ]}
+        />
       ) : null}
 
       {result?.commandHint ? (

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeCancelButton } from "@/features/network-probe/components/ProbeCancelButton"
 import type { PcapDiagResult } from "@/lib/tauri/types/network-probe"
 
 interface PcapDiagPanelProps {
@@ -13,6 +14,7 @@ interface PcapDiagPanelProps {
   toolEnabled: boolean
   toolStatus?: string
   canCancel: boolean
+  cancelling?: boolean
   onRun: () => void
   onCancel: () => void
   onManagePacks?: () => void
@@ -24,6 +26,7 @@ export function PcapDiagPanel({
   toolEnabled,
   toolStatus,
   canCancel,
+  cancelling = false,
   onRun,
   onCancel,
   onManagePacks,
@@ -53,11 +56,12 @@ export function PcapDiagPanel({
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("common.cancel")}
-                </Button>
-              </CommandHint>
+              <ProbeCancelButton
+                canCancel={canCancel}
+                cancelling={cancelling}
+                cancelLabel={t("common.cancel")}
+                onCancel={onCancel}
+              />
             ) : null}
             {onManagePacks ? (
               <Button type="button" variant="outline" onClick={onManagePacks}>

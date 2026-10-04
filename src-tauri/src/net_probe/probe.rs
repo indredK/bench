@@ -62,6 +62,33 @@ pub async fn probe_http_target(target: &str) -> (Option<HttpProbeDetail>, Option
     }
 }
 
+/// Perform the same lightweight HEAD check used by Globalping's HTTP measurement.
+pub async fn probe_http_target_head(target: &str) -> HttpProbeDetail {
+    match parse_http_url(target) {
+        Ok(url) => probe_http_with_method(url, false, reqwest::Method::HEAD)
+            .await
+            .0
+            .unwrap_or(HttpProbeDetail {
+                ok: false,
+                status: None,
+                ttfb_ms: None,
+                final_url: None,
+                download_mbps: None,
+                download_bytes: None,
+                error: Some("No HTTP result was returned.".into()),
+            }),
+        Err(error) => HttpProbeDetail {
+            ok: false,
+            status: None,
+            ttfb_ms: None,
+            final_url: None,
+            download_mbps: None,
+            download_bytes: None,
+            error: Some(error.to_string()),
+        },
+    }
+}
+
 /// HTTP probe that also samples bounded download throughput (sites / official cards).
 pub async fn probe_http_target_with_throughput(
     target: &str,
@@ -114,6 +141,14 @@ async fn probe_http(
     url: Url,
     measure_throughput: bool,
 ) -> (Option<HttpProbeDetail>, Option<TlsLightDetail>) {
+    probe_http_with_method(url, measure_throughput, reqwest::Method::GET).await
+}
+
+async fn probe_http_with_method(
+    url: Url,
+    measure_throughput: bool,
+    method: reqwest::Method,
+) -> (Option<HttpProbeDetail>, Option<TlsLightDetail>) {
     let is_https = url.scheme() == "https";
     let client = match reqwest::Client::builder()
         .timeout(HTTP_TIMEOUT)
@@ -148,7 +183,7 @@ async fn probe_http(
     };
 
     let started = Instant::now();
-    match client.get(url.clone()).send().await {
+    match client.request(method, url.clone()).send().await {
         Ok(resp) => {
             let status = resp.status().as_u16();
             let final_url = resp.url().to_string();
@@ -156,7 +191,10 @@ async fn probe_http(
             let (download_mbps, download_bytes) = if measure_throughput {
                 drain_body_with_throughput(resp).await
             } else {
-                let _ = resp.bytes().await;
+                // Status and TTFB are determined by the response headers. This client is
+                // scoped to one probe, so draining the body cannot enable connection reuse;
+                // dropping it avoids buffering arbitrary response bodies and waiting for
+                // streaming endpoints to finish.
                 (None, None)
             };
             (
@@ -239,6 +277,13 @@ async fn drain_body_with_throughput(resp: reqwest::Response) -> (Option<f64>, Op
 
 #[cfg(test)]
 mod tests {
+    use super::probe_http_target;
+    use std::time::{Duration, Instant};
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+
     #[test]
     fn mbps_math_example() {
         // 256 KiB in 0.2s → 10.48576 Mbps
@@ -246,5 +291,35 @@ mod tests {
         let elapsed = 0.2_f64;
         let mbps = (bytes as f64 * 8.0) / elapsed / 1_000_000.0;
         assert!((mbps - 10.485_76).abs() < 0.01);
+    }
+
+    #[tokio::test]
+    async fn http_probe_returns_after_headers_without_buffering_response_body() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 1024];
+            let _ = socket.read(&mut request).await;
+            socket
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 4096\r\nConnection: keep-alive\r\n\r\n",
+                )
+                .await
+                .unwrap();
+            tokio::time::sleep(Duration::from_millis(750)).await;
+        });
+
+        let started = Instant::now();
+        let (detail, _) = probe_http_target(&format!("http://{addr}/slow-body")).await;
+        let elapsed = started.elapsed();
+        server.abort();
+
+        let detail = detail.expect("HTTP response details should be returned");
+        assert_eq!(detail.status, Some(200));
+        assert!(
+            elapsed < Duration::from_millis(500),
+            "probe took {elapsed:?}"
+        );
     }
 }

@@ -263,7 +263,7 @@ MVP：`listProbeNodes` 至少返回 `local`；选中非 local 时 UI 提示「�
 
 ### 4.3 多节点对比（Post-MVP-C）
 
-同一 `(target, tool)` 结果入 `store.byNode`；并排展示（例：本机 DNS 正常、探点 A 污染）。
+同一 `(target, tool)` 本机与 Globalping 探测并行运行，结果按节点并排展示；当前接入 DNS A、Ping 3 包和 HTTP HEAD。部分节点失败保留失败行，不丢弃其余结果。Globalping token 使用系统钥匙串，renderer 只取得 configured / available 状态。
 
 ### 4.4 自有 agent 协议草图（Post-MVP-C）
 
@@ -604,7 +604,11 @@ src/features/network-probe/
 
 - 免费 REST；五种测量：ping / traceroute / dns / mtr / http。
 - **不含带宽测速** → 测速走 §11.3。
-- Rust 用 `reqwest` 轮询 status；遵守配额〔§9.4〕。
+- 本产品通过 Rust `reqwest` 接入 DNS A、Ping 和 HTTP HEAD；不宣称未接入的 traceroute / MTR 能力。
+- 轮询遵守每 measurement 至少 500ms、ETag 与限额规范；当前客户端间隔 700ms、单测量 35 秒总时限、20 秒探点超时，保留超时前已收到的结果。
+- 远端 HTTP 使用 HEAD，避免下载任意页面响应体；远端 JSON 读取上限 1 MiB。token 由后端 Keychain 保存，renderer 不持久化、不回显。
+- 用户可选择最多 3 个区域，每区最多 1 个探点；目标和测量类型会发送给 Globalping，界面在运行前明确提示。
+- Rust 客户端使用成熟 `reqwest` HTTP 栈和官方 REST API，启用 macOS / Windows 系统代理支持；没有引入单独运行时或非官方 Rust SDK。
 
 ### 11.2 remote 双路径
 

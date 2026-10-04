@@ -85,6 +85,41 @@ describe("network-probe cancel idempotency (A4-4)", () => {
     expect(useNetworkProbeStore.getState().error).toBeNull()
   })
 
+  it("clears cancellation state when its active session ends", () => {
+    const store = useNetworkProbeStore.getState()
+    store.setActiveSessionId("health", "session-cleanup")
+    store.setCancelRequestedSessionId("health", "session-cleanup")
+
+    store.clearActiveSessionId("health", "session-cleanup")
+
+    expect(useNetworkProbeStore.getState().activeSessionIdByKind.health).toBeNull()
+    expect(useNetworkProbeStore.getState().cancelRequestedSessionIdByKind.health).toBeNull()
+  })
+
+  it("allows retry after the cancel IPC request fails", async () => {
+    useNetworkProbeStore.getState().setActiveSessionId("health", "session-retry")
+    cancelScan.mockRejectedValueOnce(new Error("IPC disconnected")).mockResolvedValue(undefined)
+
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("health")
+    })
+
+    expect(useNetworkProbeStore.getState().cancelRequestedSessionIdByKind.health).toBeNull()
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.cancelFailed")
+
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("health")
+    })
+
+    expect(cancelScan).toHaveBeenCalledTimes(2)
+    expect(cancelScan).toHaveBeenNthCalledWith(1, "session-retry")
+    expect(cancelScan).toHaveBeenNthCalledWith(2, "session-retry")
+    expect(useNetworkProbeStore.getState().cancelRequestedSessionIdByKind.health).toBe(
+      "session-retry",
+    )
+    expect(useNetworkProbeStore.getState().error).toBeNull()
+  })
+
   it("cancels the active session exactly once and is idempotent afterwards", async () => {
     let resolveScan: (value: unknown) => void = () => {}
     runHealthScan.mockImplementation(

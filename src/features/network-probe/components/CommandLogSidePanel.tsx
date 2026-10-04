@@ -116,14 +116,27 @@ export function CommandLogSidePanel({ lines, onClear, onOpenChange }: CommandLog
             {lines
               .slice()
               .reverse()
-              .map((line, idx) => (
-                <li
-                  key={`${lines.length - idx}-${line.slice(0, 24)}`}
-                  className="bg-background rounded-md border px-2 py-1.5 font-mono text-[10px] leading-snug break-all"
-                >
-                  {line}
-                </li>
-              ))}
+              .map((line, idx) => {
+                const separatorIndex = line.indexOf(" ")
+                const timestamp = separatorIndex > 0 ? line.slice(0, separatorIndex) : null
+                const command = timestamp ? line.slice(separatorIndex + 1) : line
+
+                return (
+                  <li
+                    key={`${lines.length - idx}-${line.slice(0, 24)}`}
+                    className="bg-background min-w-0 rounded-md border px-2 py-1.5 font-mono"
+                  >
+                    {timestamp ? (
+                      <time dateTime={timestamp} className="text-muted-foreground block text-[9px]">
+                        {timestamp}
+                      </time>
+                    ) : null}
+                    <code className="block max-w-full overflow-x-auto text-[10px] leading-snug whitespace-nowrap">
+                      {command}
+                    </code>
+                  </li>
+                )
+              })}
           </ul>
         )}
       </ScrollableArea>
