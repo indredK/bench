@@ -28,7 +28,11 @@
 - [§7/§9] 持久化与 updater - 持久化 schema 清单已建立（[persistence-schema.md](../reference/persistence-schema.md)），1.23.0 脱敏 fixture 与迁移幂等测试已入 `cargo test`；真机升级/回滚演练未执行 - 执行 [R06](../roadmap/ROADMAP.md#r06-1230-升级迁移与回滚) - **强制** - 状态：代码已修复/待验收
 - [§7/§9] `src-tauri/tauri.conf.json` - `com.bench.app` 后缀警告已接受；D-011 要求 2.0 保留，不得直接改字符串 - **建议** - 状态：接受风险
 
-未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
+- [§5/§UX/§4] `src-tauri/src/net_probe/globalping.rs`、`src/features/network-probe/components/MultiNodePanel.tsx` - 将 Globalping 探测 `status=finished` 误当 DNS 查询成功，忽略 `statusCode`；真实查询保留域名在本机报错、远端无答案仍显示成功，且 `rawOutput` 反序列化字段名不匹配并默认展示英文机器详情 - 仅当探测 finished 且 DNS `statusCode=0` 才标成功；解析 `statusCodeName`/`rawOutput` camelCase，以「域名不存在 / 无记录 / 失败」双语显示响应，并折叠原始技术详情；增加 Rust 状态码/反序列化和前端状态回归 - **强制** - 状态：代码已修复；macOS 桌面 `example.com` 成功、保留 `.invalid` 显示本机失败/远端域名不存在，技术详情默认折叠；自动化检查通过
+- [§5/§7/§UX] `src-tauri/src/net_probe/globalping.rs`、`src/features/network-probe/components/MultiNodePanel.tsx` - 固定 20 次轮询可能在 Globalping 的 30 秒 probe 时限前误报失败；按当前已返回 probe 状态提前停止也可能丢掉仍在运行的测量 - 按官方顶层测量状态轮询，设置单请求/总截止时间，保留部分结果并以双语状态标记超时；覆盖混合完成状态、DTO 与结果 UI - **强制** - 状态：自动化门禁及 macOS 桌面模拟超时复验、正式 API 正常结果复验均通过；部分答案保留、未完成节点与汇总超时文案及折叠详情均实机确认
+- [§UX/隐私/a11y] `src/features/network-probe/components/MultiNodePanel.tsx` - 面板提到 Globalping 远端探测，但没有明确说输入域名会发送给第三方；异步结果摘要也没有 live region - 增加执行前双语接收方提示，并用 polite live region 报告完成摘要；组件断言与 macOS 桌面结果复验通过
+- [§UX/§4] `src/features/network-probe/components/MultiNodePanel.tsx` - 节点 DNS 结果状态直接写死 `OK`/`FAIL`，中文界面混用英文且失败状态不够明确 - 改为中英文状态文案，成功/失败再用颜色区分；增加结果状态回归测试 - **Medium** - 状态：代码已修复并通过 macOS 桌面真实成功/失败结果复验
+  未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
 
 ## 记录格式
 

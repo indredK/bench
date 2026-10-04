@@ -2104,9 +2104,11 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "Compare DNS answers from this Mac and Globalping locations. Register HTTPS agents for self-hosted probes.",
+      "hint": "Compare DNS answers from this Mac and Globalping locations. Remote checks send the domain to Globalping. Register HTTPS agents for self-hosted probes.",
       "run": "Compare DNS (multi-node)",
       "running": "Comparing…",
+      "resultsLoading": "Comparing DNS answers. Results will appear here when the probes finish.",
+      "resultsEmpty": "Run a DNS comparison to see answers from each node.",
       "refresh": "Refresh nodes",
       "listTitle": "Probe nodes",
       "addTitle": "Add agent",
@@ -2116,7 +2118,14 @@
       "endpointPlaceholder": "https://agent.example:8443",
       "addAgent": "Add agent",
       "removeAgent": "Remove",
-      "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} answers · {{ms}} ms",
+      "answersLabel": "DNS answers by probe node",
+      "answerOk": "OK",
+      "answerFailed": "Failed",
+      "answerNotFound": "Domain not found",
+      "answerNoRecords": "No records",
+      "answerTimedOut": "Timed out",
+      "technicalDetails": "Technical details"
     },
     "nat": {
       "hint": "STUN Binding against a public server to learn your mapped address / NAT exposure.",
