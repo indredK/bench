@@ -170,7 +170,8 @@ src-tauri/src/net_probe/
 ### 5.5 WHOIS
 
 - 优先 RDAP（HTTPS JSON），WHOIS 文本协议作 fallback。
-- 超时与输出截断；解析失败返回原始截断文本 + `partial`。
+- RDAP 请求失败时查询 IANA WHOIS 引用，再向注册局 WHOIS 服务器回退一次；不继续追踪注册商给出的任意引用。
+- TCP/43 连接与读取有超时、响应上限；只连接解析到的公网地址，输出保留原始文本并在截断时标记 `partial`。
 - 不缓存无限；遵守源站 ToS / 速率。
 
 ---

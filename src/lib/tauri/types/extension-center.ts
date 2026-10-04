@@ -17,6 +17,13 @@ export interface ExtensionSummary {
   enabled: boolean
   /** 宿主版本是否满足 manifest.engines.bench（不兼容时禁止打开）。 */
   compatible: boolean
+  enginesBench: string
+  aclCommands: string[]
+  /** Registry 声明的发布者，不代表独立身份认证。 */
+  publisherName: string | null
+  /** 安装时实际使用的信任策略；历史安装缺少记录时为 null。 */
+  verificationMethod:
+    "bundledWithApp" | "officialRegistryHashes" | "minisign" | "developmentUnsigned" | null
 }
 
 /** market 单版本条目（Rust `MarketVersionDto`；**不含下载 URL** —— D-007 信任边界）。 */
@@ -60,6 +67,9 @@ export interface MarketInstallPreview {
   displayZh: string | null
   publisherName: string | null
   sizeBytes: number
+  enginesBench: string
+  /** 校验实际使用的来源策略，避免把官方摘要校验误报为签名。 */
+  verificationMethod: "officialRegistryHashes" | "minisign" | "developmentUnsigned"
   /** 产物 manifest 申请的宿主命令（ACL 披露）。 */
   aclCommands: string[]
 }

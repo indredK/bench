@@ -1,8 +1,10 @@
 # Extension 开发仓库组织与工作流
 
-> **日期**：2026-09-08 ｜ **状态**：**已采纳**（[D-024](./decisions.md#d-024--extension-仓库组织与-photo-triage-试点拆法)，四项决策经用户确认）
+> **日期**：2026-10-04 ｜ **状态**：**已落地并演进**（[D-024](./decisions.md#d-024--extension-仓库组织与-photo-triage-试点拆法) 的早期决策已实施；插件源码真源于 2026-09-09 起迁入官方集合仓）
 > **定位**：本文档是插件化的**架构边界 + 工作流唯一文档**（原 `plugin-architecture.md` 的 B-lite 设计已被 D-023 的 B′ 路线取代，其中仍有效的内容已并入本文 §7）。**执行顺序与状态唯一清单见 [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)**。
 > **背景**：P1 已证实 B′ 方案（宿主 + 可下载前端 bundle）。本文件定案「插件在哪个仓库开发、怎么开发、怎么发布」，并以 photo-triage 纳入插件为首个试点场景。
+
+> **当前实现优先**：早期章节中“官方源码留在 Bench 主仓库、无需官方插件集合仓”的提案已被后续 D-024 执行记录和官方仓工作流取代。当前官方插件源码唯一真源是 [kindred-plugin-market/plugin-market](https://github.com/kindred-plugin-market/plugin-market) 的 `extensions/<id>/`；本文件第 13 节记录现行发布流程。
 
 ---
 
@@ -44,50 +46,37 @@ photo-triage 纳入插件范围后：
 | 仓库体积/治理                     | 主仓库变胖（可控，插件产物不进 git） | 各仓库小          | 多一个治理单元      |
 | 版本发布                          | 插件版本随 manifest 独立             | 完全独立          | 集合仓库统一发版    |
 
-**结论**：契约（manifest schema / `bench_host` 能力面 / ACL）在 P2–P4 还会频繁演进，**此阶段跨仓库同步的成本远大于收益**；而第三方生态不存在，不存在准入问题。
+**历史结论（2026-09-08）**：契约在 P2–P4 频繁演进时，主仓库插件降低同步成本；该结论解释了早期试点选择，不再代表当前源码位置。
 
 ---
 
-## 3. 决策建议：两阶段，不设插件集合仓库
+## 3. 当前仓库模型（以 2026-09-09 后实际流程为准）
 
-### 阶段一（P2–P4，契约演进期）：主仓库 `extensions/` 目录
+### 官方插件集合仓库
 
-```
-tauri-app/
-├── extensions/                    ← 新增：官方插件源码（进 git，不含构建产物）
-│   ├── photo-triage/
-│   │   ├── manifest.json          # id/version/entry/acl/distribution
-│   │   ├── index.html
-│   │   ├── assets/…               # 构建产物（dev 模式直接被宿主加载）
-│   │   └── src/                   # TS 源码（vite 构建，可选）
-│   └── <下一个插件>/
-├── scripts/plugins/               # 构建打包脚本（复用）
-└── src-tauri/src/extension_host/  # 宿主（P1 已落地）
-```
+官方插件集合仓 `plugin-market` 同时保存 `extensions/<id>/` 源码和 `registry.json`。Bench 主仓库不再维护官方插件源码，也不运行 `sync:ext-repos`；宿主 release 构建按固定 Bench 基线从集合仓构建所需插件。插件产物和 registry 元数据经 GitHub Release、受保护分支与 PR 检查发布。
 
-- 开发体验：**在主仓库照常开发**，`pnpm run dev` 时宿主直接从仓库 `extensions/` 目录加载（dev 时把该目录注册为插件根，或构建脚本同步到 `$APPDATA/extensions/`），改完重启即生效；
-- 与「2.0 = 绝大部分功能插件化」的衔接：官方插件以 **bundled（捆绑）** 形态随主包发布——用户升级 Bench 即获得，不产生「功能真空」；未来任一插件可切换为 **market（市场下载）** 形态，manifest 只改 `distribution` 字段；
-- 主包瘦身：侧边栏不再静态注册 photo-triage，改为「插件中心 → 已安装（bundled）」点亮入口。
+bundled 与 market 描述的是分发方式：bundled 随 Bench 安装包发布；market 从 registry 获取。两种形态均进入 `$APPDATA/extensions/<id>/`，开窗前都校验 manifest 与逐文件 hash。
 
-### 阶段二（开放第三方后）：模板仓库 + 独立仓库
+### 第三方插件
 
-- 提供 `bench-extension-template` 模板仓库（脚手架 + 本地 dev + 打包 + 签名校验的完整示例）；
-- 第三方在自有仓库开发 → 构建产物 + manifest 提交 PR 到 canonical registry 仓库（照搬 Obsidian 社区插件 PR 审核模式）→ minisign 签名 → 上架插件中心。
+- 作者从公开的 [bench-extension-template](https://github.com/kindred-plugin-market/bench-extension-template) 创建插件仓库；模板包含 SDK、脚手架、本地调试、打包签名和提交流程；
+- 第三方在自有仓库开发，通过模板打包并按第三方 registry 规则使用 minisign；向 registry 仓库提交插件条目 PR，经检查和审核后上架。
 
-**「插件集合仓库」不设**：官方插件住主仓库已覆盖其诉求，集合仓库只增加一个治理单元；第三方走独立仓库 + registry，也不需要它。
+官方集合仓库与作者模板仓均已存在；当前 GitHub 组织还保留独立命令市场仓。仓库清单与发布步骤见 §13。
 
 ---
 
 ## 4. photo-triage 具体怎么拆（回答「如何继续开发」）
 
-现状实测：前端 21 个 ts/tsx；Rust 9 文件 / 2350 行 / **15 条 IPC 命令**（`trash_ops.rs` 870 行，含进程树回收）。
+历史迁移盘点：前端 21 个 ts/tsx；Rust 9 文件 / 2350 行 / **15 条 IPC 命令**（`trash_ops.rs` 870 行，含进程树回收）。photo-triage 已迁入 plugin-market，以上文件计数是拆分时的基线，不代表当前目录结构。
 
 ### 拆法：Rust 能力面留核心，UI + 编排出插件
 
 | 部分                                              | 去向                                                                                                                      | 理由                                                                                                                                                                           |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Rust 侧 15 条命令（扫描 / trash / 移动 / 空目录） | **留在核心**，改造为「宿主能力」：登记进 `bench_host` 能力面 + ACL 注册表（`photo.scan` / `photo.trash` / `photo.move`…） | ① TCC 权限、进程树回收、持久化 schema 是**宿主级系统能力**，天然属于核心；② B′ 插件形态是前端 bundle，**Rust 逻辑不随插件走**；③ 能力面是共享的——将来其他插件可复用 photo 能力 |
-| 前端 21 文件（UI + 编排）                         | **迁出为插件** `extensions/photo-triage/`                                                                                 | 界面、筛选交互、批量操作编排——这些是「插件」的部分，可独立迭代/卸载                                                                                                            |
+| 前端 21 文件（UI + 编排）                         | **迁出为插件** `plugin-market/extensions/photo-triage/`                                                                   | 界面、筛选交互、批量操作编排——这些是「插件」的部分，可独立迭代/卸载                                                                                                            |
 
 **对开发节奏的影响：接近零。**
 
@@ -101,19 +90,21 @@ tauri-app/
 
 - 插件版本由 `manifest.version` 独立管理，与宿主版本解耦；
 - 版本规则、兼容门控、单调性、卸载与禁用语义统一见 **[extension-spec.md §8 版本与兼容](../reference/extension-spec.md)**；
-- `distribution: "bundled" | "market"`：bundled 产物随主包构建产出并捆绑；market 产物走 registry 下载 + minisign 校验；
+- `distribution: "bundled" | "market"`：bundled 产物随主包构建并捆绑；market 产物从 registry 下载。官方源按 registry ZIP SHA-256/size + manifest `files` 校验，第三方源额外要求 minisign（[extension-spec.md §5.4](../reference/extension-spec.md#54-官方-registry-的信任与完整性)）；
 - 具体分发步骤见 §8.4～§8.6。
 
 ---
 
-## 6. 决策记录（2026-09-08 用户确认 · 已回写 [D-024](./decisions.md#d-024--extension-仓库组织与-photo-triage-试点拆法)）
+## 6. 决策记录（2026-09-08 原始决策 · 已回写 [D-024](./decisions.md#d-024--extension-仓库组织与-photo-triage-试点拆法)）
 
-| #   | 问题                                                                                                   | 结论    |
-| --- | ------------------------------------------------------------------------------------------------------ | ------- |
-| 1   | 两阶段组织（试点期主仓库 `extensions/`，生态期模板仓库 + 独立仓库 + registry PR）                      | ✅ 采纳 |
-| 2   | photo-triage 拆法（Rust 15 条命令留核心转宿主能力 + ACL；前端 21 文件迁出 `extensions/photo-triage/`） | ✅ 采纳 |
-| 3   | bundled / market 双分发（bundled 保证 2.0 过渡期功能不真空）                                           | ✅ 采纳 |
-| 4   | 首个迁移试点用 photo-triage（替换 token-calculator）                                                   | ✅ 采纳 |
+| #   | 问题                                                                                                   | 结论                                             |
+| --- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| 1   | 两阶段组织（试点期主仓库 `extensions/`，生态期模板仓库 + 独立仓库 + registry PR）                      | ✅ 原始决定；2026-09-09 后源码真源转入官方集合仓 |
+| 2   | photo-triage 拆法（Rust 15 条命令留核心转宿主能力 + ACL；前端 21 文件迁出 `extensions/photo-triage/`） | ✅ 采纳                                          |
+| 3   | bundled / market 双分发（bundled 保证 2.0 过渡期功能不真空）                                           | ✅ 采纳                                          |
+| 4   | 首个迁移试点用 photo-triage（替换 token-calculator）                                                   | ✅ 采纳                                          |
+
+2026-09-09 起，按后续组织决定将官方插件源码统一迁入 `plugin-market` 仓库，并把该仓库同时用作 canonical registry；早期两阶段方案仅保留为决策历史。
 
 ---
 
@@ -156,88 +147,42 @@ tauri-app/
 > 目标：**前端开发者零门槛** —— 会写 React 就能做插件，不需要懂 Rust（对标 uTools 生态的成功要素）。
 > 契约细节一律以 [extension-spec.md](../reference/extension-spec.md) 为准。
 
-### 8.1 创建插件
+作者工具的代码和上手步骤统一维护在公开模板仓库：[kindred-plugin-market/bench-extension-template](https://github.com/kindred-plugin-market/bench-extension-template)。不要在 Bench 宿主仓库里运行旧的 `extensions:create`、`extensions:sync` 或 `extensions:pack` 指令；这些作者侧入口已迁到模板仓库。
+
+### 8.1 创建与本地调试
+
+1. 在模板仓库点击 **Use this template**，创建自己的插件仓库；
+2. 安装仓库指定版本的 Node.js 与 pnpm，再运行 `pnpm run extensions:create <id>`；
+3. 修改插件页面、双语 locale 和 manifest；通过 `--dev-unsigned` 生成本地开发包并安装到 Bench 的插件目录；
+4. 以 `BENCH_EXT_DEV_MODE=1` 启动 Bench 开发构建，在插件中心打开。开发包仅供本机调试，不能提交正式 registry。
+
+模板 README 提供 macOS / Windows 的逐步命令、覆盖保护与启动方式。插件 ID 必须匹配 `^[a-z][a-z0-9-]*$`；manifest 约束见 [spec §3](../reference/extension-spec.md)。
+
+### 8.2 SDK 与宿主边界
+
+模板内的 `@bench/ext-sdk` 提供类型化 IPC 薄封装、宿主语言桥、插件数据目录和本机诊断接口。浏览器预览可用 `isBenchExtension()` 隐藏宿主操作；`getHostCapabilities()` 只供 UI 提示，**不是授权边界**。每次 IPC 仍由 Bench 后端按 manifest ACL 校验。诊断写入本机日志，不会自行发起网络请求，并限制字段和文本长度；作者仍不得记录凭据或真实用户数据。
+
+SDK API、依赖方式和示例见[模板 SDK 文档](https://github.com/kindred-plugin-market/bench-extension-template/tree/main/packages/ext-sdk)。
+
+### 8.3 构建、签名与发布
 
 ```bash
-pnpm run extensions:create <id>
+pnpm run extensions:pack <id> --key <private-key> --pubkey <public-key>
 ```
 
-生成：
+模板脚本会构建插件、生成 `manifest.files` 逐文件 SHA-256 清单和 canonical manifest，也可使用 minisign 生成签名 ZIP。第三方 registry 必须配置 minisign 公钥；官方 plugin-market 发布流程依赖受保护 GitHub 仓库、PR 检查和 registry 整包摘要，不要求插件作者提供官方私钥。私钥不得提交到仓库；无签名的 `--dev-unsigned` 产物只用于本地开发，或在显式开发模式下测试。
 
-```
-extensions/<id>/
-├── manifest.json      # schema v2 模板，distribution 默认 bundled
-├── index.html
-├── vite.config.ts     # 已含 base: "./" 与 alias 铁律
-├── locales/{zh,en}.json
-└── src/               # 入口 + 最小示例（调用 ext 命令）
-```
+正式分发时，作者按[市场提交流程](https://github.com/kindred-plugin-market/bench-extension-template#提交到插件市场)提交源码和 registry 元数据 PR。维护者复核 manifest、最小 ACL、SHA-256 与产物来源。官方和第三方来源采用不同验证策略，详见 [extension-spec.md §4 / §5.4](../reference/extension-spec.md)。
 
-`id` 必须匹配 `^[a-z][a-z0-9-]*$`。
-
-### 8.2 本地开发与调试
-
-1. 照常在主仓库开发：改前端 → `pnpm run dev` → 插件窗口即时生效；改 Rust → 走 cargo 链路。
-2. 产物同步到运行时目录：`pnpm run extensions:sync`（保留 `.disabled` 用户标记，幂等）。
-3. 打开插件窗口：插件中心点击「打开」，或 `BENCH_POC_EXT=<id> pnpm run dev` 直开。
-4. 调试：宿主注入 `EXT_ERROR_CAPTURE_SCRIPT`，捕获 window-error / unhandledrejection / console.error / boot，回传宿主落盘（P3.3 起为**追加式**）。
-5. 开发期免签：设 `BENCH_EXT_DEV_MODE=1`（[spec §4.3](../reference/extension-spec.md)）。
-
-### 8.3 构建
-
-```bash
-pnpm run extensions:build     # 全部插件；支持 --id <id>；P4.5 起支持 --id
-```
-
-产出 `extensions/<id>/assets/`（`base: "./"` 是硬性要求，否则子路径下 404 白屏）。
-
-> **真源反转后的源目录解析（2026-09-18）**：`extensions:build/sync/stage` 按优先级解析插件源：
-> `--market <dir>` > `BENCH_MARKET_DIR` > 兄弟市场仓（`../kindred-plugin-market/plugin-market/extensions`）> 旧 `cwd/extensions`（CI release 流程）。显式输入指向不存在的目录会 fail-closed；树外源由 build 脚本拷入宿主树临时区构建并回拷 `assets/`（与 CI release 流程一致）。市场仓插件根的 `index.html` 是 vite 源码入口，未构建时会被拒用（P2b 白屏防线），提示先跑 `extensions:build`。
-
-### 8.4 打包与签名
-
-```bash
-pnpm run extensions:pack <id>     # P4.5 交付
-```
-
-依次完成：
-
-1. 构建产物
-2. 扫描产物目录，生成 `manifest.files`（逐文件 sha256 + size）
-3. 按 [spec §4.1](../reference/extension-spec.md) 构造 canonical 文本
-4. minisign 签名，trusted comment 固定 `<id>@<version>`
-5. 写回 `manifest.signature`
-6. 打 zip（根即插件根），输出整包 sha256 与 size
-
-> 这一步**必须在签名前生成 files 清单**，否则清单未纳入签名（P3.1 的核心要求）。
-
-### 8.5 发布到 registry
-
-阶段二（开放第三方后）：
-
-1. 作者在自有仓库开发 → `extensions:pack` 产出 zip + manifest
-2. 向 canonical registry 仓库提交 PR，追加/更新条目（[spec §5.2](../reference/extension-spec.md)）
-3. 维护者人工审核：manifest 合法性、ACL 是否最小、产物与源码是否对应
-4. 合入即上架（静态托管，无服务端）
-
-阶段一（当前，契约演进期）：官方插件住主仓库 `extensions/`，`distribution: "bundled"`，随主包发布。
-
-### 8.6 版本升级与下架
+### 8.4 版本升级与下架
 
 | 场景       | 操作                                                                                                                         |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 发新版     | `manifest.version` +1（semver）→ `extensions:pack` → registry PR 追加 `versions[]` 条目                                      |
+| 发新版     | 更新 manifest semver 版本 → 用模板仓库 `extensions:pack` 生成签名 ZIP 与元数据 → 向 registry PR 追加 `versions[]` 条目       |
 | 撤回某版本 | 该版本 `yanked: true`（已安装仍可运行，不再出现在可安装列表）                                                                |
 | 紧急吊销   | registry `revoked[]` 增加条目 → 宿主**强制禁用 + UI 显著警示**（不静默删除，见 [spec §5.3](../reference/extension-spec.md)） |
 
-### 8.7 作者文档清单（P4.5 一并交付）
-
-| 文档                              | 位置                                                |
-| --------------------------------- | --------------------------------------------------- |
-| 快速开始（30 分钟做出可安装插件） | `extensions/README.md`                              |
-| 契约参考                          | [extension-spec.md](../reference/extension-spec.md) |
-| SDK 用法（IPC / i18n / 诊断上报） | `@bench/ext-sdk` 包内 README                        |
-| 提交 registry                     | 本文 §8.5                                           |
+模板操作手册和 SDK 指南以[作者模板仓库](https://github.com/kindred-plugin-market/bench-extension-template)为准；本节只保留宿主与市场之间的长期契约。
 
 ---
 
@@ -349,37 +294,39 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 ## 13. 插件发布仓库（GitHub 组织 kindred-plugin-market）
 
-> **模型（双仓库）**：组织下仅两个仓库，均公开——
+> **当前模型（四个公开仓库）**：插件市场、命令市场、作者模板与质量工具各自独立；前三者构成插件发布链。
 >
-> - `plugin-market`：7 个插件源码（`extensions/<id>/`，当前为 app-manager / clean-space / hardware / photo-triage / quick-launch / terminology / token-calculator）+ `registry.json`（插件市场索引真相源）+ Release Please（conventional commits → release PR → tag）→ release.yml 构建 zip；
+> - `plugin-market`：8 个插件源码（`extensions/<id>/`，含 app-manager / clean-space / douyin-content-assets / hardware / photo-triage / quick-launch / terminology / token-calculator）+ `registry.json`（插件市场索引真相源）+ Release Please 与 release.yml；
 > - `command-market`：命令中心的市场（`commands/*.json` + `registry.json` + build 脚本；**源文件与生成索引在同一 PR 提交，CI 只读校验**，无自动写回）。
+> - `bench-extension-template`：第三方作者模板，含 `@bench/ext-sdk`、脚手架、打包器和作者指南。
+> - `bench-quality-cli`：维护与检查 Bench 质量的辅助 CLI，不参与插件运行时分发。
 >   main 受 Ruleset 保护（PR + required check `gate / quality gate (node 26.8.2 / macos)`）；Bench 经 `BENCH_EXT_REGISTRY_URL` /
 >   `BENCH_COMMAND_MARKET_URL` 拉取安装。
 
 ### 13.1 本地与远端
 
-- 本地：`~/Documents/github/kindred-plugin-market/{plugin-market, command-market}/`（SSH 走 443：`~/.ssh/config` 已配 `Host github.com → ssh.github.com:443`，本机 22 端口被网络拦截）；
-- `plugin-market` CI：quality / Build（rolling `build-latest`，只保留当前 main 快照）/ Release Please（自动维护 release PR 并打 `<pluginId>-v<version>` tag）→ release.yml 走 gate → pack → provenance → Release 上传 → registry.json 以 bot PR 写回（P11 后 main 直推一律被 Ruleset 拒绝）。宿主 checkout 固定 `.github/host-baseline.txt` 的完整 SHA（indredK/bench 为 public，匿名 checkout，不携带 PAT）；
+- 本地：用户配置的 GitHub 工作目录中分别检出 `plugin-market`、`command-market`、`bench-extension-template`；SSH 可经 443 访问；
+- `plugin-market` CI：quality / Build（rolling `build-latest`，只保留当前 main 快照）/ Release Please（维护 release PR；合入后打 `<pluginId>-v<version>` tag）→ release.yml 走 gate → pack → provenance → Release 上传 → registry.json 以 bot PR 写回（P11 后 main 直推一律被 Ruleset 拒绝）。registry bot PR 所需检查通过后由维护者合入；不得绕过 Ruleset。宿主 checkout 固定 `.github/host-baseline.txt` 的完整 SHA（indredK/bench 为 public，匿名 checkout，不携带 PAT）；
 - `command-market` CI：只读校验（索引漂移 → 失败并提示在 PR 中重建；无 bot 写回、无并发环）；
 - 市场源（**官方默认已内置**，env 仅作覆盖/本地调试）：
   - 插件市场默认：`https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main/registry.json`（`BENCH_EXT_REGISTRY_URL` 覆盖）
   - 命令市场默认：`https://raw.githubusercontent.com/kindred-plugin-market/command-market/main/registry.json`（`BENCH_COMMAND_MARKET_URL` 覆盖；`BENCH_COMMAND_MARKET_DIR` 调试优先）
-- **官方源免 minisign**：`registry::is_official_registry` 命中时豁免签名校验（完整性由 registry sha256 + 包内 files 清单双通道兜底）；第三方 registry 一律强制 minisign。市场分发 zip 由 `pack-extension.mjs` 注入 `distribution: "market"`（bundled 语义仅指应用包内随包分发）；
+- **官方源免 minisign**：`registry::is_official_registry` 精确命中内置 URL 时豁免插件级签名（HTTPS + registry 整包 `sha256`/`size` + manifest `files` 清单双重完整性校验）；第三方 registry 一律强制 minisign。该完整性策略不抵御官方 GitHub 仓库本身被攻陷，详见 [extension-spec.md §5.4](../reference/extension-spec.md#54-官方-registry-的信任与完整性)。
 
 ### 13.2 工具链（Bench 仓库内）
 
 - `pnpm run pack:ext -- <id>`：构建 → 注入 files → zip → `<id>.meta.json`（sha256/size）——宿主侧工具，仅本地诊断用；
-- `sync:ext-repos` 已退役（2026-09-09）：**真相源反转完成**——插件源码唯一真相源 = `plugin-market` 仓库的 `extensions/<id>/`（不是宿主 `src/extensions/<id>/`，宿主没有该目录），Bench 基座不再包含 `extensions/`（打包链对空集容忍：build/stage/sync 直接跳过）。开发插件 = 在 plugin-market 仓库内改源码 → 本地 pack 装入 APPDATA 或走市场；正式发布 = conventional commit → Release Please 自动打 tag → release.yml 发布；registry.json 由该 workflow 经 bot PR 更新，不再手工维护。
+- `sync:ext-repos` 已退役（2026-09-09）：**真相源反转完成**——插件源码唯一真相源 = `plugin-market` 仓库的 `extensions/<id>/`（宿主不保存这些源码），Bench 基座不再包含官方 `extensions/`。开发插件 = 在 plugin-market 仓库内改源码 → 本地 pack 装入 APPDATA 或走市场；正式发布 = conventional commit → Release Please PR（需维护者合入）→ tag/release workflow → registry bot PR（需检查通过后合入）。
 
 ### 13.3 发布流程（plugin-market）
 
 1. 在 plugin-market 仓库内开发插件源码（PR 合入 main，过 quality gate；Bench 不再有 `sync:ext-repos`）；
-2. 用 conventional commit 更新该插件 `manifest.json` 的 version（`fix(photo-triage): ...` 等，且改动触及 `extensions/<id>/`）→ Release Please 自动开 release PR（bump 版本 + CHANGELOG）并自动合并；
+2. 用 conventional commit 更新该插件 `manifest.json` 的 version（`fix(photo-triage): ...` 等，且改动触及 `extensions/<id>/`）→ Release Please 自动开 release PR（bump 版本 + CHANGELOG）；检查通过后由维护者合入；
 3. 合并后 Release Please 自动打 `<pluginId>-v<version>` tag 并创建 GitHub Release → release.yml 接力（gate → pack → provenance → 上传 zip）；
-4. registry.json 由 release.yml 以 bot PR 写回（等 quality gate 绿色后合并）→ Bench 市场立即可见。
+4. registry.json 由 release.yml 以 bot PR 写回（等 quality gate 绿色后由维护者合入）→ Bench 市场立即可见。
 
 ### 13.4 卡点（需用户手动）
 
-- ~~创建组织与两个仓库~~（已完成：`kindred-plugin-market` org + `plugin-market`、`command-market` 均已上线）；
+- ~~创建组织与两个仓库~~（已完成：`kindred-plugin-market` org 下 `plugin-market`、`command-market`、`bench-extension-template` 与 `bench-quality-cli` 均已上线）；
 - ~~CI 拉取私有 Bench~~（Bench 已 public：宿主 checkout 匿名进行，`BENCH_REPO_TOKEN` 已从全部工作流移除，P12）；
 - **SSH**：本机 22 端口被网络拦截，已在 `~/.ssh/config` 配 GitHub over 443（保留勿删）。

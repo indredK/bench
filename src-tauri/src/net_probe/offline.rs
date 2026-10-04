@@ -85,41 +85,43 @@ pub async fn get_public_ip_info() -> AppResult<PublicIpInfo> {
         ("ifconfig-me", "https://ifconfig.me/ip"),
         ("seeip", "https://ip.seeip.org/jsonip"),
     ];
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(6))
+        .user_agent("Bench-NetworkProbe/1.0")
+        .build()
+        .ok();
 
     for (id, url) in apis {
-        let (http, _) = probe_http_target(url).await;
-        let Some(h) = http else { continue };
-        if !h.ok {
+        let Some(client) = client.as_ref() else { break };
+        let Ok(resp) = client.get(url).send().await else {
+            continue;
+        };
+        if !resp.status().is_success() {
             continue;
         }
-        // Body was drained in probe_http — re-fetch for content.
-        if let Ok(client) = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(6))
-            .user_agent("Bench-NetworkProbe/1.0")
-            .build()
-        {
-            if let Ok(resp) = client.get(url).send().await {
-                if let Ok(text) = resp.text().await {
-                    let ip = extract_ip(&text);
-                    if let Some(ip) = ip {
-                        let mut info = PublicIpInfo {
-                            ip: Some(ip.clone()),
-                            source: Some(id.into()),
-                            asn: None,
-                            org: None,
-                            detail: Some(text.chars().take(120).collect()),
-                            command_hint: "getPublicIpInfo(local)".into(),
-                        };
-                        if let Ok(addr) = ip.parse::<std::net::IpAddr>() {
-                            if let Some(asn) = super::asn::lookup_asn(addr).await {
-                                info.asn = Some(format!("AS{}", asn.asn));
-                                info.org = asn.as_name.or(asn.prefix);
-                            }
-                        }
-                        return Ok(info);
-                    }
+        let Ok(body) = super::bounded_http::read_response_body_limited(resp, 4 * 1024).await else {
+            continue;
+        };
+        if body.truncated {
+            continue;
+        }
+        let text = String::from_utf8_lossy(&body.bytes);
+        if let Some(ip) = extract_ip(&text) {
+            let mut info = PublicIpInfo {
+                ip: Some(ip.clone()),
+                source: Some(id.into()),
+                asn: None,
+                org: None,
+                detail: Some(text.chars().take(120).collect()),
+                command_hint: "getPublicIpInfo(local)".into(),
+            };
+            if let Ok(addr) = ip.parse::<std::net::IpAddr>() {
+                if let Some(asn) = super::asn::lookup_asn(addr).await {
+                    info.asn = Some(format!("AS{}", asn.asn));
+                    info.org = asn.as_name.or(asn.prefix);
                 }
             }
+            return Ok(info);
         }
     }
 

@@ -9,6 +9,14 @@ import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { DnsSecCheckResult } from "@/lib/tauri/types/network-probe"
 
+const DNSSEC_STATUSES = new Set(["secure", "insecure", "bogus", "unknown", "unsupported"])
+
+function formatLatency(value: number | undefined) {
+  if (value == null) return "—"
+  if (value < 1) return "<1"
+  return value < 10 ? value.toFixed(1) : value.toFixed(0)
+}
+
 interface DnsSecPanelProps {
   loading: boolean
   result: DnsSecCheckResult | null
@@ -20,6 +28,13 @@ interface DnsSecPanelProps {
 export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }: DnsSecPanelProps) {
   const { t } = useTranslation()
   const [domain, setDomain] = useState("cloudflare.com")
+  const technicalDetails = result
+    ? [
+        { label: t("networkProbe.dnssec.dnssecDetail"), value: result.dnssecDetail },
+        { label: t("networkProbe.dnssec.dohDetail"), value: result.dohDetail },
+        { label: t("networkProbe.dnssec.dotDetail"), value: result.dotDetail },
+      ].filter((detail): detail is { label: string; value: string } => Boolean(detail.value))
+    : []
 
   return (
     <ProbePanelShell
@@ -64,33 +79,44 @@ export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }:
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div>
             {t("networkProbe.dnssec.status")}:{" "}
-            <span className="font-mono font-medium">{result.dnssecStatus}</span>
+            <span className="font-medium">
+              {t(
+                `networkProbe.dnssec.statusValue.${DNSSEC_STATUSES.has(result.dnssecStatus) ? result.dnssecStatus : "unknown"}`,
+              )}
+            </span>
           </div>
-          {result.dnssecDetail ? <p className="text-sm">{result.dnssecDetail}</p> : null}
           <div className="grid gap-2 sm:grid-cols-2">
             <div>
               <div className="text-muted-foreground text-xs">{t("networkProbe.dnssec.doh")}</div>
               <div className="font-mono text-sm">
                 {result.dohOk
-                  ? t("networkProbe.dnssec.okMs", { ms: result.dohRttMs?.toFixed(0) ?? "—" })
+                  ? t("networkProbe.dnssec.okMs", { ms: formatLatency(result.dohRttMs) })
                   : t("networkProbe.dnssec.fail")}
               </div>
-              {result.dohDetail ? (
-                <p className="text-muted-foreground text-xs">{result.dohDetail}</p>
-              ) : null}
             </div>
             <div>
               <div className="text-muted-foreground text-xs">{t("networkProbe.dnssec.dot")}</div>
               <div className="font-mono text-sm">
                 {result.dotOk
-                  ? t("networkProbe.dnssec.okMs", { ms: result.dotRttMs?.toFixed(0) ?? "—" })
+                  ? t("networkProbe.dnssec.okMs", { ms: formatLatency(result.dotRttMs) })
                   : t("networkProbe.dnssec.fail")}
               </div>
-              {result.dotDetail ? (
-                <p className="text-muted-foreground text-xs">{result.dotDetail}</p>
-              ) : null}
             </div>
           </div>
+          {technicalDetails.length > 0 ? (
+            <details className="text-muted-foreground text-xs">
+              <summary className="w-fit cursor-pointer">
+                {t("networkProbe.dnssec.technicalDetails")}
+              </summary>
+              <ul className="mt-1 space-y-1 break-words">
+                {technicalDetails.map((detail) => (
+                  <li key={detail.label}>
+                    <span className="font-medium">{detail.label}:</span> {detail.value}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}

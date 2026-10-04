@@ -31,6 +31,7 @@ pub async fn sites_probe<R: Runtime>(
     }
 
     let session_id = super::session::new_session_id();
+    let _session_guard = super::session::SessionGuard::new(session_id.clone());
     emit_session(app, &session_id);
     let command_hint = format!("startSitesProbe(local, '{pack_id}') // sessionId={session_id}");
 
@@ -79,6 +80,7 @@ pub async fn sites_probe_custom<R: Runtime>(
     }
 
     let session_id = super::session::new_session_id();
+    let _session_guard = super::session::SessionGuard::new(session_id.clone());
     emit_session(app, &session_id);
     let command_hint = format!(
         "startSitesProbe(local, custom[{}]) // sessionId={session_id}",

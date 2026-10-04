@@ -6,6 +6,8 @@ use serde::Deserialize;
 use std::time::Instant;
 
 const GP_API: &str = "https://api.globalping.io/v1/measurements";
+const GP_MAX_RESPONSE_BYTES: usize = 256 * 1024;
+const GP_TOTAL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(45);
 
 pub fn list_nodes_with_agents(agents: &[ProbeNode]) -> Vec<ProbeNode> {
     let mut nodes = vec![ProbeNode {
@@ -128,7 +130,7 @@ pub async fn compare_dns_multi(
     };
 
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(45))
+        .timeout(std::time::Duration::from_secs(8))
         .user_agent("Bench-NetworkProbe/1.0")
         .build()
         .map_err(|e| AppError::new("GP_CLIENT", e.to_string()))?;
@@ -146,20 +148,64 @@ pub async fn compare_dns_multi(
 
     match client.post(GP_API).json(&body).send().await {
         Ok(resp) if resp.status().is_success() => {
-            let created: GpCreate = resp
-                .json()
-                .await
+            let response =
+                super::bounded_http::read_response_body_limited(resp, GP_MAX_RESPONSE_BYTES)
+                    .await
+                    .map_err(|e| AppError::new("GP_READ", e.to_string()))?;
+            if response.truncated {
+                return Err(AppError::new(
+                    "GP_RESPONSE_TOO_LARGE",
+                    "Globalping create response exceeded the safety limit.",
+                ));
+            }
+            let created: GpCreate = serde_json::from_slice(&response.bytes)
                 .map_err(|e| AppError::new("GP_PARSE", e.to_string()))?;
+            if created.id.is_empty() || created.id.len() > 128 {
+                return Err(AppError::new(
+                    "GP_PARSE",
+                    "Globalping returned an invalid measurement id.",
+                ));
+            }
+            let poll_url = measurement_url(&created.id)?;
             // poll
             let mut final_res: Option<GpResult> = None;
-            for _ in 0..20 {
-                tokio::time::sleep(std::time::Duration::from_millis(700)).await;
-                let url = format!("{GP_API}/{}", created.id);
-                match client.get(&url).send().await {
-                    Ok(r) if r.status().is_success() => {
-                        let parsed: GpResult = r
-                            .json()
-                            .await
+            let mut quota_exhausted = false;
+            let deadline = tokio::time::Instant::now() + GP_TOTAL_TIMEOUT;
+            loop {
+                let now = tokio::time::Instant::now();
+                if now >= deadline {
+                    break;
+                }
+                tokio::time::sleep(
+                    std::time::Duration::from_millis(700)
+                        .min(deadline.saturating_duration_since(now)),
+                )
+                .await;
+                if tokio::time::Instant::now() >= deadline {
+                    break;
+                }
+                match tokio::time::timeout_at(deadline, client.get(poll_url.clone()).send()).await {
+                    Err(_) => break,
+                    Ok(Ok(r)) if r.status().is_success() => {
+                        let response = tokio::time::timeout_at(
+                            deadline,
+                            super::bounded_http::read_response_body_limited(
+                                r,
+                                GP_MAX_RESPONSE_BYTES,
+                            ),
+                        )
+                        .await
+                        .map_err(|_| {
+                            AppError::new("GP_TIMEOUT", "Globalping response read timed out.")
+                        })?
+                        .map_err(|e| AppError::new("GP_READ", e.to_string()))?;
+                        if response.truncated {
+                            return Err(AppError::new(
+                                "GP_RESPONSE_TOO_LARGE",
+                                "Globalping poll response exceeded the safety limit.",
+                            ));
+                        }
+                        let parsed: GpResult = serde_json::from_slice(&response.bytes)
                             .map_err(|e| AppError::new("GP_PARSE", e.to_string()))?;
                         if parsed.status == "finished" || !parsed.results.is_empty() {
                             if parsed.status == "finished"
@@ -171,7 +217,8 @@ pub async fn compare_dns_multi(
                             final_res = Some(parsed);
                         }
                     }
-                    Ok(r) if r.status().as_u16() == 429 => {
+                    Ok(Ok(r)) if r.status().as_u16() == 429 => {
+                        quota_exhausted = true;
                         answers.push(NodeDnsAnswer {
                             node_id: "globalping".into(),
                             node_label: "Globalping".into(),
@@ -184,7 +231,7 @@ pub async fn compare_dns_multi(
                         });
                         break;
                     }
-                    _ => {}
+                    Ok(Ok(_)) | Ok(Err(_)) => {}
                 }
             }
             if let Some(res) = final_res {
@@ -212,9 +259,22 @@ pub async fn compare_dns_multi(
                         node_label: label,
                         ok,
                         answers: vals,
-                        detail: pr.result.raw_output,
+                        detail: pr
+                            .result
+                            .raw_output
+                            .map(|value| value.chars().take(16_384).collect()),
                     });
                 }
+            } else if !quota_exhausted {
+                answers.push(NodeDnsAnswer {
+                    node_id: "globalping".into(),
+                    node_label: "Globalping".into(),
+                    ok: false,
+                    answers: vec![],
+                    detail: Some(
+                        "Globalping measurement did not finish within the polling window.".into(),
+                    ),
+                });
             }
         }
         Ok(resp) if resp.status().as_u16() == 429 => {
@@ -252,4 +312,26 @@ pub async fn compare_dns_multi(
         elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
         command_hint,
     })
+}
+
+fn measurement_url(id: &str) -> AppResult<url::Url> {
+    let mut url =
+        url::Url::parse(GP_API).map_err(|error| AppError::new("GP_URL", error.to_string()))?;
+    url.path_segments_mut()
+        .map_err(|_| AppError::new("GP_URL", "Globalping endpoint cannot accept path segments"))?
+        .push(id);
+    Ok(url)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn measurement_id_is_encoded_as_a_single_path_segment() {
+        let url = measurement_url("id/with?reserved#characters").unwrap();
+
+        assert!(url.as_str().ends_with("/id%2Fwith%3Freserved%23characters"));
+        assert_eq!(url.path_segments().unwrap().count(), 3);
+    }
 }

@@ -3,7 +3,9 @@
 //! 分发策略：
 //! - `bundled`：随主包构建捆绑，**豁免**插件级签名（主包二进制本身由
 //!   minisign updater 签名链覆盖）；
-//! - `market`：registry 分发，**强制**校验 minisign 签名，fail-closed。
+//! - 官方 canonical registry：免插件级 minisign；依靠 HTTPS、registry 整包
+//!   SHA-256/size 与 manifest 逐文件 hash 清单校验（spec §5.4）；
+//! - 其他 `market` registry：**强制**校验 minisign 签名，fail-closed。
 //!
 //! **签名对象 = canonical 文本**（spec §4.1，不是 manifest 文件原文）：
 //! 1. manifest 的 JSON 对象；
@@ -19,7 +21,7 @@
 //! signature 覆盖 trusted comment，验签成功后读取是可信的；宿主校验其与
 //! manifest 的 `id`/`version` 完全一致，把签名绑定到具体插件与版本。
 //!
-//! **公钥三态**（spec §4.3，**不做静默回退**）：
+//! **第三方源公钥三态**（spec §4.3，**不做静默回退**）：
 //! - release（默认）：env `BENCH_EXT_REGISTRY_PUBKEY`（minisign.pub 完整两行
 //!   文本）；缺失即配置错误 —— **禁止回退 updater 公钥**（updater 私钥泄露即
 //!   等同插件签发权，属密钥用途混用）；
@@ -74,7 +76,7 @@ fn dev_mode_from_env(value: Option<&str>) -> bool {
     value.map(str::trim) == Some("1")
 }
 
-fn dev_mode_enabled() -> bool {
+pub(crate) fn dev_mode_enabled() -> bool {
     dev_mode_from_env(std::env::var(DEV_MODE_ENV).ok().as_deref())
 }
 
@@ -93,7 +95,8 @@ fn decode_registry_pubkey(env_text: Option<&str>) -> AppResult<PublicKey> {
         .map_err(|e| AppError::internal(format!("invalid {REGISTRY_PUBKEY_ENV}: {e}")))
 }
 
-/// 校验 market 插件的 manifest 签名（fail-closed）；bundled 直接豁免。
+/// 校验非官方 market 插件的 manifest 签名（fail-closed）；bundled 与官方源
+/// 分别由主包签名链、canonical registry 的完整性策略保护。
 ///
 /// - `canonical_text`：[canonical_manifest_text] 产出的规范文本；
 /// - `manifest`：已解析的 manifest（读取 signature 与 distribution）。

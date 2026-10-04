@@ -698,6 +698,7 @@ export const networkProbeUseCases = {
     if (store.loadingWhois) return
     store.setLoadingWhois(true)
     store.setError(null)
+    store.setWhoisResult(null)
     store.appendCommandLog(`whois('${query.trim()}')`)
     try {
       const result = await networkProbeRepository.whoisLookup(query.trim())
@@ -724,6 +725,7 @@ export const networkProbeUseCases = {
     if (store.loadingDnssec) return
     store.setLoadingDnssec(true)
     store.setError(null)
+    store.setDnssecResult(null)
     store.appendCommandLog(`checkDnsSec('${domain.trim()}')`)
     try {
       const result = await networkProbeRepository.checkDnssec(domain.trim())

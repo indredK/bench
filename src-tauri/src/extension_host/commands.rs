@@ -41,6 +41,9 @@ pub const POC_EXTENSION_ID: &str = "bench-poc";
 
 /// 插件诊断落盘文件名（P3.3 起**追加式 JSONL**：boot 不再覆盖先前 error）。
 pub const POC_RESULT_FILE: &str = "ext-diagnostics.jsonl";
+const MAX_DIAGNOSTIC_MESSAGE_CHARS: usize = 4000;
+const MAX_DIAGNOSTIC_URL_CHARS: usize = 2048;
+const MAX_DIAGNOSTIC_SOURCE_CHARS: usize = 1024;
 
 /// 插件窗口错误捕获脚本。
 ///
@@ -49,9 +52,16 @@ pub const POC_RESULT_FILE: &str = "ext-diagnostics.jsonl";
 /// 这是插件调试基建（P3.3 起落盘改为追加式），生产构建同样保留——
 /// 错误数据只落本机应用数据目录，无外发。
 pub const EXT_ERROR_CAPTURE_SCRIPT: &str = r#"(() => {
+  const MAX_MESSAGE_LENGTH = 4000;
   const send = (payload) => {
     try {
-      window.__TAURI_INTERNALS__?.invoke?.("ext_poc_report", { payload });
+      const record = { ...payload, ts: new Date().toISOString() };
+      if (typeof record.message === "string") {
+        record.message = record.message.slice(0, MAX_MESSAGE_LENGTH);
+      }
+      const pending = window.__TAURI_INTERNALS__?.invoke?.("ext_poc_report", { payload: record });
+      // invoke 返回的 Promise 若拒绝会再次触发 unhandledrejection，形成诊断递归。
+      if (pending && typeof pending.catch === "function") pending.catch(() => {});
     } catch (_) { /* IPC 未就绪时丢弃（仅调试数据） */ }
   };
   const fmt = (value) => {
@@ -93,6 +103,14 @@ pub struct ExtensionSummary {
     pub enabled: bool,
     /// 宿主版本是否满足 `engines.bench`（不兼容时禁止打开）。
     pub compatible: bool,
+    /// 原始 manifest 兼容约束，用于详情页解释兼容要求。
+    pub engines_bench: String,
+    /// 原始 manifest ACL；由 UI 与当前宿主能力清单求交集展示。
+    pub acl_commands: Vec<String>,
+    /// 安装时 registry 声明的发布者。该字段是来源声明，不代表独立身份认证。
+    pub publisher_name: Option<String>,
+    /// 安装时宿主实际使用的信任策略；旧安装或记录版本不匹配时未知。
+    pub verification_method: Option<String>,
 }
 
 /// 插件根目录：`$APPDATA/extensions`。
@@ -175,9 +193,41 @@ pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
         }
         let enabled = !path.join(EXT_DISABLED_MARKER).exists();
         let compatible = manifest.satisfies_engines(&app.package_info().version.to_string());
+        let (publisher_name, verification_method) = match manifest.distribution {
+            ExtensionDistribution::Bundled => (None, Some("bundledWithApp".to_string())),
+            ExtensionDistribution::Market => {
+                match records::read_source_record(&app, &manifest.id) {
+                    Ok(Some(record)) if record.version == manifest.version => (
+                        record.publisher_name,
+                        Some(
+                            match record.verification_method {
+                                records::VerificationMethod::OfficialRegistryHashes => {
+                                    "officialRegistryHashes"
+                                }
+                                records::VerificationMethod::Minisign => "minisign",
+                                records::VerificationMethod::DevelopmentUnsigned => {
+                                    "developmentUnsigned"
+                                }
+                            }
+                            .to_string(),
+                        ),
+                    ),
+                    Ok(_) => (None, None),
+                    Err(error) => {
+                        eprintln!(
+                            "[extension_host] read source record for `{}` failed: {error}",
+                            manifest.id
+                        );
+                        (None, None)
+                    }
+                }
+            }
+        };
         // display.zh 可选（v2 起）：缺失回退 en。先取展示名再移动其余字段。
         let display_en = manifest.display_name("en").to_string();
         let display_zh = manifest.display_name("zh").to_string();
+        let engines_bench = manifest.engines.bench.clone();
+        let acl_commands = manifest.acl.commands.clone();
         summaries.push(ExtensionSummary {
             id: manifest.id,
             version: manifest.version,
@@ -186,6 +236,10 @@ pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
             distribution: manifest.distribution,
             enabled,
             compatible,
+            engines_bench,
+            acl_commands,
+            publisher_name,
+            verification_method,
         });
     }
     summaries.sort_by(|a, b| a.id.cmp(&b.id));
@@ -216,7 +270,7 @@ pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) ->
             )));
         }
         // 与安装路径（market.rs）保持一致：官方 registry 豁免 minisign 验签
-        // （完整性由 registry sha256 + 包内 files 清单双通道兜底，spec §13）；
+        // （完整性由 registry sha256 + 包内 files 清单双通道兜底，spec §5.4）；
         // 第三方源仍强制验签（fail-closed）。
         let official_source = registry::is_official_registry(&registry::registry_base_url()?);
         if !official_source {
@@ -397,25 +451,80 @@ pub fn ext_poc_open(app: AppHandle) -> AppResult<String> {
 /// 接收插件页诊断上报并**追加**落盘（P3.3：由覆盖式改为追加式 JSONL，
 /// boot 事件不再覆盖先前 error；沿用审计日志的 2MB 环形滚动）。
 #[tauri::command]
-pub fn ext_poc_report(app: AppHandle, payload: Value) -> AppResult<()> {
+pub async fn ext_poc_report(app: AppHandle, payload: Value) -> AppResult<()> {
     let dir = app
         .path()
         .app_data_dir()
         .map_err(|e| AppError::internal(format!("resolve app data dir failed: {e}")))?;
-    fs::create_dir_all(&dir).map_err(|e| AppError::io(format!("create app data dir: {e}")))?;
-
     let path = dir.join(POC_RESULT_FILE);
-    audit::rotate_diagnostics(&path)?;
-    let mut line = serde_json::to_string(&payload)
+    let record = sanitize_diagnostic_payload(&payload);
+    let line = serde_json::to_string(&record)
         .map_err(|e| AppError::internal(format!("serialize diagnostic payload: {e}")))?;
-    line.push('\n');
-    use std::io::Write as _;
-    let mut file = fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-        .map_err(|e| AppError::io(format!("append diagnostics: {e}")))?;
-    file.write_all(line.as_bytes())
-        .map_err(|e| AppError::io(format!("append diagnostics: {e}")))?;
-    Ok(())
+    tauri::async_runtime::spawn_blocking(move || audit::append_diagnostic(&path, &line))
+        .await
+        .map_err(|error| AppError::task_failed(format!("write diagnostics task failed: {error}")))?
+}
+
+fn sanitize_diagnostic_payload(payload: &Value) -> Value {
+    let mut record = serde_json::Map::new();
+    record.insert("type".into(), Value::String("ext-diagnostic".into()));
+    record.insert("ts".into(), Value::String(chrono::Utc::now().to_rfc3339()));
+
+    for (key, max_chars) in [
+        ("kind", 80),
+        ("url", MAX_DIAGNOSTIC_URL_CHARS),
+        ("message", MAX_DIAGNOSTIC_MESSAGE_CHARS),
+        ("source", MAX_DIAGNOSTIC_SOURCE_CHARS),
+    ] {
+        if let Some(value) = payload.get(key).and_then(Value::as_str) {
+            record.insert(key.into(), Value::String(truncate_chars(value, max_chars)));
+        }
+    }
+    if let Some(line) = payload.get("line").and_then(Value::as_u64) {
+        record.insert("line".into(), Value::from(line));
+    }
+
+    Value::Object(record)
+}
+
+fn truncate_chars(value: &str, max_chars: usize) -> String {
+    let mut chars = value.chars();
+    let prefix: String = chars.by_ref().take(max_chars).collect();
+    if chars.next().is_some() {
+        format!("{prefix}…")
+    } else {
+        prefix
+    }
+}
+
+#[cfg(test)]
+mod diagnostics_tests {
+    use super::*;
+
+    #[test]
+    fn diagnostic_report_is_timestamped_allowlisted_and_bounded() {
+        let payload = serde_json::json!({
+            "type": "forged-type",
+            "ts": "forged-time",
+            "kind": "window-error",
+            "url": "u".repeat(5000),
+            "message": "💥".repeat(5000),
+            "source": "s".repeat(2000),
+            "line": -1,
+            "privatePayload": "must not be persisted"
+        });
+
+        let record = sanitize_diagnostic_payload(&payload);
+        assert_eq!(record["type"], "ext-diagnostic");
+        assert_eq!(record["kind"], "window-error");
+        assert!(record["ts"].as_str().unwrap().contains('T'));
+        assert_eq!(record["message"].as_str().unwrap().chars().count(), 4001);
+        assert_eq!(record["url"].as_str().unwrap().chars().count(), 2049);
+        assert_eq!(record["source"].as_str().unwrap().chars().count(), 1025);
+        assert!(record.get("privatePayload").is_none());
+        assert!(record.get("line").is_none());
+
+        let serialized = serde_json::to_string(&record).unwrap();
+        assert!(serialized.len() < 64 * 1024);
+    }
 }

@@ -412,6 +412,8 @@ export interface WhoisInfo {
   source: string
   rawText: string
   partial: boolean
+  errorCode?: "requestFailed" | "httpError" | "bodyReadFailed" | "responseTruncated"
+  httpStatus?: number
   message?: string
   commandHint: string
 }

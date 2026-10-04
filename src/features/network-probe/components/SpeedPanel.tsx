@@ -79,6 +79,23 @@ export function SpeedPanel({
 
   const unavailable =
     result != null && !result.ok && !result.cancelled && result.downloadMbps == null
+  const partial =
+    result != null &&
+    result.ok &&
+    !result.cancelled &&
+    [result.pingMs, result.jitterMs, result.downloadMbps, result.uploadMbps].some(
+      (value) => value == null,
+    )
+  const sampleStatus = (() => {
+    if (!sample?.detail || sample.detail === "running") return null
+    if (sample.detail === "sample" || sample.detail === "done") {
+      return sample.value.toFixed(1)
+    }
+    if (sample.detail === "cancelled") return t("networkProbe.speed.cancelled")
+    const httpStatus = /^http:(\d{3})$/.exec(sample.detail)?.[1]
+    if (httpStatus) return t("networkProbe.speed.phaseHttpError", { status: httpStatus })
+    return t("networkProbe.speed.phaseFailed")
+  })()
 
   return (
     <ProbePanelShell
@@ -146,11 +163,7 @@ export function SpeedPanel({
       {loading && sample ? (
         <p className="text-muted-foreground font-mono text-xs">
           {phaseLabel}
-          {sample.detail === "sample" || sample.detail === "done"
-            ? ` · ${sample.value.toFixed(1)}`
-            : sample.detail
-              ? ` · ${sample.detail}`
-              : null}
+          {sampleStatus ? ` · ${sampleStatus}` : null}
         </p>
       ) : null}
       {result ? (
@@ -167,9 +180,18 @@ export function SpeedPanel({
             <p className="text-xs text-amber-700 dark:text-amber-400">
               {t("networkProbe.speed.sourceUnavailable")}
             </p>
+          ) : partial ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.speed.partialResult")}
+            </p>
           ) : null}
-          {result.message ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
+          {result.message && !result.cancelled ? (
+            <details className="text-muted-foreground text-xs">
+              <summary className="cursor-pointer">
+                {t("networkProbe.speed.technicalDetails")}
+              </summary>
+              <pre className="mt-1 font-mono whitespace-pre-wrap">{result.message}</pre>
+            </details>
           ) : null}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Metric

@@ -2014,6 +2014,10 @@
       "cancelled": "已取消",
       "cooldown": "测速源失败 — {{seconds}} 秒后可重试",
       "sourceUnavailable": "该测速源似乎不可达。冷却结束后可换源再试。",
+      "partialResult": "部分测速阶段未完成，当前结果不完整。",
+      "phaseFailed": "此阶段请求失败",
+      "phaseHttpError": "服务返回 HTTP {{status}}",
+      "technicalDetails": "技术详情",
       "ping": "延迟",
       "jitter": "抖动",
       "download": "下载",
@@ -2041,23 +2045,42 @@
       "meta": "{{domain}} · {{count}} 条发现 · {{ms}} ms"
     },
     "whois": {
-      "hint": "经 rdap.org 做 RDAP 查询（本构建不强制 WHOIS 文本协议）。输出可能截断。",
+      "hint": "通过 rdap.org 查询域名或 IP 的注册数据。响应大小有限制，超出时会截断。",
       "query": "域名或 IP",
       "run": "查询",
       "running": "查询中…",
       "partial": "部分",
-      "empty": "未返回 RDAP 正文。"
+      "empty": "未返回 RDAP 正文。",
+      "resultFor": "查询结果 · {{query}}",
+      "technicalDetails": "技术详情",
+      "errors": {
+        "requestFailed": "RDAP 服务连接失败，请检查网络后重试。",
+        "httpError": "RDAP 服务返回 HTTP {{status}}。",
+        "bodyReadFailed": "读取 RDAP 响应失败。",
+        "responseTruncated": "RDAP 响应过大，已截断显示。"
+      }
     },
     "dnssec": {
-      "hint": "DNSSEC 提示 + DoH/DoT 可达性。本构建不断言完整 AD 位验证链。",
+      "hint": "使用 Hickory 验证 DNSSEC，并检查 Cloudflare DoH 与含 TLS 证书校验的 DoT。",
       "domain": "域名",
       "run": "检查 DNSSEC / DoH",
       "running": "检查中…",
       "status": "DNSSEC 状态",
+      "statusValue": {
+        "secure": "安全（验证通过）",
+        "insecure": "未签名（不安全）",
+        "bogus": "验证失败",
+        "unknown": "无法确定",
+        "unsupported": "不支持"
+      },
       "doh": "DoH",
       "dot": "DoT",
       "okMs": "可达 · {{ms}} ms",
-      "fail": "不可达 / 失败"
+      "fail": "不可达 / 失败",
+      "technicalDetails": "技术诊断详情",
+      "dnssecDetail": "DNSSEC",
+      "dohDetail": "DoH",
+      "dotDetail": "DoT"
     },
     "ports": {
       "hint": "对自有或已授权主机做 TCP connect 端口扫描。最多 256 端口；可取消。",
@@ -2319,6 +2342,39 @@
     "tabInstalled": "已安装",
     "tabMarket": "市场",
     "tabDiagnostics": "诊断",
+    "details": {
+      "open": "详情",
+      "title": "插件详情",
+      "close": "关闭",
+      "publisher": "发布者",
+      "publisherSourceNote": "这是 registry 的声明，不是独立身份认证。",
+      "engines": "Bench 版本要求",
+      "compatible": "当前宿主版本兼容",
+      "incompatible": "当前宿主版本不满足要求",
+      "trust": "安装时的来源校验",
+      "trustUnknown": "此版本没有保存安装时的来源校验记录，无法确认信任策略。",
+      "bundledTrust": "随 Bench 应用包分发；这里不声称插件有独立签名。",
+      "permissionsTitle": "manifest 申请的宿主命令",
+      "permissionsHint": "下方逐项对照当前宿主开放的能力。命令 ID 保留供核对，说明按命令类别概括。",
+      "capabilityHint": "状态来自宿主当前能力清单；“未开放”表示该命令当前不能由插件调用。",
+      "capabilityLoading": "正在读取宿主能力清单…",
+      "capabilityUnknownHint": "无法读取当前能力清单，状态显示为未知。",
+      "capabilityAvailable": "当前开放",
+      "capabilityUnavailable": "当前未开放",
+      "capabilityUnknown": "状态未知",
+      "permissionFamily": {
+        "photoFiles": "照片与本地文件操作",
+        "terminology": "术语库读取与修改",
+        "developerCleanup": "开发项目扫描与清理",
+        "storageCleanup": "存储扫描与清理",
+        "pricingStandards": "模型价格标准读取与维护",
+        "mediaAssets": "本地媒体资产读取、导入与删除",
+        "privateData": "插件私有数据目录访问",
+        "extensionManagement": "插件查询与生命周期管理",
+        "installedApps": "已安装应用查询与管理（含安装、升级、卸载或授权）",
+        "hostCommand": "宿主命令"
+      }
+    },
     "market": {
       "loadFailed": "市场加载失败",
       "empty": "市场暂无可用插件",
@@ -2331,22 +2387,53 @@
       "revokedBanner": "以下插件已被吊销并强制禁用",
       "revokedNote": "该插件已被吊销：{reason}。建议卸载。",
       "trustTitle": "信任此插件？",
-      "trustDescription": "「{name}」v{version}（{publisher}）已完成完整性与签名校验。安装前请确认其申请的宿主命令权限。",
+      "trustDescription": "「{name}」v{version}（registry 声明发布者：{publisher}）。请检查下方来源校验方式和它申请的宿主命令。",
+      "verification": {
+        "officialRegistryHashes": "已按官方 registry 的 HTTPS 整包 SHA-256/大小和逐文件清单验证；官方源不使用插件级签名。",
+        "minisign": "已通过第三方 registry 的 minisign 签名与逐文件完整性校验。",
+        "developmentUnsigned": "开发模式已跳过插件签名验证；插件来源未验证，只安装你信任的代码。"
+      },
       "unknownPublisher": "未知发布者",
       "requestedPermissions": "申请的宿主命令（deny-by-default）",
       "noPermissions": "该插件未申请任何宿主命令",
-      "trustNote": "未登记的命令会被宿主网关拒绝；能力面经 registry 人工审核把关。",
+      "trustNote": "宿主会拦截此权限清单之外的命令调用。",
       "trustAndInstall": "信任并安装",
       "installing": "安装中…",
       "prepareFailed": "安装校验未通过",
       "commitFailed": "安装失败",
+      "cancelFailed": "未能清理安装缓存",
       "toastInstalled": "插件已安装"
     },
     "diagnostics": {
-      "hint": "插件审计日志与运行时错误（最近 200 条）",
+      "hint": "最近 200 条插件审计事件与运行时记录；数据只保存在本机。",
       "audit": "审计日志 ext-audit.log",
       "runtime": "运行时诊断 ext-diagnostics.jsonl",
-      "empty": "暂无记录"
+      "empty": "暂无记录",
+      "searchLabel": "搜索诊断记录",
+      "searchPlaceholder": "搜索插件、版本、错误或内容",
+      "filterLabel": "按类型筛选",
+      "filterAll": "所有类型",
+      "noMatches": "没有匹配的记录，请调整搜索词或类型。",
+      "unknown": "未知记录",
+      "timeUnavailable": "时间未知",
+      "rawDetails": "查看原始记录",
+      "count": "显示 {{visible}} 条，共 {{total}} 条",
+      "refreshing": "刷新中…",
+      "event": {
+        "install": "安装",
+        "enable": "启用",
+        "disable": "禁用",
+        "uninstall": "卸载",
+        "verifyFail": "校验失败",
+        "aclDeny": "权限拒绝",
+        "revokeHit": "命中吊销"
+      },
+      "kind": {
+        "windowError": "窗口错误",
+        "unhandledRejection": "未处理的 Promise 拒绝",
+        "consoleError": "控制台错误",
+        "boot": "插件启动"
+      }
     },
     "tabBridge": "跨端接入",
     "bridgeTitle": "浏览器扩展与 MCP 接入",
@@ -2363,6 +2450,7 @@
     "bridgeExtId": "扩展 ID",
     "bridgeCopy": "复制",
     "bridgeCopied": "已复制",
+    "bridgeCopyFailed": "复制到剪贴板失败，请检查剪贴板权限后重试。",
     "bridgeNmTitle": "Native Messaging 注册状态",
     "bridgeBrowsers": "本机浏览器",
     "bridgeOpenExtensionsPage": "打开扩展页",

@@ -31,6 +31,7 @@ pub async fn run_traceroute<R: Runtime>(
         .clamp(1, MAX_ROUNDS as u32) as usize;
 
     let session_id = super::session::new_session_id();
+    let _session_guard = super::session::SessionGuard::new(session_id.clone());
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,

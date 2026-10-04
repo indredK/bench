@@ -11,19 +11,23 @@
 //! 5. 安全解压到临时目录（P3.3 extraction，路径穿越/zip bomb/symlink 防御）
 //! 6. manifest v2 校验 + `id`/`version` 与请求绑定
 //! 7. engines 兼容
-//! 8. market 签名（canonical 文本 + trusted comment）
+//! 8. 第三方 market 签名（canonical 文本 + trusted comment）；官方 registry 按
+//!    registry 整包摘要与 manifest 逐文件 hash 清单校验（spec §5.4）
 //! 9. 逐文件完整性（P3.1）
 //! 10. 版本单调性（`new <= installed` 拒绝）
 //! 11. 原子落位 → 审计 `install`
 
 use std::{
+    collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    sync::{Arc, Mutex as StdMutex, OnceLock},
 };
 
 use serde::Serialize;
 use sha2::Digest;
 use tauri::{AppHandle, Manager, Runtime};
+use tokio::sync::Mutex;
 
 use crate::error::{AppError, AppResult};
 
@@ -40,9 +44,34 @@ use super::{
 
 /// 整包下载上限（与解压总体积上限一致；registry 声明的 size 另行精确校验）。
 const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_REGISTRY_BYTES: usize = 8 * 1024 * 1024;
 
 /// 下载缓存目录名（`$APPDATA/extension-cache`）。
 const CACHE_DIR_NAME: &str = "extension-cache";
+const MAX_MARKET_LOCKS: usize = 128;
+
+/// Serialize prepare/commit operations for the same plugin. This protects the shared
+/// `<id>-<version>` cache paths and makes version-check + promotion one critical section.
+fn market_operation_lock(extension_id: &str) -> Arc<Mutex<()>> {
+    static LOCKS: OnceLock<StdMutex<HashMap<String, Arc<Mutex<()>>>>> = OnceLock::new();
+    static OVERFLOW_LOCK: OnceLock<Arc<Mutex<()>>> = OnceLock::new();
+
+    let locks = LOCKS.get_or_init(|| StdMutex::new(HashMap::new()));
+    let mut locks = locks
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    // Reclaim idle entries so arbitrary valid plugin IDs cannot grow the lock table forever.
+    locks.retain(|_, lock| Arc::strong_count(lock) > 1 || lock.try_lock().is_err());
+    if let Some(lock) = locks.get(extension_id) {
+        return Arc::clone(lock);
+    }
+    if locks.len() >= MAX_MARKET_LOCKS {
+        return Arc::clone(OVERFLOW_LOCK.get_or_init(|| Arc::new(Mutex::new(()))));
+    }
+    let lock = Arc::new(Mutex::new(()));
+    locks.insert(extension_id.to_string(), Arc::clone(&lock));
+    lock
+}
 
 /// market 列表（返回给插件中心；**不含下载 URL** —— renderer 不得提交地址）。
 #[derive(Debug, Clone, Serialize)]
@@ -94,9 +123,7 @@ pub struct RevokedHitDto {
 async fn fetch_registry() -> AppResult<RegistryDoc> {
     let base = registry::registry_base_url()?;
     let url = registry::registry_index_url(&base);
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
+    let client = registry::public_https_client(std::time::Duration::from_secs(30))
         .map_err(|e| AppError::internal(format!("build http client: {e}")))?;
     let response = client
         .get(&url)
@@ -109,11 +136,24 @@ async fn fetch_registry() -> AppResult<RegistryDoc> {
             response.status()
         )));
     }
-    let text = response
-        .text()
-        .await
-        .map_err(|e| AppError::internal(format!("read registry body: {e}")))?;
-    let doc: RegistryDoc = serde_json::from_str(&text)
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_REGISTRY_BYTES as u64)
+    {
+        return Err(AppError::invalid_input(format!(
+            "registry response exceeds the {MAX_REGISTRY_BYTES} byte safety limit"
+        )));
+    }
+    let body =
+        crate::net_probe::bounded_http::read_response_body_limited(response, MAX_REGISTRY_BYTES)
+            .await
+            .map_err(|error| AppError::internal(format!("read registry body: {error}")))?;
+    if body.truncated {
+        return Err(AppError::invalid_input(format!(
+            "registry response exceeds the {MAX_REGISTRY_BYTES} byte safety limit"
+        )));
+    }
+    let doc: RegistryDoc = serde_json::from_slice(&body.bytes)
         .map_err(|e| AppError::invalid_input(format!("registry JSON invalid: {e}")))?;
     registry::validate_registry_doc(&doc)?;
     Ok(doc)
@@ -241,6 +281,15 @@ fn cache_dir<R: Runtime>(app: &AppHandle<R>) -> AppResult<PathBuf> {
     Ok(dir)
 }
 
+/// 实际执行的 market 验证策略，安装确认弹窗据此说明信任边界。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MarketVerificationMethod {
+    OfficialRegistryHashes,
+    Minisign,
+    DevelopmentUnsigned,
+}
+
 /// market 安装预览（返回给确认弹窗；A4-1 信任披露数据源）。
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -251,6 +300,9 @@ pub struct MarketInstallPreview {
     pub display_zh: Option<String>,
     pub publisher_name: Option<String>,
     pub size_bytes: u64,
+    pub engines_bench: String,
+    /// 实际完成的来源验证策略；用于让用户理解信任边界。
+    pub verification_method: MarketVerificationMethod,
     /// 产物 manifest 申请的宿主命令（ACL 披露）。
     pub acl_commands: Vec<String>,
 }
@@ -291,6 +343,8 @@ pub async fn ext_market_prepare(
             "invalid extension version `{version}`"
         )));
     }
+    let operation_lock = market_operation_lock(&extension_id);
+    let _operation_guard = operation_lock.lock().await;
     // 步骤 1-2：拉目录并解析条目（yanked 拒绝）。
     let doc = fetch_registry().await?;
     let entry: &RegistryEntry = doc
@@ -312,6 +366,12 @@ pub async fn ext_market_prepare(
     if version_entry.yanked {
         return Err(AppError::invalid_input(format!(
             "extension `{extension_id}` version `{version}` has been yanked"
+        )));
+    }
+    if version_entry.size > MAX_DOWNLOAD_BYTES {
+        return Err(AppError::forbidden_path(format!(
+            "registry package size exceeds the {} byte safety limit",
+            MAX_DOWNLOAD_BYTES
         )));
     }
     // 吊销通道（spec §5.3）必须在安装入口也生效：列表路径只做「已装插件强制禁用 +
@@ -346,12 +406,10 @@ pub async fn ext_market_prepare(
         .map_err(|e| AppError::io(format!("create preview dir: {e}")))?;
     let zip_path = cache_dir(&app)?.join(format!("{extension_id}-{version}.zip"));
 
-    // 管线主体；任一步失败 → 清理 staging + 临时 zip（prepare 无审计事件）。
+    // 管线主体；成功时保留经校验的 zip，等待 commit 再从可信原包重验。
     let prepared = async {
         // 步骤 3：下载（content-length 预检 + 流式上限）。
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(300))
-            .build()
+        let client = registry::public_https_client(std::time::Duration::from_secs(300))
             .map_err(|e| AppError::internal(format!("build http client: {e}")))?;
         let mut response = client
             .get(&version_entry.download_url)
@@ -397,6 +455,13 @@ pub async fn ext_market_prepare(
 
         // 步骤 4-9：整包校验 → 解压 → manifest/签名/完整性（可测核心）。
         let official_source = registry::is_official_registry(&registry::registry_base_url()?);
+        let verification_method = if official_source {
+            MarketVerificationMethod::OfficialRegistryHashes
+        } else if signature::dev_mode_enabled() {
+            MarketVerificationMethod::DevelopmentUnsigned
+        } else {
+            MarketVerificationMethod::Minisign
+        };
         let manifest = verify_staged_package(
             &zip_path,
             &staging_dir,
@@ -407,23 +472,28 @@ pub async fn ext_market_prepare(
             None,
             official_source,
         )?;
-        Ok(manifest)
+        Ok((manifest, verification_method))
     }
     .await;
 
-    // 收尾：清理（成功时 zip 可删；失败时预览目录一并清理）。
-    let _ = fs::remove_file(&zip_path);
     match prepared {
-        Ok(manifest) => Ok(MarketInstallPreview {
-            id: manifest.id.clone(),
-            version: manifest.version.clone(),
-            display_en: manifest.display_name("en").to_string(),
-            display_zh: manifest.display.zh.clone(),
-            publisher_name: entry.publisher.as_ref().map(|p| p.name.clone()),
-            size_bytes: version_entry.size,
-            acl_commands: manifest.acl.commands.clone(),
-        }),
+        Ok((manifest, verification_method)) => {
+            // UI 只需要经过验证的权限摘要；commit 会从 zip 重新解压，故不保留可写目录。
+            let _ = fs::remove_dir_all(&staging_dir);
+            Ok(MarketInstallPreview {
+                id: manifest.id.clone(),
+                version: manifest.version.clone(),
+                display_en: manifest.display_name("en").to_string(),
+                display_zh: manifest.display.zh.clone(),
+                publisher_name: entry.publisher.as_ref().map(|p| p.name.clone()),
+                size_bytes: version_entry.size,
+                engines_bench: manifest.engines.bench.clone(),
+                verification_method,
+                acl_commands: manifest.acl.commands.clone(),
+            })
+        }
         Err(error) => {
+            let _ = fs::remove_file(&zip_path);
             let _ = fs::remove_dir_all(&staging_dir);
             audit::record(
                 &app,
@@ -437,8 +507,8 @@ pub async fn ext_market_prepare(
     }
 }
 
-/// 安装第二步（spec §6.1 步骤 10-11，用户在信任弹窗确认后调用）：
-/// 重新校验预览产物 → 版本单调性 → 原子落位 → 审计 install。
+/// 安装第二步（用户在信任弹窗确认后调用）：
+/// 重新读取 registry 并校验原始 zip → 全量重解压/校验 → 原子性受保护的落位。
 #[tauri::command]
 pub async fn ext_market_commit(
     app: AppHandle,
@@ -455,30 +525,84 @@ pub async fn ext_market_commit(
             "invalid extension version `{version}`"
         )));
     }
+    let operation_lock = market_operation_lock(&extension_id);
+    let _operation_guard = operation_lock.lock().await;
     let staging_dir = preview_dir(&app, &extension_id, &version)?;
+    let zip_path = cache_dir(&app)?.join(format!("{extension_id}-{version}.zip"));
     let result = async {
-        let manifest_path = staging_dir.join(MANIFEST_FILE);
-        if !manifest_path.is_file() {
+        let doc = fetch_registry().await?;
+        let entry = doc
+            .extensions
+            .iter()
+            .find(|entry| entry.id == extension_id)
+            .ok_or_else(|| {
+                AppError::not_found(format!(
+                    "extension `{extension_id}` no longer exists in registry"
+                ))
+            })?;
+        let version_entry = entry
+            .versions
+            .iter()
+            .find(|entry| entry.version == version)
+            .ok_or_else(|| {
+                AppError::not_found(format!(
+                    "extension `{extension_id}` version `{version}` no longer exists in registry"
+                ))
+            })?;
+        if version_entry.yanked {
+            return Err(AppError::invalid_input(format!(
+                "extension `{extension_id}` version `{version}` has been yanked"
+            )));
+        }
+        if let Some(reason) = registry::revoke_hit(&doc, &extension_id, &version) {
+            return Err(AppError::new(
+                "EXTENSION_REVOKED",
+                format!(
+                    "extension `{extension_id}` version `{version}` has been revoked: {reason}"
+                ),
+            ));
+        }
+        if registry::validate_download_url(&version_entry.download_url).is_err() {
+            return Err(AppError::forbidden_path(format!(
+                "registry download url rejected: {}",
+                version_entry.download_url
+            )));
+        }
+        if version_entry.size > MAX_DOWNLOAD_BYTES {
+            return Err(AppError::forbidden_path(format!(
+                "registry package size exceeds the {} byte safety limit",
+                MAX_DOWNLOAD_BYTES
+            )));
+        }
+        if !zip_path.is_file() {
             return Err(AppError::not_found(
                 "install preview expired — prepare again".to_string(),
             ));
         }
-        let manifest_text = fs::read_to_string(&manifest_path)
-            .map_err(|e| AppError::invalid_input(format!("read staged manifest: {e}")))?;
-        let manifest = ExtensionManifest::parse(&manifest_text)?;
-        if manifest.id != extension_id || manifest.version != version {
-            return Err(AppError::forbidden_path(
-                "staged manifest does not match the requested install",
-            ));
-        }
         let host_version = app.package_info().version.to_string();
-        if !manifest.satisfies_engines(&host_version) {
+        let engines = ManifestEnginesProbe {
+            bench: version_entry.engines.bench.clone(),
+        };
+        if !engines.satisfies(&host_version) {
             return Err(AppError::unsupported(format!(
-                "extension `{}` requires bench {}, current host is {host_version}",
-                manifest.id, manifest.engines.bench
+                "extension `{extension_id}` requires bench {}, current host is {host_version}",
+                version_entry.engines.bench
             )));
         }
-        integrity::verify_bundle_integrity(&staging_dir, &manifest)?;
+
+        // Never trust the writable preview directory. Recreate it from the retained archive,
+        // then verify registry hash/size, manifest, signature policy and each listed file again.
+        let official_source = registry::is_official_registry(&registry::registry_base_url()?);
+        let manifest = rebuild_staging_from_archive(
+            &zip_path,
+            &staging_dir,
+            &extension_id,
+            &version,
+            version_entry,
+            &host_version,
+            None,
+            official_source,
+        )?;
         records::check_version_monotonic(&app, &manifest.id, &manifest.version)?;
 
         let installed_dir = installed_extension_dir(&app, &extension_id).ok_or_else(|| {
@@ -490,7 +614,33 @@ pub async fn ext_market_commit(
             .ok_or_else(|| AppError::internal("resolve extensions root failed"))?;
         let final_dir = extensions_root.join(&extension_id);
         extraction::promote_staged_bundle(&staging_dir, &final_dir)?;
-        records::record_verified_version(&app, &manifest.id, &manifest.version)?;
+        if let Err(error) = records::record_verified_version(&app, &manifest.id, &manifest.version)
+        {
+            // Promotion has already succeeded. Report success to match the installed state;
+            // the next verified open retries this monotonic watermark write.
+            eprintln!("[extension_host] record installed version failed: {error}");
+        }
+        let verification_method = if official_source {
+            records::VerificationMethod::OfficialRegistryHashes
+        } else if signature::dev_mode_enabled() {
+            records::VerificationMethod::DevelopmentUnsigned
+        } else {
+            records::VerificationMethod::Minisign
+        };
+        if let Err(error) = records::write_source_record(
+            &app,
+            &manifest.id,
+            &records::SourceRecord {
+                version: manifest.version.clone(),
+                publisher_name: entry
+                    .publisher
+                    .as_ref()
+                    .map(|publisher| publisher.name.clone()),
+                verification_method,
+            },
+        ) {
+            eprintln!("[extension_host] record installation source failed: {error}");
+        }
         audit::record(
             &app,
             AuditEvent::Install,
@@ -502,7 +652,8 @@ pub async fn ext_market_commit(
     }
     .await;
 
-    // 清理预览目录（成功时已被 rename 走；失败时清理残留）。
+    // 成功或失败都清除缓存包与临时目录；取消操作也走 ext_market_cancel。
+    let _ = fs::remove_file(&zip_path);
     let _ = fs::remove_dir_all(&staging_dir);
     if let Err(error) = result {
         audit::record(
@@ -517,6 +668,39 @@ pub async fn ext_market_commit(
     Ok(())
 }
 
+/// 用户取消安装预览时清理已校验的 zip 和临时文件。
+#[tauri::command]
+pub async fn ext_market_cancel(
+    app: AppHandle,
+    extension_id: String,
+    version: String,
+) -> AppResult<()> {
+    if !super::manifest::is_valid_extension_id(&extension_id)
+        || !super::manifest::is_valid_semver(&version)
+    {
+        return Err(AppError::invalid_input("invalid extension preview key"));
+    }
+    let operation_lock = market_operation_lock(&extension_id);
+    let _operation_guard = operation_lock.lock().await;
+    let zip_path = cache_dir(&app)?.join(format!("{extension_id}-{version}.zip"));
+    let staging_dir = preview_dir(&app, &extension_id, &version)?;
+    if let Err(error) = fs::remove_file(&zip_path) {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            return Err(AppError::io(format!(
+                "remove market preview archive: {error}"
+            )));
+        }
+    }
+    if let Err(error) = fs::remove_dir_all(&staging_dir) {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            return Err(AppError::io(format!(
+                "remove market preview directory: {error}"
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// 诊断数据（插件中心诊断面板用）：审计日志 + 插件运行时诊断的最近条目。
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -527,22 +711,18 @@ pub struct ExtensionDiagnostics {
 
 /// 读取插件子系统诊断（宿主窗口专用；未加入 ext 网关白名单）。
 #[tauri::command]
-pub fn ext_diagnostics(app: AppHandle) -> AppResult<ExtensionDiagnostics> {
-    let audit_lines = audit::read_recent(&app, 200)?;
-    let runtime_path = app
+pub async fn ext_diagnostics(app: AppHandle) -> AppResult<ExtensionDiagnostics> {
+    let app_data_dir = app
         .path()
         .app_data_dir()
-        .map(|dir| dir.join(super::commands::POC_RESULT_FILE))
         .map_err(|e| AppError::internal(format!("resolve app data dir failed: {e}")))?;
-    let runtime = match fs::read_to_string(&runtime_path) {
-        Ok(text) => {
-            let lines: Vec<String> = text.lines().map(str::to_string).collect();
-            let start = lines.len().saturating_sub(200);
-            lines[start..].to_vec()
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
-        Err(e) => return Err(AppError::io(format!("read diagnostics: {e}"))),
-    };
+    let audit_path = app_data_dir.join(audit::EXT_AUDIT_FILE);
+    let runtime_path = app_data_dir.join(super::commands::POC_RESULT_FILE);
+    let (audit_lines, runtime) = tauri::async_runtime::spawn_blocking(move || {
+        audit::read_recent_pair_from_paths(&audit_path, &runtime_path, 200)
+    })
+    .await
+    .map_err(|error| AppError::task_failed(format!("read diagnostics task failed: {error}")))??;
     Ok(ExtensionDiagnostics {
         audit: audit_lines,
         runtime,
@@ -634,6 +814,46 @@ fn verify_staged_package(
     // 步骤 9：逐文件完整性。
     integrity::verify_bundle_integrity(staging_dir, &manifest)?;
     Ok(manifest)
+}
+
+/// Replace any preview directory with a fresh extraction from the retained archive before commit.
+/// A caller-controlled or stale unpacked directory must never be the source of installed files.
+#[allow(clippy::too_many_arguments)]
+fn rebuild_staging_from_archive(
+    zip_path: &Path,
+    staging_dir: &Path,
+    extension_id: &str,
+    version: &str,
+    version_entry: &RegistryVersion,
+    host_version: &str,
+    pubkey_override: Option<&str>,
+    official_source: bool,
+) -> AppResult<ExtensionManifest> {
+    match fs::remove_dir_all(staging_dir) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(AppError::io(format!(
+                "remove stale preview directory: {error}"
+            )));
+        }
+    }
+    fs::create_dir_all(staging_dir)
+        .map_err(|error| AppError::io(format!("create commit staging directory: {error}")))?;
+    let result = verify_staged_package(
+        zip_path,
+        staging_dir,
+        extension_id,
+        version,
+        version_entry,
+        host_version,
+        pubkey_override,
+        official_source,
+    );
+    if result.is_err() {
+        let _ = fs::remove_dir_all(staging_dir);
+    }
+    result
 }
 
 /// 流式计算文件 sha256 + 大小（与 integrity 模块一致的 hex 规则）。
@@ -758,6 +978,42 @@ mod tests {
     }
 
     #[test]
+    fn commit_rebuilds_from_verified_archive_instead_of_mutable_preview() {
+        let (zip_path, hash, size) = build_zip("commit-rebuild", b"test");
+        let entry = registry_version(&hash, size);
+        let root = temp_root("commit-rebuild-staging");
+        let staging = root.join("preview");
+        fs::create_dir_all(&staging).expect("preview dir");
+        fs::write(staging.join("manifest.json"), b"tampered manifest").expect("tampered manifest");
+        fs::write(staging.join("index.html"), b"attacker content").expect("tampered asset");
+
+        let manifest = rebuild_staging_from_archive(
+            &zip_path,
+            &staging,
+            "fake-ext",
+            "1.0.0",
+            &entry,
+            "1.30.0",
+            Some(PIPELINE_PUBKEY),
+            false,
+        )
+        .expect("commit revalidates the source archive");
+
+        assert_eq!(manifest.id, "fake-ext");
+        assert_eq!(
+            fs::read(staging.join("index.html")).expect("rebuilt asset"),
+            b"test",
+            "the preview directory must not be used as install input"
+        );
+        assert_eq!(
+            fs::read_to_string(staging.join("manifest.json")).expect("rebuilt manifest"),
+            PIPELINE_MANIFEST
+        );
+        fs::remove_dir_all(&root).ok();
+        fs::remove_dir_all(zip_path.parent().unwrap()).ok();
+    }
+
+    #[test]
     fn pipeline_rejects_whole_package_sha_mismatch() {
         let (zip_path, hash, size) = build_zip("sha", b"test");
         // registry 声明的整包哈希与实际不符（传输损坏 / 内容投喂）。
@@ -826,5 +1082,21 @@ mod tests {
         assert_eq!(err.code, "FORBIDDEN_PATH");
         assert!(err.message.contains("does not match requested"));
         fs::remove_dir_all(zip_path.parent().unwrap()).ok();
+    }
+
+    #[test]
+    fn install_preview_verification_method_serializes_for_i18n_mapping() {
+        assert_eq!(
+            serde_json::to_string(&MarketVerificationMethod::OfficialRegistryHashes).unwrap(),
+            "\"officialRegistryHashes\""
+        );
+        assert_eq!(
+            serde_json::to_string(&MarketVerificationMethod::Minisign).unwrap(),
+            "\"minisign\""
+        );
+        assert_eq!(
+            serde_json::to_string(&MarketVerificationMethod::DevelopmentUnsigned).unwrap(),
+            "\"developmentUnsigned\""
+        );
     }
 }

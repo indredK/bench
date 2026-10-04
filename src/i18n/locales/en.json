@@ -2014,6 +2014,10 @@
       "cancelled": "cancelled",
       "cooldown": "Source failed — retry in {{seconds}}s",
       "sourceUnavailable": "This speed source looks unreachable. Try another source after the cooldown.",
+      "partialResult": "Some test phases did not complete; the results are incomplete.",
+      "phaseFailed": "This phase request failed",
+      "phaseHttpError": "The service returned HTTP {{status}}",
+      "technicalDetails": "Technical details",
       "ping": "Ping",
       "jitter": "Jitter",
       "download": "Download",
@@ -2041,23 +2045,42 @@
       "meta": "{{domain}} · {{count}} findings · {{ms}} ms"
     },
     "whois": {
-      "hint": "RDAP lookup via rdap.org (WHOIS fallback not required for this build). Output may be truncated.",
+      "hint": "Look up registration data for a domain or IP through rdap.org. Response size is limited and oversized results are truncated.",
       "query": "Domain or IP",
       "run": "Lookup",
       "running": "Looking up…",
       "partial": "partial",
-      "empty": "No RDAP body returned."
+      "empty": "No RDAP body returned.",
+      "resultFor": "Result · {{query}}",
+      "technicalDetails": "Technical details",
+      "errors": {
+        "requestFailed": "Could not connect to the RDAP service. Check your connection and retry.",
+        "httpError": "The RDAP service returned HTTP {{status}}.",
+        "bodyReadFailed": "Could not read the RDAP response.",
+        "responseTruncated": "The RDAP response was too large and has been truncated."
+      }
     },
     "dnssec": {
-      "hint": "DNSSEC hints plus DoH/DoT reachability. Full AD-bit chain validation is not asserted in this build.",
+      "hint": "Validate DNSSEC with Hickory and check Cloudflare DoH and DoT with TLS certificate validation.",
       "domain": "Domain",
       "run": "Check DNSSEC / DoH",
       "running": "Checking…",
       "status": "DNSSEC status",
+      "statusValue": {
+        "secure": "Secure (validated)",
+        "insecure": "Unsigned (insecure)",
+        "bogus": "Validation failed",
+        "unknown": "Unknown",
+        "unsupported": "Unsupported"
+      },
       "doh": "DoH",
       "dot": "DoT",
       "okMs": "ok · {{ms}} ms",
-      "fail": "unreachable / failed"
+      "fail": "unreachable / failed",
+      "technicalDetails": "Technical details",
+      "dnssecDetail": "DNSSEC",
+      "dohDetail": "DoH",
+      "dotDetail": "DoT"
     },
     "ports": {
       "hint": "TCP connect scan of a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",
@@ -2319,6 +2342,39 @@
     "tabInstalled": "Installed",
     "tabMarket": "Market",
     "tabDiagnostics": "Diagnostics",
+    "details": {
+      "open": "Details",
+      "title": "Extension details",
+      "close": "Close",
+      "publisher": "Publisher",
+      "publisherSourceNote": "This is a registry claim, not an independently verified identity.",
+      "engines": "Bench version requirement",
+      "compatible": "Compatible with this host version",
+      "incompatible": "This host version does not meet the requirement",
+      "trust": "Source verification at installation",
+      "trustUnknown": "No installation verification record was saved for this version, so its trust method cannot be confirmed.",
+      "bundledTrust": "Distributed with the Bench app package; this does not claim an independent extension signature.",
+      "permissionsTitle": "Host commands requested by the manifest",
+      "permissionsHint": "Each command is compared with the host's current capability list. Command IDs remain visible for review; descriptions summarize their command family.",
+      "capabilityHint": "Status comes from the host's current capability list. “Unavailable” means the host currently blocks that command for extensions.",
+      "capabilityLoading": "Reading the host capability list…",
+      "capabilityUnknownHint": "The current capability list could not be read, so command status is unknown.",
+      "capabilityAvailable": "Available now",
+      "capabilityUnavailable": "Unavailable now",
+      "capabilityUnknown": "Unknown",
+      "permissionFamily": {
+        "photoFiles": "Photo and local file operations",
+        "terminology": "Read and modify terminology data",
+        "developerCleanup": "Scan and clean developer projects",
+        "storageCleanup": "Storage scans and cleanup",
+        "pricingStandards": "Read and maintain model pricing standards",
+        "mediaAssets": "Read, import, and delete local media assets",
+        "privateData": "Access the extension's private data directory",
+        "extensionManagement": "Query and manage extension lifecycle",
+        "installedApps": "Query and manage installed apps (including install, upgrade, uninstall, or authorization)",
+        "hostCommand": "Host command"
+      }
+    },
     "market": {
       "loadFailed": "Failed to load the market",
       "empty": "No extensions available in the market",
@@ -2331,22 +2387,53 @@
       "revokedBanner": "The following extensions have been revoked and force-disabled",
       "revokedNote": "This extension was revoked: {reason}. Uninstalling is recommended.",
       "trustTitle": "Trust this extension?",
-      "trustDescription": "\"{name}\" v{version} ({publisher}) passed integrity and signature verification. Review the host commands it requests before installing.",
+      "trustDescription": "\"{name}\" v{version} (publisher declared by the registry: {publisher}). Review the verification method below and the host commands it requests.",
+      "verification": {
+        "officialRegistryHashes": "Verified against the official registry's HTTPS package SHA-256/size and per-file manifest. The official source does not use extension-level signatures.",
+        "minisign": "Verified with the third-party registry's minisign key and per-file integrity checks.",
+        "developmentUnsigned": "Developer mode skipped extension signature verification. The source is unverified; install only code you trust."
+      },
       "unknownPublisher": "Unknown publisher",
       "requestedPermissions": "Requested host commands (deny-by-default)",
       "noPermissions": "This extension requests no host commands",
-      "trustNote": "Unregistered commands are rejected by the host gateway; the capability surface is vetted via the registry review process.",
+      "trustNote": "The host blocks commands outside this permission list.",
       "trustAndInstall": "Trust & Install",
       "installing": "Installing…",
       "prepareFailed": "Install verification failed",
       "commitFailed": "Install failed",
+      "cancelFailed": "Could not clean the install cache",
       "toastInstalled": "Extension installed"
     },
     "diagnostics": {
-      "hint": "Extension audit log and runtime errors (last 200 entries)",
+      "hint": "Recent 200 extension audit and runtime records. Data stays on this device.",
       "audit": "Audit log ext-audit.log",
       "runtime": "Runtime diagnostics ext-diagnostics.jsonl",
-      "empty": "No records"
+      "empty": "No records",
+      "searchLabel": "Search diagnostic records",
+      "searchPlaceholder": "Search extensions, versions, errors, or text",
+      "filterLabel": "Filter by type",
+      "filterAll": "All types",
+      "noMatches": "No matching records. Try another search or type.",
+      "unknown": "Unknown record",
+      "timeUnavailable": "Time unavailable",
+      "rawDetails": "View raw record",
+      "count": "Showing {{visible}} of {{total}} records",
+      "refreshing": "Refreshing…",
+      "event": {
+        "install": "Installed",
+        "enable": "Enabled",
+        "disable": "Disabled",
+        "uninstall": "Uninstalled",
+        "verifyFail": "Verification failed",
+        "aclDeny": "Permission denied",
+        "revokeHit": "Revocation matched"
+      },
+      "kind": {
+        "windowError": "Window error",
+        "unhandledRejection": "Unhandled promise rejection",
+        "consoleError": "Console error",
+        "boot": "Extension startup"
+      }
     },
     "tabBridge": "Cross-platform",
     "bridgeTitle": "Browser Extension & MCP",
@@ -2363,6 +2450,7 @@
     "bridgeExtId": "Extension ID",
     "bridgeCopy": "Copy",
     "bridgeCopied": "Copied",
+    "bridgeCopyFailed": "Could not copy to the clipboard. Check clipboard permission and try again.",
     "bridgeNmTitle": "Native Messaging registrations",
     "bridgeBrowsers": "Browsers on this machine",
     "bridgeOpenExtensionsPage": "Open extensions page",

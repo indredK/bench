@@ -277,12 +277,12 @@
 ## D-024 · Extension 仓库组织与 photo-triage 试点拆法
 
 - **日期**：2026-09-08
-- **状态**：采纳（P2 前置定案）
+- **状态**：采纳（P2 前置定案；仓库真源与信任策略已按后续执行记录演进）
 - **背景**：[D-023](#d-023--20-目标变更为插件化生态r00r10-全部降级) 确立 2.0 = 插件化生态，P1 已证实 B′ 方案。进入 P2 前需定案「插件在哪个仓库开发、如何开发与发布」。行业先例（VS Code 内置扩展 / uTools / Raycast / Obsidian / dprint）与三选项对比见 [extension-workflow.md](./extension-workflow.md)。
 - **决策**：
-  1. **两阶段仓库组织**：契约演进期（P2–P4）官方插件住**主仓库 `extensions/` 目录**（VS Code 内置扩展模式）；开放第三方后提供 `bench-extension-template` 模板仓库，第三方在**各自独立仓库**开发，产物 + manifest 经 **registry PR 审核**上架（Obsidian 社区插件模式）；现已落地**官方集合仓 `kindred-plugin-market/plugin-market`**（插件真相源，宿主 `src/extensions/<id>/` 经 `pnpm run sync:ext-repos` 与之同步）。
-  2. **bundled / market 双分发形态**：`manifest.distribution: "bundled" | "market"`。bundled 产物随主包构建捆绑（2.0 过渡期功能不真空）；market 走 registry 下载 + minisign 校验（复用 `updater/keys/`）。同一套 manifest，仅分发字段不同。
-  3. **photo-triage 作为 P2/P3 首个迁移试点**（替换原计划的 token-calculator——它更简单但代表性弱）：**Rust 能力面留核心**（15 条命令 / 2350 行改造为宿主能力 + ACL 注册表，IPC 命令名不变），**前端 21 文件迁出**为 `extensions/photo-triage/`。理由：TCC 权限、进程树回收（`trash_ops.rs` 870 行）、持久化 schema 属宿主级系统能力；B′ 插件形态是前端 bundle，Rust 不随插件走；能力面共享可供后续插件复用。
+  1. **仓库组织**：早期试点插件暂留 Bench `extensions/`；开放第三方后提供模板，作者在各自仓库开发，经 registry PR 审核。后续已将官方插件源码唯一真源迁入 `kindred-plugin-market/plugin-market/extensions/<id>/`；`sync:ext-repos` 已退役，Bench 宿主不再保存或同步官方插件源码。
+  2. **bundled / market 双分发形态**：`manifest.distribution: "bundled" | "market"`。bundled 随主包构建捆绑；market 经 registry 安装。官方 canonical registry 使用 HTTPS + registry 整包 SHA-256/size + `manifest.files` 逐文件校验；第三方 registry 才要求 minisign。不得把官方摘要校验描述成独立签名，也不得复用 updater 密钥。
+  3. **photo-triage 作为首个迁移试点**（替换原计划的 token-calculator）：Rust 能力面留核心，前端迁出到官方集合仓 `plugin-market/extensions/photo-triage/`。拆分依据与当时文件数见 [extension-workflow.md §4](./extension-workflow.md)。
   4. **开发工作流**：试点期在主仓库 `extensions/` 照常开发，dev 模式宿主直接加载仓库目录；extension URL 一律显式 `tauri://localhost/ext/…`（**禁用 `WebviewUrl::App`**——dev 下它被 `get_app_url` 拼到 devUrl，永远到不了 asset provider，P1 实测踩坑）。
 - **理由**：契约（manifest schema / `bench_host` / ACL）在 P2–P4 频繁演进，跨仓库同步成本远大于收益；捆绑分发保证「绝大部分功能插件化」不产生功能真空；photo-triage 覆盖「重能力面 + UI」完整形态，试点价值最高。
 - **影响**：
@@ -291,6 +291,8 @@
   - photo-triage 的 Python→Rust 迁移路径决策不受影响——若选 sidecar，manifest `delivery: "sidecar"` 复用 [D-017](./decisions.md#d-017--network-probe-可选能力包可插拔高级组件) pack 模型；
   - 试点期本地构建本地装，minisign 门禁在其后启用。
 - **相关**：[extension-workflow.md](./extension-workflow.md)（架构边界与工作流） · [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)（执行清单，含行业依据） · [D-023](#d-023--20-目标变更为插件化生态r00r10-全部降级) · [D-017](./decisions.md#d-017--network-probe-可选能力包可插拔高级组件)
+
+- **后续演进**：2026-09-09 起官方插件源码真源转入 `plugin-market`，并新增独立命令市场仓与作者模板仓；当前开发与发布步骤见 [extension-workflow.md §13](./extension-workflow.md#13-插件发布仓库github-组织-kindred-plugin-market)。
 
 ## D-023 · 2.0 目标变更为「插件化生态」，R00–R10 全部降级
 

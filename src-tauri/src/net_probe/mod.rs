@@ -3,6 +3,7 @@
 mod advisor;
 mod agent;
 mod asn;
+pub(crate) mod bounded_http;
 pub(crate) mod commands;
 mod defaults;
 mod discovery;

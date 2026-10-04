@@ -4,7 +4,7 @@
 > **执行顺序与状态**：见 [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)。
 > **架构边界与工作流**：见 [extension-workflow.md](../explanation/extension-workflow.md)。
 > **版本**：本文对应 **manifest schema v2**（P3.1 起）。schema v1 的迁移说明见 §3.6。
-> **最后更新**：2026-09-08
+> **最后更新**：2026-10-04
 
 ---
 
@@ -15,7 +15,7 @@
 | **extension / 插件**     | 运行时可安装、可卸载的前端 bundle 能力单元。**不使用 "plugin"** —— Tauri 官方 plugin 指编译期 Cargo crate（见 [D-023](../explanation/decisions.md#d-023--20-目标变更为插件化生态r00r10-全部降级)） |
 | **宿主（host）**         | Bench 主程序（Rust + WebView），提供 asset provider、IPC 网关、生命周期管理                                                                                                                        |
 | **bundled**              | 随主包构建并发布的官方插件                                                                                                                                                                         |
-| **market**               | 经 canonical registry 分发的插件（官方或第三方）                                                                                                                                                   |
+| **market**               | 经官方或第三方 registry 分发的插件；官方源按 §5.4 校验摘要，第三方源使用 minisign                                                                                                                  |
 | **能力面（capability）** | 宿主暴露给 extension 空间的一组 IPC 命令                                                                                                                                                           |
 | **canonical 文本**       | 用于签名的确定性序列化字节（§4.1），签名与验签必须逐字节一致                                                                                                                                       |
 
@@ -41,7 +41,7 @@
 ```
 
 - 目录名必须等于 `manifest.id`。
-- `manifest.files` 必须列出**除 `manifest.json` 自身与 `.disabled` 之外**的全部文件；产物中不得存在清单外的文件。`manifest.json` 自身不入清单（文件哈希无法自嵌套，其完整性由「对 canonical 文本的签名」覆盖，见 §4）；`.disabled` 由宿主维护。
+- `manifest.files` 必须列出**除 `manifest.json` 自身与 `.disabled` 之外**的全部文件；产物中不得存在清单外的文件。`manifest.json` 自身不入清单（文件哈希无法自嵌套）；其完整性由官方 registry 的整包摘要、第三方源的 canonical minisign 签名或 bundled 主包签名链覆盖。`.disabled` 由宿主维护。
 - 运行时目录由宿主独占写入；用户不可直接编辑（UI 不提供「编辑插件文件」入口）。
 
 ### 2.2 分发包（zip）
@@ -70,11 +70,11 @@
 | `engines`       | object                    |  ✅  | `bench` 为 `*` 或 `>=X.Y.Z`                                             | 宿主兼容约束；非法约束 fail-closed                                                                                       |
 | `platforms`     | string\[\]                |  ⬜  | 每项为 `"macos"` \| `"windows"`；不得为空数组                           | 声明可用平台（P5）；**缺省 = 全平台**。宿主在已装列表中过滤掉不含当前平台的插件（能力判定由宿主做，renderer 不自行决定） |
 | `expiresAt`     | string \| null            |  ⬜  | ISO 8601 UTC                                                            | **market 推荐**；过期元数据被拒绝（防 freeze attack）                                                                    |
-| `signature`     | string \| null            |  ⬜  | minisign 签名                                                           | **market 必填**；bundled 豁免（由主包签名链覆盖）                                                                        |
+| `signature`     | string \| null            |  ⬜  | minisign 签名                                                           | 第三方 market 必填；官方 canonical registry 可省略（见 §5.4）；bundled 豁免（由主包签名链覆盖）                          |
 
 > 未列出的字段一律拒绝（`deny_unknown_fields`）。字段演进随本规格修订（`platforms` 为 v2 增补，P5）；破坏性字段变更必须走 schemaVersion 升级。
 
-### 3.2 完整示例（market）
+### 3.2 完整示例（带 minisign 的第三方 market）
 
 ```jsonc
 {
@@ -97,7 +97,7 @@
 
 ### 3.3 files 清单规则
 
-- 覆盖产物根下**除 `manifest.json` 自身与 `.disabled` 外**的全部文件（`manifest.json` 的文件哈希无法自嵌套；其完整性由 §4 的 canonical 文本签名覆盖；`.disabled` 由宿主维护）。
+- 覆盖产物根下**除 `manifest.json` 自身与 `.disabled` 外**的全部文件（`manifest.json` 的文件哈希无法自嵌套；其完整性由官方 registry 整包摘要、第三方 §4 签名或 bundled 主包签名链覆盖；`.disabled` 由宿主维护）。
 - `sha256` 为小写十六进制 64 字符；`size` 为解压后字节数。
 - **空数组视为非法**；重复 `path` 视为非法。
 - 校验时必须同时验证「清单内每条 hash 匹配」与「产物中不存在清单外的文件」（对标 Mozilla AMO 的 `manifest.mf` 要求）。
@@ -108,7 +108,7 @@
 2. `id` / `version` / `display` / `entry` / `acl` / `engines` 格式与约束
 3. `files` 非空、无重复、路径合法
 4. `engines.bench` 满足宿主版本
-5. `satisfies_engines` 通过后：market 校验 `signature`（§4）；bundled 跳过
+5. `satisfies_engines` 通过后：第三方 market 校验 `signature`（§4）；官方 canonical market 按 §5.4 校验 registry 摘要；bundled 由主包签名链保护
 6. `expiresAt` 未过期
 7. 版本单调性：不高于已安装版本（仅 market 安装/更新路径）
 8. 逐文件 hash 校验（开窗前；实现上可在安装时一次 + 开窗时校验 manifest）
@@ -143,7 +143,9 @@
 
 ---
 
-## 4. 签名规范
+## 4. 第三方 registry 签名规范
+
+官方 canonical registry 的信任策略见 [§5.4](#54-官方-registry-的信任与完整性)。本节只约束第三方 registry；bundled 插件由 Bench 主包签名链覆盖。
 
 ### 4.1 canonical 文本（签名对象）
 
@@ -165,13 +167,14 @@
 
 ### 4.3 公钥与模式（三态，不做静默回退）
 
-| 模式       | 触发                       | 行为                                                                                                |
-| ---------- | -------------------------- | --------------------------------------------------------------------------------------------------- |
-| `release`  | 默认                       | 使用 env `BENCH_EXT_REGISTRY_PUBKEY`（minisign 公钥文件完整两行文本）；**缺失即报配置错误**，不回退 |
-| `dev`      | `BENCH_EXT_DEV_MODE=1`     | 允许本地自签/未签，UI 明示「未验证分发源」                                                          |
-| `selfhost` | 用户提供自签 registry 公钥 | 正常验签，UI 标注「第三方 registry」                                                                |
+| 模式                     | 触发                                      | 行为                                                                                          |
+| ------------------------ | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| 官方 canonical market    | registry 基址与宿主内置官方 URL 完全匹配  | 跳过 minisign；校验 HTTPS 下载、registry `sha256`/`size` 和 manifest `files`。信任边界见 §5.4 |
+| 第三方 `release`（默认） | 使用非官方 registry，未启用 dev 模式      | 使用 env `BENCH_EXT_REGISTRY_PUBKEY`；**缺失即报配置错误**，不回退 updater 公钥               |
+| 第三方 `dev`             | 非官方 registry 且 `BENCH_EXT_DEV_MODE=1` | 允许本地自签/未签，UI 明示「未验证分发源」                                                    |
+| 第三方 `selfhost`        | 用户为非官方 registry 提供自签公钥        | 正常验签；UI 标注第三方来源                                                                   |
 
-> **禁止回退到 updater 公钥**：updater 私钥一旦泄露即等同于获得插件签发权，属密钥用途混用。私钥本地保管，CI 走 GitHub Secrets（零成本）。
+> **禁止回退到 updater 公钥**：updater 私钥一旦泄露即等同于获得第三方插件签发权，属密钥用途混用。私钥本地保管，CI 走 GitHub Secrets（零成本）。
 
 ### 4.4 验签流程
 
@@ -183,11 +186,11 @@
   → 校验 trusted comment == "<id>@<version>"
 ```
 
-任一步失败 → `FORBIDDEN_PATH` + 审计日志 `verify_fail`。
+任一步失败 → `FORBIDDEN_PATH` + 审计日志 `verify_fail`。官方 canonical market 不走 minisign 流程，改按 §5.4 校验 registry 与包内摘要。
 
-### 4.5 为什么必须签 `files` 而不只是 manifest
+### 4.5 为什么第三方签名必须覆盖 `files` 而不只是 manifest
 
-只签 manifest 时，攻击者保留已签 manifest、替换 `assets/*.js` 为任意代码，验签照样通过 —— 等价于**没有包完整性保护**。
+只签 manifest 时，攻击者保留已签 manifest、替换 `assets/*.js` 为任意代码，验签照样通过 —— 等价于**没有包完整性保护**。第三方 minisign 必须覆盖 `files`；官方 market 的 registry 整包 SHA-256 则额外覆盖 ZIP 内的 manifest 与所有内容。
 
 行业做法（2026-09-08 联网核验）：
 
@@ -209,7 +212,7 @@
 
 先例：Claude Code plugin marketplace（`marketplace.json` + Git）、Obsidian（`community-plugins.json` + GitHub Release）、Rubick（npm 源 + WebDAV）。
 
-静态托管**不降低**验签安全性 —— 前提是 §4 的完整性校验已到位。
+第三方 registry 依靠 §4 的签名校验。官方源的信任与完整性边界见 §5.4；不能把 HTTPS 和同一仓库中的 SHA-256 元数据等同于独立签名。
 
 ### 5.2 目录文件
 
@@ -248,11 +251,25 @@
 | `versions[].sha256` / `size` | **整包**摘要与字节数，下载后先验再解压                                          |
 | `revoked[].versions`         | `*` 或版本范围（`<1.2.0`）。命中则**强制禁用 + UI 显著警示**，不静默删除        |
 
+宿主对 registry 响应按流式方式读取，正文上限为 **8 MiB**；超出上限或无法完整读取时拒绝解析，避免把远端目录直接累积到无界内存。
+
 ### 5.3 吊销语义
 
 - 命中 `revoked` → 宿主**强制禁用**该插件（写 `.disabled`），插件中心显著警示，用户可卸载。
 - **不静默删除** —— 能力凭空消失的体验更差，且违背 [D-024](../explanation/decisions.md#d-024--extension-仓库组织与-photo-triage-试点拆法)「bundled 保证功能不真空」的取向。
 - 对标 VS Code Marketplace 的 block list（确认恶意后下架并强制卸载已安装实例）。
+
+### 5.4 官方 registry 的信任与完整性
+
+宿主内置的官方 registry 基址是：
+
+```text
+https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main
+```
+
+只有该基址（允许末尾 `/`）会走官方信任策略；其他 registry 一律按第三方源处理。官方 market 暂不使用插件级 minisign：下载必须使用 HTTPS，宿主按 registry 条目校验 ZIP 的整包 SHA-256 与字节数，解压后再按 manifest `files` 校验每个文件，并拒绝清单外文件。这样可发现传输损坏和包内容与 registry 元数据不一致。
+
+该策略的信任根是 GitHub 上官方 registry 仓库及其 PR 审核、分支权限和 HTTPS 托管；如果官方仓库或其维护者账户被攻陷，攻击者可能同时替换插件、registry 摘要和清单，因此这些摘要**不等同于独立签名**。第三方 registry 必须通过 minisign 公钥建立独立信任；官方与第三方公钥不得混用。宿主只对精确的内置官方基址免除 minisign，renderer 不得传入或覆盖 registry 基址。
 
 ---
 
@@ -260,18 +277,25 @@
 
 ### 6.1 端到端步骤（market）
 
-1. 插件中心从**后端 canonical 基址**拉取目录（renderer 不提供 URL）
-2. 用户选择版本 → 宿主下载 zip 到临时位置
-3. 校验整包 `sha256` 与 `size`
-4. 解压到**临时目录**（§6.3 安全规则）
-5. 读 manifest → 按 §3.4 顺序校验（含逐文件 hash）
-6. market：验签 + trusted comment 比对
-7. 版本单调性检查（`new > installed`）
-8. **全部通过后**原子 rename 到 `$APPDATA/extensions/<id>/`
-9. 写审计日志 `install`
-10. 刷新插件中心列表
+**准备阶段**（只下载和校验，不改已安装版本）：
 
-**任一步失败**：清理临时目录，保留已安装版本不变，UI 给出可读错误，记审计日志。
+1. 插件中心从**后端 canonical 基址**拉取目录（renderer 不提供 URL）。
+2. 用户选择版本 → 宿主下载 zip 到受限缓存目录。
+3. 校验 registry 声明的整包 `sha256` 与 `size`。
+4. 解压到**预览临时目录**（§6.3 安全规则）。
+5. 读 manifest → 按 §3.4 顺序校验（含逐文件 hash）。
+6. 第三方 market 验签 + trusted comment 比对；官方 registry 按 §5.4 的整包摘要与逐文件清单校验。
+7. 将验证后的 zip 保留在宿主缓存中，向 UI 返回权限与实际信任策略；此时不得落位。
+
+**确认阶段**（用户明确确认安装后）：
+
+8. 重新从 canonical registry 读取所选版本，拒绝已 yanked 或已撤回的版本，并再次检查 `engines`。
+9. 对缓存 zip 重新校验 registry 声明的整包 `sha256` 与 `size`；不得把可写预览目录中的 manifest 当作信任根。
+10. 从 zip 解压到全新的临时目录，重跑 manifest、签名/官方源策略、逐文件 hash 和版本单调性校验。
+11. 全部通过后，以可回滚的目录替换流程落位到 `$APPDATA/extensions/<id>/`；写入已验证版本与来源记录，审计 `install`。
+12. 清理 zip 与预览临时目录，刷新插件中心列表。
+
+**任一步失败**：清理本次临时产物，保留此前已安装版本不变，UI 给出可读错误并记审计日志。更新替换失败时也必须恢复旧目录。
 
 ### 6.2 失败分支矩阵
 
@@ -406,8 +430,8 @@
 | 4   | 用旧版本（签名合法）重放             | 拒绝（版本单调性）             |
 | 5   | trusted comment 与 id/version 不一致 | 拒绝                           |
 | 6   | 签名串篡改                           | 拒绝                           |
-| 7   | market 插件缺 `signature`            | 拒绝                           |
-| 8   | registry 公钥缺失（release 模式）    | 报配置错误，不回退             |
+| 7   | 第三方 market 插件缺 `signature`     | 拒绝                           |
+| 8   | 第三方 registry 公钥缺失（release）  | 报配置错误，不回退             |
 | 9   | `expiresAt` 已过期                   | 拒绝                           |
 | 10  | `engines` 不满足                     | 拒绝，列表标记 incompatible    |
 | 11  | `acl.commands` 含能力面外命令        | manifest 校验失败              |
@@ -431,6 +455,8 @@ pnpm run lint:fe
 pnpm run test:critical
 pnpm run check:docs
 ```
+
+诊断 JSONL 还应验证：并发上报不会丢行或破坏行格式；消息、URL、source 和整行记录均有长度上限；新记录带宿主生成的 ISO 8601 时间戳；写入失败不会因诊断监听器产生递归 Promise rejection。
 
 ### 9.3 双平台
 

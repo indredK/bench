@@ -3,6 +3,7 @@
 
 use super::types::{ScanSessionEvent, SpeedSampleEvent, SpeedSource, SpeedTestResult};
 use crate::error::{AppError, AppResult};
+use futures_util::StreamExt;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Runtime};
 
@@ -34,14 +35,6 @@ pub fn builtin_sources() -> Vec<SpeedSource> {
             ul_path: "empty.php".into(),
             ping_path: "empty.php".into(),
         },
-        SpeedSource {
-            id: "librespeed-selfhost-template".into(),
-            name: "Self-hosted template (often offline)".into(),
-            base_url: "https://speedtest.example.invalid/".into(),
-            dl_path: "backend/garbage.php".into(),
-            ul_path: "backend/empty.php".into(),
-            ping_path: "backend/empty.php".into(),
-        },
     ]
 }
 
@@ -60,7 +53,14 @@ pub async fn run_speed_test<R: Runtime>(
         .find(|s| s.id == source_id)
         .ok_or_else(|| AppError::invalid_input(format!("Unknown speed source: {source_id}")))?;
 
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(MAX_PHASE_SECS))
+        .user_agent("Bench-NetworkProbe/1.0")
+        .build()
+        .map_err(|e| AppError::new("SPEED_CLIENT", e.to_string()))?;
+
     let session_id = super::session::new_session_id();
+    let _session_guard = super::session::SessionGuard::new(session_id.clone());
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -72,11 +72,6 @@ pub async fn run_speed_test<R: Runtime>(
     }
 
     let command_hint = format!("startSpeedTest('{}') // sessionId={session_id}", source.id);
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(MAX_PHASE_SECS))
-        .user_agent("Bench-NetworkProbe/1.0")
-        .build()
-        .map_err(|e| AppError::new("SPEED_CLIENT", e.to_string()))?;
 
     let mut cancelled = false;
     let mut ping_ms = None;
@@ -94,7 +89,13 @@ pub async fn run_speed_test<R: Runtime>(
             break;
         }
         let t0 = Instant::now();
-        let res = client.get(&ping_url).send().await;
+        let res = tokio::select! {
+            response = client.get(&ping_url).send() => response,
+            _ = super::session::wait_for_cancel(&session_id) => {
+                cancelled = true;
+                break;
+            }
+        };
         let ok = res.map(|r| r.status().is_success()).unwrap_or(false);
         if ok {
             let ms = t0.elapsed().as_secs_f64() * 1000.0;
@@ -129,19 +130,55 @@ pub async fn run_speed_test<R: Runtime>(
         );
         let t0 = Instant::now();
         let max_bytes = (MAX_DOWNLOAD_MB * 1024 * 1024) as usize;
-        match client.get(&dl_url).send().await {
-            Ok(resp) if resp.status().is_success() => match resp.bytes().await {
-                Ok(bytes) => {
-                    let capped = bytes.len().min(max_bytes);
+        let response = tokio::select! {
+            response = client.get(&dl_url).send() => Some(response),
+            _ = super::session::wait_for_cancel(&session_id) => {
+                cancelled = true;
+                None
+            }
+        };
+        match response {
+            Some(Ok(resp)) if resp.status().is_success() => {
+                let mut stream = resp.bytes_stream();
+                let mut total_bytes = 0usize;
+                let mut read_error = None;
+                loop {
+                    let next_chunk = tokio::select! {
+                        chunk = stream.next() => chunk,
+                        _ = super::session::wait_for_cancel(&session_id) => {
+                            cancelled = true;
+                            break;
+                        }
+                    };
+                    let Some(chunk) = next_chunk else { break };
+                    match chunk {
+                        Ok(chunk) => {
+                            let remaining = max_bytes.saturating_sub(total_bytes);
+                            total_bytes += chunk.len().min(remaining);
+                            if chunk.len() > remaining || total_bytes >= max_bytes {
+                                break;
+                            }
+                        }
+                        Err(error) => {
+                            read_error = Some(error.to_string());
+                            break;
+                        }
+                    }
+                }
+                if cancelled {
+                    emit_sample(app, "download", 0.0, "cancelled");
+                } else if let Some(error) = read_error {
+                    emit_sample(app, "download", 0.0, &format!("error:{error}"));
+                } else {
                     let secs = t0.elapsed().as_secs_f64().max(0.001);
-                    let mbps = (capped as f64 * 8.0) / (secs * 1_000_000.0);
+                    let mbps = (total_bytes as f64 * 8.0) / (secs * 1_000_000.0);
                     download_mbps = Some(mbps);
                     emit_sample(app, "download", mbps, "done");
                 }
-                Err(e) => emit_sample(app, "download", 0.0, &format!("error:{e}")),
-            },
-            Ok(resp) => emit_sample(app, "download", 0.0, &format!("http:{}", resp.status())),
-            Err(e) => emit_sample(app, "download", 0.0, &format!("error:{e}")),
+            }
+            Some(Ok(resp)) => emit_sample(app, "download", 0.0, &format!("http:{}", resp.status())),
+            Some(Err(error)) => emit_sample(app, "download", 0.0, &format!("error:{error}")),
+            None => emit_sample(app, "download", 0.0, "cancelled"),
         }
     } else {
         cancelled = true;
@@ -151,17 +188,26 @@ pub async fn run_speed_test<R: Runtime>(
     if !cancelled && !super::session::is_cancelled(&session_id) {
         emit_sample(app, "upload", 0.0, "running");
         let ul_url = join_url(&source.base_url, &source.ul_path);
-        let payload = vec![0u8; (MAX_UPLOAD_MB.clamp(1, MAX_UPLOAD_MB) * 1024 * 1024) as usize];
+        let payload = vec![0u8; (MAX_UPLOAD_MB * 1024 * 1024) as usize];
+        let payload_bytes = payload.len();
         let t0 = Instant::now();
-        match client.post(&ul_url).body(payload.clone()).send().await {
-            Ok(resp) if resp.status().is_success() || resp.status().as_u16() == 200 => {
+        let response = tokio::select! {
+            response = client.post(&ul_url).body(payload).send() => Some(response),
+            _ = super::session::wait_for_cancel(&session_id) => {
+                cancelled = true;
+                None
+            }
+        };
+        match response {
+            Some(Ok(resp)) if resp.status().is_success() => {
                 let secs = t0.elapsed().as_secs_f64().max(0.001);
-                let mbps = (payload.len() as f64 * 8.0) / (secs * 1_000_000.0);
+                let mbps = (payload_bytes as f64 * 8.0) / (secs * 1_000_000.0);
                 upload_mbps = Some(mbps);
                 emit_sample(app, "upload", mbps, "done");
             }
-            Ok(resp) => emit_sample(app, "upload", 0.0, &format!("http:{}", resp.status())),
-            Err(e) => emit_sample(app, "upload", 0.0, &format!("error:{e}")),
+            Some(Ok(resp)) => emit_sample(app, "upload", 0.0, &format!("http:{}", resp.status())),
+            Some(Err(error)) => emit_sample(app, "upload", 0.0, &format!("error:{error}")),
+            None => emit_sample(app, "upload", 0.0, "cancelled"),
         }
     } else {
         cancelled = cancelled || super::session::is_cancelled(&session_id);

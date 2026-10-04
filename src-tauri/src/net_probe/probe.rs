@@ -156,7 +156,9 @@ async fn probe_http(
             let (download_mbps, download_bytes) = if measure_throughput {
                 drain_body_with_throughput(resp).await
             } else {
-                let _ = resp.bytes().await;
+                // This probe only needs response headers and TTFB. Dropping the body
+                // avoids buffering arbitrary pages just to reuse a one-shot client.
+                drop(resp);
                 (None, None)
             };
             (
@@ -220,7 +222,8 @@ async fn drain_body_with_throughput(resp: reqwest::Response) -> (Option<f64>, Op
     while let Some(chunk) = stream.next().await {
         match chunk {
             Ok(bytes) => {
-                total = total.saturating_add(bytes.len() as u64);
+                let remaining = THROUGHPUT_MAX_BYTES.saturating_sub(total);
+                total = total.saturating_add((bytes.len() as u64).min(remaining));
             }
             Err(_) => break,
         }

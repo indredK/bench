@@ -607,8 +607,21 @@ pub struct WhoisInfo {
     pub raw_text: String,
     pub partial: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<WhoisErrorCode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_status: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WhoisErrorCode {
+    RequestFailed,
+    HttpError,
+    BodyReadFailed,
+    ResponseTruncated,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

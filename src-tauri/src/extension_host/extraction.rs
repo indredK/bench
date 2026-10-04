@@ -18,7 +18,8 @@
 use std::{
     fs,
     io::{Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use crate::error::{AppError, AppResult};
@@ -46,27 +47,74 @@ impl Default for ExtractLimits {
     }
 }
 
-/// 校验通过后原子落位：staging → 正式目录。
+/// 校验通过后以可回滚的同卷 rename 落位 staging。
 ///
-/// - 正式目录已存在（覆盖更新）：先整体移除旧产物（此时新产物已通过全部
-///   校验，替换窗口极小；spec §6.1 步骤 8 的语义）；
-/// - rename 失败：清理 staging，正式目录保持不变。
+/// 更新时先把旧目录移到相邻备份，再放入新目录；新目录放置失败会恢复旧目录。
+/// 成功后才清理备份。文件系统不提供跨平台目录交换原语，因此替换期间可能短暂
+/// 没有正式目录，但任何失败都不能丢失此前已安装版本。
 pub fn promote_staged_bundle(staging: &Path, final_dir: &Path) -> AppResult<()> {
+    promote_staged_bundle_with(staging, final_dir, |from, to| fs::rename(from, to))
+}
+
+fn promote_staged_bundle_with(
+    staging: &Path,
+    final_dir: &Path,
+    rename: impl Fn(&Path, &Path) -> std::io::Result<()>,
+) -> AppResult<()> {
     if !staging.is_dir() {
         return Err(AppError::internal(format!(
             "staging dir missing: {}",
             staging.display()
         )));
     }
-    if final_dir.exists() {
-        fs::remove_dir_all(final_dir)
-            .map_err(|e| AppError::io(format!("remove previous bundle: {e}")))?;
-    }
-    fs::rename(staging, final_dir).map_err(|e| {
-        // 失败即清理 staging，不留半成品。
+    let backup = if final_dir.exists() {
+        let backup = promotion_backup_path(final_dir)?;
+        rename(final_dir, &backup)
+            .map_err(|error| AppError::io(format!("preserve previous bundle: {error}")))?;
+        Some(backup)
+    } else {
+        None
+    };
+
+    if let Err(error) = rename(staging, final_dir) {
+        let rollback = backup
+            .as_ref()
+            .map(|backup| rename(backup, final_dir))
+            .transpose();
         let _ = fs::remove_dir_all(staging);
-        AppError::io(format!("promote staged bundle: {e}"))
-    })
+        return match rollback {
+            Ok(_) => Err(AppError::io(format!("promote staged bundle: {error}"))),
+            Err(rollback_error) => Err(AppError::io(format!(
+                "promote staged bundle failed: {error}; restoring previous bundle also failed: {rollback_error}"
+            ))),
+        };
+    }
+
+    if let Some(backup) = backup {
+        if let Err(error) = fs::remove_dir_all(&backup) {
+            eprintln!(
+                "[extension_host] installed new bundle but could not remove backup {}: {error}",
+                backup.display()
+            );
+        }
+    }
+    Ok(())
+}
+
+fn promotion_backup_path(final_dir: &Path) -> AppResult<PathBuf> {
+    static NEXT_BACKUP_ID: AtomicU64 = AtomicU64::new(0);
+    let parent = final_dir
+        .parent()
+        .ok_or_else(|| AppError::internal("resolve extension bundle parent failed"))?;
+    let name = final_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| AppError::internal("resolve extension bundle name failed"))?;
+    let sequence = NEXT_BACKUP_ID.fetch_add(1, Ordering::Relaxed);
+    Ok(parent.join(format!(
+        ".{name}.bench-backup-{}-{sequence}",
+        std::process::id()
+    )))
 }
 
 /// 安全解压插件 zip 到 `target_dir`（必须为空或不存在）。
@@ -503,19 +551,33 @@ mod tests {
 
     #[test]
     fn promoted_bundle_keeps_old_version_on_rename_failure() {
-        // rename 失败（staging 缺失）→ 返回错误且不破坏正式目录。
+        // 旧目录先移入备份后，新目录 rename 失败；应恢复旧版。
         let root = temp_root("promote-fail");
         let final_dir = root.join("final");
         fs::create_dir_all(&final_dir).expect("final");
         fs::write(final_dir.join("index.html"), b"old").expect("old bundle");
-        let missing_staging = root.join("missing-staging");
-        let err = promote_staged_bundle(&missing_staging, &final_dir).unwrap_err();
-        assert_eq!(err.code, "INTERNAL");
+        let staging = root.join("staging");
+        fs::create_dir_all(&staging).expect("staging");
+        fs::write(staging.join("index.html"), b"new").expect("new bundle");
+        let rename_count = std::sync::atomic::AtomicUsize::new(0);
+        let err = promote_staged_bundle_with(&staging, &final_dir, |from, to| {
+            if rename_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 1 {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "simulated rename failure",
+                ))
+            } else {
+                fs::rename(from, to)
+            }
+        })
+        .unwrap_err();
+        assert_eq!(err.code, "IO_ERROR");
         assert_eq!(
             fs::read_to_string(final_dir.join("index.html")).unwrap(),
             "old",
             "previous bundle must stay intact"
         );
+        assert!(!staging.exists(), "failed staging is cleaned up");
         fs::remove_dir_all(&root).ok();
     }
 

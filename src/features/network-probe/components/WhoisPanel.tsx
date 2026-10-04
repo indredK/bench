@@ -62,7 +62,10 @@ export function WhoisPanel({ loading, result, toolEnabled, toolStatus, onRun }: 
     >
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
-          <div>
+          <div className="font-medium">
+            {t("networkProbe.whois.resultFor", { query: result.query })}
+          </div>
+          <div className="text-muted-foreground text-xs">
             {result.source}
             {result.partial ? (
               <span className="text-muted-foreground ml-2 text-xs">
@@ -70,8 +73,22 @@ export function WhoisPanel({ loading, result, toolEnabled, toolStatus, onRun }: 
               </span>
             ) : null}
           </div>
-          {result.message ? (
+          {result.errorCode ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t(`networkProbe.whois.errors.${result.errorCode}`, {
+                status: result.httpStatus ?? "—",
+              })}
+            </p>
+          ) : result.message ? (
             <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
+          ) : null}
+          {result.message && result.errorCode ? (
+            <details className="text-muted-foreground text-xs">
+              <summary className="cursor-pointer">
+                {t("networkProbe.whois.technicalDetails")}
+              </summary>
+              <pre className="mt-1 font-mono whitespace-pre-wrap">{result.message}</pre>
+            </details>
           ) : null}
           <pre className="text-muted-foreground font-mono text-xs whitespace-pre-wrap">
             {result.rawText || t("networkProbe.whois.empty")}
