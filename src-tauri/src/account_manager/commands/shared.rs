@@ -35,6 +35,25 @@ pub(super) fn trim_or_invalid(input: &str, field: &str) -> AccountManagerResult<
     Ok(trimmed.to_string())
 }
 
+/// Validate and canonicalize a login URL without echoing potentially sensitive
+/// userinfo back through an IPC error.
+pub(super) fn normalize_login_url(input: &str) -> AccountManagerResult<String> {
+    let trimmed = input.trim();
+    let parsed = url::Url::parse(trimmed)
+        .map_err(|_| AccountManagerError::invalid_input("login URL must be a valid HTTP(S) URL"))?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+        return Err(AccountManagerError::invalid_input(
+            "login URL must use http or https and include a host",
+        ));
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err(AccountManagerError::invalid_input(
+            "login URL must not contain username or password",
+        ));
+    }
+    Ok(parsed.to_string())
+}
+
 pub(super) fn normalize_optional(input: Option<String>) -> Option<String> {
     input.and_then(|s| {
         let t = s.trim();
@@ -331,6 +350,34 @@ mod tests {
         ]);
         assert_eq!(next_unique_remark("Alpha", &mut existing), "Alpha3");
         assert!(existing.contains("Alpha3"));
+    }
+
+    #[test]
+    fn normalize_login_url_accepts_http_and_https_and_canonicalizes() {
+        assert_eq!(
+            normalize_login_url(" https://example.com/login ").expect("https URL"),
+            "https://example.com/login"
+        );
+        assert_eq!(
+            normalize_login_url("http://127.0.0.1:8765/login").expect("local HTTP URL"),
+            "http://127.0.0.1:8765/login"
+        );
+    }
+
+    #[test]
+    fn normalize_login_url_rejects_userinfo_and_non_http_urls() {
+        for input in [
+            "https://user:password@example.com/login",
+            "https://user@example.com/login",
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+            "https://",
+        ] {
+            assert!(
+                normalize_login_url(input).is_err(),
+                "expected URL to be rejected: {input}"
+            );
+        }
     }
 
     #[test]

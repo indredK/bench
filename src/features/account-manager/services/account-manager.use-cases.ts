@@ -41,6 +41,31 @@ function proxyConfigEquals(a: NetworkProxyConfig | null, b: NetworkProxyConfig |
   )
 }
 
+function normalizeQuickLoginUrl(input: string): string {
+  const trimmed = input.trim()
+  const hasExplicitScheme = /^[a-z][a-z\d+.-]*:/i.test(trimmed)
+  const looksLikeHostAndPort = /^[^/:?#]+:\d+(?:[/?#]|$)/.test(trimmed)
+  if (hasExplicitScheme && !looksLikeHostAndPort && !/^https?:\/\//i.test(trimmed)) {
+    throw { code: "INVALID_LOGIN_URL", message: "" }
+  }
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  let parsed: URL
+  try {
+    parsed = new URL(candidate)
+  } catch {
+    throw { code: "INVALID_LOGIN_URL", message: "" }
+  }
+  if (
+    (parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
+    !parsed.hostname ||
+    parsed.username !== "" ||
+    parsed.password !== ""
+  ) {
+    throw { code: "INVALID_LOGIN_URL", message: "" }
+  }
+  return parsed.href
+}
+
 async function applySessionSettings(
   stationId: string,
   settings: SessionSettings,
@@ -135,26 +160,38 @@ export const accountManagerUseCases = {
   },
 
   async quickLogin(url: string, username: string, stationId?: string | null) {
-    const normalized = url.trim().match(/^https?:\/\//i) ? url.trim() : `https://${url.trim()}`
+    const normalized = normalizeQuickLoginUrl(url)
     const account = await accountManagerRepository.createEphemeralAccount(
       normalized,
       username.trim(),
       stationId ?? null,
     )
-    await accountManagerRepository.openLoginWindow(account.id)
+    try {
+      await accountManagerRepository.openLoginWindow(account.id)
+    } catch (openError) {
+      try {
+        const report = await accountManagerRepository.deleteAccount(account.id)
+        if (report.status !== "complete" || !report.metadataDeleted) {
+          throw new Error("temporary account metadata remains")
+        }
+      } catch {
+        throw { code: "QUICK_LOGIN_CLEANUP_FAILED", message: "" }
+      }
+      throw openError
+    }
     return { account, normalized }
   },
 
   /** 快速登录(已有账号):在该账号的隔离环境打开粘贴的 URL。 */
   async quickLoginExisting(accountId: string, url: string) {
-    const normalized = url.trim().match(/^https?:\/\//i) ? url.trim() : `https://${url.trim()}`
+    const normalized = normalizeQuickLoginUrl(url)
     await accountManagerRepository.openLoginWindow(accountId, normalized)
     return normalized
   },
 
   /** 按 URL host 匹配站点(快速登录自动识别分组)。 */
   async matchStations(url: string): Promise<StationUrlMatch[]> {
-    const normalized = url.trim().match(/^https?:\/\//i) ? url.trim() : `https://${url.trim()}`
+    const normalized = normalizeQuickLoginUrl(url)
     return accountManagerRepository.matchStationsByUrl(normalized)
   },
 
