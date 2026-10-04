@@ -5,7 +5,7 @@
 > **架构边界与工作流**（含作者侧流程）：[extension-workflow.md](../../explanation/extension-workflow.md)
 > **插件中心功能规格**：[product-specs/extension-center.md](../../reference/product-specs/extension-center.md) ｜ **未完成项**：[planned/extension-center.md](../../roadmap/planned/extension-center.md)
 > **方向性决策**：[DECISIONS.md](../../explanation/decisions.md)（D-023 / D-024）
-> **最后更新**：2026-10-05（补充安装提交重验、缓存清理与已安装插件详情验收）。
+> **最后更新**：2026-10-05（PR #138 CI 全绿；macOS 隔离真机完成官方 market 更新成功路径）。
 
 ## 成本原则（贯穿全部阶段）
 
@@ -205,16 +205,16 @@ pnpm run test:critical       # ✓ 145 passed
 - [x] 第三方 minisign 校验：按 spec §4 全量校验 canonical + trusted comment；确定性 ed25519 夹具覆盖签名正向路径。官方 canonical registry 免插件签名，按 §5.4 校验 registry SHA-256/size 与逐文件清单。
 - [x] 能力兼容标记：market 版本条目 `compatible`（engines 比对）/ `installed` / `updateAvailable` / `yanked`；D-017 pack 形态（degraded/missing_pack）当前无 pack 交付物，字段位预留、随首个 pack 插件启用
 
-**验收状态**：管线全链路单测覆盖真实 minisign、整包哈希、内容篡改和版本绑定。官方 DCA 0.1.1 已由市场发布；在 macOS Bench 1.35.2 真机确认新版本因 `engines >=1.36.0` 被禁装、旧版 0.1.0 标记撤回。仍待在兼容 Bench 版本上完成官方 registry 的安装/升级/吊销/卸载真机闭环；第三方签名路径已有单测覆盖。
+**验收状态**：管线全链路单测覆盖真实 minisign、整包哈希、内容篡改和版本绑定。官方 DCA 0.1.1 已由市场发布；在 macOS Bench 1.35.2 真机确认新版本因 `engines >=1.36.0` 被禁装、旧版 0.1.0 标记撤回。2026-10-05 又在独立标识 `com.bench.app.r01live` 的 Bench 1.37.0 上，完成官方 registry 加载、信任披露、Token 计算器从 bundled 1.1.3 更新到 market 1.1.4、已安装状态和来源/权限详情确认，并成功打开插件。**完整验收仍待**：吊销后的强制禁用、市场卸载、更新失败回滚/取消清理，以及 macOS release 包全新安装；第三方签名路径已有单测覆盖。PR [#138](https://github.com/indredK/bench/pull/138) 的 macOS/Windows Rust、前端、E2E、静态守卫和安全 CI 均通过，PR 尚未合并。
 
-### P4 后续硬化（2026-10-05，工作树实现待验证）
+### P4 后续硬化（2026-10-05，PR #138 CI 与 macOS 真机成功路径已验证）
 
-- [ ] 用户确认安装时重新读取 registry，检查撤回状态，并从缓存 zip 重跑整包摘要、签名策略和文件清单校验；不信任可写的预览目录。
+- [x] 用户确认安装时重新读取 registry，检查撤回状态，并从缓存 zip 重跑整包摘要、签名策略和文件清单校验；不信任可写的预览目录。单测覆盖可写预览目录篡改；真机完成官方 market 版本更新成功路径。
 - [ ] 更新落位失败时恢复旧插件目录；取消安装时清理缓存包，安装提交无论成功失败都清理本次临时文件。
-- [ ] 已安装插件详情展示 `engines`、manifest ACL、当前宿主能力状态和安装时信任策略；发布者明确标作 registry 声明，历史安装无来源记录时显示未知。
-- [ ] registry 响应流式读取并限制为 8 MiB。
+- [x] 已安装插件详情展示 `engines`、manifest ACL、当前宿主能力状态和安装时信任策略；发布者明确标作 registry 声明，历史安装无来源记录时显示未知。macOS 真机已检查 bundled 与 market 来源的详情状态。
+- [x] registry 响应流式读取并限制为 8 MiB；bounded HTTP helper 的超限截断和精确上限测试通过，market 真机加载成功。
 
-**验收门禁**：对应单测与类型/静态检查通过后，再由本机 Bench 窗口复验；未完成 CI 前不勾销状态。
+**剩余验收**：PR #138 的远程 CI 全绿，macOS 隔离实例完成市场更新成功路径。更新失败回滚与取消清理的故障/中止路径仍未在真机触发，保留未完成状态；完整的吊销、卸载与 release 新装验收见上文。
 
 ---
 

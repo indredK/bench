@@ -36,7 +36,7 @@
 ## 待验证（真机 / 行为）
 
 - [ ] macOS 真机：Local Network / TCC 权限不足时各探测（ping/ARP/抓包）的稳定错误码与「打开系统设置」引导生效。
-- [ ] 测速源不可用 / 超时 → 30s 冷却倒计时在真机可用；取消测速可立即重跑。
+- [x] 测速源不可用 / 超时 → 30s 冷却倒计时在真机可用；取消测速可立即重跑。2026-10-05 在独立 macOS Bench 1.37.0 实例验证：不可达源显示错误与冷却，取消后可立即重新开始并再次取消。
 - [ ] `priv-helper` 提权路径（Wave 1 pack）在真实系统上可安装、触发提权、自动降级文案正确。
 - [ ] 能力包 hash 校验失败通道（`installCapabilityPackVerifyFail`）行为符合预期。
 - [ ] Windows 降级路径：各工具 `unsupported`/`degraded` 状态与按钮禁用一致，不误报。
@@ -61,3 +61,4 @@
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
 - 2026-09-03：首版生成——依据 `docs/modules/network-probe/roadmap.md`（Wave 0–6）与 `docs/roadmap/ROADMAP.md` D-016，提炼 ⬜/◐ 未完成项为「待实现」「待验证」「远期」三档；产品说明见 `../product-specs/network-probe.md`。
+- 2026-10-05：macOS 隔离真机确认测速失败冷却与取消后立即重跑；PR #138 相关 macOS/Windows Rust、前端、E2E、静态守卫和安全 CI 全绿。Local Network/TCC、特权 helper、降级提示等其他真机项继续待验收。
