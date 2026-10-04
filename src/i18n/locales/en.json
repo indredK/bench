@@ -1908,6 +1908,7 @@
       "hint": "Run captive portal, public egress IP, and proxy/VPN checks for “can't connect” triage.",
       "run": "Run offline diagnostics",
       "running": "Running…",
+      "waiting": "Waiting for the current probe to finish…",
       "pending": "Not run yet.",
       "status": "Status",
       "subNav": "Can't-connect subpages",

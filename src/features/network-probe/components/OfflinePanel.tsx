@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next"
 
 interface OfflinePanelProps {
   loading: boolean
+  blocked?: boolean
   focus: NetworkProbeOfflineSub
   captive: CaptivePortalResult | null
   publicIp: PublicIpInfo | null
@@ -28,6 +29,7 @@ interface OfflinePanelProps {
 
 export function OfflinePanel({
   loading,
+  blocked = false,
   focus,
   captive,
   publicIp,
@@ -47,8 +49,12 @@ export function OfflinePanel({
         <>
           <p className="text-muted-foreground text-sm">{t("networkProbe.offline.hint")}</p>
           <CommandHint hint={t("networkProbe.cmd.offlineBundle")}>
-            <Button type="button" disabled={loading} onClick={onRunAll}>
-              {loading ? t("networkProbe.offline.running") : t("networkProbe.offline.run")}
+            <Button type="button" disabled={loading || blocked} onClick={onRunAll}>
+              {loading
+                ? t("networkProbe.offline.running")
+                : blocked
+                  ? t("networkProbe.offline.waiting")
+                  : t("networkProbe.offline.run")}
             </Button>
           </CommandHint>
         </>

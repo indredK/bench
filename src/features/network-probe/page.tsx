@@ -423,6 +423,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                       <div className="space-y-6">
                         <OfflinePanel
                           loading={c.loadingOffline}
+                          blocked={c.loadingIpv6 || c.loadingMtu}
                           focus={offlineSub}
                           captive={c.captiveResult}
                           publicIp={c.publicIpInfo}
@@ -543,7 +544,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
 
                 {showMtu ? (
                   <MtuPanel
-                    loading={c.loadingMtu}
+                    loading={c.loadingMtu || c.loadingOffline}
                     result={c.mtuResult}
                     onRun={c.probePathMtu}
                     dualFrom="test"

@@ -212,4 +212,50 @@ describe("network-probe result reset before rerun", () => {
     expect(state.ipv6Result).toBeNull()
     expect(state.mtuResult).toBeNull()
   })
+
+  it.each(["loadingIpv6", "loadingMtu"] as const)(
+    "does not start offline diagnostics while %s owns a shared result slot",
+    async (loadingKey) => {
+      useNetworkProbeStore.setState({ [loadingKey]: true } as never)
+
+      await networkProbeUseCases.runOfflineDiagnostics()
+
+      expect(repository.detectCaptivePortal).not.toHaveBeenCalled()
+      expect(repository.getPublicIpInfo).not.toHaveBeenCalled()
+      expect(repository.checkIpv6Stack).not.toHaveBeenCalled()
+      expect(repository.probePathMtu).not.toHaveBeenCalled()
+      expect(useNetworkProbeStore.getState().loadingOffline).toBe(false)
+    },
+  )
+
+  it.each([
+    {
+      name: "IPv6",
+      loadingKey: "loadingIpv6",
+      request: repository.checkIpv6Stack,
+      run: () => networkProbeUseCases.checkIpv6Stack(),
+      resultKey: "ipv6Result",
+    },
+    {
+      name: "MTU",
+      loadingKey: "loadingMtu",
+      request: repository.probePathMtu,
+      run: () => networkProbeUseCases.probePathMtu("example.com"),
+      resultKey: "mtuResult",
+    },
+  ])(
+    "does not start standalone $name while offline diagnostics own the result slot",
+    async (probe) => {
+      useNetworkProbeStore.setState({
+        loadingOffline: true,
+        [probe.resultKey]: stale,
+      } as never)
+
+      await probe.run()
+
+      expect(probe.request).not.toHaveBeenCalled()
+      expect(currentValue(probe.resultKey)).toEqual(stale)
+      expect(currentValue(probe.loadingKey)).toBe(false)
+    },
+  )
 })

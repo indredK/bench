@@ -462,7 +462,8 @@ export const networkProbeUseCases = {
 
   async checkIpv6Stack() {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingIpv6) return
+    // This result is also written by the composite offline diagnostic.
+    if (store.loadingIpv6 || store.loadingOffline) return
     store.setLoadingIpv6(true)
     store.setError(null)
     store.setIpv6Result(null)
@@ -481,7 +482,8 @@ export const networkProbeUseCases = {
 
   async probePathMtu(target: string) {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingMtu) return
+    // The standalone Test panel shares this result slot with the offline bundle.
+    if (store.loadingMtu || store.loadingOffline) return
     store.setLoadingMtu(true)
     store.setError(null)
     store.setMtuResult(null)
@@ -500,7 +502,9 @@ export const networkProbeUseCases = {
 
   async runOfflineDiagnostics() {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingOffline) return
+    // Reserve every result slot before starting; standalone IPv6/MTU panels can
+    // be reached from other tabs while the composite request is still running.
+    if (store.loadingOffline || store.loadingIpv6 || store.loadingMtu) return
     store.setLoadingOffline(true)
     store.setError(null)
     // all-or-nothing: a failed refresh must not leave an older composite diagnosis visible.
