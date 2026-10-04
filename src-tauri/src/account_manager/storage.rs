@@ -42,12 +42,19 @@ pub fn init_state<R: Runtime>(
     let store_path = account_store_path(app)?;
     ensure_file_size(&store_path, MAX_STORE_FILE_BYTES)
         .map_err(|_| AccountManagerError::store_fail("account store exceeds size limit"))?;
+    // A clean profile has no store file yet. The store plugin returns an empty
+    // in-memory store in that case, but `reload_ignore_defaults` treats the
+    // missing file as an error. Detect that first-run state while holding the
+    // cross-process lock and persist a canonical empty snapshot below.
+    let store_exists = store_file_exists(&store_path)?;
     let store = app
         .store(STORE_FILE)
         .map_err(|e| AccountManagerError::store_fail(format!("open store: {e}")))?;
-    store
-        .reload_ignore_defaults()
-        .map_err(|e| AccountManagerError::store_fail(format!("reload store: {e}")))?;
+    if store_exists {
+        store
+            .reload_ignore_defaults()
+            .map_err(|e| AccountManagerError::store_fail(format!("reload store: {e}")))?;
+    }
     let schema = store.get(KEY_SCHEMA).and_then(|v| v.as_u64()).unwrap_or(0);
     validate_schema_version(schema)?;
 
@@ -94,7 +101,11 @@ pub fn init_state<R: Runtime>(
         store.set(KEY_SCHEMA, json!(CURRENT_SCHEMA));
         dirty = true;
     }
-    if dirty {
+    if !store_exists {
+        // Persist all known collections and the current schema on first run so
+        // later reloads never depend on implicit missing-key defaults.
+        save_snapshot(app, &snapshot)?;
+    } else if dirty {
         backup_file(&store_path, "pre-v5", MAX_MIGRATION_BACKUPS)
             .map_err(|_| AccountManagerError::store_fail("backup account store migration"))?;
         store
@@ -113,6 +124,11 @@ fn account_store_path<R: Runtime>(app: &AppHandle<R>) -> AccountManagerResult<st
         .app_data_dir()
         .map(|directory| directory.join(STORE_FILE))
         .map_err(|e| AccountManagerError::store_fail(format!("app data dir: {e}")))
+}
+
+fn store_file_exists(path: &std::path::Path) -> AccountManagerResult<bool> {
+    path.try_exists()
+        .map_err(|error| AccountManagerError::store_fail(format!("check account store: {error}")))
 }
 
 fn validate_schema_version(schema: u64) -> AccountManagerResult<()> {
@@ -339,6 +355,19 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn store_file_presence_distinguishes_first_run_from_existing_data() {
+        let missing = std::env::temp_dir().join(format!(
+            "bench-account-store-missing-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
+        assert!(!store_file_exists(&missing).expect("missing store check"));
+
+        let existing = std::env::current_exe().expect("test executable path");
+        assert!(store_file_exists(&existing).expect("existing store check"));
+    }
     use crate::account_manager::types::{AccountSessionStatus, AccountType};
 
     fn account(id: &str, session: Option<EncryptedBlob>) -> StationAccount {

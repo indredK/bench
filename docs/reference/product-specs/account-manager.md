@@ -107,7 +107,7 @@
 
 - **新增/编辑账号**：用户名、密码（编辑时留空=不改）、备注、启用代理（编辑时）。编辑若密码更新失败会降级保留旧 `hasPassword` 并提示 passwordFailed；代理写入失败提示 proxyFailed。
 
-- **快速登录**：URL（自动补 `https://` 前缀；有历史 datalist 补全）+ **站点自动匹配**（输入防抖 300ms 调 `match_stations_by_url`：精确 host → exact、互为父子域 → registrableDomain；有匹配时预选最高置信度站点，含「新建站点」选项）+ **账号选择**（选中已有站点且该站有账号时：选已有账号或「新账号」；选已有账号 → 提交 `openLoginWindow(accountId, url)` 在该账号隔离环境打开粘贴的 URL，只读展示账号名 + 状态徽章；新账号 → 用户名输入 + 可选「关闭时销毁 Session（destroyOnClose）」+ 附加到所选站点）+ 未匹配时回退原新建流程（附加到当前选中站点）。提交载荷为联合类型 `{kind:"existing"}|{kind:"new"}`。
+- **快速登录**：URL（自动补 `https://` 前缀；有历史 datalist 补全）+ **站点自动匹配**（输入防抖 300ms 调 `match_stations_by_url`：精确 host → exact、互为父子域 → registrableDomain；有匹配时预选最高置信度站点，含「新建站点」选项）+ **账号选择**（选中已有站点且该站有账号时：选已有账号或「新账号」；选已有账号 → 提交 `openLoginWindow(accountId, url)` 在该账号隔离环境打开粘贴的 URL，只读展示账号名 + 状态徽章；新账号 → 用户名输入 + 可选「关闭时销毁 Session（destroyOnClose）」+ 附加到所选站点）+ 未匹配时回退原新建流程（附加到当前选中站点）。URL 必须是有效 HTTP(S) 地址且不含用户名或密码；前后端都校验。新建临时账号后若登录窗口未能打开，系统尝试删除该临时账号；清理失败时提示用户刷新并手动处理。提交载荷为联合类型 `{kind:"existing"}|{kind:"new"}`。
 
 - **删除确认**：站点/账号删除均为 `DeleteConfirmDialog` 二次确认；删除站点后自动选中剩余第一个站点及其账号。
 
@@ -125,7 +125,7 @@
 
   - 编辑账号：密码留空=不改；密码写入失败会降级保留旧 `hasPassword` 并 toast（`passwordFailed`），代理写入失败同理（`proxyFailed`）。
 
-  - 快速登录：URL 自动补 `https://` 前缀，输入框带历史 datalist 补全；勾选「关闭时销毁 Session」时，登录窗口关闭会自动删除该 ephemeral 账号。
+  - 快速登录：URL 自动补 `https://` 前缀，输入框带历史 datalist 补全；校验仅接受不含用户信息的 HTTP(S) 地址；打开窗口失败会自动清理刚创建的 ephemeral 账号；勾选「关闭时销毁 Session」时，登录窗口关闭会自动删除该 ephemeral 账号。
 
   - 删除确认：站点/账号删除均 `DeleteConfirmDialog` 二次确认；删除站点后自动选中剩余第一个站点及其账号。
 
