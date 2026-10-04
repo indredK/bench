@@ -99,6 +99,8 @@ export type NetworkProbeKind =
 export type NetworkProbeOfflineSub =
   "all" | "captive" | "proxy" | "ipv6" | "mtu" | "egress" | "diff"
 
+export type NetworkProbeAgentAction = { kind: "add" } | { kind: "remove"; agentId: string }
+
 export type NetworkProbeL2ByL1 = Record<NetworkProbeL1, string>
 
 interface NetworkProbeState {
@@ -180,6 +182,7 @@ interface NetworkProbeState {
   loadingPcap: boolean
   loadingMultiNode: boolean
   loadingNodes: boolean
+  agentAction: NetworkProbeAgentAction | null
   error: LocalizedError | null
 
   setL1: (l1Id: NetworkProbeL1) => void
@@ -263,6 +266,7 @@ interface NetworkProbeState {
   setLoadingPcap: (loading: boolean) => void
   setLoadingMultiNode: (loading: boolean) => void
   setLoadingNodes: (loading: boolean) => void
+  setAgentAction: (action: NetworkProbeAgentAction | null) => void
   setError: (error: LocalizedError | null) => void
 }
 
@@ -405,6 +409,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   loadingPcap: false,
   loadingMultiNode: false,
   loadingNodes: false,
+  agentAction: null,
   error: null,
 
   setL1: (l1Id) => {
@@ -596,6 +601,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLoadingPcap: (loadingPcap) => set({ loadingPcap }),
   setLoadingMultiNode: (loadingMultiNode) => set({ loadingMultiNode }),
   setLoadingNodes: (loadingNodes) => set({ loadingNodes }),
+  setAgentAction: (agentAction) => set({ agentAction }),
   setError: (error) => set({ error }),
 }))
 

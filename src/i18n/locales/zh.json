@@ -2139,7 +2139,9 @@
       "domainPlaceholder": "example.com",
       "endpointPlaceholder": "https://agent.example:8443",
       "addAgent": "添加 agent",
+      "addingAgent": "添加中…",
       "removeAgent": "移除",
+      "removingAgent": "移除中…",
       "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
     },
     "nat": {

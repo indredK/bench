@@ -17,7 +17,7 @@ pub async fn get_network_probe_capabilities(app: AppHandle) -> AppResult<Network
 
 #[tauri::command]
 pub async fn list_probe_nodes(app: AppHandle) -> AppResult<Vec<ProbeNode>> {
-    let agents = super::agent::agents_as_nodes(&app).unwrap_or_default();
+    let agents = super::agent::agents_as_nodes(&app)?;
     Ok(super::globalping::list_nodes_with_agents(&agents))
 }
 

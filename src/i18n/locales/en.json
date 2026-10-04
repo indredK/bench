@@ -2139,7 +2139,9 @@
       "domainPlaceholder": "example.com",
       "endpointPlaceholder": "https://agent.example:8443",
       "addAgent": "Add agent",
+      "addingAgent": "Adding…",
       "removeAgent": "Remove",
+      "removingAgent": "Removing…",
       "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
     },
     "nat": {

@@ -92,6 +92,7 @@ export function useNetworkProbeController() {
   const loadingPcap = useNetworkProbeStore((s) => s.loadingPcap)
   const loadingMultiNode = useNetworkProbeStore((s) => s.loadingMultiNode)
   const loadingNodes = useNetworkProbeStore((s) => s.loadingNodes)
+  const agentAction = useNetworkProbeStore((s) => s.agentAction)
   const error = useNetworkProbeStore((s) => s.error)
   const setL1 = useNetworkProbeStore((s) => s.setL1)
   const setL2 = useNetworkProbeStore((s) => s.setL2)
@@ -350,6 +351,7 @@ export function useNetworkProbeController() {
     loadingPcap,
     loadingMultiNode,
     loadingNodes,
+    agentAction,
     error,
     selectL1,
     selectL2,

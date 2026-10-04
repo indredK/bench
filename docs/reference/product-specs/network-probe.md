@@ -273,7 +273,8 @@ L1 → L2 映射：
 - **单工具防重入**：每个 use-case 入口 `if (store.loadingX) return`；同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
 - **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；**能力包刷新除外**——`refreshCapabilityPacks` 无 loading 标志，防重入由 PackInstallDialog 的 `busy` 提供（见 §8）。
-- **无 loading 标志的写操作（防重入缺口）**：`addAgent` / `removeAgent` / `loadNetworkServices` / `openSystemNetworkSettings` 均无 loading 短路与禁用态，快速连点会重复提交/重复打开（标记为已知并发边界，未见修复实现）。
+- **agent 注册与移除防重入**：`addAgent` / `removeAgent` 共用 `agentAction` 状态；执行期间添加、移除和节点刷新入口禁用，并显示当前操作。前端用例再次检查 action 锁，避免快速连点重复调用。后端将 agent 注册表的读取、变更和原子写入放在进程内互斥区；重复端点注册复用现有节点，重复移除安全成功；注册表损坏或读取失败会向调用方报错，不静默丢弃 agent。macOS 真机验证记录见 `../../roadmap/planned/network-probe.md`。
+- **仍待处理的轻量操作**：`loadNetworkServices` / `openSystemNetworkSettings` 暂无 loading 标志；服务浏览是只读请求，系统设置操作会打开设置页，需单独评估是否值得加防重入状态。
 
 ### 13.4 数据与安全
 

@@ -682,6 +682,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <MultiNodePanel
                     loading={c.loadingMultiNode}
                     loadingNodes={c.loadingNodes}
+                    agentAction={c.agentAction}
                     result={c.multiNodeDnsResult}
                     nodes={c.probeNodes}
                     toolEnabled={c.toolEnabled.multiNode}
