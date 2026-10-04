@@ -307,15 +307,24 @@ export const networkProbeUseCases = {
     if (!sessionId) return
     // 幂等 (A4-4): 同一会话只允许发出一次 cancel 请求。
     if (store.cancelRequestedSessionIdByKind[kind] === sessionId) return
+    if (store.error?.key === "networkProbe.errors.cancelFailed") store.setError(null)
     store.setCancelRequestedSessionId(kind, sessionId)
     store.appendCommandLog(`cancelScan('${sessionId}')`)
     try {
       await networkProbeRepository.cancelScan(sessionId)
     } catch (error) {
-      store.setError({
-        key: "networkProbe.errors.cancelFailed",
-        fallback: getErrorMessage(error),
-      })
+      const currentStore = useNetworkProbeStore.getState()
+      // 失败后恢复重试能力，但不能清除后来启动的新会话的取消标记。
+      if (currentStore.cancelRequestedSessionIdByKind[kind] === sessionId) {
+        currentStore.setCancelRequestedSessionId(kind, null)
+      }
+      // 如果本会话已经结束或槽位已属于新会话，这个迟到的错误不再对用户有用。
+      if (currentStore.activeSessionIdByKind[kind] === sessionId) {
+        currentStore.setError({
+          key: "networkProbe.errors.cancelFailed",
+          fallback: getErrorMessage(error),
+        })
+      }
     }
   },
 

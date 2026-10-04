@@ -45,6 +45,16 @@ function healthResult(sessionId: string, cancelled: boolean) {
   } as unknown as Awaited<ReturnType<typeof runHealthScan>>
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error: Error) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
 beforeEach(() => {
   listeners.clear()
   cancelScan.mockReset()
@@ -120,6 +130,83 @@ describe("network-probe cancel idempotency (A4-4)", () => {
       await networkProbeUseCases.cancelScan("health")
     })
     expect(cancelScan).toHaveBeenCalledTimes(1)
+  })
+
+  it("allows the user to retry after the cancel request fails", async () => {
+    let resolveScan: (value: unknown) => void = () => {}
+    runHealthScan.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveScan = resolve
+        }),
+    )
+    cancelScan.mockRejectedValueOnce(new Error("temporary IPC failure")).mockResolvedValueOnce(true)
+
+    const scanPromise = networkProbeUseCases.runHealthScan()
+    act(() => {
+      listeners.get(TAURI_EVENTS.networkProbe.scanSession)?.({
+        payload: { sessionId: "retry-session", kind: "health" },
+      })
+    })
+
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("health")
+    })
+    const failedCancelState = useNetworkProbeStore.getState()
+    expect(failedCancelState.cancelRequestedSessionIdByKind.health).toBeNull()
+    expect(failedCancelState.error?.key).toBe("networkProbe.errors.cancelFailed")
+
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("health")
+    })
+    const retriedCancelState = useNetworkProbeStore.getState()
+    expect(cancelScan).toHaveBeenCalledTimes(2)
+    expect(cancelScan).toHaveBeenNthCalledWith(1, "retry-session")
+    expect(cancelScan).toHaveBeenNthCalledWith(2, "retry-session")
+    expect(retriedCancelState.cancelRequestedSessionIdByKind.health).toBe("retry-session")
+    expect(retriedCancelState.error).toBeNull()
+
+    resolveScan(healthResult("retry-session", true))
+    await scanPromise
+  })
+
+  it("does not let a late cancel failure clear a newer session's request", async () => {
+    const firstScan = deferred<unknown>()
+    const secondScan = deferred<unknown>()
+    const firstCancel = deferred<boolean>()
+    runHealthScan.mockReturnValueOnce(firstScan.promise).mockReturnValueOnce(secondScan.promise)
+    cancelScan.mockReturnValueOnce(firstCancel.promise).mockResolvedValueOnce(true)
+
+    const firstScanPromise = networkProbeUseCases.runHealthScan()
+    act(() => {
+      listeners.get(TAURI_EVENTS.networkProbe.scanSession)?.({
+        payload: { sessionId: "old-session", kind: "health" },
+      })
+    })
+    const firstCancelPromise = networkProbeUseCases.cancelScan("health")
+
+    firstScan.resolve(healthResult("old-session", false))
+    await firstScanPromise
+
+    const secondScanPromise = networkProbeUseCases.runHealthScan()
+    act(() => {
+      listeners.get(TAURI_EVENTS.networkProbe.scanSession)?.({
+        payload: { sessionId: "new-session", kind: "health" },
+      })
+    })
+    await networkProbeUseCases.cancelScan("health")
+    expect(useNetworkProbeStore.getState().cancelRequestedSessionIdByKind.health).toBe(
+      "new-session",
+    )
+
+    firstCancel.reject(new Error("late IPC failure"))
+    await firstCancelPromise
+    const state = useNetworkProbeStore.getState()
+    expect(state.cancelRequestedSessionIdByKind.health).toBe("new-session")
+    expect(state.error).toBeNull()
+
+    secondScan.resolve(healthResult("new-session", true))
+    await secondScanPromise
   })
 
   it("does not push a cancelled health scan into report history", async () => {
