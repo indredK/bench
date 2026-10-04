@@ -6,6 +6,9 @@ const messages = vi.hoisted(() => ({
   "networkProbe.nodes.hint": "Remote checks send the domain to Globalping.",
   "networkProbe.nodes.run": "Compare DNS",
   "networkProbe.nodes.running": "Comparing…",
+  "networkProbe.nodes.resultsLoading":
+    "Comparing DNS answers. Results will appear here when the probes finish.",
+  "networkProbe.nodes.resultsEmpty": "Run a DNS comparison to see answers from each node.",
   "networkProbe.nodes.refresh": "Refresh nodes",
   "networkProbe.nodes.listTitle": "Probe nodes",
   "networkProbe.nodes.answersLabel": "DNS answers by probe node",
@@ -58,6 +61,33 @@ import { MultiNodePanel } from "@/features/network-probe/components/MultiNodePan
 afterEach(cleanup)
 
 describe("MultiNodePanel Globalping results", () => {
+  it("shows a status before the first comparison and while it is loading", () => {
+    const panelProps = {
+      agentAction: null,
+      nodesLoadFailed: false,
+      result: null,
+      nodes: [],
+      toolEnabled: true,
+      onCompare: vi.fn(),
+      onRefreshNodes: vi.fn(),
+      onAddAgent: vi.fn(),
+      onRemoveAgent: vi.fn(),
+    }
+
+    const { rerender } = render(
+      <MultiNodePanel {...panelProps} loading={false} loadingNodes={false} />,
+    )
+
+    expect(screen.getByText("Run a DNS comparison to see answers from each node.")).toHaveAttribute(
+      "aria-live",
+      "polite",
+    )
+
+    rerender(<MultiNodePanel {...panelProps} loading loadingNodes={false} />)
+    expect(
+      screen.getByText("Comparing DNS answers. Results will appear here when the probes finish."),
+    ).toHaveAttribute("aria-live", "polite")
+  })
   it("localizes DNS response states, keeps diagnostics collapsed, and announces results", () => {
     const nodeStateProps = { agentAction: null, nodesLoadFailed: false }
     render(

@@ -171,6 +171,8 @@ L1 → L2 映射：
 | ntp     | NTP 时间偏移（多源中位数），输出 `NtpProbeResult`                                                                                                                                                                                                                                                                                                                                                                           |
 | nodes   | **多节点 DNS 对比 + agent 注册**：域名对比（local + 各节点 DNS 结果按节点列出）；区分 DNS 响应码与探测完成状态，显示成功、域名不存在、无记录或失败；原始技术详情默认折叠。远端查询前明确提示输入域名会发送给 Globalping；结果摘要通过 polite live region 通知辅助技术。节点列表（local / Globalping 区域 / remote-agent）；注册 agent（label + https endpoint）→ `addAgent`（HTTPS 注册/健康检查/白名单），可移除；刷新节点 |
 
+**结果区状态**：首次查询前显示操作提示；查询期间显示加载状态；重新查询时保留已有结果，直到新结果返回。
+
 ## 8. 能力包（D-017 packs）
 
 - **能力包**：`adv-scanner`（SYN 扫描）、`pcap-diag`（诊断抓包）、`priv-helper`（特权 helper）。内置 manifest（packId / version / hash / 签名来源）。
