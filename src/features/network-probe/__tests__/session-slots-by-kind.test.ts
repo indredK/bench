@@ -6,11 +6,21 @@
 import { act } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { runHealthScan, scanPorts, sitesProbe, runTraceroute, cancelScan } = vi.hoisted(() => ({
+const {
+  runHealthScan,
+  scanPorts,
+  sitesProbe,
+  runTraceroute,
+  discoverLan,
+  runPcapDiag,
+  cancelScan,
+} = vi.hoisted(() => ({
   runHealthScan: vi.fn(),
   scanPorts: vi.fn(),
   sitesProbe: vi.fn(),
   runTraceroute: vi.fn(),
+  discoverLan: vi.fn(),
+  runPcapDiag: vi.fn(),
   cancelScan: vi.fn(),
 }))
 
@@ -20,6 +30,8 @@ vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
     scanPorts,
     sitesProbe,
     runTraceroute,
+    discoverLan,
+    runPcapDiag,
     cancelScan,
   },
 }))
@@ -79,6 +91,8 @@ beforeEach(() => {
   scanPorts.mockReset()
   sitesProbe.mockReset()
   runTraceroute.mockReset()
+  discoverLan.mockReset()
+  runPcapDiag.mockReset()
   cancelScan.mockReset()
   useNetworkProbeStore.setState({
     securityAuthorized: true,
@@ -86,10 +100,14 @@ beforeEach(() => {
     loadingPorts: false,
     loadingSites: false,
     loadingTraceroute: false,
+    loadingLan: false,
+    loadingPcap: false,
     healthResult: null,
     portScanResult: null,
     sitesResult: null,
     tracerouteResult: null,
+    lanResult: null,
+    pcapResult: null,
     activeSessionIdByKind: {
       health: null,
       sites: null,
@@ -231,5 +249,86 @@ describe("network-probe rerun clears previous results", () => {
     expect(done.healthResult?.sessionId).toBe("health-2")
     expect(done.sitesResult?.sessionId).toBe("sites-2")
     expect(done.tracerouteResult?.sessionId).toBe("tr-2")
+  })
+
+  it("clears stale LAN and packet diagnostics results before a rerun", async () => {
+    useNetworkProbeStore.setState({
+      lanResult: {
+        mode: "tcp-connect",
+        neighbors: [],
+        cancelled: false,
+        sessionId: "old-lan",
+        elapsedMs: 1,
+        commandHint: "old LAN scan",
+      },
+      pcapResult: {
+        mode: "tcpdump-count",
+        packets: 42,
+        tcpRst: 0,
+        retransHint: 0,
+        outOfOrderHint: 0,
+        cancelled: false,
+        sessionId: "old-pcap",
+        elapsedMs: 1,
+        commandHint: "old packet capture",
+      },
+    })
+    const lan = deferred<Record<string, unknown>>()
+    const pcap = deferred<Record<string, unknown>>()
+    discoverLan.mockReturnValue(lan.promise)
+    runPcapDiag.mockReturnValue(pcap.promise)
+
+    const lanPromise = networkProbeUseCases.discoverLan()
+    const pcapPromise = networkProbeUseCases.runPcapDiag(5)
+    expect(useNetworkProbeStore.getState().lanResult).toBeNull()
+    expect(useNetworkProbeStore.getState().pcapResult).toBeNull()
+    await flushMicrotasks()
+
+    lan.resolve({
+      mode: "tcp-connect",
+      neighbors: [],
+      cancelled: false,
+      sessionId: "new-lan",
+      elapsedMs: 1,
+      commandHint: "new LAN scan",
+    })
+    pcap.resolve({
+      mode: "tcpdump-count",
+      packets: 0,
+      tcpRst: 0,
+      retransHint: 0,
+      outOfOrderHint: 0,
+      cancelled: false,
+      sessionId: "new-pcap",
+      elapsedMs: 1,
+      commandHint: "new packet capture",
+    })
+    await Promise.all([lanPromise, pcapPromise])
+
+    expect(useNetworkProbeStore.getState().lanResult?.sessionId).toBe("new-lan")
+    expect(useNetworkProbeStore.getState().pcapResult?.sessionId).toBe("new-pcap")
+  })
+
+  it("keeps stale packet diagnostics cleared when the rerun fails", async () => {
+    useNetworkProbeStore.setState({
+      securityAuthorized: true,
+      pcapResult: {
+        mode: "tcpdump-count",
+        packets: 42,
+        tcpRst: 0,
+        retransHint: 0,
+        outOfOrderHint: 0,
+        cancelled: false,
+        sessionId: "old-pcap",
+        elapsedMs: 1,
+        commandHint: "old packet capture",
+      },
+    })
+    runPcapDiag.mockRejectedValue(new Error("capture failed"))
+
+    await networkProbeUseCases.runPcapDiag(5)
+
+    expect(useNetworkProbeStore.getState().pcapResult).toBeNull()
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.pcapFailed")
   })
 })

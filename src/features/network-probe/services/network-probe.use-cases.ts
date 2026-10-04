@@ -827,6 +827,7 @@ export const networkProbeUseCases = {
     if (store.loadingLan) return
     store.setLoadingLan(true)
     store.setError(null)
+    store.setLanResult(null)
     const sessions = createScanSessionTracker("lan")
     store.appendCommandLog("scanLan(local)")
     try {
@@ -880,6 +881,7 @@ export const networkProbeUseCases = {
     if (store.loadingPcap) return
     store.setLoadingPcap(true)
     store.setError(null)
+    store.setPcapResult(null)
     const sessions = createScanSessionTracker("pcap")
     store.appendCommandLog(`startPacketCapture(local, {secs:${durationSecs ?? 5}})`)
     try {

@@ -62,3 +62,4 @@
 
 - 2026-09-03：首版生成——依据 `docs/modules/network-probe/roadmap.md`（Wave 0–6）与 `docs/roadmap/ROADMAP.md` D-016，提炼 ⬜/◐ 未完成项为「待实现」「待验证」「远期」三档；产品说明见 `../product-specs/network-probe.md`。
 - 2026-10-05：macOS 隔离真机确认测速失败冷却与取消后立即重跑；PR #138 相关 macOS/Windows Rust、前端、E2E、静态守卫和安全 CI 全绿。Local Network/TCC、特权 helper、降级提示等其他真机项继续待验收。
+- 2026-10-05：P0-1 扫尾修复 ARP 发现与抓包诊断重跑时旧结果残留；新增重跑/失败回归用例。macOS 隔离实例确认两面板重跑产生新会话；抓包在本机按预期显示 `PCAP_PRIVILEGE` 降级。P0-1 其余面板一致性仍待审查。
