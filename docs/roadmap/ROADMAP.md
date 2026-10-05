@@ -173,6 +173,10 @@ pnpm run test:critical
 5. 用 0/1/50/500/2000 应用 fixture 验证虚拟 DOM 上限、搜索输入延迟、滚动、按需图标、刷新保留旧数据和取消。
 6. 将平台行为测试接入对应 CI runner。
 
+**本轮进度（2026-10-06）**：macOS 外置卷/空名称 fixture、provider 与虚拟网格测试已补充并通过；macOS 27.0.1 arm64 真机已验证 449 项扫描、Quick Launch 搜索和滚动、App Manager 搜索、启动 TextEdit、Finder reveal。Windows 真机回归按用户安排延后，ZIP/DMG 取消、临时签名身份拒绝、journal 恢复及 500/2000 项真机指标仍待完成，因此 R02 未完成。
+
+**设备证据**：真机清单 449 项；扫描后 filesystem、Spotlight、Homebrew 均为 `ok`。Quick Launch 的 Siri 搜索返回 3 项，其中两个同名应用显示不同 Bundle ID；应用管理器搜索命中 TextEdit，启动目标成功，Finder 显示到 `/System/Applications/TextEdit.app`。0/1/48 阈值及 50/500/2000 虚拟网格挂载上限由扩展测试覆盖；尚未记录 500/2000 项真机交互耗时、图标请求数、刷新旧快照和取消结果。
+
 **禁止**：Quick Launch 新建扫描流程；renderer 传路径/URL/package ID/shell 参数；heuristic 授权升级/卸载；provider 错误返回成功空数组；Windows 使用 `cmd /C start`。
 
 **命令**：
