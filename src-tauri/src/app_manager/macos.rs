@@ -1372,12 +1372,9 @@ mod tests {
 
     #[test]
     fn brew_metadata_commands_disable_automatic_network_updates() {
-        let output = brew_metadata_command("/usr/bin/env")
-            .output()
-            .expect("read inherited command environment");
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout
-            .lines()
-            .any(|line| line == "HOMEBREW_NO_AUTO_UPDATE=1"));
+        let command = brew_metadata_command("brew");
+        assert!(command.get_envs().any(|(key, value)| {
+            key == "HOMEBREW_NO_AUTO_UPDATE" && value == Some(std::ffi::OsStr::new("1"))
+        }));
     }
 }
