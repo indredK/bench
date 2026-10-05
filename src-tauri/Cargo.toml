@@ -72,6 +72,7 @@ aes-gcm = "0.11"
 keyring = "4"
 uuid = { version = "1", features = ["v4"] }
 url = "2"
+psl = "2.1.239"
 zeroize = "1"
 if-addrs = "0.15"
 surge-ping = "0.9.0"

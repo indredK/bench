@@ -60,6 +60,7 @@ export function AccountColumn({
   loginDisabledReason,
   error,
   onRetryError,
+  retryLabel,
   onDismissError,
 }: {
   station: RelayStation | null
@@ -83,7 +84,8 @@ export function AccountColumn({
   reorderDisabled: boolean
   loginDisabledReason?: string
   error?: string | null
-  onRetryError?: () => void
+  onRetryError?: () => unknown
+  retryLabel?: string
   onDismissError?: () => void
 }) {
   const { t } = useTranslation()
@@ -230,7 +232,12 @@ export function AccountColumn({
       />
       {error && (
         <div className="px-2 pt-2">
-          <InlineErrorBar message={error} onRetry={onRetryError} onDismiss={onDismissError} />
+          <InlineErrorBar
+            message={error}
+            onRetry={onRetryError}
+            retryLabel={retryLabel}
+            onDismiss={onDismissError}
+          />
         </div>
       )}
       <AccountListScrollShell virtualized={shouldVirtualize}>
@@ -486,16 +493,9 @@ function AccountCardContent({
       })
   }
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <article
+      aria-label={account.username}
       onClick={() => onSelect(account.id)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault()
-          onSelect(account.id)
-        }
-      }}
       className={cn(
         "group relative w-full cursor-pointer overflow-hidden rounded-lg border px-4 py-4 text-left transition",
         selected ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:bg-muted/40",
@@ -508,7 +508,17 @@ function AccountCardContent({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-semibold">{account.username}</span>
+            <button
+              type="button"
+              aria-pressed={selected}
+              onClick={(event) => {
+                event.stopPropagation()
+                onSelect(account.id)
+              }}
+              className="focus-visible:ring-ring truncate rounded-sm text-left text-sm font-semibold focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+            >
+              {account.username}
+            </button>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -655,6 +665,6 @@ function AccountCardContent({
           </TooltipProvider>
         </div>
       </div>
-    </div>
+    </article>
   )
 }

@@ -7,7 +7,11 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { accountManagerUseCases } from "@/features/account-manager/services/account-manager.use-cases"
-import { makeRegionError, type AccountManagerRegion } from "@/features/account-manager/errors"
+import {
+  makeRegionError,
+  type AccountManagerRegion,
+  type RegionErrorScope,
+} from "@/features/account-manager/errors"
 import { useAccountManagerStore } from "@/features/account-manager/store"
 import { useGuardedAsync, useGuardedAsyncSet } from "@/hooks/useGuardedAsync"
 import type { RefreshReport, StationAccount } from "@/lib/tauri/types/account-manager"
@@ -54,7 +58,12 @@ export function useRefreshOrchestrator() {
       region: AccountManagerRegion,
       error: unknown,
       fallbackKey: string,
-      options?: { values?: Record<string, unknown>; retry?: () => void },
+      options?: {
+        values?: Record<string, unknown>
+        scope?: RegionErrorScope
+        retry?: () => unknown | Promise<unknown>
+        retryLabel?: "retry" | "refresh"
+      },
     ) => {
       const { code } = parseCommandError(error)
       if (code === "INVALID_INPUT") {
@@ -96,6 +105,7 @@ export function useRefreshOrchestrator() {
       } catch (error) {
         writeRegionError("account", error, "accountManager.errors.refreshAccount", {
           retry: () => handleRefreshAccount(account),
+          scope: { stationId: account.stationId, accountId: account.id },
         })
       }
     })
@@ -117,6 +127,7 @@ export function useRefreshOrchestrator() {
               {
                 values: { failed, total: report.total },
                 retry: () => handleRefreshStation(stationId),
+                scope: { stationId },
               },
             ),
           )
@@ -129,6 +140,7 @@ export function useRefreshOrchestrator() {
       } catch (error) {
         writeRegionError("account", error, "accountManager.errors.refreshAccounts", {
           retry: () => handleRefreshStation(stationId),
+          scope: { stationId },
         })
       }
     })

@@ -10,7 +10,7 @@ import {
   isInvalidInput,
   openLoginWebview,
 } from "@/features/account-manager/services/account-manager.use-cases"
-import { makeRegionError } from "@/features/account-manager/errors"
+import { describeRegionError, makeRegionError } from "@/features/account-manager/errors"
 import { useAccountManagerStore } from "@/features/account-manager/store"
 import { useQuickLoginHistory } from "@/features/account-manager/hooks/useQuickLoginHistory"
 import { useGuardedAsync, useGuardedAsyncSet } from "@/hooks/useGuardedAsync"
@@ -49,7 +49,7 @@ export function useAccountActions({
   const { pushQuickLoginHistory } = useQuickLoginHistory()
 
   const retryViaReload = () => {
-    void loadInitialData()
+    return loadInitialData()
   }
 
   function handleQuickLogin(submission: QuickLoginSubmission) {
@@ -135,12 +135,13 @@ export function useAccountActions({
         if (isInvalidInput(error)) {
           toast.error(translateInvalidInput(t, error, "accountManager.toasts.createAccountFailed"))
         } else {
-          useAccountManagerStore.getState().setRegionError(
-            "account",
-            makeRegionError(error, "accountManager.errors.accountAction", {
-              retry: retryViaReload,
-            }),
-          )
+          const payload = makeRegionError(error, "accountManager.errors.accountAction", {
+            retry: retryViaReload,
+            retryLabel: "refresh",
+            scope: { stationId: station.id },
+          })
+          useAccountManagerStore.getState().setRegionError("account", payload)
+          toast.error(describeRegionError(t, payload))
         }
         return false
       }
@@ -196,12 +197,13 @@ export function useAccountActions({
         if (isInvalidInput(error)) {
           toast.error(translateInvalidInput(t, error, "accountManager.toasts.updateAccountFailed"))
         } else {
-          useAccountManagerStore.getState().setRegionError(
-            "account",
-            makeRegionError(error, "accountManager.errors.accountAction", {
-              retry: retryViaReload,
-            }),
-          )
+          const payload = makeRegionError(error, "accountManager.errors.accountAction", {
+            retry: retryViaReload,
+            retryLabel: "refresh",
+            scope: { stationId: editingAccount.stationId, accountId: editingAccount.id },
+          })
+          useAccountManagerStore.getState().setRegionError("account", payload)
+          toast.error(describeRegionError(t, payload))
         }
         return false
       }
@@ -240,12 +242,13 @@ export function useAccountActions({
         if (isInvalidInput(error)) {
           toast.error(translateInvalidInput(t, error, "accountManager.toasts.deleteAccountFailed"))
         } else {
-          useAccountManagerStore.getState().setRegionError(
-            "account",
-            makeRegionError(error, "accountManager.errors.accountAction", {
-              retry: retryViaReload,
-            }),
-          )
+          const payload = makeRegionError(error, "accountManager.errors.accountAction", {
+            retry: retryViaReload,
+            retryLabel: "refresh",
+            scope: { stationId: target.stationId, accountId: target.id },
+          })
+          useAccountManagerStore.getState().setRegionError("account", payload)
+          toast.error(describeRegionError(t, payload))
         }
       }
     })
@@ -285,6 +288,12 @@ export function useAccountActions({
           "account",
           makeRegionError(error, "accountManager.errors.accountAction", {
             retry: () => handleToggleProxy(accountId, enabled),
+            scope: {
+              stationId: useAccountManagerStore
+                .getState()
+                .accounts.find((account) => account.id === accountId)?.stationId,
+              accountId,
+            },
           }),
         )
       }
@@ -331,6 +340,8 @@ export function useAccountActions({
             "account",
             makeRegionError(error, "accountManager.errors.accountAction", {
               retry: retryViaReload,
+              retryLabel: "refresh",
+              scope: { stationId },
             }),
           )
         }

@@ -4,7 +4,8 @@
  */
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { KeyRound, ArrowRight, Loader2, Link2, RotateCw } from "lucide-react"
+import { KeyRound, ArrowRight, Loader2, Link2 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -23,19 +24,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { openExternal } from "@/platform/shell"
 import { cn } from "@/lib/utils"
 import type {
   AuthProxyMatch,
   AuthProxyRequest,
-  MatchConfidence,
-  RelayStation,
   StationAccount,
 } from "@/lib/tauri/types/account-manager"
 import { accountManagerRepository } from "@/features/account-manager/services/account-manager.repository"
 import { NEW_ACCOUNT } from "@/features/account-manager/hooks/useAuthProxy"
 import type { AuthProxyConfirmInput } from "@/features/account-manager/hooks/useAuthProxy"
-import { getErrorMessage, parseCommandError, translateError } from "@/lib/tauri/errors"
+import { parseCommandError, translateError } from "@/lib/tauri/errors"
 
 // ═══════════════════════════════════════════════
 // Wizard step constants
@@ -67,29 +65,11 @@ function statusLabel(status: StationAccount["status"], t: (k: string) => string)
   return t(`accountManager.status.${status}`)
 }
 
-function deriveExternalAppName(url: string, t?: (k: string) => string): string {
-  try {
-    const u = new URL(url)
-    return (
-      u.protocol.replace(":", "") ||
-      (t ? t("accountManager.authProxy.wizard.externalAppFallback") : "external app")
-    )
-  } catch {
-    return t ? t("accountManager.authProxy.wizard.externalAppFallback") : "external app"
-  }
-}
-
-function safeHost(url: string): string {
-  try {
-    return new URL(url).host
-  } catch {
-    return url
-  }
-}
-
-function safeTruncate(str: string, max = 60): string {
-  if (str.length <= max) return str
-  return str.slice(0, max) + "\u2026"
+function deriveExternalAppName(
+  scheme: string | null | undefined,
+  t: (k: string) => string,
+): string {
+  return scheme || t("accountManager.authProxy.wizard.externalAppFallback")
 }
 
 // ═══════════════════════════════════════════════
@@ -111,6 +91,14 @@ export interface AuthProxyDialogProps {
 }
 
 const EMPTY_AUTH_PROXY_MATCHES: AuthProxyMatch[] = []
+
+function defaultStationIndex(matches: AuthProxyMatch[]): number | null {
+  const automaticIndexes = matches.flatMap((match, index) =>
+    match.confidence === "manual" ? [] : [index],
+  )
+  if (automaticIndexes.length === 1) return automaticIndexes[0]
+  return matches.length === 1 ? 0 : null
+}
 
 // ═══════════════════════════════════════════════
 // Main dialog component
@@ -136,11 +124,6 @@ export function AuthProxyDialog({
   const [parsedMatches, setParsedMatches] = useState<AuthProxyMatch[]>([])
   const [parsedIsAuthorize, setParsedIsAuthorize] = useState(true)
 
-  // All known stations/accounts (loaded when dialog opens) so the user can
-  // pick a site even if its host does not match the pasted URL.
-  const [allStations, setAllStations] = useState<RelayStation[]>([])
-  const [allAccounts, setAllAccounts] = useState<StationAccount[]>([])
-
   // Step 2 selections
   const [selectedStationIndex, setSelectedStationIndex] = useState<number | null>(null)
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
@@ -148,14 +131,10 @@ export function AuthProxyDialog({
 
   // Step 3
   const [confirming, setConfirming] = useState(false)
+  const [openingReturnUrl, setOpeningReturnUrl] = useState(false)
 
   // Step 1 内联错误：非法 URL / 解析失败均有可见反馈（A1-1）。
   const [parseError, setParseError] = useState<string | null>(null)
-  // Step 2 站点列表加载失败的内联错误（原来仅 console.warn）。
-  const [stationsLoadError, setStationsLoadError] = useState<string | null>(null)
-  const [stationsReloading, setStationsReloading] = useState(false)
-  const [stationsReloadKey, setStationsReloadKey] = useState(0)
-
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
@@ -163,68 +142,22 @@ export function AuthProxyDialog({
       setUrl("")
       setParsing(false)
       setParseError(null)
-      setStationsLoadError(null)
       setParsedRequest(initialRequest)
       setParsedHost(initialHost)
       setParsedMatches(initialMatches)
       setParsedIsAuthorize(initialIsAuthorize)
-      setSelectedStationIndex(initialMatches.length === 1 ? 0 : null)
+      setSelectedStationIndex(defaultStationIndex(initialMatches))
       setSelectedAccountId(null)
       setNewAccountName("")
       setConfirming(false)
+      setOpeningReturnUrl(false)
     }
   }, [initialHost, initialIsAuthorize, initialMatches, initialRequest, open])
 
-  // Preload all stations + accounts so the site selector can offer every site,
-  // not only the ones whose host matches the URL.
-  useEffect(() => {
-    if (!open) return
-    let cancelled = false
-    setStationsReloading(true)
-    Promise.all([
-      accountManagerRepository.listStations(),
-      accountManagerRepository.listAllAccounts(),
-    ])
-      .then(([stations, accounts]) => {
-        if (cancelled) return
-        setAllStations(stations)
-        setAllAccounts(accounts)
-        setStationsLoadError(null)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setStationsLoadError(
-          translateError(t, err, t("accountManager.authProxy.wizard.loadStationsFailed")),
-        )
-      })
-      .finally(() => {
-        if (!cancelled) setStationsReloading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [open, stationsReloadKey, t])
+  // The backend returns automatic matches and manual choices from the same
+  // canonical snapshot used to issue the one-time ticket.
+  const mergedMatches = parsedRequest ? parsedMatches : EMPTY_AUTH_PROXY_MATCHES
 
-  // Merge backend matches with all other stations so the user can pick any
-  // site, even one whose host does not match the URL host. Matched stations
-  // come first.
-  const mergedMatches = useMemo<AuthProxyMatch[]>(() => {
-    if (!parsedRequest) return []
-    const matchedIds = new Set(parsedMatches.map((m) => m.stationId))
-    const unmatched: AuthProxyMatch[] = allStations
-      .filter((s) => !matchedIds.has(s.id))
-      .map((s) => ({
-        stationId: s.id,
-        stationName: s.remark || s.website,
-        website: s.website,
-        accounts: allAccounts.filter((a) => a.stationId === s.id && a.proxyEnabled === true),
-        confidence: "manual" as MatchConfidence,
-      }))
-    return [...parsedMatches, ...unmatched]
-  }, [parsedRequest, parsedMatches, allStations, allAccounts])
-
-  // Auto-select the only available station (covers the case where allStations
-  // loads after handleParseUrl, e.g. 0 matched + 1 unmatched station).
   useEffect(() => {
     if (step === STEP_SELECT && mergedMatches.length === 1 && selectedStationIndex === null) {
       setSelectedStationIndex(0)
@@ -240,12 +173,7 @@ export function AuthProxyDialog({
   const selectedStationAccounts = selectedStation ? selectedStation.accounts : []
 
   const canGoNext =
-    step === STEP_PASTE
-      ? !!parsedRequest
-      : step === STEP_SELECT
-        ? (selectedAccountId !== null && selectedAccountId !== NEW_ACCOUNT) ||
-          (selectedAccountId === NEW_ACCOUNT && newAccountName.trim().length > 0)
-        : true
+    step === STEP_PASTE ? !!parsedRequest : step === STEP_SELECT ? selectedAccountId !== null : true
 
   const isNewAccount = selectedAccountId === NEW_ACCOUNT
 
@@ -269,21 +197,14 @@ export function AuthProxyDialog({
       setParsedRequest({
         ticketId: result.ticketId,
         expiresAtTs: result.expiresAtTs,
-        target: result.target,
-        returnUrl: result.returnUrl ?? "",
-        state: null,
-        site: result.host,
+        hasReturnUrl: result.hasReturnUrl,
+        returnScheme: result.returnScheme ?? null,
       })
       setParsedHost(result.host)
       setParsedMatches(result.matches)
       setParsedIsAuthorize(result.isAuthorize)
 
-      // Auto-select first station if only one
-      if (result.matches.length === 1) {
-        setSelectedStationIndex(0)
-      } else {
-        setSelectedStationIndex(null)
-      }
+      setSelectedStationIndex(defaultStationIndex(result.matches))
       setSelectedAccountId(null)
       setNewAccountName("")
 
@@ -294,10 +215,8 @@ export function AuthProxyDialog({
       setParseError(
         translateError(
           t,
-          error,
-          t("accountManager.authProxy.wizard.parseFailed", {
-            message: getErrorMessage(error, parsed.message),
-          }),
+          { code: parsed.code, message: "" },
+          t("accountManager.authProxy.wizard.parseFailed"),
         ),
       )
     } finally {
@@ -332,20 +251,40 @@ export function AuthProxyDialog({
   }
 
   const handleCloseReturnUrl = async () => {
-    if (!parsedRequest) return
+    if (!parsedRequest?.hasReturnUrl || openingReturnUrl) return
+    setOpeningReturnUrl(true)
     try {
-      await openExternal(parsedRequest.returnUrl)
+      await accountManagerRepository.openAuthProxyReturnUrl(parsedRequest.ticketId)
     } catch (error) {
-      console.warn("[auth-proxy] open return url failed:", parseCommandError(error).code)
+      const parsed = parseCommandError(error)
+      toast.error(
+        translateError(
+          t,
+          { code: parsed.code, message: "" },
+          t("accountManager.toasts.authProxyReturnFailed"),
+        ),
+      )
+    } finally {
+      setOpeningReturnUrl(false)
     }
   }
 
   /// 普通链接(非 authorize-like 且无回调)→ 引导改用快速登录打开。
-  const isPlainUrl = !parsedIsAuthorize && !parsedRequest?.returnUrl
+  const isPlainUrl = !parsedIsAuthorize && !parsedRequest?.hasReturnUrl
 
   const handleSwitchToQuickLogin = () => {
-    if (!onSwitchToQuickLogin) return
-    onSwitchToQuickLogin(url.trim() || parsedRequest?.target || "")
+    const urlToOpen = url.trim()
+    if (!onSwitchToQuickLogin || !urlToOpen) return
+    onSwitchToQuickLogin(urlToOpen)
+  }
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (parsing || confirming) return
+    if (!nextOpen) {
+      setUrl("")
+      setParseError(null)
+    }
+    onOpenChange(nextOpen)
   }
 
   // ═══════════════════════════════════════════════
@@ -420,28 +359,10 @@ export function AuthProxyDialog({
     const stations = mergedMatches
     const hasExistingAccounts = selectedStationAccounts.length > 0
     const usingExisting = !isNewAccount && selectedAccountId !== null
-    const hostForHint = parsedHost || safeHost(parsedRequest?.target ?? "")
+    const hostForHint = parsedHost
 
     return (
       <div className="space-y-4">
-        {stationsLoadError && (
-          <div
-            className="border-destructive/30 bg-destructive/5 text-destructive flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-xs"
-            role="alert"
-          >
-            <span className="min-w-0 break-words">{stationsLoadError}</span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => setStationsReloadKey((key) => key + 1)}
-              disabled={stationsReloading}
-              aria-label={t("common.retry")}
-            >
-              <RotateCw className={stationsReloading ? "size-3 animate-spin" : "size-3"} />
-            </Button>
-          </div>
-        )}
         {/* 普通链接引导:非 authorize-like 且无回调 → 建议改用快速登录打开(F1) */}
         {isPlainUrl && onSwitchToQuickLogin && (
           <div className="border-border bg-muted/30 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
@@ -453,13 +374,18 @@ export function AuthProxyDialog({
                 {t("accountManager.authProxy.wizard.notAuthLinkHint")}
               </p>
             </div>
-            <Button type="button" size="sm" variant="outline" onClick={handleSwitchToQuickLogin}>
-              <Link2 size={13} />
-              {t("accountManager.authProxy.wizard.switchToQuickLogin")}
-            </Button>
+            {url.trim() ? (
+              <Button type="button" size="sm" variant="outline" onClick={handleSwitchToQuickLogin}>
+                <Link2 size={13} />
+                {t("accountManager.authProxy.wizard.switchToQuickLogin")}
+              </Button>
+            ) : (
+              <p className="text-muted-foreground w-full text-xs">
+                {t("accountManager.authProxy.wizard.deepLinkQuickLoginHint")}
+              </p>
+            )}
           </div>
         )}
-        {/* Station selector */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium">
             {t("accountManager.authProxy.wizard.stationLabel")}
@@ -470,7 +396,9 @@ export function AuthProxyDialog({
               onValueChange={(v) => {
                 const idx = parseInt(v, 10)
                 setSelectedStationIndex(idx)
-                setSelectedAccountId(null)
+                // Keep the fresh-account choice while browsing stations so the user
+                // can switch back to an existing account without losing their mode.
+                if (!isNewAccount) setSelectedAccountId(null)
               }}
             >
               <SelectTrigger className="w-full">
@@ -502,15 +430,16 @@ export function AuthProxyDialog({
             {t("accountManager.authProxy.wizard.accountLabel")}
           </label>
 
-          {!selectedStation ? (
+          {!selectedStation && !isNewAccount && stations.length > 0 ? (
             <p className="text-muted-foreground text-sm">
               {t("accountManager.authProxy.wizard.selectStationFirst")}
             </p>
-          ) : (
+          ) : selectedStation ? (
             <div className="space-y-2">
               {/* Option A: existing account */}
               <Button
                 variant="outline"
+                aria-pressed={usingExisting}
                 disabled={!hasExistingAccounts || confirming}
                 onClick={() => {
                   if (!hasExistingAccounts) return
@@ -572,47 +501,48 @@ export function AuthProxyDialog({
                   </SelectContent>
                 </Select>
               )}
-
-              {/* Option B: new account */}
-              <Button
-                variant="outline"
-                onClick={() => setSelectedAccountId(NEW_ACCOUNT)}
-                disabled={confirming}
-                className={cn(
-                  "flex h-auto min-h-8 w-full items-center gap-3 px-3 py-2.5 text-left text-sm whitespace-normal",
-                  isNewAccount
-                    ? "border-primary bg-primary/5"
-                    : "border-muted-foreground/20 hover:bg-muted/50",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
-                    isNewAccount ? "border-primary" : "border-muted-foreground/30",
-                  )}
-                >
-                  {isNewAccount && <span className="bg-primary h-2 w-2 rounded-full" />}
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="font-medium">
-                    {t("accountManager.authProxy.wizard.newAccount")}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {t("accountManager.authProxy.wizard.newAccountHint", { host: hostForHint })}
-                  </span>
-                </div>
-              </Button>
-
-              {/* Name input — only shown when option B is selected */}
-              {isNewAccount && (
-                <Input
-                  value={newAccountName}
-                  onChange={(e) => setNewAccountName(e.target.value)}
-                  placeholder={t("accountManager.authProxy.newAccountNamePlaceholder")}
-                  disabled={confirming}
-                />
-              )}
             </div>
+          ) : null}
+
+          {/* New accounts are always attached to the target host, even when no station exists yet. */}
+          <Button
+            variant="outline"
+            aria-pressed={isNewAccount}
+            onClick={() => {
+              setSelectedAccountId(NEW_ACCOUNT)
+            }}
+            disabled={confirming}
+            className={cn(
+              "flex h-auto min-h-8 w-full items-center gap-3 px-3 py-2.5 text-left text-sm whitespace-normal",
+              isNewAccount
+                ? "border-primary bg-primary/5"
+                : "border-muted-foreground/20 hover:bg-muted/50",
+            )}
+          >
+            <span
+              className={cn(
+                "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
+                isNewAccount ? "border-primary" : "border-muted-foreground/30",
+              )}
+            >
+              {isNewAccount && <span className="bg-primary h-2 w-2 rounded-full" />}
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="font-medium">{t("accountManager.authProxy.wizard.newAccount")}</span>
+              <span className="text-muted-foreground text-xs">
+                {t("accountManager.authProxy.wizard.newAccountHint", { host: hostForHint })}
+              </span>
+            </div>
+          </Button>
+
+          {/* Username is optional; the backend uses a host-derived default when empty. */}
+          {isNewAccount && (
+            <Input
+              value={newAccountName}
+              onChange={(e) => setNewAccountName(e.target.value)}
+              placeholder={t("accountManager.authProxy.newAccountNamePlaceholder")}
+              disabled={confirming}
+            />
           )}
         </div>
       </div>
@@ -620,7 +550,7 @@ export function AuthProxyDialog({
   }
 
   const renderStep3Confirm = () => {
-    const appProtocol = parsedRequest ? deriveExternalAppName(parsedRequest.returnUrl, t) : ""
+    const appProtocol = deriveExternalAppName(parsedRequest?.returnScheme, t)
     const selectedAccount = flatAccounts.find((fa) => fa.account.id === selectedAccountId)
     const acct = selectedAccount?.account
 
@@ -631,9 +561,7 @@ export function AuthProxyDialog({
           <span className="text-muted-foreground text-xs">
             {t("accountManager.authProxy.wizard.targetLabel")}
           </span>
-          <p className="text-sm font-medium break-all">
-            {parsedRequest ? safeHost(parsedRequest.target) : ""}
-          </p>
+          <p className="text-sm font-medium break-all">{parsedHost}</p>
         </div>
 
         {/* Return URL */}
@@ -642,7 +570,7 @@ export function AuthProxyDialog({
             {t("accountManager.authProxy.wizard.returnLabel")}
           </span>
           <p className="text-sm font-medium break-all">
-            {parsedRequest ? `${appProtocol}://${safeTruncate(parsedRequest.returnUrl, 80)}` : ""}
+            {parsedRequest?.hasReturnUrl ? appProtocol : ""}
           </p>
         </div>
 
@@ -651,7 +579,9 @@ export function AuthProxyDialog({
           <span className="text-muted-foreground text-xs">
             {t("accountManager.authProxy.wizard.stationLabel")}
           </span>
-          <p className="text-sm font-medium">{selectedStation?.stationName || "-"}</p>
+          <p className="text-sm font-medium">
+            {isNewAccount ? parsedHost : selectedStation?.stationName || "-"}
+          </p>
         </div>
 
         {/* Account */}
@@ -682,12 +612,7 @@ export function AuthProxyDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!parsing && !confirming) onOpenChange(next)
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent size="lg">
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center gap-2">
@@ -754,14 +679,18 @@ export function AuthProxyDialog({
               )}
             </Button>
           )}
-          {step === STEP_CONFIRM && parsedRequest && (
+          {step === STEP_CONFIRM && parsedRequest?.hasReturnUrl && (
             <Button
               variant="ghost"
               size="sm"
               onClick={handleCloseReturnUrl}
-              disabled={parsing || confirming}
+              disabled={parsing || confirming || openingReturnUrl}
             >
-              <Link2 size={14} />
+              {openingReturnUrl ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Link2 size={14} />
+              )}
               {t("accountManager.authProxy.openReturnUrl")}
             </Button>
           )}

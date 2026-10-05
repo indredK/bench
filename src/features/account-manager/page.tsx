@@ -3,6 +3,7 @@
  * 三栏布局(站点 / 账号 / 详情) + 各类对话框都是纯展示组件,状态与编排全在控制器 hook。
  */
 import { useEffect, useMemo, useState } from "react"
+import { RefreshCw } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { FeatureLoadError } from "@/components/common/FeatureLoadError"
 import { Button } from "@/components/ui/button"
@@ -21,7 +22,7 @@ import { AddAccountDialog } from "@/features/account-manager/components/add-acco
 import { EditAccountDialog } from "@/features/account-manager/components/edit-account-dialog"
 import { QuickLoginDialog } from "@/features/account-manager/components/quick-login-dialog"
 import { DeleteConfirmDialog } from "@/features/account-manager/components/delete-confirm-dialog"
-import { describeRegionError } from "@/features/account-manager/errors"
+import { describeRegionError, isRegionErrorVisible } from "@/features/account-manager/errors"
 import { AuthProxyDialog } from "@/features/account-manager/components/auth-proxy-dialog"
 import { ExternalAppsPanel } from "@/features/account-manager/components/external-apps-panel"
 import { AccountLogDialog } from "@/features/account-manager/components/account-log-dialog"
@@ -288,8 +289,17 @@ function AccountManagerPage() {
       savingSchedule={
         c.selectedAccount ? c.sessionKeeper.savingScheduleIds.has(c.selectedAccount.id) : false
       }
-      error={c.regionErrors.detail ? describeRegionError(t, c.regionErrors.detail) : null}
-      onRetryError={() => c.retryRegion("detail")}
+      error={
+        isRegionErrorVisible(c.regionErrors.detail, c.selectedStationId, c.selectedAccountId)
+          ? describeRegionError(t, c.regionErrors.detail)
+          : null
+      }
+      retryLabel={
+        c.regionErrors.detail?.retryLabel
+          ? t(`common.${c.regionErrors.detail.retryLabel}`)
+          : undefined
+      }
+      onRetryError={c.regionErrors.detail?.retry ? () => c.retryRegion("detail") : undefined}
       onDismissError={() => c.dismissRegionError("detail")}
       refreshingAccount={
         c.selectedAccount ? c.refreshingAccountIds.has(c.selectedAccount.id) : false
@@ -320,6 +330,16 @@ function AccountManagerPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
+      {c.reloading ? (
+        <div
+          className="text-muted-foreground flex shrink-0 items-center gap-2 px-1 text-xs"
+          role="status"
+          aria-live="polite"
+        >
+          <RefreshCw className="size-3 animate-spin" aria-hidden="true" />
+          {t("accountManager.refreshingData")}
+        </div>
+      ) : null}
       {c.credentialsLocked ? (
         <div className="border-border flex items-center gap-3 rounded-md border p-3">
           <div className="min-w-0 flex-1">
@@ -370,7 +390,12 @@ function AccountManagerPage() {
           quickLoginDisabledReason={capabilityState.loginDisabledReason}
           externalLoginDisabledReason={capabilityState.externalLoginDisabledReason}
           error={c.regionErrors.station ? describeRegionError(t, c.regionErrors.station) : null}
-          onRetryError={() => c.retryRegion("station")}
+          retryLabel={
+            c.regionErrors.station?.retryLabel
+              ? t(`common.${c.regionErrors.station.retryLabel}`)
+              : undefined
+          }
+          onRetryError={c.regionErrors.station?.retry ? () => c.retryRegion("station") : undefined}
           onDismissError={() => c.dismissRegionError("station")}
         />
 
@@ -404,8 +429,17 @@ function AccountManagerPage() {
           onReorder={(ids) => void c.handleReorderAccounts(ids)}
           reorderDisabled={c.reorderingAccounts}
           loginDisabledReason={capabilityState.loginDisabledReason}
-          error={c.regionErrors.account ? describeRegionError(t, c.regionErrors.account) : null}
-          onRetryError={() => c.retryRegion("account")}
+          error={
+            isRegionErrorVisible(c.regionErrors.account, c.selectedStationId, c.selectedAccountId)
+              ? describeRegionError(t, c.regionErrors.account)
+              : null
+          }
+          retryLabel={
+            c.regionErrors.account?.retryLabel
+              ? t(`common.${c.regionErrors.account.retryLabel}`)
+              : undefined
+          }
+          onRetryError={c.regionErrors.account?.retry ? () => c.retryRegion("account") : undefined}
           onDismissError={() => c.dismissRegionError("account")}
         />
 

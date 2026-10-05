@@ -7,6 +7,8 @@
 //! Token / session 提取见 `super::session::capture_session_after_login` — Tauri 2
 //! 的 `eval` 不返回 JS 值,所以走 IPC 命令 + 内置 cookie 抓取通道。
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
@@ -83,6 +85,10 @@ pub fn account_data_store_identifier(account_id: &str) -> [u8; 16] {
 /// （允许其后追加 `?code=...` 等 query）。return 本身若无 query 也能匹配。
 pub fn is_return_callback(nav_url: &str, return_url: &str) -> bool {
     super::proxy::protocol::callback_matches(nav_url, return_url)
+}
+
+fn claim_proxy_callback(claimed: &AtomicBool) -> bool {
+    !claimed.swap(true, Ordering::AcqRel)
 }
 
 /// 把外部 App 自己的原始 callback URL 通过系统 opener 转交回该 App。
@@ -175,6 +181,8 @@ pub fn open_login_window<R: Runtime>(
     if let Some(ret) = return_url {
         let ret_owned = ret.to_string();
         let callback_state_owned = callback_state.map(str::to_string);
+        let callback_claimed = Arc::new(AtomicBool::new(false));
+        let callback_claimed_for_navigation = Arc::clone(&callback_claimed);
         let label_clone = label.clone();
         let account_id_owned = account_id.to_string();
         let target_owned = url.to_string();
@@ -191,6 +199,17 @@ pub fn open_login_window<R: Runtime>(
             ) {
                 super::proxy::protocol::audit_log(
                     "proxy_callback_state_rejected",
+                    &[("scheme", nav_url.scheme())],
+                );
+                return false;
+            }
+
+            // Navigation callbacks are synchronous, but completion (session capture and
+            // callback forwarding) is async. Claim before spawning so a site retry or
+            // duplicate navigation cannot forward the same OAuth callback twice.
+            if !claim_proxy_callback(&callback_claimed_for_navigation) {
+                super::proxy::protocol::audit_log(
+                    "proxy_callback_duplicate_ignored",
                     &[("scheme", nav_url.scheme())],
                 );
                 return false;
@@ -249,11 +268,17 @@ pub fn open_login_window<R: Runtime>(
         .build()
         .map_err(|e| AccountManagerError::store_fail(format!("build login window: {e}")))?;
     if let Some(saved) = saved_session {
-        super::session::inject_session(&window, &saved)?;
+        if let Err(error) = super::session::inject_session(&window, &saved) {
+            let _ = window.close();
+            return Err(error);
+        }
     }
-    window
-        .navigate(parsed)
-        .map_err(|e| AccountManagerError::store_fail(format!("navigate login window: {e}")))?;
+    if let Err(error) = window.navigate(parsed) {
+        let _ = window.close();
+        return Err(AccountManagerError::store_fail(format!(
+            "navigate login window: {error}"
+        )));
+    }
     Ok(())
 }
 
@@ -438,6 +463,29 @@ mod tests {
     #[test]
     fn login_window_label_format() {
         assert_eq!(login_window_label("acct-123"), "relay-login-acct-123");
+    }
+
+    #[test]
+    fn proxy_callback_completion_is_claimed_only_once_under_concurrency() {
+        let claimed = Arc::new(AtomicBool::new(false));
+        let completions = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let workers = (0..16)
+            .map(|_| {
+                let claimed = Arc::clone(&claimed);
+                let completions = Arc::clone(&completions);
+                std::thread::spawn(move || {
+                    if claim_proxy_callback(&claimed) {
+                        completions.fetch_add(1, Ordering::Relaxed);
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+
+        for worker in workers {
+            worker.join().expect("callback worker should finish");
+        }
+
+        assert_eq!(completions.load(Ordering::Relaxed), 1);
     }
 
     #[test]

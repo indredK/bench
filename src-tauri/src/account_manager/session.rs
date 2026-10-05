@@ -294,11 +294,15 @@ pub fn restore_session(
     state: &AccountManagerState,
     account_id: &str,
 ) -> AccountManagerResult<Option<AccountSession>> {
-    let key = state.master_key()?;
     let blob = match state.get_session(account_id) {
         Some(b) => b,
         None => return Ok(None),
     };
+    // Do not touch the OS keychain when this account has no persisted session.
+    // Probe and login flows call restore_session for every account, including new
+    // accounts; eagerly requesting the master key here can surface a keychain
+    // prompt (or block) even though there is nothing to decrypt.
+    let key = state.master_key()?;
     let plaintext = crypto::decrypt(&key, &blob)?;
     let session: AccountSession = serde_json::from_str(&plaintext)
         .map_err(|e| AccountManagerError::store_fail(format!("deserialize session: {e}")))?;
@@ -676,6 +680,7 @@ fn set_status<R: Runtime>(
 mod tests {
     use super::*;
     use crate::account_manager::crypto::EncryptedBlob;
+    use crate::account_manager::state::AccountManagerState;
     use std::collections::HashMap;
 
     fn blob(tag: &str) -> EncryptedBlob {
@@ -723,18 +728,30 @@ mod tests {
         }
     }
 
+    #[test]
+    fn restoring_account_without_session_does_not_initialize_keyring() {
+        let state = AccountManagerState::new();
+
+        assert!(restore_session(&state, "account-without-session")
+            .unwrap()
+            .is_none());
+        assert!(!state.key_initialized());
+    }
+
     /// 钥匙串/解密读不回 ≠ 会话过期：只降级状态，密文必须留下（A1 数据丢失回归）。
     #[test]
     fn unreadable_session_is_downgraded_but_not_deleted() {
-        let mut snapshot = AccountManagerSnapshot::default();
-        snapshot.accounts = vec![
-            account("expired", Some(blob("a"))),
-            account("unreadable", Some(blob("b"))),
-        ];
-        snapshot.sessions = HashMap::from([
-            ("expired".to_string(), blob("a")),
-            ("unreadable".to_string(), blob("b")),
-        ]);
+        let mut snapshot = AccountManagerSnapshot {
+            accounts: vec![
+                account("expired", Some(blob("a"))),
+                account("unreadable", Some(blob("b"))),
+            ],
+            sessions: HashMap::from([
+                ("expired".to_string(), blob("a")),
+                ("unreadable".to_string(), blob("b")),
+            ]),
+            ..AccountManagerSnapshot::default()
+        };
 
         apply_clear_targets(
             &mut snapshot,

@@ -531,6 +531,11 @@ pub async fn open_for_scope<R: Runtime>(
         ));
     }
 
+    // This command awaits browser startup and several CDP calls. Serialize by
+    // scope so duplicate UI/IPC requests cannot race profile creation or navigate
+    // the same browser concurrently.
+    let _operation_guard = profile::lock_scope_operation(scope).await;
+
     // 登录窗口打开中 → 拒绝，避免同一账号出现两个活跃浏览上下文。
     if let Some(account_id) = account_id {
         let login_label = super::webview::login_window_label(account_id);
@@ -544,7 +549,7 @@ pub async fn open_for_scope<R: Runtime>(
     profile::reap_finished(scope);
 
     if reset_profile {
-        close_for_scope(app, scope).await;
+        close_for_scope_locked(app, scope).await;
         profile::remove_profile_dir(app, scope).map_err(AccountManagerError::store_fail)?;
     }
 
@@ -938,6 +943,11 @@ pub async fn status_for_scope<R: Runtime>(
 /// 先经 CDP `Browser.close` 优雅退出（会冲刷 profile），失败再退回进程终止。
 /// Bench 重启后启动的实例不在进程表内，此时只能依赖 CDP。
 pub async fn close_for_scope<R: Runtime>(app: &AppHandle<R>, scope: &Scope) -> bool {
+    let _operation_guard = profile::lock_scope_operation(scope).await;
+    close_for_scope_locked(app, scope).await
+}
+
+async fn close_for_scope_locked<R: Runtime>(app: &AppHandle<R>, scope: &Scope) -> bool {
     let mut closed = false;
     if let Ok(Some((client, port))) = connect_running(app, scope).await {
         if client.close_browser().await.is_ok() {
@@ -2390,6 +2400,52 @@ async fn capture_origin_via_cdp(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn browser_open_outcome_serializes_only_safe_summary_fields() {
+        use std::collections::BTreeSet;
+
+        let outcome = BrowserOpenOutcome {
+            browser_id: "chrome".into(),
+            reused_instance: true,
+            injected_cookies: 2,
+            skipped_partitioned: 1,
+            rejected_cookies: 0,
+            session_injected: true,
+            has_stored_session: true,
+            session_recovered: false,
+            recovery_reason: None,
+            storage_origins: 1,
+            storage_restore_status: Some("complete".into()),
+        };
+        let serialized = serde_json::to_value(outcome).expect("serialize safe browser summary");
+        let actual: BTreeSet<_> = serialized
+            .as_object()
+            .expect("summary object")
+            .keys()
+            .cloned()
+            .collect();
+        let expected: BTreeSet<_> = [
+            "browserId",
+            "reusedInstance",
+            "injectedCookies",
+            "skippedPartitioned",
+            "rejectedCookies",
+            "sessionInjected",
+            "hasStoredSession",
+            "sessionRecovered",
+            "recoveryReason",
+            "storageOrigins",
+            "storageRestoreStatus",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+
+        assert_eq!(actual, expected);
+        assert!(!serialized.to_string().contains("cookieValue"));
+        assert!(!serialized.to_string().contains("storageValue"));
+    }
 
     fn cookie(name: &str, domain: &str, host_only: bool) -> CookieEntry {
         CookieEntry {

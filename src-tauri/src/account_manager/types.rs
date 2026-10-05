@@ -890,6 +890,9 @@ pub enum AccountManagerError {
     StoreFail {
         message: String,
     },
+    ProbeFailed {
+        message: String,
+    },
     KeyringUnavailable {
         message: String,
     },
@@ -927,6 +930,11 @@ impl AccountManagerError {
             message: msg.into(),
         }
     }
+    pub fn probe_failed(msg: impl Into<String>) -> Self {
+        Self::ProbeFailed {
+            message: msg.into(),
+        }
+    }
     pub fn keyring_unavailable(msg: impl Into<String>) -> Self {
         Self::KeyringUnavailable {
             message: msg.into(),
@@ -959,6 +967,7 @@ impl AccountManagerError {
             Self::NotFound { message }
             | Self::InvalidInput { message }
             | Self::StoreFail { message }
+            | Self::ProbeFailed { message }
             | Self::KeyringUnavailable { message }
             | Self::CryptoFail { message }
             | Self::ClipboardFail { message }
@@ -973,6 +982,7 @@ impl std::fmt::Display for AccountManagerError {
             Self::NotFound { message } => write!(f, "not found: {message}"),
             Self::InvalidInput { message } => write!(f, "invalid input: {message}"),
             Self::StoreFail { message } => write!(f, "store failure: {message}"),
+            Self::ProbeFailed { message } => write!(f, "probe failed: {message}"),
             Self::KeyringUnavailable { message } => write!(f, "keyring unavailable: {message}"),
             Self::CryptoFail { message } => write!(f, "crypto failure: {message}"),
             Self::ClipboardFail { message } => write!(f, "clipboard failure: {message}"),
@@ -1047,5 +1057,14 @@ mod tests {
             bad_minute.validate().unwrap_err(),
             AccountManagerError::InvalidInput { .. }
         ));
+    }
+
+    #[test]
+    fn probe_failures_keep_a_stable_ipc_code() {
+        let error = AccountManagerError::probe_failed("request timed out");
+        let serialized = serde_json::to_value(&error).expect("error serializes");
+
+        assert_eq!(serialized["code"], "PROBE_FAILED");
+        assert_eq!(error.message(), "request timed out");
     }
 }

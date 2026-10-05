@@ -9,7 +9,6 @@ import type {
   AuthProfile,
   AuthProxyDrainResult,
   AuthProxyInboxStatus,
-  AuthProxyResult,
   BrowserCaptureOutcome,
   BrowserDailySyncOutcome,
   BrowserInjectStatus,
@@ -55,7 +54,6 @@ export type {
   AuthProfile,
   AuthProxyMatch,
   AuthProxyRequest,
-  AuthProxyResult,
   BrowserCaptureOutcome,
   BrowserCaptureOutcomeKind,
   BrowserOpenOutcome,
@@ -403,10 +401,8 @@ export function updateLoginRules(
   })
 }
 
-/// 启动外部代理登录:打开登录窗口 → 注入凭证 → 返回占位 AuthProxyResult。
-/// 真正的 token 由前端在用户完成登录后通过 `captureAccountSession`
-/// + `buildProxyReturnUrl` 组装,再用 `openExternal` 回呼外部 App。
-export function proxyLogin(accountId: string, ticketId: string): Promise<AuthProxyResult> {
+/// 启动外部代理登录，目标 URL 与 OAuth state 保留在 Rust 端的一次性 ticket 中。
+export function proxyLogin(accountId: string, ticketId: string): Promise<void> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.proxyLogin, {
     accountId,
     ticketId,
@@ -414,9 +410,13 @@ export function proxyLogin(accountId: string, ticketId: string): Promise<AuthPro
 }
 
 /// 处理一次"用 bench 打开"的 URL（`bench-auth://` 或直接的 https authorize 链接）。
-/// 返回归一化的 target / 回调地址 / host / 是否像登录链接 / 已匹配账号。
+/// 返回 ticket 与脱敏 host / 回调 scheme / 匹配结果；完整 URL 与 OAuth state 留在 Rust。
 export function handleBrowserOpen(url: string): Promise<BrowserOpenResult> {
   return invokeTauriCommand(TAURI_COMMANDS.accountManager.handleBrowserOpen, { url })
+}
+
+export function openAuthProxyReturnUrl(ticketId: string): Promise<void> {
+  return invokeTauriCommand(TAURI_COMMANDS.accountManager.openAuthProxyReturnUrl, { ticketId })
 }
 
 export function getAuthProxyInboxStatus(): Promise<AuthProxyInboxStatus> {
