@@ -4,6 +4,7 @@
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { OpenSystemNetworkSettingsButton } from "@/features/network-probe/components/OpenSystemNetworkSettingsButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
 
@@ -13,6 +14,7 @@ interface ArpPanelProps {
   toolEnabled: boolean
   toolStatus?: string
   canCancel?: boolean
+  openingSettings?: boolean
   onRun: () => void
   onCancel?: () => void
   onOpenSettings?: () => void
@@ -24,6 +26,7 @@ export function ArpPanel({
   toolEnabled,
   toolStatus,
   canCancel,
+  openingSettings = false,
   onRun,
   onCancel,
   onOpenSettings,
@@ -69,9 +72,11 @@ export function ArpPanel({
               </CommandHint>
             ) : null}
             {onOpenSettings ? (
-              <Button type="button" variant="outline" onClick={onOpenSettings}>
-                {t("networkProbe.arp.openSettings")}
-              </Button>
+              <OpenSystemNetworkSettingsButton
+                opening={openingSettings}
+                label={t("networkProbe.arp.openSettings")}
+                onOpen={onOpenSettings}
+              />
             ) : null}
           </div>
         </>
@@ -103,9 +108,12 @@ export function ArpPanel({
                 </p>
               ) : null}
               {result.emptyReason === "permission" && onOpenSettings ? (
-                <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
-                  {t("networkProbe.arp.openSettings")}
-                </Button>
+                <OpenSystemNetworkSettingsButton
+                  opening={openingSettings}
+                  label={t("networkProbe.arp.openSettings")}
+                  onOpen={onOpenSettings}
+                  size="sm"
+                />
               ) : null}
             </div>
           ) : (

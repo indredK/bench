@@ -1592,6 +1592,9 @@
       "clearConfirmTitle": "Clear command log?",
       "clearConfirmDescription": "This removes every IPC hint recorded in this session. This cannot be undone."
     },
+    "actions": {
+      "openingSettings": "Opening system settings…"
+    },
     "l1": {
       "basic": "Basics",
       "sites": "Site latency",
@@ -1862,6 +1865,11 @@
     "fix": {
       "hint": "Privilege-free self-heal actions. Backend re-validates services and DNS against a whitelist.",
       "service": "Network service",
+      "selectService": "Select a network service",
+      "loadingServices": "Loading network services…",
+      "refreshServices": "Refresh services",
+      "servicesLoadFailed": "Network services could not be loaded. Retry or open system network settings.",
+      "noServices": "No network services are available. Check system network settings.",
       "dnsPreset": "DNS preset",
       "flush": "Flush DNS",
       "switchDns": "Switch DNS",

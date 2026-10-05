@@ -341,6 +341,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     summary={c.summary}
                     firewall={c.firewall}
                     hostsSuspiciousCount={hostsSuspicious}
+                    openingSettings={c.openingSystemNetworkSettings}
                     onRefresh={c.refreshOverview}
                     onOpenSettings={c.openSystemNetworkSettings}
                   />
@@ -471,6 +472,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 {showFix ? (
                   <FixPanel
                     loading={c.loadingFix}
+                    servicesLoadState={c.networkServicesLoadState}
+                    openingSettings={c.openingSystemNetworkSettings}
                     services={c.networkServices}
                     dnsPresets={c.defaults?.dnsPresets ?? []}
                     lastResult={c.fixResult}
@@ -642,6 +645,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     toolEnabled={c.toolEnabled.arp}
                     toolStatus={c.toolStatus.arp}
                     canCancel={c.loadingLan && Boolean(activeSessionIdByKind.lan)}
+                    openingSettings={c.openingSystemNetworkSettings}
                     onRun={c.discoverLan}
                     onCancel={() => c.cancelScan("lan")}
                     onOpenSettings={c.openSystemNetworkSettings}

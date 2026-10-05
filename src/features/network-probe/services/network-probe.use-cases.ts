@@ -337,14 +337,19 @@ export const networkProbeUseCases = {
 
   async loadNetworkServices() {
     const store = useNetworkProbeStore.getState()
+    if (store.networkServicesLoadState === "loading") return
+    store.setNetworkServicesLoadState("loading")
+    if (store.error?.key === "networkProbe.errors.servicesFailed") store.setError(null)
     try {
       const services = await networkProbeRepository.listNetworkServices()
-      store.setNetworkServices(services)
+      useNetworkProbeStore.getState().setNetworkServices(services)
     } catch (error) {
-      store.setError({
+      const currentStore = useNetworkProbeStore.getState()
+      currentStore.setError({
         key: "networkProbe.errors.servicesFailed",
         fallback: getErrorMessage(error),
       })
+      currentStore.setNetworkServicesLoadState("failed")
     }
   },
 
@@ -557,14 +562,18 @@ export const networkProbeUseCases = {
 
   async openSystemNetworkSettings() {
     const store = useNetworkProbeStore.getState()
-    store.setError(null)
+    if (store.openingSystemNetworkSettings) return
+    store.setOpeningSystemNetworkSettings(true)
+    if (store.error?.key === "networkProbe.errors.openSettingsFailed") store.setError(null)
     try {
       await networkProbeRepository.openSystemNetworkSettings()
     } catch (error) {
-      store.setError({
+      useNetworkProbeStore.getState().setError({
         key: "networkProbe.errors.openSettingsFailed",
         fallback: getErrorMessage(error),
       })
+    } finally {
+      useNetworkProbeStore.getState().setOpeningSystemNetworkSettings(false)
     }
   },
 

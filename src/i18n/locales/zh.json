@@ -1592,6 +1592,9 @@
       "clearConfirmTitle": "清空命令日志？",
       "clearConfirmDescription": "将删除本会话中已记录的全部 IPC 提示，此操作不可撤销。"
     },
+    "actions": {
+      "openingSettings": "正在打开系统设置…"
+    },
     "l1": {
       "basic": "基础视角",
       "sites": "站点延迟",
@@ -1862,6 +1865,11 @@
     "fix": {
       "hint": "免特权自愈操作。后端会复核网络服务与 DNS 白名单。",
       "service": "网络服务",
+      "selectService": "选择网络服务",
+      "loadingServices": "正在加载网络服务…",
+      "refreshServices": "刷新服务",
+      "servicesLoadFailed": "网络服务列表加载失败，请重试或打开系统网络设置。",
+      "noServices": "没有可用的网络服务，请检查系统网络设置。",
       "dnsPreset": "DNS 预设",
       "flush": "刷新 DNS",
       "switchDns": "切换 DNS",

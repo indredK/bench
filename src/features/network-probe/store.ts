@@ -47,6 +47,8 @@ import type {
 const SECURITY_AUTH_KEY = "network-probe:security-authorized"
 const REPORT_HISTORY_KEY = "network-probe:report-history"
 
+export type NetworkServicesLoadState = "idle" | "loading" | "loaded" | "failed"
+
 function loadSecurityAuthorized(): boolean {
   if (typeof localStorage === "undefined") return false
   try {
@@ -127,6 +129,7 @@ interface NetworkProbeState {
   healthResult: HealthScanResult | null
   healthStreamingItems: HealthCheckItem[]
   networkServices: string[]
+  networkServicesLoadState: NetworkServicesLoadState
   fixResult: FixResult | null
   captiveResult: CaptivePortalResult | null
   publicIpInfo: PublicIpInfo | null
@@ -158,6 +161,7 @@ interface NetworkProbeState {
   /** 各探测种类已发出 cancel 请求的会话; 用于保证取消幂等 (A4-4)。 */
   cancelRequestedSessionIdByKind: Record<NetworkProbeKind, string | null>
   commandLog: string[]
+  openingSystemNetworkSettings: boolean
   loadingSummary: boolean
   loadingTcp: boolean
   loadingPing: boolean
@@ -243,6 +247,8 @@ interface NetworkProbeState {
   appendCommandLog: (line: string) => void
   clearCommandLog: () => void
   setLoadingSummary: (loading: boolean) => void
+  setNetworkServicesLoadState: (state: NetworkServicesLoadState) => void
+  setOpeningSystemNetworkSettings: (opening: boolean) => void
   setLoadingTcp: (loading: boolean) => void
   setLoadingPing: (loading: boolean) => void
   setLoadingDns: (loading: boolean) => void
@@ -356,6 +362,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   healthResult: null,
   healthStreamingItems: [],
   networkServices: [],
+  networkServicesLoadState: "idle",
   fixResult: null,
   captiveResult: null,
   publicIpInfo: null,
@@ -385,6 +392,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   activeSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
   cancelRequestedSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
   commandLog: [],
+  openingSystemNetworkSettings: false,
   loadingSummary: false,
   loadingTcp: false,
   loadingPing: false,
@@ -482,7 +490,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
       next[idx] = item
       return { healthStreamingItems: next }
     }),
-  setNetworkServices: (networkServices) => set({ networkServices }),
+  setNetworkServices: (networkServices) =>
+    set({ networkServices, networkServicesLoadState: "loaded" }),
   setFixResult: (fixResult) => set({ fixResult }),
   setCaptiveResult: (captiveResult) => set({ captiveResult }),
   setPublicIpInfo: (publicIpInfo) => set({ publicIpInfo }),
@@ -577,6 +586,9 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
       commandLog: [...state.commandLog.slice(-199), `${new Date().toISOString()} ${line}`],
     })),
   clearCommandLog: () => set({ commandLog: [] }),
+  setNetworkServicesLoadState: (networkServicesLoadState) => set({ networkServicesLoadState }),
+  setOpeningSystemNetworkSettings: (openingSystemNetworkSettings) =>
+    set({ openingSystemNetworkSettings }),
   setLoadingSummary: (loadingSummary) => set({ loadingSummary }),
   setLoadingTcp: (loadingTcp) => set({ loadingTcp }),
   setLoadingPing: (loadingPing) => set({ loadingPing }),

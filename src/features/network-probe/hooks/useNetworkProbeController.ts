@@ -69,6 +69,8 @@ export function useNetworkProbeController() {
   const activeSessionIdByKind = useNetworkProbeStore((s) => s.activeSessionIdByKind)
   const commandLog = useNetworkProbeStore((s) => s.commandLog)
   const loadingSummary = useNetworkProbeStore((s) => s.loadingSummary)
+  const networkServicesLoadState = useNetworkProbeStore((s) => s.networkServicesLoadState)
+  const openingSystemNetworkSettings = useNetworkProbeStore((s) => s.openingSystemNetworkSettings)
   const loadingTcp = useNetworkProbeStore((s) => s.loadingTcp)
   const loadingPing = useNetworkProbeStore((s) => s.loadingPing)
   const loadingDns = useNetworkProbeStore((s) => s.loadingDns)
@@ -328,6 +330,8 @@ export function useNetworkProbeController() {
     activeSessionIdByKind,
     commandLog,
     loadingSummary,
+    networkServicesLoadState,
+    openingSystemNetworkSettings,
     loadingTcp,
     loadingPing,
     loadingDns,
