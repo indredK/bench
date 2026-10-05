@@ -56,6 +56,10 @@ export function Ipv6Panel({ loading, result, onRun, dualFrom }: Ipv6PanelProps) 
             {result.linkLocal.length > 0 ? result.linkLocal.join(", ") : "—"}
           </div>
           <div className="text-muted-foreground text-xs">
+            {t("networkProbe.ipv6.uniqueLocal")}:{" "}
+            {result.uniqueLocal.length > 0 ? result.uniqueLocal.join(", ") : "—"}
+          </div>
+          <div className="text-muted-foreground text-xs">
             {t("networkProbe.ipv6.global")}:{" "}
             {result.global.length > 0 ? result.global.join(", ") : "—"}
           </div>

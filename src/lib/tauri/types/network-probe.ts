@@ -302,6 +302,7 @@ export interface Ipv6DualStackCompare {
 export interface Ipv6StackResult {
   status: string
   linkLocal: string[]
+  uniqueLocal: string[]
   global: string[]
   aaaaOk: boolean
   aaaaAddrs: string[]

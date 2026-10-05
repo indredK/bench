@@ -1969,6 +1969,7 @@
         "fail": "fail"
       },
       "linkLocal": "Link-local",
+      "uniqueLocal": "Unique local (ULA)",
       "global": "Global",
       "aaaa": "AAAA",
       "icmpv6": "ICMPv6",

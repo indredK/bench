@@ -46,6 +46,11 @@ function createScanSessionTracker(kind: NetworkProbeKind) {
   }
 }
 
+function unwrapSettled<T>(result: PromiseSettledResult<T>): T {
+  if (result.status === "rejected") throw result.reason
+  return result.value
+}
+
 export const networkProbeUseCases = {
   async bootstrap() {
     const store = useNetworkProbeStore.getState()
@@ -519,13 +524,22 @@ export const networkProbeUseCases = {
     store.setIpv6Result(null)
     store.setMtuResult(null)
     try {
-      const [captive, publicIp, proxyVpn, ipv6, mtu] = await Promise.all([
-        networkProbeRepository.detectCaptivePortal(),
-        networkProbeRepository.getPublicIpInfo(),
-        networkProbeRepository.getProxyVpnStatus(),
-        networkProbeRepository.checkIpv6Stack(),
-        networkProbeRepository.probePathMtu("1.1.1.1"),
-      ])
+      // allSettled keeps the shared result-slot lock until every child request
+      // finishes, even when one fails early. Otherwise Promise.all would unlock
+      // while its remaining Tauri commands were still running.
+      const [captiveResult, publicIpResult, proxyVpnResult, ipv6Result, mtuResult] =
+        await Promise.allSettled([
+          networkProbeRepository.detectCaptivePortal(),
+          networkProbeRepository.getPublicIpInfo(),
+          networkProbeRepository.getProxyVpnStatus(),
+          networkProbeRepository.checkIpv6Stack(),
+          networkProbeRepository.probePathMtu("1.1.1.1"),
+        ])
+      const captive = unwrapSettled(captiveResult)
+      const publicIp = unwrapSettled(publicIpResult)
+      const proxyVpn = unwrapSettled(proxyVpnResult)
+      const ipv6 = unwrapSettled(ipv6Result)
+      const mtu = unwrapSettled(mtuResult)
       store.setCaptiveResult(captive)
       store.setPublicIpInfo(publicIp)
       store.setProxyVpnStatus(proxyVpn)

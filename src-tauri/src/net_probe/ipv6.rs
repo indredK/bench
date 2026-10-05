@@ -1,3 +1,4 @@
+use super::address::{classify_ipv6_address, Ipv6AddressScope};
 use super::types::{Ipv6DualStackCompare, Ipv6StackResult};
 use crate::error::AppResult;
 use std::net::IpAddr;
@@ -14,7 +15,7 @@ pub async fn check_ipv6_stack() -> AppResult<Ipv6StackResult> {
     let started = Instant::now();
     let command_hint = "checkIpv6Stack(local)".to_string();
 
-    let (link_local, global) = collect_local_ipv6();
+    let (link_local, unique_local, global) = collect_local_ipv6();
     let (aaaa_ok, aaaa_addrs) = lookup_aaaa(AAAA_NAME).await;
 
     let icmpv6 = ping_once(IPV6_REACH_TARGET).await;
@@ -48,34 +49,16 @@ pub async fn check_ipv6_stack() -> AppResult<Ipv6StackResult> {
     };
 
     let has_global = !global.is_empty();
+    let has_local_ipv6 = has_global || !unique_local.is_empty() || !link_local.is_empty();
     let icmpv6_ok = icmpv6.as_ref().map(|(ok, _)| *ok);
     let http_v6_ok = http_v6;
-
-    let (status, message) = if has_global && aaaa_ok && icmpv6_ok == Some(true) {
-        (
-            "ok".to_string(),
-            Some("IPv6 stack looks usable (address + AAAA + ICMPv6)".into()),
-        )
-    } else if has_global || aaaa_ok || icmpv6_ok == Some(true) || !link_local.is_empty() {
-        (
-            "partial".to_string(),
-            Some("Partial IPv6: some checks passed; see details".into()),
-        )
-    } else if link_local.is_empty() && global.is_empty() {
-        (
-            "unavailable".to_string(),
-            Some("No IPv6 addresses on active interfaces".into()),
-        )
-    } else {
-        (
-            "fail".to_string(),
-            Some("IPv6 present locally but reachability checks failed".into()),
-        )
-    };
+    let (status, message) =
+        derive_ipv6_status(has_global, has_local_ipv6, aaaa_ok, icmpv6_ok, http_v6_ok);
 
     Ok(Ipv6StackResult {
         status,
         link_local,
+        unique_local,
         global,
         aaaa_ok,
         aaaa_addrs,
@@ -92,11 +75,12 @@ pub async fn check_ipv6_stack() -> AppResult<Ipv6StackResult> {
     })
 }
 
-fn collect_local_ipv6() -> (Vec<String>, Vec<String>) {
+fn collect_local_ipv6() -> (Vec<String>, Vec<String>, Vec<String>) {
     let Ok(ifaces) = if_addrs::get_if_addrs() else {
-        return (Vec::new(), Vec::new());
+        return (Vec::new(), Vec::new(), Vec::new());
     };
     let mut link_local = Vec::new();
+    let mut unique_local = Vec::new();
     let mut global = Vec::new();
     for iface in ifaces {
         if iface.is_loopback() {
@@ -104,16 +88,74 @@ fn collect_local_ipv6() -> (Vec<String>, Vec<String>) {
         }
         if let if_addrs::IfAddr::V6(v6) = iface.addr {
             let s = v6.ip.to_string();
-            if s.starts_with("fe80:") {
-                if !link_local.contains(&s) {
-                    link_local.push(s);
+            match classify_ipv6_address(v6.ip) {
+                Some(Ipv6AddressScope::LinkLocal) if !link_local.contains(&s) => link_local.push(s),
+                Some(Ipv6AddressScope::UniqueLocal) if !unique_local.contains(&s) => {
+                    unique_local.push(s)
                 }
-            } else if !global.contains(&s) {
-                global.push(s);
+                Some(Ipv6AddressScope::GlobalUnicast) if !global.contains(&s) => global.push(s),
+                None => {}
+                _ => {}
             }
         }
     }
-    (link_local, global)
+    (link_local, unique_local, global)
+}
+
+fn derive_ipv6_status(
+    has_global: bool,
+    has_local_ipv6: bool,
+    aaaa_ok: bool,
+    icmpv6_ok: Option<bool>,
+    http_v6_ok: Option<bool>,
+) -> (String, Option<String>) {
+    if has_global && aaaa_ok && icmpv6_ok == Some(true) {
+        (
+            "ok".into(),
+            Some("IPv6 stack looks usable (address + AAAA + ICMPv6)".into()),
+        )
+    } else if has_global && icmpv6_ok == Some(false) && http_v6_ok == Some(false) {
+        (
+            "fail".into(),
+            Some("IPv6 present locally but reachability checks failed".into()),
+        )
+    } else if has_global || has_local_ipv6 || aaaa_ok || icmpv6_ok == Some(true) {
+        (
+            "partial".into(),
+            Some("Partial IPv6: some checks passed; see details".into()),
+        )
+    } else {
+        (
+            "unavailable".into(),
+            Some("No IPv6 addresses on active interfaces".into()),
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reports_unreachable_global_ipv6_as_failure() {
+        let (status, _) = derive_ipv6_status(true, true, true, Some(false), Some(false));
+        assert_eq!(status, "fail");
+    }
+
+    #[test]
+    fn reports_local_only_ipv6_as_partial_and_no_address_as_unavailable() {
+        let (local_status, _) = derive_ipv6_status(false, true, false, Some(false), Some(false));
+        let (missing_status, _) = derive_ipv6_status(false, false, false, Some(false), Some(false));
+
+        assert_eq!(local_status, "partial");
+        assert_eq!(missing_status, "unavailable");
+    }
+
+    #[test]
+    fn reports_reachable_global_ipv6_as_usable() {
+        let (status, _) = derive_ipv6_status(true, true, true, Some(true), Some(true));
+        assert_eq!(status, "ok");
+    }
 }
 
 async fn lookup_aaaa(name: &str) -> (bool, Vec<String>) {

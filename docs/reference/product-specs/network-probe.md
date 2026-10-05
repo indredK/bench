@@ -74,13 +74,13 @@ L1 → L2 映射：
 
 - 子导航胶囊：全部 / 强制门户 / 代理·VPN / IPv6 / MTU / 公网出口 / 对比。
 - 「一键诊断」并发执行：检测强制门户（CaptivePortal）、公网 IP（egress）、代理/VPN 状态、IPv6 栈、路径 MTU。
-- **一键诊断为 all-or-nothing**（`runOfflineDiagnostics` 内 `Promise.all` 并发 5 项）：任一子项失败即整体失败，错误横幅 `networkProbe.errors.offlineFailed`，已成功的子项结果**不落 store**；要逐项结果可改用各子面板单独运行。公网 IP 单项刷新与一键诊断共用 `loadingOffline`；IPv6 / MTU 单项探测各有 loading，但与一键诊断共用结果槽，因此均按下方规则互斥。
+- **一键诊断为 all-or-nothing**（`runOfflineDiagnostics` 内 `Promise.allSettled` 并发 5 项）：所有子项都结束后才释放 `loadingOffline`；任一子项失败即整体失败，错误横幅 `networkProbe.errors.offlineFailed`，已成功的子项结果**不落 store**；要逐项结果可改用各子面板单独运行。公网 IP 单项刷新与一键诊断共用 `loadingOffline`；IPv6 / MTU 单项探测各有 loading，但与一键诊断共用结果槽，因此均按下方规则互斥。
 - **共享结果槽互斥**：一键诊断与独立 IPv6 / MTU 探测共用 `ipv6Result` / `mtuResult`。一键诊断运行时，两处入口都禁用独立 IPv6 / MTU 操作；任一独立探测运行时，「一键诊断」按钮禁用并提示等待。use-case 同时做互斥检查，避免跨标签页切换或脚本调用导致并发覆盖结果。
 - 各子区块（依焦点显示）：
   - captive：状态（normal/captive/…）、detail、commandHint。
   - egress：公网 IP、来源、ASN/org、detail。
   - proxy：系统代理开关、VPN 接口列表、默认路由是否走隧道（warn）。
-  - ipv6：IPv6 栈状态、双栈对比 detail（`Ipv6Panel` 可单独运行）。
+  - ipv6：分别展示链路本地、唯一本地（ULA）和全球单播地址；只有全球单播地址计入全局 IPv6。状态区分正常、部分、不可用，以及有全球地址但 ICMPv6 与 HTTPv6 均不可达的失败（`Ipv6Panel` 可单独运行）；同时展示双栈对比 detail。
   - mtu：路径 MTU 状态/数值，可跳转 Test→MTU 完整面板（`MtuPanel`）。
   - diff：对比说明文案（提示用不同出口对比）。
 

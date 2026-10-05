@@ -530,6 +530,7 @@ pub struct Ipv6StackResult {
     /// ok | partial | unavailable | fail
     pub status: String,
     pub link_local: Vec<String>,
+    pub unique_local: Vec<String>,
     pub global: Vec<String>,
     pub aaaa_ok: bool,
     pub aaaa_addrs: Vec<String>,

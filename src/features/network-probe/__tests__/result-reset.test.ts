@@ -213,6 +213,30 @@ describe("network-probe result reset before rerun", () => {
     expect(state.mtuResult).toBeNull()
   })
 
+  it("keeps the shared result-slot lock until slow sibling probes settle after failure", async () => {
+    let resolveMtu!: (value: typeof stale) => void
+    const slowMtu = new Promise<typeof stale>((resolve) => {
+      resolveMtu = resolve
+    })
+    repository.detectCaptivePortal.mockResolvedValueOnce(stale)
+    repository.getPublicIpInfo.mockRejectedValueOnce(new Error("offline"))
+    repository.getProxyVpnStatus.mockResolvedValueOnce(stale)
+    repository.checkIpv6Stack.mockResolvedValueOnce(stale)
+    repository.probePathMtu.mockReturnValueOnce(slowMtu)
+
+    const offlineRun = networkProbeUseCases.runOfflineDiagnostics()
+
+    expect(useNetworkProbeStore.getState().loadingOffline).toBe(true)
+    await networkProbeUseCases.probePathMtu("example.com")
+    expect(repository.probePathMtu).toHaveBeenCalledTimes(1)
+
+    resolveMtu(stale)
+    await offlineRun
+
+    expect(useNetworkProbeStore.getState().loadingOffline).toBe(false)
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.offlineFailed")
+  })
+
   it.each(["loadingIpv6", "loadingMtu"] as const)(
     "does not start offline diagnostics while %s owns a shared result slot",
     async (loadingKey) => {

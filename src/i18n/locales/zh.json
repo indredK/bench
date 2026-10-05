@@ -1969,6 +1969,7 @@
         "fail": "失败"
       },
       "linkLocal": "链路本地",
+      "uniqueLocal": "唯一本地地址（ULA）",
       "global": "全球单播",
       "aaaa": "AAAA",
       "icmpv6": "ICMPv6",
