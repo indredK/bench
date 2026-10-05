@@ -1264,6 +1264,36 @@ mod tests {
     }
 
     #[test]
+    fn finds_registry_executable_with_cjk_and_spaces_in_fixture_path() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or_default();
+        let install_dir = std::env::temp_dir().join(format!("Bench App Fixture {nonce}"));
+        std::fs::create_dir_all(&install_dir).expect("create fixture install directory");
+        let executable = install_dir.join("编辑器.exe");
+        std::fs::write(&executable, b"fixture").expect("write fixture executable");
+
+        let entry = RegistryApp {
+            registry_key: String::from("fixture-registry-key"),
+            display_name: String::from("代码编辑器"),
+            display_version: String::from("1.0"),
+            install_location: install_dir.to_string_lossy().into_owned(),
+            display_icon: format!("\"{}\",0", executable.display()),
+            release_type: String::new(),
+            product_code: String::new(),
+            uninstall_string: String::new(),
+            quiet_uninstall_string: String::new(),
+        };
+
+        assert_eq!(
+            find_executable(&entry),
+            Some(executable.to_string_lossy().into_owned())
+        );
+        std::fs::remove_dir_all(install_dir).expect("cleanup executable fixture");
+    }
+
+    #[test]
     fn parses_single_start_app_and_preserves_exact_aumid_launch_target() {
         let entries = parse_start_apps_json(serde_json::json!({
             "Name": "终端",

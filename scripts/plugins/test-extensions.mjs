@@ -1,40 +1,27 @@
 #!/usr/bin/env node
 /**
- * 插件测试 runner（P4.5；T20 契约化）。
+ * Bench-side entry point for the plugin-market verification runner.
  *
- * 宿主 vitest 显式 exclude `extensions/**`，插件测试由此脚本单独跑：每个插件的
- * `vitest.config.ts` 自带 jsdom 环境 + 与构建一致的 alias（含 "@/i18n/config"）。
+ * Plugin source and tests live in kindred-plugin-market. The market runner
+ * copies host/plugin sources into a one-shot sandbox under the host's
+ * node_modules and uses the pinned host Vitest installation. Loading a plugin
+ * vitest.config.ts directly from the external checkout breaks module
+ * resolution and bypasses that isolation boundary.
  *
- * T20 契约（旧的“缺目录/零发现 = 静默成功”已废除）：
- *   - 输入必须显式：`--market <插件源码根>` 或环境变量 BENCH_MARKET_DIR；宿主根默认
- *     当前仓库，也可用 `--host <dir>` 覆盖。两者都会以 BENCH_MARKET_DIR /
- *     BENCH_HOST_DIR 传给子进程，插件配置据此解析宿主 src（固定 host 接口）。
- *   - 缺输入、目录不存在、零发现、`--id` 命中为空、全部跳过（零实测）一律非零退出。
- *   - 报告 expected/discovered/tested/skipped/failed 真实数量；`--json` 输出机器可读摘要。
- *
- * 用法：
- *   node scripts/plugins/test-extensions.mjs --market ../plugin-market/extensions
- *   pnpm run test:extensions -- --market ../plugin-market/extensions --id terminology
+ * Usage:
+ *   pnpm run test:extensions -- --market ../kindred-plugin-market/plugin-market/extensions
+ *   pnpm run test:extensions -- --market ../kindred-plugin-market/plugin-market/extensions --id quick-launch
  */
 
-import { existsSync, readdirSync } from "node:fs"
-import { join, resolve } from "node:path"
-import { resolveBinPath, runCommand } from "../lib/platform.mjs"
+import { existsSync } from "node:fs"
+import { spawnSync } from "node:child_process"
+import { dirname, resolve } from "node:path"
 
 const HOST_DIR = resolve(process.cwd())
-const VITEST_BIN = resolveBinPath(join(HOST_DIR, "node_modules", ".bin"), "vitest")
 
-function parseArgs(argv) {
-  const value = (flag) => {
-    const index = argv.indexOf(flag)
-    return index === -1 ? null : argv[index + 1]
-  }
-  return {
-    market: value("--market") ?? process.env.BENCH_MARKET_DIR ?? null,
-    host: value("--host") ?? HOST_DIR,
-    id: value("--id"),
-    json: argv.includes("--json"),
-  }
+function valueOf(argv, flag) {
+  const index = argv.indexOf(flag)
+  return index === -1 ? null : argv[index + 1]
 }
 
 function fail(code, message, hint) {
@@ -44,127 +31,64 @@ function fail(code, message, hint) {
 }
 
 function main() {
-  const { market, host, id, json } = parseArgs(process.argv.slice(2))
+  const argv = process.argv.slice(2)
+  const marketInput = valueOf(argv, "--market") ?? process.env.BENCH_MARKET_DIR
+  const host = resolve(valueOf(argv, "--host") ?? HOST_DIR)
+  const id = valueOf(argv, "--id")
+  const json = argv.includes("--json")
 
-  if (!existsSync(VITEST_BIN)) {
-    fail(
-      "VITEST_NOT_INSTALLED",
-      "vitest was not found in node_modules/.bin",
-      "Run `pnpm install` first.",
-    )
-  }
-  if (!market) {
+  if (!marketInput) {
     fail(
       "EXTENSION_MARKET_REQUIRED",
-      "no plugin source root was given",
-      "Pass --market <dir> (or set BENCH_MARKET_DIR). Plugin sources live in the plugin-market repository; this runner no longer guesses.",
+      "no plugin source directory was given",
+      "Pass --market <plugin-market/extensions> (or set BENCH_MARKET_DIR).",
     )
   }
-  const marketDir = resolve(market)
-  if (!existsSync(marketDir)) {
+
+  const extensionsDir = resolve(marketInput)
+  if (!existsSync(extensionsDir)) {
     fail(
       "EXTENSION_MARKET_MISSING",
-      `${marketDir} does not exist`,
-      "Check the path or the market checkout.",
+      `${extensionsDir} does not exist`,
+      "Check the market checkout path.",
     )
   }
-  if (!existsSync(host)) {
+
+  const marketRoot = dirname(extensionsDir)
+  const runner = resolve(marketRoot, "scripts/test-extensions.mjs")
+  if (!existsSync(runner)) {
     fail(
-      "BENCH_HOST_MISSING",
-      `${host} does not exist`,
-      "Pass --host <dir> pointing at a Bench host checkout.",
+      "EXTENSION_TEST_RUNNER_MISSING",
+      `${runner} was not found`,
+      "Pass the extensions/ directory from a plugin-market checkout.",
     )
   }
-
-  const expected = readdirSync(marketDir, { withFileTypes: true }).filter((entry) =>
-    entry.isDirectory(),
-  ).length
-  const configured = readdirSync(marketDir, { withFileTypes: true })
-    .filter(
-      (entry) => entry.isDirectory() && existsSync(join(marketDir, entry.name, "vitest.config.ts")),
-    )
-    .map((entry) => entry.name)
-    .sort()
-  const skippedNoConfig = expected - configured.length
-
-  if (id && !configured.includes(id)) {
+  if (!existsSync(resolve(marketRoot, "extensions"))) {
     fail(
-      "EXTENSION_NOT_FOUND",
-      `plugin "${id}" has no vitest.config.ts under ${marketDir}`,
-      `Discovered: ${configured.join(", ") || "(none)"}`,
-    )
-  }
-  const targets = id ? [id] : configured
-  if (targets.length === 0) {
-    fail(
-      "EXTENSION_ZERO_DISCOVERY",
-      `no plugin with a vitest.config.ts was found under ${marketDir} (${expected} directories inspected)`,
-      "A verification run that tests nothing must not look like a pass; check the market path.",
+      "EXTENSION_MARKET_LAYOUT_INVALID",
+      `${marketRoot} has no extensions/ directory`,
+      "Pass the extensions/ directory from a plugin-market checkout.",
     )
   }
 
-  const env = { ...process.env, BENCH_MARKET_DIR: marketDir, BENCH_HOST_DIR: resolve(host) }
-  // With --json the human progress goes to stderr so stdout stays parseable.
-  const progress = json ? console.error : console.log
-  const failed = []
-  const tested = []
+  const args = ["--host", host]
+  if (id) args.push("--id", id)
+  if (json) args.push("--json")
 
-  for (const pluginId of targets) {
-    const pluginDir = join(marketDir, pluginId)
-    progress(`[test:extensions] ${pluginId} …`)
-    const result = runCommand(
-      VITEST_BIN,
-      ["run", "--config", join(pluginDir, "vitest.config.ts")],
-      {
-        cwd: pluginDir,
-        env,
-        // With --json the plugin output is buffered and only replayed on failure,
-        // so stdout stays a single parseable JSON document.
-        stdio: json ? "pipe" : "inherit",
-      },
-    )
-    if (json && result.status !== 0) {
-      console.error(String(result.stdout ?? ""))
-      console.error(String(result.stderr ?? ""))
-    }
-    if (result.status !== 0) {
-      failed.push(pluginId)
-      break // fail-fast: 与旧行为一致，避免后续插件掩盖首个失败
-    }
-    tested.push(pluginId)
-  }
+  const result = spawnSync(process.execPath, [runner, ...args], {
+    cwd: marketRoot,
+    env: {
+      ...process.env,
+      BENCH_HOST_DIR: host,
+      BENCH_MARKET_DIR: marketRoot,
+    },
+    stdio: "inherit",
+  })
 
-  const report = {
-    host: resolve(host),
-    market: marketDir,
-    expected,
-    discovered: configured.length,
-    tested: tested.length,
-    skipped: skippedNoConfig,
-    failed: failed.length,
-    testedIds: tested,
-    failedIds: failed,
+  if (result.error) {
+    fail("EXTENSION_TEST_RUNNER_FAILED", result.error.message)
   }
-
-  if (json) console.log(JSON.stringify(report, null, 2))
-  else {
-    console.log(
-      `[test:extensions] expected=${report.expected} discovered=${report.discovered} tested=${report.tested} ` +
-        `skipped=${report.skipped} failed=${report.failed}`,
-    )
-  }
-
-  if (failed.length > 0) {
-    console.error(`[test:extensions] FAILED: ${failed.join(", ")}`)
-    process.exit(1)
-  }
-  if (tested.length === 0) {
-    fail(
-      "EXTENSION_ZERO_TESTED",
-      "no plugin was actually tested",
-      "This is treated as a failure, not a pass.",
-    )
-  }
+  process.exit(result.status ?? 1)
 }
 
 main()
