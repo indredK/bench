@@ -18,6 +18,29 @@ interface PollutionPanelProps {
   onRun: (domain: string) => void
 }
 
+const KIND_LABELS: Record<string, string> = {
+  arp: "networkProbe.pollution.kind.arp",
+  dns: "networkProbe.pollution.kind.dns",
+  hosts: "networkProbe.pollution.kind.hosts",
+  route: "networkProbe.pollution.kind.route",
+  tls: "networkProbe.pollution.kind.tls",
+}
+
+const SEVERITIES: Record<string, { label: string; summary: string }> = {
+  info: {
+    label: "networkProbe.pollution.severity.info",
+    summary: "networkProbe.pollution.summary.info",
+  },
+  warn: {
+    label: "networkProbe.pollution.severity.warn",
+    summary: "networkProbe.pollution.summary.warn",
+  },
+  high: {
+    label: "networkProbe.pollution.severity.high",
+    summary: "networkProbe.pollution.summary.high",
+  },
+}
+
 export function PollutionPanel({
   loading,
   result,
@@ -77,23 +100,47 @@ export function PollutionPanel({
             })}
           </p>
           <ul className="space-y-2">
-            {result.findings.map((f, i) => (
-              <li
-                key={`${f.kind}-${i}`}
-                className={cn(
-                  "rounded-lg border px-3 py-2 text-sm",
-                  f.severity === "high" && "border-red-500/40 bg-red-500/5",
-                  f.severity === "warn" && "border-amber-500/40 bg-amber-500/5",
-                )}
-              >
-                <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
-                  <span>{f.kind}</span>
-                  <span className="text-muted-foreground">{f.severity}</span>
-                </div>
-                <p className="mt-1 text-sm">{f.evidence}</p>
-                <p className="text-muted-foreground mt-1 font-mono text-[11px]">{f.commandHint}</p>
-              </li>
-            ))}
+            {result.findings.map((f, i) => {
+              const severity = SEVERITIES[f.severity]
+              const summaryKey =
+                f.kind === "tls" && f.severity === "warn"
+                  ? "networkProbe.pollution.summary.tlsWarning"
+                  : (severity?.summary ?? "networkProbe.pollution.summary.unknown")
+
+              return (
+                <li
+                  key={`${f.kind}-${i}`}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-sm",
+                    f.severity === "high" && "border-red-500/40 bg-red-500/5",
+                    f.severity === "warn" && "border-amber-500/40 bg-amber-500/5",
+                  )}
+                >
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+                    <span>{t(KIND_LABELS[f.kind] ?? "networkProbe.pollution.kind.unknown")}</span>
+                    <span className="text-muted-foreground">
+                      {t(severity?.label ?? "networkProbe.pollution.severity.unknown")}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm">{t(summaryKey)}</p>
+                  <details className="text-muted-foreground mt-2 text-xs">
+                    <summary className="cursor-pointer select-none">
+                      {t("networkProbe.pollution.technicalDetails")}
+                    </summary>
+                    <dl className="mt-2 space-y-1 break-words">
+                      <div>
+                        <dt className="font-medium">{t("networkProbe.pollution.evidence")}</dt>
+                        <dd>{f.evidence}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium">{t("networkProbe.pollution.command")}</dt>
+                        <dd className="font-mono text-[11px] break-all">{f.commandHint}</dd>
+                      </div>
+                    </dl>
+                  </details>
+                </li>
+              )
+            })}
           </ul>
         </div>
       ) : null}

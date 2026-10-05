@@ -2057,7 +2057,31 @@
       "domain": "域名",
       "run": "开始污染检测",
       "running": "检测中…",
-      "meta": "{{domain}} · {{count}} 条发现 · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} 条发现 · {{ms}} ms",
+      "kind": {
+        "arp": "网关 ARP",
+        "dns": "DNS 答案",
+        "hosts": "Hosts 文件",
+        "route": "路由 / 代理",
+        "tls": "HTTPS / 证书",
+        "unknown": "其他检测"
+      },
+      "severity": {
+        "info": "提示",
+        "warn": "需要复核",
+        "high": "高风险",
+        "unknown": "状态未知"
+      },
+      "summary": {
+        "info": "此项检查没有报告高风险异常。",
+        "warn": "此结果需要复核；单凭当前信息无法确定具体原因。",
+        "high": "此项检查发现了高可信风险信号，请结合详情确认。",
+        "unknown": "结果状态未知，请展开技术详情查看原始信息。",
+        "tlsWarning": "HTTPS 检查未能完成。DNS 或网络连接失败本身不能证明存在拦截。"
+      },
+      "technicalDetails": "技术详情",
+      "evidence": "原始证据",
+      "command": "检查命令"
     },
     "whois": {
       "hint": "通过 rdap.org 查询域名或 IP 的注册数据。响应大小有限制，超出时会截断。",

@@ -145,6 +145,8 @@ src-tauri/src/net_probe/
 
 输出统一为 `PollutionFinding[]`：`kind` / `severity` / `evidence` / `commandHint`。
 
+HTTPS 请求失败（包括域名解析、连接、超时或 TLS 校验失败）只能标为 `warn`，并说明当前检查无法判定原因；DNS 或网络连接失败本身不构成拦截证据。只有正向且高可信的风险信号才能标为 `high`。界面按当前语言显示检测类型、严重度和摘要；原始 `evidence` 与 `commandHint` 收在默认折叠的「技术详情」中。
+
 ### 5.3 包级诊断（`startPacketCapture`）
 
 | 项             | 约定                                                                                      |
@@ -206,6 +208,7 @@ uninstallCapabilityPack(packId): void
 
 - 所有危险范围扫描：确认对话框展示**精确目标、端口范围、速率、预计时长**；端口扫描说明实际可能采用 SYN 或 TCP connect，不把权限降级模式写死。
 - 端口样本状态、扫描方式与取消说明由前端按 locale 显示，不将 Rust 返回的英文诊断原文直接展示。
+- 污染检测类型、严重度和结论摘要由前端按 locale 显示；Rust 原始证据和命令默认折叠在技术详情中。HTTPS 检查失败不能单独推断为 MITM。
 - 命令透明：降级路径必须写明，例如 `scanPorts … // degraded: tcp connect`；缺包写 `// missing_pack: adv-scanner`。
 - 结果风险色：info / warn / high；high 仅用于「高度疑似劫持/暴露」，避免恐吓式全红。
 - Post 标签：L2 与按钮统一 `Post` badge，不进 MVP 验收。

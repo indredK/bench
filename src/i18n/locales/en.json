@@ -2057,7 +2057,31 @@
       "domain": "Domain",
       "run": "Run pollution check",
       "running": "Checking…",
-      "meta": "{{domain}} · {{count}} findings · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} findings · {{ms}} ms",
+      "kind": {
+        "arp": "Gateway ARP",
+        "dns": "DNS answers",
+        "hosts": "Hosts file",
+        "route": "Route / proxy",
+        "tls": "HTTPS / certificate",
+        "unknown": "Other check"
+      },
+      "severity": {
+        "info": "Information",
+        "warn": "Review needed",
+        "high": "High risk",
+        "unknown": "Unknown status"
+      },
+      "summary": {
+        "info": "This check did not report a high-risk anomaly.",
+        "warn": "Review this result; the available information does not establish a specific cause.",
+        "high": "This check found a high-confidence risk signal. Review the details to confirm.",
+        "unknown": "The result status is unknown. Expand technical details to inspect the raw information.",
+        "tlsWarning": "The HTTPS check could not complete. DNS or network connection failures alone do not prove interception."
+      },
+      "technicalDetails": "Technical details",
+      "evidence": "Raw evidence",
+      "command": "Check command"
     },
     "whois": {
       "hint": "Look up registration data for a domain or IP through rdap.org. Response size is limited and oversized results are truncated.",
