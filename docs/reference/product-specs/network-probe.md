@@ -47,8 +47,8 @@ L1 → L2 映射：
 ### 全局交互与反馈细节
 
 - **bootstrap 加载**：首次进入 `bootstrap()` 并行拉取 capabilities / defaults / packs / nodes；任一失败在顶部错误横幅展示 `networkProbe.errors.bootstrapFailed`（可重试，重进页面或刷新按钮触发），不阻断其余面板。
-- **错误横幅**：`error` 非空时面板上方红框展示，文案优先本地化 `networkProbe.errors.<tool>Failed`，兜底后端 `message`；每个操作开始前 `setError(null)`，结束（成功或失败）后由用例设置或清除，单条错误会随下一次操作被清掉。
-- **每工具 loading 独立 + 防重入**：`loading*`（每工具一个）为真时对应「运行」按钮禁用并显示运行中文案（如「Ping → 探测中…」）；use-case 入口统一 `if (store.loadingX) return` 短路，同一工具不可并发、不同工具可并行。无 loading 标志的动作（如刷新网络服务、打开系统设置）无禁用态。
+- **错误横幅**：`error` 非空时面板上方红框展示，文案优先本地化 `networkProbe.errors.<tool>Failed`，兜底后端 `message`。探测与修复操作开始时清除旧错误；网络服务刷新和系统设置启动只清除各自的旧错误，避免抹掉其他操作的错误。操作结束后由用例设置或清除本次错误。
+- **每工具 loading 独立 + 防重入**：`loading*`（每工具一个）为真时对应「运行」按钮禁用并显示运行中文案（如「Ping → 探测中…」）；use-case 入口统一 `if (store.loadingX) return` 短路，同一工具不可并发、不同工具可并行。网络服务刷新与系统设置启动也有独立 loading 状态和程序化防重入。
 - **能力降级**：`toolEnabled=false`（status 为 `unsupported`/`missing_pack`）时按钮禁用并显示 toolDisabled 提示（`{{tool}} status={{status}} — 已按能力矩阵禁用`）；缺 pack 的工具给出「管理能力包」入口跳转 PackInstallDialog。
 - **命令日志侧栏**：每个探测命令追加一行时间戳日志（`appendCommandLog`），运行中/成功/失败/取消均有摘要；可折叠（sessionStorage 记忆）、清空需二次确认。
 - **键盘**：各面板均为表单 + 按钮触发（Enter 提交表单）；无全局快捷键（见 §9）。
@@ -88,12 +88,12 @@ L1 → L2 映射：
 
 - 操作对象：网络服务下拉（自动优先 Wi-Fi → 有线 → 首个） + DNS 预设下拉（来自 defaults）。
 - 操作按钮：**刷新 DNS**（DestructiveConfirm 一次确认）、**切换 DNS**（两步确认，第 2 步展示服务与目标 DNS 服务器）、**续租 DHCP**（两步确认）、**重置网络栈**（**TripleDestructiveConfirm 三步确认 + 手输 `RESET`**，最高危）、打开系统网络设置。
-- 所有修复需加载网络服务列表；完成后展示结果（action / ok / message / commandHint）。
+- 切换 DNS、续租 DHCP 和重置网络栈依赖已加载的网络服务；刷新 DNS 不依赖服务列表。完成后展示结果（action / ok / message / commandHint）。
 
 **交互细节**：
 
-- 服务下拉自动优先 Wi-Fi → 有线 → 首个（正则匹配 `wi-?fi|wlan` → `ethernet|usb` → 首项），未加载完成前按钮 `disabled`；DNS 预设默认选中第一项。
-- **各修复按钮禁用条件细化**：刷新 DNS 仅需 `!loadingFix`；切换 DNS 需 `service` 非空**且** DNS 预设非空（`servers.length===0` 时禁用，如预设列表为空）；续租 DHCP / 重置网络栈需 `service` 非空；「打开系统设置」无 loading 标志、任何时刻可点。服务/DNS 预设用**原生 `<select>`**（非 shadcn Select），label 以 `htmlFor` 关联。
+- **服务列表状态机**：`idle/loading/loaded/failed` 明确区分首次加载、刷新、成功和失败；显示加载、失败、成功空态，失败时可显式重试并保留错误提示。刷新期间与失败状态下，服务选择和依赖服务的修改操作禁用；已加载列表为空时显示空态。列表刷新后若原选择已消失，自动选择仍存在的 Wi-Fi、有线或首个服务；列表为空时清除旧选择，避免对失效服务执行操作。
+- **各修复按钮禁用条件细化**：刷新 DNS 仅需 `!loadingFix`；切换 DNS 需服务列表已加载、`service` 非空**且** DNS 预设非空（`servers.length===0` 时禁用，如预设列表为空）；续租 DHCP / 重置网络栈需服务列表已加载且 `service` 非空；「打开系统设置」使用独立 loading 状态，执行期间显示进度并禁用重复点击。服务/DNS 预设用**原生 `<select>`**（非 shadcn Select），label 以 `htmlFor` 关联。
 - 所有修复按钮共用 `loadingFix` 全局禁用（防重入）；刷新 DNS / 切换 DNS / 续租 DHCP / 重置网络栈任一执行中，其余全部按钮禁用。
 - 两步确认（切换 DNS / 续租 DHCP）：第 1 步「下一步」→ 延迟 320ms 弹第 2 步（确认服务与目标 DNS 服务器），任一步取消即中止；确认按钮在 `loadingFix` 时显示 loading。
 - 三步确认（重置网络栈）：step1 后果说明 → step2 核对参数 → step3 勾选风险确认框 + 手输 `RESET` 才能点「立即重置」；后端忽略前端任何「已确认」标志，每次调用重新校验服务白名单（幂等）。
@@ -274,7 +274,7 @@ L1 → L2 映射：
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
 - **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；**能力包刷新除外**——`refreshCapabilityPacks` 无 loading 标志，防重入由 PackInstallDialog 的 `busy` 提供（见 §8）。
 - **agent 注册与移除防重入**：`addAgent` / `removeAgent` 共用 `agentAction` 状态；执行期间添加、移除和节点刷新入口禁用，并显示当前操作。前端用例再次检查 action 锁，避免快速连点重复调用。后端将 agent 注册表的读取、变更和原子写入放在进程内互斥区；重复端点注册复用现有节点，重复移除安全成功；注册表损坏或读取失败会向调用方报错，不静默丢弃 agent。macOS 真机验证记录见 `../../roadmap/planned/network-probe.md`。
-- **仍待处理的轻量操作**：`loadNetworkServices` / `openSystemNetworkSettings` 暂无 loading 标志；服务浏览是只读请求，系统设置操作会打开设置页，需单独评估是否值得加防重入状态。
+- **网络服务与系统设置防重入**：`loadNetworkServices` 在用例入口阻止并发刷新并维护 `idle/loading/loaded/failed`；成功空结果与失败分别展示并提供重试，修改操作只在服务已加载后开放。`openSystemNetworkSettings` 由概览、ARP 与修复面板共用 busy 状态；执行中显示进度并禁用入口，用例入口再做一次防重入检查。打开设置时只清除该动作自己的旧错误，不覆盖其他操作错误。
 
 ### 13.4 数据与安全
 
