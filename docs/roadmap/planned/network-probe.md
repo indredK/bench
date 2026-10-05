@@ -61,3 +61,4 @@
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
 - 2026-09-03：首版生成——依据 `docs/modules/network-probe/roadmap.md`（Wave 0–6）与 `docs/roadmap/ROADMAP.md` D-016，提炼 ⬜/◐ 未完成项为「待实现」「待验证」「远期」三档；产品说明见 `../product-specs/network-probe.md`。
+- 2026-10-06：修复 agent 增删重复提交：UI 共用节点 busy 状态，后端串行化 registry 读改写并原子保存；同标签 + 同规范化 HTTPS URL 幂等。WSS 端点改为明确拒绝，避免把不支持的协议显示为已注册节点；macOS 27.0.1 arm64 真机复测通过。

@@ -49,6 +49,7 @@ L1 → L2 映射：
 - **bootstrap 加载**：首次进入 `bootstrap()` 并行拉取 capabilities / defaults / packs / nodes；任一失败在顶部错误横幅展示 `networkProbe.errors.bootstrapFailed`（可重试，重进页面或刷新按钮触发），不阻断其余面板。
 - **错误横幅**：`error` 非空时面板上方红框展示，文案优先本地化 `networkProbe.errors.<tool>Failed`，兜底后端 `message`；每个操作开始前 `setError(null)`，结束（成功或失败）后由用例设置或清除，单条错误会随下一次操作被清掉。
 - **每工具 loading 独立 + 防重入**：`loading*`（每工具一个）为真时对应「运行」按钮禁用并显示运行中文案（如「Ping → 探测中…」）；use-case 入口统一 `if (store.loadingX) return` 短路，同一工具不可并发、不同工具可并行。无 loading 标志的动作（如刷新网络服务、打开系统设置）无禁用态。
+- **节点注册表操作**：刷新、新增和移除共享 `loadingNodes` single-flight 状态；操作期间相关按钮和输入框禁用并显示「处理中…」。后端对同标签 + 规范化 HTTPS URL 的重复新增返回现有节点；注册表读改写串行执行并通过原子替换持久化，避免重复点击造成重复条目或损坏 JSON。
 - **能力降级**：`toolEnabled=false`（status 为 `unsupported`/`missing_pack`）时按钮禁用并显示 toolDisabled 提示（`{{tool}} status={{status}} — 已按能力矩阵禁用`）；缺 pack 的工具给出「管理能力包」入口跳转 PackInstallDialog。
 - **命令日志侧栏**：每个探测命令追加一行时间戳日志（`appendCommandLog`），运行中/成功/失败/取消均有摘要；可折叠（sessionStorage 记忆）、清空需二次确认。
 - **键盘**：各面板均为表单 + 按钮触发（Enter 提交表单）；无全局快捷键（见 §9）。
@@ -272,7 +273,8 @@ L1 → L2 映射：
 - **单工具防重入**：每个 use-case 入口 `if (store.loadingX) return`；同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
 - **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；**能力包刷新除外**——`refreshCapabilityPacks` 无 loading 标志，防重入由 PackInstallDialog 的 `busy` 提供（见 §8）。
-- **无 loading 标志的写操作（防重入缺口）**：`addAgent` / `removeAgent` / `loadNetworkServices` / `openSystemNetworkSettings` 均无 loading 短路与禁用态，快速连点会重复提交/重复打开（标记为已知并发边界，未见修复实现）。
+- **agent 注册表并发安全**：`addAgent` / `removeAgent` / `refreshProbeNodes` 共用 `loadingNodes` 防重入和控件禁用态；后端 registry 读改写由进程内互斥锁串行化，并使用 `persistence::atomic_write` 替换文件。重复的「同标签 + 同规范化 HTTPS URL」注册返回已有节点，不创建重复记录。
+- **仍未加 loading 标志的动作**：`loadNetworkServices` / `openSystemNetworkSettings` 可被快速重复调用；前者为只读列表加载，后者可能重复打开系统设置。
 
 ### 13.4 数据与安全
 
