@@ -63,7 +63,7 @@ export function MultiNodePanel({
             <CommandHint hint={t("networkProbe.cmd.compareDns")}>
               <Button
                 type="button"
-                disabled={loading || !toolEnabled || !domain.trim()}
+                disabled={loading || loadingNodes || !toolEnabled || !domain.trim()}
                 onClick={() => onCompare(domain.trim())}
               >
                 {loading ? t("networkProbe.nodes.running") : t("networkProbe.nodes.run")}
@@ -75,7 +75,7 @@ export function MultiNodePanel({
               disabled={loadingNodes}
               onClick={onRefreshNodes}
             >
-              {t("networkProbe.nodes.refresh")}
+              {loadingNodes ? t("networkProbe.nodes.working") : t("networkProbe.nodes.refresh")}
             </Button>
           </div>
 
@@ -93,9 +93,12 @@ export function MultiNodePanel({
                       type="button"
                       size="sm"
                       variant="outline"
+                      disabled={loadingNodes}
                       onClick={() => onRemoveAgent(n.id)}
                     >
-                      {t("networkProbe.nodes.removeAgent")}
+                      {loadingNodes
+                        ? t("networkProbe.nodes.working")
+                        : t("networkProbe.nodes.removeAgent")}
                     </Button>
                   ) : null}
                 </li>
@@ -111,21 +114,25 @@ export function MultiNodePanel({
                 className="max-w-[10rem]"
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
+                disabled={loadingNodes}
                 placeholder={t("networkProbe.nodes.labelPlaceholder")}
               />
               <Input
                 className="min-w-[16rem] flex-1"
                 value={endpoint}
                 onChange={(e) => setEndpoint(e.target.value)}
+                disabled={loadingNodes}
                 placeholder={t("networkProbe.nodes.endpointPlaceholder")}
               />
               <CommandHint hint={t("networkProbe.cmd.addAgent")}>
                 <Button
                   type="button"
-                  disabled={!label.trim() || !endpoint.trim()}
+                  disabled={loadingNodes || !label.trim() || !endpoint.trim()}
                   onClick={() => onAddAgent(label.trim(), endpoint.trim())}
                 >
-                  {t("networkProbe.nodes.addAgent")}
+                  {loadingNodes
+                    ? t("networkProbe.nodes.working")
+                    : t("networkProbe.nodes.addAgent")}
                 </Button>
               </CommandHint>
             </div>
