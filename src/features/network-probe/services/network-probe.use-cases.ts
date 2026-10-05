@@ -655,13 +655,17 @@ export const networkProbeUseCases = {
 
   async loadSpeedSources() {
     const store = useNetworkProbeStore.getState()
-    store.setError(null)
+    if (store.speedSourcesLoadState === "loading") return
+    store.setSpeedSourcesLoadState("loading")
+    if (store.error?.key === "networkProbe.errors.speedSourcesFailed") store.setError(null)
     try {
       const sources = await networkProbeRepository.listSpeedSources()
       store.setSpeedSources(sources)
     } catch (error) {
-      store.setError({
-        key: "networkProbe.errors.speedFailed",
+      const currentStore = useNetworkProbeStore.getState()
+      currentStore.setSpeedSourcesLoadState("failed")
+      currentStore.setError({
+        key: "networkProbe.errors.speedSourcesFailed",
         fallback: getErrorMessage(error),
       })
     }

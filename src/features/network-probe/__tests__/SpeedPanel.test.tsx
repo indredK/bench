@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { SpeedPanel } from "@/features/network-probe/components/SpeedPanel"
 import type {
@@ -7,6 +7,7 @@ import type {
   SpeedSource,
   SpeedTestResult,
 } from "@/lib/tauri/types/network-probe"
+import type { SpeedSourcesLoadState } from "@/features/network-probe/store"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -26,7 +27,11 @@ vi.mock("@/features/network-probe/components/ProbePanelShell", () => ({
 }))
 
 vi.mock("@/components/ui/select", () => ({
-  Select: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Select: ({ children, disabled }: { children: ReactNode; disabled?: boolean }) => (
+    <div data-testid="source-select" aria-disabled={disabled}>
+      {children}
+    </div>
+  ),
   SelectContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   SelectItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   SelectTrigger: ({ children }: { children: ReactNode }) => <button>{children}</button>,
@@ -61,17 +66,21 @@ function renderPanel(options: {
   result?: SpeedTestResult | null
   sample?: SpeedSampleEvent | null
   loading?: boolean
+  sources?: SpeedSource[]
+  sourcesLoadState?: SpeedSourcesLoadState
+  onLoadSources?: () => void
 }) {
   return render(
     <SpeedPanel
       loading={options.loading ?? false}
       canCancel={options.loading ?? false}
-      sources={[source]}
+      sources={options.sources ?? [source]}
+      sourcesLoadState={options.sourcesLoadState ?? "loaded"}
       result={options.result ?? null}
       sample={options.sample ?? null}
       cooldownUntil={null}
       toolEnabled
-      onLoadSources={noop}
+      onLoadSources={options.onLoadSources ?? noop}
       onRun={noop}
       onCancel={noop}
     />,
@@ -115,5 +124,50 @@ describe("SpeedPanel result feedback", () => {
 
     expect(screen.getByText(/networkProbe\.speed\.phaseFailed/)).toBeTruthy()
     expect(screen.queryByText("error:connection reset")).toBeNull()
+  })
+
+  it("shows a loading state and blocks source selection and testing", () => {
+    renderPanel({ sourcesLoadState: "loading" })
+
+    expect(screen.getByRole("status").textContent).toBe("networkProbe.speed.loadingSources")
+    expect(screen.getByTestId("source-select").getAttribute("aria-disabled")).toBe("true")
+    expect(
+      screen.getByRole("button", { name: "networkProbe.speed.run" }).hasAttribute("disabled"),
+    ).toBe(true)
+    expect(
+      screen
+        .getByRole("button", { name: "networkProbe.speed.refreshSources" })
+        .hasAttribute("disabled"),
+    ).toBe(true)
+  })
+
+  it("offers a retry when source loading fails", () => {
+    const onLoadSources = vi.fn()
+    renderPanel({ sources: [], sourcesLoadState: "failed", onLoadSources })
+    vi.clearAllMocks()
+
+    expect(screen.getByRole("alert").textContent).toBe("networkProbe.speed.sourcesLoadFailed")
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.speed.refreshSources" }))
+    expect(onLoadSources).toHaveBeenCalledTimes(1)
+  })
+
+  it("shows an empty state only after a successful empty response", () => {
+    renderPanel({ sources: [], sourcesLoadState: "loaded" })
+
+    expect(screen.getByRole("status").textContent).toBe("networkProbe.speed.emptySources")
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect(
+      screen.getByRole("button", { name: "networkProbe.speed.run" }).hasAttribute("disabled"),
+    ).toBe(true)
+  })
+
+  it("keeps a previously loaded source usable when refresh fails", () => {
+    renderPanel({ sources: [source], sourcesLoadState: "failed" })
+
+    expect(screen.getByRole("alert").textContent).toBe("networkProbe.speed.sourcesRefreshFailed")
+    expect(screen.getByTestId("source-select").getAttribute("aria-disabled")).toBe("false")
+    expect(
+      screen.getByRole("button", { name: "networkProbe.speed.run" }).hasAttribute("disabled"),
+    ).toBe(false)
   })
 })

@@ -48,6 +48,7 @@ const SECURITY_AUTH_KEY = "network-probe:security-authorized"
 const REPORT_HISTORY_KEY = "network-probe:report-history"
 
 export type NetworkServicesLoadState = "idle" | "loading" | "loaded" | "failed"
+export type SpeedSourcesLoadState = "idle" | "loading" | "loaded" | "failed"
 
 function loadSecurityAuthorized(): boolean {
   if (typeof localStorage === "undefined") return false
@@ -139,6 +140,7 @@ interface NetworkProbeState {
   ipv6Result: Ipv6StackResult | null
   mtuResult: PathMtuResult | null
   speedSources: SpeedSource[]
+  speedSourcesLoadState: SpeedSourcesLoadState
   speedResult: SpeedTestResult | null
   speedSample: SpeedSampleEvent | null
   speedCooldownUntil: number | null
@@ -222,6 +224,7 @@ interface NetworkProbeState {
   setIpv6Result: (ipv6Result: Ipv6StackResult | null) => void
   setMtuResult: (mtuResult: PathMtuResult | null) => void
   setSpeedSources: (speedSources: SpeedSource[]) => void
+  setSpeedSourcesLoadState: (state: SpeedSourcesLoadState) => void
   setSpeedResult: (speedResult: SpeedTestResult | null) => void
   setSpeedSample: (speedSample: SpeedSampleEvent | null) => void
   setSpeedCooldownUntil: (speedCooldownUntil: number | null) => void
@@ -372,6 +375,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   ipv6Result: null,
   mtuResult: null,
   speedSources: [],
+  speedSourcesLoadState: "idle",
   speedResult: null,
   speedSample: null,
   speedCooldownUntil: null,
@@ -514,7 +518,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     }),
   setIpv6Result: (ipv6Result) => set({ ipv6Result }),
   setMtuResult: (mtuResult) => set({ mtuResult }),
-  setSpeedSources: (speedSources) => set({ speedSources }),
+  setSpeedSources: (speedSources) => set({ speedSources, speedSourcesLoadState: "loaded" }),
+  setSpeedSourcesLoadState: (speedSourcesLoadState) => set({ speedSourcesLoadState }),
   setSpeedResult: (speedResult) => set({ speedResult }),
   setSpeedSample: (speedSample) => set({ speedSample }),
   setSpeedCooldownUntil: (speedCooldownUntil) => set({ speedCooldownUntil }),

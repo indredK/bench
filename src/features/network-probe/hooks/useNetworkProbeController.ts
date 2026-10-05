@@ -48,6 +48,7 @@ export function useNetworkProbeController() {
   const ipv6Result = useNetworkProbeStore((s) => s.ipv6Result)
   const mtuResult = useNetworkProbeStore((s) => s.mtuResult)
   const speedSources = useNetworkProbeStore((s) => s.speedSources)
+  const speedSourcesLoadState = useNetworkProbeStore((s) => s.speedSourcesLoadState)
   const speedResult = useNetworkProbeStore((s) => s.speedResult)
   const speedSample = useNetworkProbeStore((s) => s.speedSample)
   const speedCooldownUntil = useNetworkProbeStore((s) => s.speedCooldownUntil)
@@ -310,6 +311,7 @@ export function useNetworkProbeController() {
     ipv6Result,
     mtuResult,
     speedSources,
+    speedSourcesLoadState,
     speedResult,
     speedSample,
     speedCooldownUntil,

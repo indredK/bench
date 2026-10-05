@@ -568,6 +568,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     loading={c.loadingSpeed}
                     canCancel={c.loadingSpeed && Boolean(activeSessionIdByKind.speed)}
                     sources={c.speedSources}
+                    sourcesLoadState={c.speedSourcesLoadState}
                     result={c.speedResult}
                     sample={c.speedSample}
                     cooldownUntil={c.speedCooldownUntil}

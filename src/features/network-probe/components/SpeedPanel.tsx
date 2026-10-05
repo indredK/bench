@@ -18,11 +18,13 @@ import type {
   SpeedSource,
   SpeedTestResult,
 } from "@/lib/tauri/types/network-probe"
+import type { SpeedSourcesLoadState } from "@/features/network-probe/store"
 
 interface SpeedPanelProps {
   loading: boolean
   canCancel: boolean
   sources: SpeedSource[]
+  sourcesLoadState: SpeedSourcesLoadState
   result: SpeedTestResult | null
   sample: SpeedSampleEvent | null
   cooldownUntil: number | null
@@ -37,6 +39,7 @@ export function SpeedPanel({
   loading,
   canCancel,
   sources,
+  sourcesLoadState,
   result,
   sample,
   cooldownUntil,
@@ -49,13 +52,18 @@ export function SpeedPanel({
   const { t } = useTranslation()
   const [sourceId, setSourceId] = useState("")
   const [now, setNow] = useState(() => Date.now())
+  const loadingSources = sourcesLoadState === "idle" || sourcesLoadState === "loading"
 
   useEffect(() => {
     onLoadSources()
   }, [onLoadSources])
 
   useEffect(() => {
-    if (!sourceId && sources.length > 0) {
+    if (sources.length === 0) {
+      if (sourceId) setSourceId("")
+      return
+    }
+    if (!sources.some((source) => source.id === sourceId)) {
       setSourceId(sources[0].id)
     }
   }, [sources, sourceId])
@@ -110,8 +118,24 @@ export function SpeedPanel({
               })}
             </p>
           ) : null}
-          {sources.length === 0 && !loading ? (
-            <p className="text-muted-foreground text-sm">{t("networkProbe.speed.emptySources")}</p>
+          {loadingSources ? (
+            <p className="text-muted-foreground text-sm" role="status" aria-live="polite">
+              {t("networkProbe.speed.loadingSources")}
+            </p>
+          ) : null}
+          {sourcesLoadState === "loaded" && sources.length === 0 ? (
+            <p className="text-muted-foreground text-sm" role="status">
+              {t("networkProbe.speed.emptySources")}
+            </p>
+          ) : null}
+          {sourcesLoadState === "failed" ? (
+            <p className="text-sm text-amber-700 dark:text-amber-400" role="alert">
+              {t(
+                sources.length > 0
+                  ? "networkProbe.speed.sourcesRefreshFailed"
+                  : "networkProbe.speed.sourcesLoadFailed",
+              )}
+            </p>
           ) : null}
           {coolingDown ? (
             <p className="text-xs text-amber-700 dark:text-amber-400">
@@ -120,13 +144,24 @@ export function SpeedPanel({
           ) : null}
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-[14rem] flex-1 space-y-1">
-              <label className="text-xs font-medium" htmlFor="np-speed-source">
-                {t("networkProbe.speed.source")}
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-medium" htmlFor="np-speed-source">
+                  {t("networkProbe.speed.source")}
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={loadingSources || loading}
+                  onClick={onLoadSources}
+                >
+                  {t("networkProbe.speed.refreshSources")}
+                </Button>
+              </div>
               <Select
                 value={sourceId || undefined}
                 onValueChange={setSourceId}
-                disabled={loading || coolingDown}
+                disabled={loadingSources || loading || coolingDown || sources.length === 0}
               >
                 <SelectTrigger id="np-speed-source">
                   <SelectValue placeholder={t("networkProbe.speed.sourcePlaceholder")} />
@@ -143,7 +178,7 @@ export function SpeedPanel({
             <CommandHint hint={t("networkProbe.cmd.speedTest", { sourceId: sourceId || "…" })}>
               <Button
                 type="button"
-                disabled={loading || coolingDown || !toolEnabled || !sourceId}
+                disabled={loadingSources || loading || coolingDown || !toolEnabled || !sourceId}
                 onClick={() => onRun(sourceId)}
               >
                 {loading ? t("networkProbe.speed.running") : t("networkProbe.speed.run")}
