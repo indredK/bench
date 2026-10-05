@@ -129,9 +129,6 @@ export const networkProbeUseCases = {
     if (store.loadingSummary) return
     store.setLoadingSummary(true)
     store.setError(null)
-    store.setSummary(null)
-    store.setFirewall(null)
-    store.setHosts(null)
     try {
       const [summary, firewall, hosts] = await Promise.all([
         networkProbeRepository.getLocalNetworkSummary(),

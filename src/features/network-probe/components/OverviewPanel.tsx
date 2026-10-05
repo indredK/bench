@@ -64,6 +64,8 @@ export function OverviewPanel({
         </div>
       }
     >
+      {!summary && loading ? <OverviewSkeleton /> : null}
+
       {!summary && !loading ? (
         <p className="text-muted-foreground text-sm">{t("networkProbe.overview.empty")}</p>
       ) : null}
@@ -108,6 +110,31 @@ export function OverviewPanel({
         </div>
       ) : null}
     </ProbePanelShell>
+  )
+}
+
+function OverviewSkeleton() {
+  const { t } = useTranslation()
+
+  return (
+    <div
+      role="status"
+      aria-label={t("networkProbe.overview.refreshing")}
+      aria-busy="true"
+      className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
+    >
+      {Array.from({ length: 8 }, (_, index) => (
+        <div
+          key={index}
+          data-testid="overview-loading-skeleton"
+          aria-hidden="true"
+          className="bg-muted/30 rounded-md border px-2.5 py-2"
+        >
+          <div className="bg-muted h-3 w-14 animate-pulse rounded" />
+          <div className="bg-muted mt-2 h-4 w-4/5 animate-pulse rounded" />
+        </div>
+      ))}
+    </div>
   )
 }
 

@@ -1,6 +1,6 @@
 /**
  * Network Probe result reset tests / 探测重跑状态复位测试:
- * failed refreshes must not leave a previous snapshot looking like the latest result.
+ * failed result-producing probes clear stale results; overview refresh preserves its last good snapshot.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -176,17 +176,19 @@ describe("network-probe result reset before rerun", () => {
     expect(useNetworkProbeStore.getState().error).not.toBeNull()
   })
 
-  it("clears all overview snapshots before a failed refresh", async () => {
-    useNetworkProbeStore.setState({ summary: stale, firewall: stale, hosts: [stale] } as never)
+  it("preserves all overview snapshots when a refresh fails", async () => {
+    const staleHosts = [stale]
+    useNetworkProbeStore.setState({ summary: stale, firewall: stale, hosts: staleHosts } as never)
     repository.getLocalNetworkSummary.mockRejectedValueOnce(new Error("offline"))
     repository.getFirewallStatus.mockResolvedValueOnce(stale)
     repository.checkHostsOverrides.mockResolvedValueOnce([stale])
 
     await networkProbeUseCases.refreshOverview()
 
-    expect(useNetworkProbeStore.getState().summary).toBeNull()
-    expect(useNetworkProbeStore.getState().firewall).toBeNull()
-    expect(useNetworkProbeStore.getState().hosts).toBeNull()
+    expect(useNetworkProbeStore.getState().summary).toBe(stale)
+    expect(useNetworkProbeStore.getState().firewall).toBe(stale)
+    expect(useNetworkProbeStore.getState().hosts).toBe(staleHosts)
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.overviewFailed")
   })
 
   it("keeps the offline diagnostic all-or-nothing when a refresh fails", async () => {
