@@ -1,7 +1,7 @@
 /**
  * Feature UI / 功能界面: overview panel for basic L1.
  */
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { OpenSystemNetworkSettingsButton } from "@/features/network-probe/components/OpenSystemNetworkSettingsButton"
@@ -36,9 +36,13 @@ export function OverviewPanel({
   onOpenSettings,
 }: OverviewPanelProps) {
   const { t } = useTranslation()
+  const initialRefreshAttempted = useRef(false)
 
   useEffect(() => {
-    if (!summary && !loading) onRefresh()
+    if (!summary && !loading && !initialRefreshAttempted.current) {
+      initialRefreshAttempted.current = true
+      onRefresh()
+    }
   }, [summary, loading, onRefresh])
 
   return (
