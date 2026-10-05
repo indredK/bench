@@ -194,27 +194,43 @@ describe("useBrowserInterop (sync out, per-target)", () => {
   })
 
   it("routes the daily-browser target to the extension channel and waits for its receipt", async () => {
-    browserSessionSyncDaily.mockResolvedValueOnce(dailyOutcome())
-    // 第一拍读到 queued：注入确实还没发生，随后才是扩展回报的终态。
-    browserSessionInjectStatus
-      .mockResolvedValueOnce(injectStatus({ outcome: "queued" }))
-      .mockResolvedValue(injectStatus())
+    vi.useFakeTimers()
+    try {
+      browserSessionSyncDaily.mockResolvedValueOnce(dailyOutcome())
+      // 第一拍读到 queued：注入确实还没发生，随后才是扩展回报的终态。
+      browserSessionInjectStatus
+        .mockResolvedValueOnce(injectStatus({ outcome: "queued" }))
+        .mockResolvedValue(injectStatus())
 
-    const { result } = renderHook(() => useBrowserInterop())
-    act(() => result.current.openDialog(account()))
-    await waitFor(() => expect(result.current.browserId).toBe("chrome"))
+      const { result } = renderHook(() => useBrowserInterop())
+      act(() => result.current.openDialog(account()))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10)
+      })
+      expect(result.current.browserId).toBe("chrome")
 
-    act(() => result.current.setTarget("daily"))
-    act(() => result.current.handleSync())
-    await waitFor(() => expect(browserSessionSyncDaily).toHaveBeenCalledTimes(1))
-    expect(browserSessionOpen).not.toHaveBeenCalled()
-    // 命令只回「任务已登记」：这一拍只能是中性提示，不能是成功。
-    await waitFor(() => expect(toasts.info).toHaveBeenCalledTimes(1))
-    expect(toasts.success).not.toHaveBeenCalled()
-    // 终态来自扩展回报的任务表，而不是同步命令本身。
-    await waitFor(() => expect(toasts.success).toHaveBeenCalledTimes(1), { timeout: 6000 })
-    expect(browserSessionInjectStatus).toHaveBeenCalledWith("task-1")
-    expect(result.current.lastInject?.outcome).toBe("injected")
+      act(() => result.current.setTarget("daily"))
+      act(() => result.current.handleSync())
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+      expect(browserSessionSyncDaily).toHaveBeenCalledTimes(1)
+      expect(browserSessionOpen).not.toHaveBeenCalled()
+      // 命令只回「任务已登记」：这一拍只能是中性提示，不能是成功。
+      expect(toasts.info).toHaveBeenCalledTimes(1)
+      expect(toasts.success).not.toHaveBeenCalled()
+      expect(result.current.lastInject?.outcome).toBe("queued")
+
+      // 终态来自扩展回报的任务表；虚拟时钟驱动下一次轮询，不受 CI 负载影响。
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1500)
+      })
+      expect(toasts.success).toHaveBeenCalledTimes(1)
+      expect(browserSessionInjectStatus).toHaveBeenCalledWith("task-1")
+      expect(result.current.lastInject?.outcome).toBe("injected")
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("reports an extension-side failure as an error, never as success", async () => {
