@@ -2145,6 +2145,8 @@
       "run": "多节点对比 DNS",
       "running": "对比中…",
       "refresh": "刷新节点",
+      "refreshing": "正在刷新节点…",
+      "loading": "正在加载探测节点…",
       "listTitle": "探测节点",
       "addTitle": "添加 agent",
       "addHint": "端点必须为 https:// 或 wss://。任意 shell 动作会被拒绝。",

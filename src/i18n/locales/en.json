@@ -2145,6 +2145,8 @@
       "run": "Compare DNS (multi-node)",
       "running": "Comparing…",
       "refresh": "Refresh nodes",
+      "refreshing": "Refreshing nodes…",
+      "loading": "Loading probe nodes…",
       "listTitle": "Probe nodes",
       "addTitle": "Add agent",
       "addHint": "Endpoint must be https:// or wss://. Arbitrary shell actions are rejected.",

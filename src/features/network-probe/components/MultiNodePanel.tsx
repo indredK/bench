@@ -66,7 +66,9 @@ export function MultiNodePanel({
             <CommandHint hint={t("networkProbe.cmd.compareDns")}>
               <Button
                 type="button"
-                disabled={loading || !toolEnabled || !domain.trim()}
+                disabled={
+                  loading || loadingNodes || agentAction !== null || !toolEnabled || !domain.trim()
+                }
                 onClick={() => onCompare(domain.trim())}
               >
                 {loading ? t("networkProbe.nodes.running") : t("networkProbe.nodes.run")}
@@ -78,12 +80,19 @@ export function MultiNodePanel({
               disabled={loadingNodes || agentAction !== null}
               onClick={onRefreshNodes}
             >
-              {t("networkProbe.nodes.refresh")}
+              {loadingNodes ? t("networkProbe.nodes.refreshing") : t("networkProbe.nodes.refresh")}
             </Button>
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium">{t("networkProbe.nodes.listTitle")}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium">{t("networkProbe.nodes.listTitle")}</p>
+              {loadingNodes ? (
+                <p role="status" className="text-muted-foreground text-xs">
+                  {t("networkProbe.nodes.loading")}
+                </p>
+              ) : null}
+            </div>
             <ul className="space-y-1 font-mono text-xs">
               {nodes.map((n) => (
                 <li key={n.id} className="flex flex-wrap items-center gap-2">

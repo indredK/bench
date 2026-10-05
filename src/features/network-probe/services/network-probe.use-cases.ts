@@ -55,8 +55,10 @@ type CapabilityPackSnapshot = [
   Awaited<ReturnType<typeof networkProbeRepository.listCapabilityPacks>>,
   Awaited<ReturnType<typeof networkProbeRepository.getCapabilities>>,
 ]
+type ProbeNodesSnapshot = Awaited<ReturnType<typeof networkProbeRepository.listProbeNodes>>
 
 let capabilityPackSnapshotRequest: Promise<CapabilityPackSnapshot> | null = null
+let probeNodesSnapshotRequest: Promise<ProbeNodesSnapshot> | null = null
 
 function loadCapabilityPackSnapshot(): Promise<CapabilityPackSnapshot> {
   if (capabilityPackSnapshotRequest) return capabilityPackSnapshotRequest
@@ -83,18 +85,37 @@ function loadCapabilityPackSnapshot(): Promise<CapabilityPackSnapshot> {
   return trackedRequest
 }
 
+function loadProbeNodesSnapshot(): Promise<ProbeNodesSnapshot> {
+  if (probeNodesSnapshotRequest) return probeNodesSnapshotRequest
+
+  useNetworkProbeStore.getState().setLoadingNodes(true)
+  const request: Promise<ProbeNodesSnapshot> = Promise.resolve()
+    .then(() => networkProbeRepository.listProbeNodes())
+    .then((nodes) => {
+      useNetworkProbeStore.getState().setProbeNodes(nodes)
+      return nodes
+    })
+  let trackedRequest: Promise<ProbeNodesSnapshot>
+  trackedRequest = request.finally(() => {
+    if (probeNodesSnapshotRequest !== trackedRequest) return
+    probeNodesSnapshotRequest = null
+    useNetworkProbeStore.getState().setLoadingNodes(false)
+  })
+  probeNodesSnapshotRequest = trackedRequest
+  return trackedRequest
+}
+
 export const networkProbeUseCases = {
   async bootstrap() {
     const store = useNetworkProbeStore.getState()
     store.setError(null)
     try {
-      const [, defaults, nodes] = await Promise.all([
+      const [, defaults] = await Promise.all([
         loadCapabilityPackSnapshot(),
         networkProbeRepository.getDefaults(),
-        networkProbeRepository.listProbeNodes(),
+        loadProbeNodesSnapshot(),
       ])
       store.setDefaults(defaults)
-      store.setProbeNodes(nodes)
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.bootstrapFailed",
@@ -988,18 +1009,14 @@ export const networkProbeUseCases = {
   async refreshProbeNodes() {
     const store = useNetworkProbeStore.getState()
     if (store.loadingNodes || store.agentAction) return
-    store.setLoadingNodes(true)
-    store.setError(null)
+    if (store.error?.key === "networkProbe.errors.nodesFailed") store.setError(null)
     try {
-      const nodes = await networkProbeRepository.listProbeNodes()
-      store.setProbeNodes(nodes)
+      await loadProbeNodesSnapshot()
     } catch (error) {
-      store.setError({
+      useNetworkProbeStore.getState().setError({
         key: "networkProbe.errors.nodesFailed",
         fallback: getErrorMessage(error),
       })
-    } finally {
-      useNetworkProbeStore.getState().setLoadingNodes(false)
     }
   },
 

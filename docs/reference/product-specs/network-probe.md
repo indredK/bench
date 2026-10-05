@@ -165,13 +165,13 @@ L1 → L2 映射：
 
 ## 7. 发现（discover）L1
 
-| 面板    | 说明                                                                                                                                                                                                                                  |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| arp     | 局域网发现：ARP 缓存 + TCP /24 扫（degraded；特权 RAW 扫待 helper）；输出邻居表（ip/mac/iface/source）；空态区分 权限不足（引导开 Local Network 权限）/隔离/安静；可取消                                                              |
-| lan-svc | mDNS/DNS-SD + SSDP/UPnP 服务浏览（只读），输出 `LanServicesResult`                                                                                                                                                                    |
-| nat     | 多 STUN 映射观察（映射一致 / 不同 / 无有效响应；不推断具体 NAT 类型），输出 `NatProbeResult`                                                                                                                                          |
-| ntp     | NTP 时间偏移（多源中位数），输出 `NtpProbeResult`                                                                                                                                                                                     |
-| nodes   | **多节点 DNS 对比 + agent 注册**：域名对比（local + 各节点 DNS 结果按节点列出）；节点列表（local / Globalping 区域 / remote-agent）；注册 agent（label + https endpoint）→ `addAgent`（HTTPS 注册/健康检查/白名单），可移除；刷新节点 |
+| 面板    | 说明                                                                                                                                                                                                                                                                                                                                 |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| arp     | 局域网发现：ARP 缓存 + TCP /24 扫（degraded；特权 RAW 扫待 helper）；输出邻居表（ip/mac/iface/source）；空态区分 权限不足（引导开 Local Network 权限）/隔离/安静；可取消                                                                                                                                                             |
+| lan-svc | mDNS/DNS-SD + SSDP/UPnP 服务浏览（只读），输出 `LanServicesResult`                                                                                                                                                                                                                                                                   |
+| nat     | 多 STUN 映射观察（映射一致 / 不同 / 无有效响应；不推断具体 NAT 类型），输出 `NatProbeResult`                                                                                                                                                                                                                                         |
+| ntp     | NTP 时间偏移（多源中位数），输出 `NtpProbeResult`                                                                                                                                                                                                                                                                                    |
+| nodes   | **多节点 DNS 对比 + agent 注册**：域名对比（local + 各节点 DNS 结果按节点列出）；节点列表（local / Globalping 区域 / remote-agent）；注册 agent（label + https endpoint）→ `addAgent`（HTTPS 注册/健康检查/白名单），可移除；刷新节点。节点列表初次加载/刷新中显示进度，未稳定前禁用对比；刷新失败保留最后成功的节点快照并提供重试。 |
 
 ## 8. 能力包（D-017 packs）
 
@@ -274,7 +274,7 @@ L1 → L2 映射：
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
 - **单工具防重入**：每个 use-case 入口 `if (store.loadingX) return`；同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
-- **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）、能力包快照（`loadingCapabilityPacks`）在用例内以 loading 标志防重复触发。能力包手动刷新与 bootstrap 共用单个在途请求，页面同时反馈加载进度并禁用相互冲突的操作（见 §8）。
+- **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）、能力包快照（`loadingCapabilityPacks`）在用例内以 loading 标志防重复触发。节点与能力包手动刷新分别和 bootstrap 共用单个在途请求，成功快照在 loading 释放前写入 store，避免初始化慢响应覆盖较新的刷新结果。节点加载时页面显示进度并禁用刷新和多节点对比；能力包页面禁用互相冲突的操作（见 §8）。
 - **agent 注册与移除防重入**：`addAgent` / `removeAgent` 共用 `agentAction` 状态；执行期间添加、移除和节点刷新入口禁用，并显示当前操作。前端用例再次检查 action 锁，避免快速连点重复调用。后端将 agent 注册表的读取、变更和原子写入放在进程内互斥区；重复端点注册复用现有节点，重复移除安全成功；注册表损坏或读取失败会向调用方报错，不静默丢弃 agent。macOS 真机验证记录见 `../../roadmap/planned/network-probe.md`。
 - **网络服务与系统设置防重入**：`loadNetworkServices` 在用例入口阻止并发刷新并维护 `idle/loading/loaded/failed`；成功空结果与失败分别展示并提供重试，修改操作只在服务已加载后开放。`openSystemNetworkSettings` 由概览、ARP 与修复面板共用 busy 状态；执行中显示进度并禁用入口，用例入口再做一次防重入检查。打开设置时只清除该动作自己的旧错误，不覆盖其他操作错误。
 
