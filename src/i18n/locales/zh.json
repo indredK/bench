@@ -2172,11 +2172,30 @@
       "details": "服务器详情"
     },
     "ntp": {
-      "hint": "查询 pool.ntp.org 时钟偏移。过大偏差可能影响 TLS 与鉴权。",
+      "hint": "并行对比 Cloudflare、Google 和 pool.ntp.org 的时钟偏移。偏差过大可能影响 TLS 与鉴权。",
       "run": "探测 NTP",
       "running": "探测中…",
       "offset": "偏移 {{seconds}} 秒（{{severity}}）",
-      "fail": "NTP 探测失败"
+      "fail": "没有任何 NTP 来源返回可用响应。",
+      "sourceResults": "NTP 来源结果",
+      "sourceOffset": "{{server}}：偏移 {{seconds}} 秒",
+      "sourceFailed": "{{server}}：{{reason}}",
+      "severity": {
+        "ok": "偏差正常",
+        "info": "轻微偏差",
+        "warn": "偏差较大",
+        "unknown": "未知"
+      },
+      "errors": {
+        "bind": "无法打开本机 UDP 套接字",
+        "dns": "无法解析服务器地址",
+        "network": "UDP 通信失败",
+        "timeout": "请求超时",
+        "source": "响应来自非预期地址",
+        "serverRefused": "服务器暂时拒绝了请求",
+        "response": "服务器响应未通过 NTP 校验",
+        "unknown": "探测失败"
+      }
     },
     "report": {
       "hint": "导出最近一次体检，并浏览本会话命令日志。",

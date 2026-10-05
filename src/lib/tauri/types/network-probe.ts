@@ -459,6 +459,14 @@ export interface NatProbeResult {
   commandHint: string
 }
 
+export interface NtpSourceResult {
+  server: string
+  ok: boolean
+  offsetSeconds?: number
+  rttSeconds?: number
+  errorCode?: string
+}
+
 export interface NtpProbeResult {
   server: string
   ok: boolean
@@ -466,6 +474,7 @@ export interface NtpProbeResult {
   rttSeconds?: number
   severity: string
   detail?: string
+  sources: NtpSourceResult[]
   elapsedMs: number
   commandHint: string
 }

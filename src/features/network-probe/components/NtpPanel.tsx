@@ -7,6 +7,40 @@ import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { NtpProbeResult } from "@/lib/tauri/types/network-probe"
 
+function ntpSeverityKey(severity: string) {
+  switch (severity) {
+    case "ok":
+      return "networkProbe.ntp.severity.ok"
+    case "info":
+      return "networkProbe.ntp.severity.info"
+    case "warn":
+      return "networkProbe.ntp.severity.warn"
+    default:
+      return "networkProbe.ntp.severity.unknown"
+  }
+}
+
+function ntpErrorKey(errorCode?: string) {
+  switch (errorCode) {
+    case "NTP_BIND":
+      return "networkProbe.ntp.errors.bind"
+    case "NTP_DNS":
+      return "networkProbe.ntp.errors.dns"
+    case "NTP_NETWORK":
+      return "networkProbe.ntp.errors.network"
+    case "NTP_TIMEOUT":
+      return "networkProbe.ntp.errors.timeout"
+    case "NTP_SOURCE":
+      return "networkProbe.ntp.errors.source"
+    case "NTP_KISS_OF_DEATH":
+      return "networkProbe.ntp.errors.serverRefused"
+    case "NTP_RESPONSE":
+      return "networkProbe.ntp.errors.response"
+    default:
+      return "networkProbe.ntp.errors.unknown"
+  }
+}
+
 interface NtpPanelProps {
   loading: boolean
   result: NtpProbeResult | null
@@ -45,13 +79,30 @@ export function NtpPanel({ loading, result, toolEnabled, toolStatus, onRun }: Nt
             <div>
               {t("networkProbe.ntp.offset", {
                 seconds: result.offsetSeconds.toFixed(3),
-                severity: result.severity,
+                severity: t(ntpSeverityKey(result.severity)),
               })}
             </div>
           ) : (
-            <div>{t("networkProbe.ntp.fail")}</div>
+            <div role="status">{t("networkProbe.ntp.fail")}</div>
           )}
-          {result.detail ? <p className="text-muted-foreground text-xs">{result.detail}</p> : null}
+          <ul
+            aria-label={t("networkProbe.ntp.sourceResults")}
+            className="text-muted-foreground space-y-1 text-xs"
+          >
+            {result.sources.map((source) => (
+              <li key={source.server}>
+                {source.ok && source.offsetSeconds != null
+                  ? t("networkProbe.ntp.sourceOffset", {
+                      server: source.server,
+                      seconds: source.offsetSeconds.toFixed(3),
+                    })
+                  : t("networkProbe.ntp.sourceFailed", {
+                      server: source.server,
+                      reason: t(ntpErrorKey(source.errorCode)),
+                    })}
+              </li>
+            ))}
+          </ul>
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}

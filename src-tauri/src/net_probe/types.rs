@@ -688,6 +688,19 @@ pub struct NatProbeResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct NtpSourceResult {
+    pub server: String,
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset_seconds: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rtt_seconds: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NtpProbeResult {
     pub server: String,
     pub ok: bool,
@@ -698,6 +711,7 @@ pub struct NtpProbeResult {
     pub severity: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    pub sources: Vec<NtpSourceResult>,
     pub elapsed_ms: f64,
     pub command_hint: String,
 }

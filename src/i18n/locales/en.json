@@ -2172,11 +2172,30 @@
       "details": "Server details"
     },
     "ntp": {
-      "hint": "Query pool.ntp.org for clock offset. Large skew can break TLS and auth.",
+      "hint": "Compare Cloudflare, Google, and pool.ntp.org concurrently. Large clock skew can affect TLS and auth.",
       "run": "Probe NTP",
       "running": "Probing…",
       "offset": "Offset {{seconds}} s ({{severity}})",
-      "fail": "NTP probe failed"
+      "fail": "No usable response from any NTP source.",
+      "sourceResults": "NTP source results",
+      "sourceOffset": "{{server}}: offset {{seconds}} s",
+      "sourceFailed": "{{server}}: {{reason}}",
+      "severity": {
+        "ok": "within range",
+        "info": "minor skew",
+        "warn": "large skew",
+        "unknown": "unknown"
+      },
+      "errors": {
+        "bind": "could not open a local UDP socket",
+        "dns": "server address could not be resolved",
+        "network": "UDP exchange failed",
+        "timeout": "request timed out",
+        "source": "response came from an unexpected address",
+        "serverRefused": "server temporarily refused the request",
+        "response": "server response did not pass NTP validation",
+        "unknown": "request failed"
+      }
     },
     "report": {
       "hint": "Export the latest health scan and browse the session command log.",

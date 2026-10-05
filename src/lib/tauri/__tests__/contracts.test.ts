@@ -37,6 +37,7 @@ import type {
   SystemInfoData,
 } from "@/lib/tauri/types"
 import type { AppUpdateInfo, AppUpdateInstallResult } from "@/lib/tauri/types/updater"
+import type { NtpProbeResult, NtpSourceResult } from "@/lib/tauri/types/network-probe"
 import type {
   AccountManagerCapabilities,
   AccountManagerCapability,
@@ -170,6 +171,26 @@ describe("Tauri contracts", () => {
           "recoveryReason",
           "taskId",
           "extensionConnected",
+        ]),
+      ],
+      [
+        "NtpSourceResult",
+        "camel",
+        dtoKeys<NtpSourceResult>(["server", "ok", "offsetSeconds", "rttSeconds", "errorCode"]),
+      ],
+      [
+        "NtpProbeResult",
+        "camel",
+        dtoKeys<NtpProbeResult>([
+          "server",
+          "ok",
+          "offsetSeconds",
+          "rttSeconds",
+          "severity",
+          "detail",
+          "sources",
+          "elapsedMs",
+          "commandHint",
         ]),
       ],
       [

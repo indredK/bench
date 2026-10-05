@@ -387,6 +387,8 @@ dependencies = [
  "serde_yaml",
  "sha1",
  "sha2 0.11.0",
+ "sntpc",
+ "sntpc-net-tokio",
  "surge-ping",
  "sysinfo",
  "tauri",
@@ -5043,6 +5045,25 @@ name = "smallvec"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9be42f50aa861c555654aa3a37f52f4b1074bacf4e48fe0ef7fa584e80f1f0f"
+
+[[package]]
+name = "sntpc"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "294278b134cd7d06d7f22eca970aebe38707864c080f66547f9ad26327534af3"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
+name = "sntpc-net-tokio"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d144774d41903891f67f9cbe7ebe93f5a8b72e5742c77ab0465b45a2d8edf34d"
+dependencies = [
+ "sntpc",
+ "tokio",
+]
 
 [[package]]
 name = "socket2"
