@@ -97,7 +97,9 @@ export function useNetworkProbeController() {
   const loadingMultiNode = useNetworkProbeStore((s) => s.loadingMultiNode)
   const loadingNodes = useNetworkProbeStore((s) => s.loadingNodes)
   const agentAction = useNetworkProbeStore((s) => s.agentAction)
+  const errors = useNetworkProbeStore((s) => s.errors)
   const error = useNetworkProbeStore((s) => s.error)
+  const clearError = useNetworkProbeStore((s) => s.clearError)
   const setL1 = useNetworkProbeStore((s) => s.setL1)
   const setL2 = useNetworkProbeStore((s) => s.setL2)
   const setOfflineSub = useNetworkProbeStore((s) => s.setOfflineSub)
@@ -243,8 +245,14 @@ export function useNetworkProbeController() {
     (packId: string) => networkProbeUseCases.installCapabilityPackVerifyFail(packId),
     [],
   )
-  const authorizeSecurity = useCallback(() => setSecurityAuthorized(true), [setSecurityAuthorized])
-  const revokeSecurity = useCallback(() => setSecurityAuthorized(false), [setSecurityAuthorized])
+  const authorizeSecurity = useCallback(() => {
+    clearError("networkProbe.errors.securityAuthRequired")
+    setSecurityAuthorized(true)
+  }, [clearError, setSecurityAuthorized])
+  const revokeSecurity = useCallback(() => {
+    clearError("networkProbe.errors.securityAuthRequired")
+    setSecurityAuthorized(false)
+  }, [clearError, setSecurityAuthorized])
   const resetDefaults = useCallback(() => networkProbeUseCases.resetDefaults(), [])
 
   const l2Id = nav.l2ByL1[nav.l1Id]
@@ -360,7 +368,9 @@ export function useNetworkProbeController() {
     loadingMultiNode,
     loadingNodes,
     agentAction,
+    errors,
     error,
+    clearError,
     selectL1,
     selectL2,
     selectOfflineSub,

@@ -65,6 +65,7 @@ beforeEach(() => {
     loadingNodes: false,
     probeNodes: [],
     error: null,
+    errors: [],
   })
 })
 

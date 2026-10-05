@@ -1593,7 +1593,8 @@
       "clearConfirmDescription": "This removes every IPC hint recorded in this session. This cannot be undone."
     },
     "actions": {
-      "openingSettings": "Opening system settings…"
+      "openingSettings": "Opening system settings…",
+      "dismissError": "Dismiss error"
     },
     "l1": {
       "basic": "Basics",

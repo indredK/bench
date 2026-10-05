@@ -158,6 +158,7 @@ beforeEach(() => {
     loadingMultiNode: false,
     securityAuthorized: true,
     error: null,
+    errors: [],
     commandLog: [],
   })
 })
@@ -189,6 +190,28 @@ describe("network-probe result reset before rerun", () => {
     expect(useNetworkProbeStore.getState().firewall).toBe(stale)
     expect(useNetworkProbeStore.getState().hosts).toBe(staleHosts)
     expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.overviewFailed")
+  })
+
+  it("keeps unrelated probe errors visible across retries and concurrent failures", async () => {
+    repository.pingHost.mockRejectedValueOnce(new Error("ping IPC failed"))
+    await networkProbeUseCases.runPing("192.0.2.1", 1)
+
+    let rejectDns!: (reason?: unknown) => void
+    const dnsRequest = new Promise<never>((_, reject) => {
+      rejectDns = reject
+    })
+    repository.dnsLookup.mockReturnValueOnce(dnsRequest)
+    const dnsRun = networkProbeUseCases.runDnsLookup("invalid.example", "A")
+
+    expect(useNetworkProbeStore.getState().errors.map((error) => error.key)).toContain(
+      "networkProbe.errors.pingFailed",
+    )
+    rejectDns(new Error("DNS IPC failed"))
+    await dnsRun
+
+    expect(useNetworkProbeStore.getState().errors.map((error) => error.key)).toEqual(
+      expect.arrayContaining(["networkProbe.errors.pingFailed", "networkProbe.errors.dnsFailed"]),
+    )
   })
 
   it("keeps the offline diagnostic all-or-nothing when a refresh fails", async () => {

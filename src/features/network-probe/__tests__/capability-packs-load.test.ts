@@ -51,6 +51,7 @@ beforeEach(() => {
     capabilityPacks: [],
     loadingCapabilityPacks: false,
     error: null,
+    errors: [],
   })
 })
 

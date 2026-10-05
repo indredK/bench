@@ -129,6 +129,7 @@ beforeEach(() => {
     reportHistory: [],
     commandLog: [],
     error: null,
+    errors: [],
   })
 })
 

@@ -15,6 +15,7 @@ import { Ipv6Panel } from "@/features/network-probe/components/Ipv6Panel"
 import { LanServicesPanel } from "@/features/network-probe/components/LanServicesPanel"
 import { MtuPanel } from "@/features/network-probe/components/MtuPanel"
 import { MultiNodePanel } from "@/features/network-probe/components/MultiNodePanel"
+import { NetworkProbeErrorNotices } from "@/features/network-probe/components/NetworkProbeErrorNotices"
 import { NatPanel } from "@/features/network-probe/components/NatPanel"
 import { NtpPanel } from "@/features/network-probe/components/NtpPanel"
 import {
@@ -128,7 +129,6 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
     [probeNodes],
   )
 
-  const errorText = c.error ? t(c.error.key, { defaultValue: c.error.fallback }) : null
   const offlineSub = c.offlineSub
   const panelTitle = t(`networkProbe.l2.${resolvedL2}`)
   const crumbOffline =
@@ -319,11 +319,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 </p>
               </div>
 
-              {errorText ? (
-                <div className="border-destructive/40 bg-destructive/5 text-destructive shrink-0 rounded-md border px-3 py-2 text-sm">
-                  {errorText}
-                </div>
-              ) : null}
+              <NetworkProbeErrorNotices errors={c.errors} onDismiss={c.clearError} />
 
               {c.l1Id === "security" ? (
                 <div className="shrink-0">

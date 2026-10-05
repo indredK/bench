@@ -26,7 +26,7 @@
 
 - **L1 顶栏**：logo 圆点 + 标题 + 5 个一级 Tab（基础/站点延迟/测试/安全/发现）；右侧**探测节点选择器**（local + 已注册 remote agent/Globalping 节点）、**能力包管理按钮**（打开 PackInstallDialog）。本机节点名称按界面语言本地化，自有远端节点继续显示注册时设置的名称。
 - **面包屑 + capabilities 横幅**：面板标题下显示 `L1 / L2 [/ offline 子项] · platform=… privilege=…`。
-- **错误横幅**：`error` 非空时在面板上方显示（红框）。
+- **错误提示**：按操作分别显示在面板上方（红框），限高滚动并可逐条关闭；并行探测失败时保留每个操作的独立错误。
 - **安全授权条（SecurityAuthGate）**：仅 L1=security 时显示——未授权时琥珀色提示 +「确认」按钮；已授权显示「已授权」+「撤销」；授权状态持久化于 localStorage（`network-probe:security-authorized`）。
 - **命令日志侧栏**：右侧 280px（折叠为 2.25rem 窄条），滚动展示每次探测的 `invoke` 命令文本 + 结果/取消/耗时摘要（时间戳前缀），可清空（二次确认）；开合状态持久化于 sessionStorage（`network-probe:side-log-open`）。
 - **L2 底栏**：当前 L1 的子面板按钮列表（见下表），Post-MVP 面板带「Post」徽标。
@@ -47,7 +47,7 @@ L1 → L2 映射：
 ### 全局交互与反馈细节
 
 - **bootstrap 加载**：首次进入 `bootstrap()` 并行拉取 capabilities / defaults / packs / nodes；任一失败在顶部错误横幅展示 `networkProbe.errors.bootstrapFailed`（可重试，重进页面或刷新按钮触发），不阻断其余面板。
-- **错误横幅**：`error` 非空时面板上方红框展示，文案优先本地化 `networkProbe.errors.<tool>Failed`，兜底后端 `message`。探测与修复操作开始时清除旧错误；网络服务刷新和系统设置启动只清除各自的旧错误，避免抹掉其他操作的错误。操作结束后由用例设置或清除本次错误。
+- **错误横幅**：每个操作按本地化 key 独立保留错误（文案优先 `networkProbe.errors.<tool>Failed`，兜底后端 `message`），限高滚动并可逐条关闭。探测、修复、刷新和系统设置操作开始时只清除同一操作的旧错误；并行失败互不覆盖，其他操作开始也不会抹掉已有错误。
 - **每工具 loading 独立 + 防重入**：`loading*`（每工具一个）为真时对应「运行」按钮禁用并显示运行中文案（如「Ping → 探测中…」）；use-case 入口统一 `if (store.loadingX) return` 短路，同一工具不可并发、不同工具可并行。网络服务刷新与系统设置启动也有独立 loading 状态和程序化防重入。
 - **能力降级**：`toolEnabled=false`（status 为 `unsupported`/`missing_pack`）时按钮禁用并显示 toolDisabled 提示（`{{tool}} status={{status}} — 已按能力矩阵禁用`）；缺 pack 的工具给出「管理能力包」入口跳转 PackInstallDialog。
 - **命令日志侧栏**：每个探测命令追加一行时间戳日志（`appendCommandLog`），运行中/成功/失败/取消均有摘要；可折叠（sessionStorage 记忆）、清空需二次确认。
@@ -143,7 +143,7 @@ L1 → L2 映射：
 - **测速冷却**：测速源失败/不可达时 `speedCooldownUntil = now + 30s`，期间「开始测速」禁用并倒计时提示（`测速源失败 — {{seconds}} 秒后可重试`），冷却结束自动恢复；取消成功不计入冷却。
 - **测速冷却双重防护**：除按钮禁用外，`runSpeedTest` 用例入口 `if (speedCooldownUntil > now) return` 短路（连点/脚本调用也不触发）；冷却以 **500ms interval** 倒计时刷新；**源下拉在 `loading || coolingDown` 时同样 disabled**；结果卡 `unavailable`（`!ok && !cancelled && downloadMbps==null`）额外显示「测速源不可用」琥珀提示。
 - **测速源加载恢复**：状态区分 `idle/loading/loaded/failed`；初始化与手动刷新共用单飞加载器，加载期间禁止重复刷新与开始测速；失败显示明确错误和刷新入口，成功但返回空数组才显示空列表；刷新失败时保留此前已加载的来源。
-- **重新运行前状态复位（所有探测面板）**：所有可重复探测与诊断每次开始时先清空该动作对应的上一轮结果；概览刷新清空 summary/firewall/hosts，一键诊断清空五项快照并保持 all-or-nothing。**新一轮失败或运行中都不能把旧结果显示成当前结果**。health / sites / traceroute / speed / ports / lan / pcap 等长任务还会释放旧 `activeSessionId`；有流式数据的面板同时调用 `resetXxxStreaming()` 清空上次采样；`finally` 里统一清理活动会话以复位取消状态。
+- **重新运行前状态复位（所有探测面板）**：所有可重复探测与诊断每次开始时先清空该动作对应的上一轮结果；概览刷新保留最后一次成功的 summary/firewall/hosts 快照，等三项请求全成功后原子替换，刷新失败时保留快照并显示错误；一键诊断则清空五项快照并保持 all-or-nothing。除概览刷新外，**新一轮失败或运行中都不能把旧结果显示成当前结果**。health / sites / traceroute / speed / ports / lan / pcap 等长任务还会释放旧 `activeSessionId`；有流式数据的面板同时调用 `resetXxxStreaming()` 清空上次采样；`finally` 里统一清理活动会话以复位取消状态。
 - **流式采样去重**：`site-sample` / `port-sample` 按 target/port 合并去重（`upsert*`），单卡多次测试保留历史并绘制近 20 次 Sparkline；完成后对未取消的站点包结果保留已测卡片（取消提示「已完成的卡片结果会保留」）。
 
 ## 6. 安全（security）L1（全部要求 SecurityAuthGate 已授权）
@@ -216,7 +216,7 @@ L1 → L2 映射：
 - `PortScanResult` / `PortSampleEvent`；`PollutionReport`；`WhoisInfo`；`DnsSecCheckResult`；`PcapDiagResult`。
 - `LanDiscoveryResult`（neighbors/mode/cidr/emptyReason/cancelled）、`LanServicesResult`；`NatProbeResult.natType` 为 `consistent-across-servers` / `varied-across-servers` / `blocked-or-timeout`；`NtpProbeResult`；`MultiNodeDnsResult` / `ProbeNode`。
 - `NetworkProbeDefaultsCatalog` / `DefaultsOverride`；`HostsOverride`；`FirewallStatus`。
-- store 关键状态：nav、capabilities、capabilityPacks、defaults、各结果/流式数组、loading*（每工具独立）、error、securityAuthorized、activeSessionId、cancelRequestedSessionId、commandLog、reportHistory。
+- store 关键状态：nav、capabilities、capabilityPacks、defaults、各结果/流式数组、loading*（每工具独立）、按操作 key 管理的 `errors[]`、securityAuthorized、activeSessionId、cancelRequestedSessionId、commandLog、reportHistory。
 
 ## 12. 边界与限制
 

@@ -190,6 +190,9 @@ interface NetworkProbeState {
   loadingMultiNode: boolean
   loadingNodes: boolean
   agentAction: NetworkProbeAgentAction | null
+  /** 独立错误按 key 保留, 避免并行探测互相清空或覆盖提示。 */
+  errors: LocalizedError[]
+  /** 兼容读取入口: 当前最新错误; 新界面应消费 errors。 */
   error: LocalizedError | null
 
   setL1: (l1Id: NetworkProbeL1) => void
@@ -282,6 +285,7 @@ interface NetworkProbeState {
   setLoadingMultiNode: (loading: boolean) => void
   setLoadingNodes: (loading: boolean) => void
   setAgentAction: (action: NetworkProbeAgentAction | null) => void
+  clearError: (key: string) => void
   setError: (error: LocalizedError | null) => void
 }
 
@@ -429,6 +433,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   loadingMultiNode: false,
   loadingNodes: false,
   agentAction: null,
+  errors: [],
   error: null,
 
   setL1: (l1Id) => {
@@ -629,7 +634,21 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLoadingMultiNode: (loadingMultiNode) => set({ loadingMultiNode }),
   setLoadingNodes: (loadingNodes) => set({ loadingNodes }),
   setAgentAction: (agentAction) => set({ agentAction }),
-  setError: (error) => set({ error }),
+  clearError: (key) =>
+    set((state) => {
+      const errors = state.errors.filter((error) => error.key !== key)
+      if (errors.length === state.errors.length) return state
+      return {
+        errors,
+        error: state.error?.key === key ? (errors[0] ?? null) : state.error,
+      }
+    }),
+  setError: (error) =>
+    set((state) => {
+      if (!error) return { errors: [], error: null }
+      const errors = [error, ...state.errors.filter((item) => item.key !== error.key)]
+      return { errors, error }
+    }),
 }))
 
 export { OFFLINE_SUBS }

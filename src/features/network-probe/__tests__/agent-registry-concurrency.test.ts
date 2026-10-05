@@ -44,6 +44,7 @@ beforeEach(() => {
     probeNodes: [],
     commandLog: [],
     error: null,
+    errors: [],
     networkServicesLoadState: "idle",
     openingSystemNetworkSettings: false,
     networkServices: [],

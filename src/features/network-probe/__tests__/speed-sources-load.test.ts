@@ -37,6 +37,7 @@ beforeEach(() => {
     speedSources: [],
     speedSourcesLoadState: "idle",
     error: null,
+    errors: [],
   })
 })
 

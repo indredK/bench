@@ -1593,7 +1593,8 @@
       "clearConfirmDescription": "将删除本会话中已记录的全部 IPC 提示，此操作不可撤销。"
     },
     "actions": {
-      "openingSettings": "正在打开系统设置…"
+      "openingSettings": "正在打开系统设置…",
+      "dismissError": "关闭错误提示"
     },
     "l1": {
       "basic": "基础视角",
