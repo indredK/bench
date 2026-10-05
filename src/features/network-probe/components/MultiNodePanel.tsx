@@ -1,13 +1,14 @@
 /**
  * Feature UI / 功能界面: multi-node DNS compare + agent registry.
  */
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { NetworkProbeAgentAction } from "@/features/network-probe/store"
+import { getProbeNodeDisplayLabel } from "@/features/network-probe/utils/probe-node-label"
 import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
 
 interface MultiNodePanelProps {
@@ -41,6 +42,7 @@ export function MultiNodePanel({
   const [domain, setDomain] = useState("example.com")
   const [label, setLabel] = useState("")
   const [endpoint, setEndpoint] = useState("https://")
+  const nodeKindsById = useMemo(() => new Map(nodes.map((node) => [node.id, node.kind])), [nodes])
 
   return (
     <ProbePanelShell
@@ -97,7 +99,8 @@ export function MultiNodePanel({
               {nodes.map((n) => (
                 <li key={n.id} className="flex flex-wrap items-center gap-2">
                   <span>
-                    {n.label} · {n.kind}
+                    {getProbeNodeDisplayLabel(n.kind, n.label, t("networkProbe.nodeSelect.local"))}
+                    {n.kind === "local" ? "" : ` · ${n.kind}`}
                     {n.endpoint ? ` · ${n.endpoint}` : ""}
                   </span>
                   {n.kind === "remote-agent" ? (
@@ -165,7 +168,12 @@ export function MultiNodePanel({
             {result.answers.map((a) => (
               <li key={a.nodeId} className="rounded-md border px-3 py-2">
                 <div className="font-medium">
-                  {a.nodeLabel} <span className="font-mono text-xs">{a.ok ? "OK" : "FAIL"}</span>
+                  {getProbeNodeDisplayLabel(
+                    nodeKindsById.get(a.nodeId) ?? (a.nodeId === "local" ? "local" : undefined),
+                    a.nodeLabel,
+                    t("networkProbe.nodeSelect.local"),
+                  )}{" "}
+                  <span className="font-mono text-xs">{a.ok ? "OK" : "FAIL"}</span>
                 </div>
                 {a.answers.length > 0 ? (
                   <pre className="text-muted-foreground mt-1 overflow-auto font-mono text-xs">

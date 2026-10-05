@@ -39,6 +39,7 @@ import { TraceroutePanel } from "@/features/network-probe/components/TracerouteP
 import { WhoisPanel } from "@/features/network-probe/components/WhoisPanel"
 import { CommandLogSidePanel } from "@/features/network-probe/components/CommandLogSidePanel"
 import { useNetworkProbeController } from "@/features/network-probe/hooks/useNetworkProbeController"
+import { getProbeNodeDisplayLabel } from "@/features/network-probe/utils/probe-node-label"
 import {
   OFFLINE_SUBS,
   type NetworkProbeL1,
@@ -251,7 +252,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 const pending = n.kind !== "local"
                 return (
                   <SelectItem key={n.id} value={n.id} disabled={pending}>
-                    {n.label}
+                    {getProbeNodeDisplayLabel(n.kind, n.label, t("networkProbe.nodeSelect.local"))}
                     {pending ? (
                       <span className="text-muted-foreground ml-1 text-[10px] font-bold tracking-wider uppercase">
                         {t("networkProbe.badge.planning")}

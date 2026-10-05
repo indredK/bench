@@ -24,7 +24,7 @@
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- **L1 顶栏**：logo 圆点 + 标题 + 5 个一级 Tab（基础/站点延迟/测试/安全/发现）；右侧**探测节点选择器**（local + 已注册 remote agent/Globalping 节点）、**能力包管理按钮**（打开 PackInstallDialog）。
+- **L1 顶栏**：logo 圆点 + 标题 + 5 个一级 Tab（基础/站点延迟/测试/安全/发现）；右侧**探测节点选择器**（local + 已注册 remote agent/Globalping 节点）、**能力包管理按钮**（打开 PackInstallDialog）。本机节点名称按界面语言本地化，自有远端节点继续显示注册时设置的名称。
 - **面包屑 + capabilities 横幅**：面板标题下显示 `L1 / L2 [/ offline 子项] · platform=… privilege=…`。
 - **错误横幅**：`error` 非空时在面板上方显示（红框）。
 - **安全授权条（SecurityAuthGate）**：仅 L1=security 时显示——未授权时琥珀色提示 +「确认」按钮；已授权显示「已授权」+「撤销」；授权状态持久化于 localStorage（`network-probe:security-authorized`）。

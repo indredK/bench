@@ -41,6 +41,30 @@ function createProps(loadingNodes: boolean) {
 afterEach(() => cleanup())
 
 describe("MultiNodePanel node loading", () => {
+  it("localizes the built-in node label in the node list and DNS results", () => {
+    const props = {
+      ...createProps(false),
+      result: {
+        domain: "example.com",
+        answers: [
+          {
+            nodeId: "local",
+            nodeLabel: "This Mac",
+            ok: true,
+            answers: ["192.0.2.1"],
+          },
+        ],
+        elapsedMs: 1,
+        commandHint: "",
+      },
+    }
+
+    render(<MultiNodePanel {...props} />)
+
+    expect(screen.getAllByText("networkProbe.nodeSelect.local")).toHaveLength(2)
+    expect(document.body).not.toHaveTextContent("This Mac")
+  })
+
   it("reports loading and blocks comparisons until the node list is ready", () => {
     const view = render(<MultiNodePanel {...createProps(true)} />)
 
