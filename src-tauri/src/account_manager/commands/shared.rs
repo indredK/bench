@@ -146,6 +146,7 @@ pub(super) fn error_code(error: &AccountManagerError) -> &'static str {
         AccountManagerError::NotFound { .. } => "NOT_FOUND",
         AccountManagerError::InvalidInput { .. } => "INVALID_INPUT",
         AccountManagerError::StoreFail { .. } => "STORE_FAIL",
+        AccountManagerError::ProbeFailed { .. } => "PROBE_FAILED",
         AccountManagerError::KeyringUnavailable { .. } => "KEYRING_UNAVAILABLE",
         AccountManagerError::CryptoFail { .. } => "CRYPTO_FAIL",
         AccountManagerError::ClipboardFail { .. } => "CLIPBOARD_FAIL",

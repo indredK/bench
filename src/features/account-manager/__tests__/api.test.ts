@@ -6,6 +6,7 @@ import {
   getAuthProxyInboxStatus,
   listAccountLogs,
   matchStationsByUrl,
+  openAuthProxyReturnUrl,
   openLoginWindow,
   proxyLogin,
   proxyLoginNewAccount,
@@ -49,6 +50,15 @@ describe("account-manager commands", () => {
       accountId: "acct-1",
       ticketId: "ticket-1",
     })
+  })
+
+  it("opens a validated callback through the backend without sending its URL", async () => {
+    await openAuthProxyReturnUrl("ticket-3")
+
+    expect(invokeTauriCommand).toHaveBeenCalledWith(
+      TAURI_COMMANDS.accountManager.openAuthProxyReturnUrl,
+      { ticketId: "ticket-3" },
+    )
   })
 
   it("creates proxy accounts from the ticket canonical host", async () => {

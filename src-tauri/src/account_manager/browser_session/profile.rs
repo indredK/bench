@@ -16,7 +16,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Manager, Runtime};
@@ -33,6 +33,36 @@ const PORT_PROBE_TIMEOUT: Duration = Duration::from_millis(600);
 fn children() -> &'static Mutex<HashMap<String, Child>> {
     static CHILDREN: OnceLock<Mutex<HashMap<String, Child>>> = OnceLock::new();
     CHILDREN.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+type ScopeOperationLock = tokio::sync::Mutex<()>;
+
+/// Per-scope mutation locks prevent duplicate opens from racing profile creation,
+/// and serialize close/reset against an in-flight CDP operation. Weak entries keep
+/// the registry bounded by scopes that are currently being mutated.
+fn scope_operation_locks() -> &'static Mutex<HashMap<String, Weak<ScopeOperationLock>>> {
+    static LOCKS: OnceLock<Mutex<HashMap<String, Weak<ScopeOperationLock>>>> = OnceLock::new();
+    LOCKS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn scope_operation_lock(scope: &Scope) -> Arc<ScopeOperationLock> {
+    let key = scope.key();
+    let mut locks = scope_operation_locks()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    locks.retain(|_, lock| lock.strong_count() > 0);
+    if let Some(lock) = locks.get(&key).and_then(Weak::upgrade) {
+        return lock;
+    }
+
+    let lock = Arc::new(ScopeOperationLock::new(()));
+    locks.insert(key, Arc::downgrade(&lock));
+    lock
+}
+
+/// Serialize mutations for a scope behind any open/reset/close already in progress.
+pub async fn lock_scope_operation(scope: &Scope) -> tokio::sync::OwnedMutexGuard<()> {
+    scope_operation_lock(scope).lock_owned().await
 }
 
 /// `<app_local_data>/browser-sessions`（所有账号 profile 的父目录）。
@@ -204,7 +234,12 @@ pub async fn resolve_running_port<R: Runtime>(app: &AppHandle<R>, scope: &Scope)
 
 /// 删除该 scope 的 profile 目录（调用方负责先关闭实例）。
 pub fn remove_profile_dir<R: Runtime>(app: &AppHandle<R>, scope: &Scope) -> Result<(), String> {
-    let root = session_root(app, scope)?;
+    remove_profile_dir_at(&sessions_root(app)?, scope)
+}
+
+/// 删除给定会话根目录下的 profile。独立出来便于在无 Tauri runtime 的单测中覆盖真实目录生命周期。
+fn remove_profile_dir_at(sessions_root: &Path, scope: &Scope) -> Result<(), String> {
+    let root = sessions_root.join(scope.key());
     if !root.exists() {
         return Ok(());
     }
@@ -314,6 +349,16 @@ pub fn clear_meta<R: Runtime>(app: &AppHandle<R>, scope: &Scope) {
 mod tests {
     use super::*;
 
+    #[tokio::test]
+    async fn scope_operation_lock_serializes_mutations_and_releases() {
+        let scope = Scope::Account(format!("operation-lock-{}", std::process::id()));
+        let first = lock_scope_operation(&scope).await;
+        assert!(scope_operation_lock(&scope).try_lock().is_err());
+
+        drop(first);
+        assert!(scope_operation_lock(&scope).try_lock().is_ok());
+    }
+
     #[test]
     fn account_id_is_sanitized_against_path_traversal() {
         assert_eq!(sanitize_id("acct-1234"), "acct-1234");
@@ -355,6 +400,32 @@ mod tests {
     fn devtools_port_missing_file_is_none() {
         let dir = std::env::temp_dir().join("bench-cdp-missing-dir");
         assert_eq!(read_devtools_port(&dir), None);
+    }
+
+    #[test]
+    fn profile_directory_cleanup_removes_only_the_requested_scope_and_is_idempotent() {
+        let root = temp_root("profile-cleanup");
+        let account = Scope::Account("acct-1".into());
+        let station = Scope::Station("station-1".into());
+        let account_profile = root.join(account.key()).join("profile/Default");
+        let station_profile = root.join(station.key()).join("profile/Default");
+        std::fs::create_dir_all(&account_profile).expect("create account profile");
+        std::fs::create_dir_all(&station_profile).expect("create station profile");
+        std::fs::write(account_profile.join("Cookies"), "fake-cookie-db")
+            .expect("create profile marker");
+
+        remove_profile_dir_at(&root, &account).expect("remove account profile");
+
+        assert!(!root.join(account.key()).exists());
+        assert!(
+            root.join(station.key()).is_dir(),
+            "other scope must remain intact"
+        );
+        assert!(
+            remove_profile_dir_at(&root, &account).is_ok(),
+            "cleanup is repeatable"
+        );
+        std::fs::remove_dir_all(&root).ok();
     }
 
     fn temp_root(tag: &str) -> PathBuf {

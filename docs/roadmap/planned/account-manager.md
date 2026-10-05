@@ -6,7 +6,7 @@
 
 ## 待实现（代码阻断）
 
-- [ ] 将同账号 single-flight、429/5xx 重试预算、Cookie scope、Deep Link 多 URL/去重和平台行为测试接入 macOS/Windows CI runner。
+- [x] 将同账号 single-flight、429/5xx 重试预算、Cookie scope、Deep Link 多 URL/去重和平台行为测试接入 macOS/Windows CI runner；`.github/workflows/ci-build.yml` 的 Rust 矩阵在 macOS/Windows 都运行 `pnpm run test:be`，本地 `nextest` 全量覆盖对应回归（probe scope/retry、single-flight、inbox FIFO/capacity/dedup）。
 
 ## 待验证（互通 I1/I2 浏览器会话互操作 · 2026-09-10 已实现，未真机验收）
 
@@ -36,9 +36,9 @@
   - [ ] Windows / Linux：入口不显示（`CHROME_IMPORT_PLATFORM_UNSUPPORTED`），且双平台 CI 编译通过（新依赖全部挂在 macOS target 下）。
 - [x] **I3/I5 日常浏览器双向互通**（代码已实现，待真机验收）：`bench-companion` 通过 Native Messaging + loopback bridge 读取/写入默认浏览器的 Cookie、Web Storage 与 IndexedDB；首次站点访问需在扩展弹窗授予 host 权限，注入前自动备份并支持回滚。扩展版本 **0.10.0**：采集与授权作用域按可注册域泛到同站全部子域（[D-039](../../explanation/decisions.md#d-039--扩展采集作用域--可注册域泛到同站全部子域删除站点特例硬编码)，不再硬编码 `api.trae.cn`），并按任务回执上报真实注入终态（[D-038](../../explanation/decisions.md#d-038--出向同步必须回报真实终态注入任务回执--cdp-等存储恢复落库)）；host-only Cookie 注入时仍按原 host 回写。
 
-## 待实现（2026-09-09 规划轮 F1–F4：登录指纹 · 入口收敛 · 日志增强 · 弹窗修复）
+## 已实现、待验收（2026-09-09 规划轮 F1–F4：登录指纹 · 入口收敛 · 日志增强 · 弹窗修复）
 
-> 状态：**已调研、未实现**。本节是本轮规划的唯一详细方案（调研结论 / 技术讨论 / 任务分解 / 验收标准），实施按「任务分配总表」顺序执行；完成后本节整体移除，设计边界同步 `design.md`、功能同步 `product-specs/account-manager.md`。
+> 状态：**代码任务已完成；真机与端到端验收未完成**。F1–F4 的实现任务均已勾选；下列未勾选验收项仍是发布前置证据，不能据此把 R01 标为完成。保留本节作为验收清单，确认所有验收证据后再归档，并同步设计边界到 `design.md`、功能到 `product-specs/account-manager.md`。
 > 背景（用户反馈 4 项）：① 快速登录与外部登录疑似重叠；② 登录态识别不可靠，需在详情栏底部新增「登录指纹采样」按钮；③ 账号日志信息量不足；④ 外部登录弹窗第二步选项卡两行文字溢出。
 
 ### F1. 快速登录 × 外部登录：重叠调研与入口收敛
@@ -51,7 +51,7 @@
 | --------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | 入口      | 站点栏底部 LogIn 图标（`StationColumn.tsx:157-177`）         | 站点栏底部「外部登录」按钮（`StationColumn.tsx:178-199`）+ `bench-auth://` deep link |
 | URL 范围  | http(s)                                                      | `bench-auth://` + 任意 http(s)                                                       |
-| 站点匹配  | `match_stations_by_url`（exact / 同可注册域）                | `match_target_to_stations`（精确 host → eTLD+1 → SSO）+ 合并全部站点                 |
+| 站点匹配  | `match_stations_by_url`（exact / 同可注册域近似）            | `match_target_to_stations`（精确 host → PSL 可注册域 → SSO）并返回其余站点为 manual  |
 | 账号范围  | 全部账号                                                     | 仅 `proxy_enabled` 账号（安全边界，见交互图 A1/A2 限制）                             |
 | 新建账号  | persistent / ephemeral、destroyOnClose、历史 datalist        | persistent（`proxy_login_new_account`）                                              |
 | 票据/回调 | 无                                                           | 5 分钟一次性 ticket、return URL 捕获 + state 校验 + 转交外部 App                     |
@@ -67,7 +67,7 @@
 
 - [x] F1-T1 前端：`AuthProxyDialog` Step 1/2 消费 `isAuthorize`，普通 URL 显示引导 +「快速登录打开」按钮（预填 URL、关闭自身、打开 QuickLoginDialog 新增 `initialUrl`）
 - [x] F1-T2 前端：两入口 tooltip/描述文案澄清（快速登录=在隔离环境快速打开链接；外部登录=代外部应用完成登录授权）；i18n zh/en
-- [x] F1-T3 Rust：调研统一站点匹配。结论：**不合并，保留双实现**——`match_stations_by_url`（快速登录，`commands/station.rs`）做精确 host + 自实现 registrable-domain 轻量分组；`match_target_to_stations`（外部登录，`proxy/matching.rs`）做精确 host → eTLD+1 → SSO provider，且仅匹配 `proxy_enabled` 账号并合并全量站点（`manual` 档）。合并会引入两处语义耦合：①外部登录的匹配与授权语境强绑定（仅代理账号、SSO 扩展），②eTLD+1 与自实现域比较算法差异。保留现状，仅在将来如需统一域名规则时收口到单一 helper
+- [x] F1-T3 Rust：调研统一站点匹配。结论：**不合并，保留双实现**——`match_stations_by_url`（快速登录，`commands/station.rs`）沿用轻量域名分组；`match_target_to_stations`（外部登录，`proxy/matching.rs`）用 Mozilla PSL 识别同可注册域，支持父/子/兄弟子域并隔离 `co.uk`、`github.io` 等后缀，再匹配 SSO provider；所有其余站点作为 `manual` 候选返回。候选 DTO 和一次性 ticket 共用同一快照，ticket 按账号 ID + 签发时站点 ID 收窄，启动前复核账号仍启用代理且未移站。保留不同的授权语义（外部代理只允许代理账号），不统一为单一匹配算法。
 - [x] F1-T4 Rust：`run_proxy_login` 补 `enforce_exclusivity_before_login`（与 `open_login_window` 命令互斥行为对齐）
 
 **验收**
@@ -140,7 +140,7 @@
 
 - [ ] 采样 → 确认 → 账号立即显示已登录 + 日志记录；同站其它账号自动刷新，指纹缺失者直接判未登录（无 HTTP/WebView 开销）
 - [ ] 指纹与 authProfile 一次采样同时生成，「尚未检测认证配置」区域随之消失
-- [x] detail/日志/DTO 无 cookie 值、storage 值明文（键名列表不出后端）——实现为 `fingerprints` map 隔离 + DTO 只出计数
+- [x] Cookie 值与 storage 值不进入 DTO、日志或指纹明细；普通 `RelayStation` DTO 只出摘要。用户主动打开二级明细时，`get_login_fingerprint_detail` 会返回 cookie/storage 特征名及域、path、长度等元数据，**不会返回凭据值**。
 
 ### F3. 账号日志增强
 
@@ -195,22 +195,25 @@
 
 > 提交策略：按任务独立 commit（Conventional Commits）；涉及 Rust 平台分支的改动（F2-T2 隐藏窗口构建）提交前必跑 `pnpm run check:be-cfg`；全部完成后执行 /fix 验证链，同步 product-specs/design.md，并移除本节。
 
-## 待实现（F5：浏览器会话注入——一键在浏览器中打开账号会话）
+## F5：浏览器会话注入——代码已实现，决策与真机验收未完成
 
-> 状态：**已调研、未实现、待用户确认**。唯一详细方案见 [`explanation/browser-session-injection-research.md`](../../explanation/browser-session-injection-research.md)（方案对比 / CDP 设计 / 安全边界 / 分期任务表 / 验收标准 / D-A~D-D 决策点）。
-> 结论摘要：推荐 **CDP + Bench 托管 profile**（账号专属 `user-data-dir` 独立实例 + `Network.setCookie` 注入，会话全程 Rust 内存 → loopback CDP，不进前端）；扩展注入日常浏览器为 M3 进阶选项（cookie 互踩需冲突警告）；直写浏览器 Cookies DB 与明文 cookies.txt 导出排除（红线冲突）；Safari/Firefox v1 明确不支持。
+> 状态：CDP、托管 profile、IPC 和前端入口已实现。详情见 [`explanation/browser-session-injection-research.md`](../../explanation/browser-session-injection-research.md)。M1 的反向互斥策略仍待 D-C 决策；macOS/Windows 真机验收未完成，capability 保持 `partial`。
+> 结论摘要：**CDP + Bench 托管 profile** 是隔离实例端点（账号专属 `user-data-dir`，会话全程 Rust 内存 → loopback CDP）；**日常浏览器**是独立端点，扩展 + Native Messaging 路线已按 [D-029](../../explanation/decisions.md#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) 提前纳入 I3/I5，不是待立项的 M3；直写浏览器 Cookies DB 与明文 cookies.txt 导出排除；Safari/Firefox v1 明确不支持。
 
 ### 任务（M1 最小可用，详见调研文档 §6）
 
-- [ ] M1-T1 Rust：CDP 客户端模块（WS + setCookie/navigate/Browser.close + DevToolsActivePort + 探活）
-- [ ] M1-T2 Rust：`browser_session_open/status/close` 命令 + 互斥检查 + profile 目录生命周期 + cfg 双平台浏览器定位
-- [ ] M1-T3 双端：IPC 契约双写 + capabilities 新增 `browserSessionOpen`（真机验证前 partial）
-- [ ] M1-T4 前端：useBrowserSession hook（防重入）+ DetailColumn 按钮 + 首次浏览器选择弹窗 + i18n zh/en
-- [ ] M1-T5 测试：CDP 消息序列/互斥/目录生命周期/DTO 无凭据断言 + `pnpm run check:be-cfg`
+- [x] M1-T1 Rust：CDP WebSocket 客户端、cookie 注入、导航、关闭、loopback 校验及 DevTools 探活；本地 mock WebSocket 已验证完整消息序列。
+- [ ] M1-T2 Rust：打开/状态/关闭命令、profile 生命周期、跨平台浏览器发现已实现；同一 scope 的打开/重置/关闭已加入串行锁，避免并发 CDP 操作和 profile 生命周期竞态。打开托管浏览器时会拒绝已打开的 Bench 登录窗口，反方向行为待 D-C 决定。
+- [x] M1-T3 双端：IPC 契约与 capabilities 已接线；真机验收前 `browserSessionOpen` 保持 `partial`。
+- [x] M1-T4 前端：互通 hook、详情入口、浏览器选择、加载/结果反馈与 zh/en 文案已实现。
+- [ ] M1-T5 测试：mock CDP 消息序列、profile 目录隔离/幂等清理、DTO 安全字段断言及 scope 操作串行回归均已通过；D-C 互斥行为测试待决策后补齐。
 
 ### 待拍板
 
-- [ ] D-A 是否立项 M3（扩展注入日常浏览器）；D-B TTL 是否联动删 profile；D-C 互斥方向；D-D 浏览器选择模式
+- [x] D-A 日常浏览器扩展路线已由 D-029 决议提前纳入 I3/I5；与本节 CDP 隔离实例并行维护为不同端点。
+- [ ] D-B 会话 TTL 到期时是否同步关闭并删除对应托管 profile（会清除其中的站点存储数据）。
+- [ ] D-C 托管浏览器运行时，是否阻止再打开同账号的 Bench 登录窗口；当前只有“登录窗口运行时拒绝打开托管浏览器”的单向保护。
+- [ ] D-D 浏览器选择是否每次让用户选择，还是记住用户偏好。
 
 ## 待验证（真机，全新 macOS 测试用户 + Windows Sandbox/VM，禁用生产账号）
 
@@ -270,6 +273,20 @@
 ## 变更记录
 
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
+
+- 2026-10-05：macOS 隔离 Bundle ID `com.bench.app.r01live` 真机复验（当前 macOS 用户下独立 Application Support 数据，无生产账号/密码/Session；HTTP Only 指向 `.invalid` fixture，凭据保持锁定）。首次启动确认未触碰 Keychain；新账号无 Session 时手动刷新不再因 `restore_session` 提前取主密钥而卡住；站点请求失败后按钮恢复，界面显示连接问题提示。复验发现原 HTTP probe 把网络错误误报为本地存储故障，新增稳定 `PROBE_FAILED` IPC 错误码与中英文提示后重新确认。Rust `account_manager` 233 项通过、1 项忽略，Clippy、lint、critical、格式与 cfg 检查通过。此为单个 macOS 场景的真机 smoke，不代表 R04 全矩阵完成；Windows 验收按用户安排延期，Deep Link / Keychain 拒绝 / 多账号隔离等矩阵仍待验证。
+- 2026-10-04：复核 R01 跨平台测试接线：Rust CI 矩阵同时包含 macOS 与 Windows，均执行 cfg hygiene、Clippy 和 `test:be`（cargo-nextest）；实际回归覆盖同账号并发结果共享、503 重试预算及请求头保持、Cookie 域/路径/Secure/Partitioned scope、Deep Link FIFO/容量/去重。对应待实现项由代码阻断转为已接入；此记录证明流水线接线和本地测试覆盖，未声称本地未推送改动已有远程 CI 结果。
+- 2026-10-04：对齐 F5 文档与现有浏览器互通实现：CDP mock 消息序列、profile scope 隔离与幂等清理、`BrowserOpenOutcome` 安全字段形状测试加入 Rust 单测；`account_manager` 228 项通过、1 项忽略，Clippy 与 `check:be-cfg` 通过。M1-T2/T5 仍等待 D-C 互斥决策；真机验证仍未完成，未推送。
+- 2026-10-04：并发审查发现同一 profile scope 的重复打开/关闭可能跨异步等待交错；加入按 scope 复用的异步锁，串行化 open/reset/close，并新增锁互斥/释放回归。验证通过：全 Rust 681 项（2 项忽略）、`account_manager` 228 项、Network Probe 58 项（1 项 multicast fixture 忽略）、前端 critical 305 项、Clippy `-D warnings`、`lint:fe`、Rust fmt、`check:be-cfg`、文档一致性/88 篇链接检查和 Prettier。macOS/Windows 真机验收与 D-C 决策仍待完成，未推送。
+- 2026-10-04：R01 修正 Auth Proxy 候选/ticket 快照不一致：手选站点一直是产品列出的 manual 候选，旧 ticket 却只允许自动匹配账号；现由后端同一 canonical snapshot 返回自动与 manual 候选，ticket 绑定账号 ID + 签发时站点 ID，启动前验证代理开关与站点归属，隐藏孤立账号仍拒绝。站点匹配改用 Mozilla PSL crate，覆盖父/子/兄弟可注册域，并隔离多级 public/private suffix。新账号可在没有已有 Station 时创建并使用默认名称；向导预选唯一自动候选，否则仅一个候选时预选。另修复新账号模式下无法切回已有账号的交互卡点、无站点时误导用户先手动建站的文案，并向辅助技术暴露选择状态。新增普通 URL 分流、Deep Link 不回传原始 URL、快速登录预填与重新匹配回归。验证通过：Rust 679 项（677 通过、2 忽略）、Clippy、`check:be-cfg`（386 文件）、`lint:fe`、critical 305 项、格式检查及 88 篇 Markdown 链接检查。macOS 隔离用户桌面与 Deep Link 复验仍未完成，因此不推送。
+- 2026-10-04：Auth Proxy ticket 与 OAuth callback state 边界复审：ticket 仅允许候选中展示的代理账号，并绑定原 Station，防止直接 IPC 越权和账号移站后沿用旧 ticket；预期 OAuth state 必须是回调中唯一且完全匹配的参数，缺失或重复均拒绝。此前“ticket 只允许匹配候选”忽略了 UI 另行补入的 manual 候选，已由上述同快照修复更正。新增签发范围、站点变更与重复 state 回归；Auth Proxy command 定向 19 项、state 定向 1 项通过，全量 Rust 675 项通过/2 项忽略。`lint:fe`、critical 298 项、Clippy、Rust fmt、cfg 与文档链接检查通过。Station.website 路径/查询归一与 Auth Proxy 第二次 wakeup 修复见前一条记录。Playwright 使用 mock Tauri/Chromium，不计作原生真机验收；隔离 macOS 用户下的 Deep Link 与窗口验收待完成。
+- 2026-10-03：复核 F1–F4 状态后，将标题从“待实现”改为“已实现、待验收”，明确代码任务已勾选但真机/端到端验收仍未通过；同步产品说明中的登录指纹入口、确认/明细弹窗与 DTO 摘要字段，并修正“键名不出后端”的过期描述。指纹特征是否需静态加密仍待安全边界决策。
+- 2026-09-30：R01 代码审计补齐区域错误作用对象与敏感信息边界（store 只留错误码）、后台重载旧数据保留与刷新态、无重试动作时隐藏按钮、CRUD 重载按钮明确标为「刷新」、弹窗写入失败 toast 和 retry 防重入；Auth Proxy deep-link inbox 按 owner 从 proxy 命令拆出，深链目标/回调 URL 与 OAuth state 保留在 Rust ticket，renderer 只接收脱敏元数据；手动粘贴 URL 仅留在弹窗临时输入态，关闭后清除。回调应用由 Rust 按 ticket 打开，登录 IPC 不回传 state 或占位凭据；原 IPC 名称保持不变。lint、critical、Rust account-manager tests、clippy、cfg guard、前端构建通过；macOS 真机截图待隔离测试用户后补。
+
+- 2026-10-03：修复 Auth Proxy inbox drain 与 `authProxyPending` 通知并发时的 lost wake-up：drain 过程中记录通知，空结果后继续消费；并发通知伴随 IPC 失败时最多额外重试一次，避免无限重试。复审又发现路由卸载会丢失已 drain 的 ticket，现将协调器提升到 App 生命周期，新 ticket 自动导航到 Account Manager，路由视图卸载/重挂载保留 active ticket；浏览器环境不注册 Tauri listener。新增竞态、路由生命周期与 browser-mode 回归测试；lint:fe、生产构建、critical 259 项、前端全量 359 项、Rust 630 项（1 项 skipped）、clippy、cfg hygiene 与格式检查通过。macOS 隔离测试用户的界面与 Deep Link 验收待执行。
+- 2026-10-03：继续 R01 并修复三处并发/失败恢复问题：Account Manager 跨路由共享 load 序号，阻止旧 IPC 响应覆盖新页面数据；Auth Proxy 在同一串行 mutation 中幂等创建 Station 并写入新账号；ticket 校验失败不消费票据，登录启动失败时按 owner 回滚新建元数据、关闭新 WebView，并恢复仍有效的 ticket。新增路由乱序加载、同 host 幂等、回滚归属、ticket 恢复及窗口失败回归。验证通过：lint:fe（含 i18n/doc 链接）、critical 263、前端全量 363、前端构建、Rust 635 项（1 项 ignored）、clippy、cfg hygiene、fmt 与 diff whitespace 检查。隔离 macOS 账号真机 UI/Deep Link 验收仍待执行；Windows traceroute 状态差异按用户要求记录，留待后续 Windows 回归。
+- 2026-10-03：a11y 复审发现账号卡片的 `role="button"` 包含多个子按钮，导致屏幕阅读器无法分别识别卡片动作。卡片改为有名称的 article，以账号名 toggle button 提供键盘选择与焦点样式，复制/登录等操作仍是独立按钮；新增屏幕阅读器角色可见性回归。定向语言/卡片测试 4 项、critical 264 项和 lint:fe 通过。macOS 隔离账户真机验收待执行。
+- 2026-10-03：Auth Proxy callback 完成路径增加每个登录窗口的一次性原子闸门，避免 callback 被站点重试时并发触发多次 loopback 请求或重复打开外部 App；新增并发领取回归。Rust 全量 667 项（1 项跳过）、Clippy、Rust fmt、cfg hygiene、lint:fe、critical 295 项、88 篇 Markdown 链接检查通过；隔离 macOS 应用内回调复验待完成。
 
 - 2026-09-10：新增规划 **F5 浏览器会话注入**（一键在浏览器中打开账号会话，仅调研未实现）：调研 `explanation/browser-session-injection-research.md`。四方案对比（CDP+托管 profile / 扩展注入日常浏览器 / 直写 Cookies DB / cookies.txt 导出），推荐 CDP + Bench 托管 profile 先行（隔离语义与「每账号独立 data directory」原则一致——见交互图 C2 技术实现、凭据链路不出 Rust 内存、零扩展依赖），扩展注入为 M3 进阶，后两者因红线冲突排除；M1 任务分解与 D-A~D-D 决策点待确认后实施。
 - 2026-09-10：落地**登录判定规则包（rulepack）**（调研：`explanation/login-detection-rulepack-research.md`，规格：`reference/login-rulepack-spec.md`）——①`login_rules.rs` 新模块：声明式 JSON 规则（loginCheck 服务端权威探针 + text/selector fallback 弱证据），fail-closed 校验（deny_unknown_fields / id=可注册域 / kind 白名单），bundled 内置集（`ruledata/`：trae.cn `CheckLogin Result.IsLogin` 实测 + github.com `api/user` 401/200 实测）+ 远程拉取（command-market 登录规则板块 `rules.json`，零配置官方源 + `BENCH_LOGIN_RULES_URL/DIR` env，缓存 `$APPDATA/login-rules/`，启动后台拉取 + 24h TTL 惰性刷新，失败静默沿用）；②判定融合：优先级 = 用户手配 Custom > 规则包 > 旧预设，证据分层不变，loginCheck 为强判据短路（`loginCheck` reason）；③**修复 L0b 弱肯定越权**（trae.cn 误判根因）：probe/keeper 两路「指纹 present → Ready」改为继续走文本分类链，仅保留「全缺失 → 未登录」否定短路；④仓库侧：kindred-plugin-market/command-market 新增 `rules.json` + `rules/` + `build-rules.mjs` + CI 重算（与命令市场独立 schema，老客户端零影响）。安全铁律：loginCheck 同可注册域 + GET/POST 白名单 + 不跟随重定向（携带账号 cookie 的请求，同域约束下投毒无法外泄）。测试 +9（校验/匹配/fallback 判定/JSON 路径）；门禁全绿（clippy/test 492/check:be-cfg 368）。**注意：trae CheckLogin 实测仅接受 POST（GET 404），`login-state-detection-research.md` 的 GET 记录已修正**。UI 规则来源标注待后续轮（未新增 IPC，contracts 无改动）。

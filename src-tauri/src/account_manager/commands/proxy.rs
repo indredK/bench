@@ -9,15 +9,14 @@ use super::shared::{
     trim_or_invalid,
 };
 use crate::account_manager::crypto;
-use crate::account_manager::state::{AccountManagerState, AuthProxyInboxStatus, AuthProxyTicket};
+use crate::account_manager::proxy::matching::normalized_station_hostname;
+use crate::account_manager::state::{AccountManagerSnapshot, AccountManagerState, AuthProxyTicket};
 use crate::account_manager::storage;
 use crate::account_manager::types::{
     AccountManagerError, AccountManagerResult, AccountSessionStatus, AccountType, AuthProfile,
     ExternalApp, ExternalAppBinding, LoginDetectionConfig, RelayStation, StationAccount,
 };
 use crate::account_manager::webview;
-
-const MAX_BROWSER_OPEN_URL_BYTES: usize = 32 * 1024;
 
 #[tauri::command]
 pub fn open_login_window<R: Runtime>(
@@ -439,15 +438,17 @@ async fn run_proxy_login<R: Runtime>(
     state: &AccountManagerState,
     account_id: String,
     ticket: AuthProxyTicket,
-) -> AccountManagerResult<crate::account_manager::proxy::protocol::AuthProxyResult> {
+    expected_station_id: Option<String>,
+) -> AccountManagerResult<()> {
     let AuthProxyTicket {
         target_url,
         return_url,
         request_state,
         host: target_host,
+        allowed_account_stations,
         ..
     } = ticket;
-    let (username, station_id, station, has_password, proxy_url) = {
+    let (username, station, has_password, proxy_url) = {
         let snapshot = state.read_snapshot_checked()?;
         let account = snapshot
             .accounts
@@ -459,6 +460,16 @@ async fn run_proxy_login<R: Runtime>(
                 "account {account_id} has proxy disabled"
             )));
         }
+        let ticket_station_id = allowed_account_stations
+            .iter()
+            .find(|(allowed_id, _)| allowed_id == &account.id)
+            .map(|(_, station_id)| station_id.as_str());
+        ensure_auth_proxy_account_matches_target(
+            &snapshot,
+            &account.id,
+            &target_url,
+            expected_station_id.as_deref().or(ticket_station_id),
+        )?;
         // 查找所属 station 并构建代理 URL(若 station 无代理配置则返回 None = 直连)。
         let station = snapshot
             .stations
@@ -471,7 +482,6 @@ async fn run_proxy_login<R: Runtime>(
         let proxy_url = build_proxy_url_for_station(app, &station)?;
         (
             account.username.clone(),
-            account.station_id.clone(),
             station.clone(),
             account.has_password,
             proxy_url,
@@ -558,13 +568,7 @@ async fn run_proxy_login<R: Runtime>(
         });
     }
 
-    Ok(crate::account_manager::proxy::protocol::AuthProxyResult {
-        token: String::new(),
-        token_type: "sessionProof".to_string(),
-        state: request_state,
-        station_id,
-        account_id,
-    })
+    Ok(())
 }
 
 /// 启动外部代理登录:打开该账号的独立分区登录窗口,登录完成后由 WebView
@@ -575,178 +579,14 @@ pub async fn proxy_login<R: Runtime>(
     state: State<'_, AccountManagerState>,
     account_id: String,
     ticket_id: String,
-) -> AccountManagerResult<crate::account_manager::proxy::protocol::AuthProxyResult> {
+) -> AccountManagerResult<()> {
     let ticket = state.consume_auth_proxy_ticket(&ticket_id, Some(&account_id), false)?;
-    run_proxy_login(&app, &state, account_id, ticket).await
-}
-
-/// `handle_browser_open` 的统一返回结构。
-#[derive(Debug, Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BrowserOpenResult {
-    pub ticket_id: String,
-    pub expires_at_ts: i64,
-    pub target: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub return_url: Option<String>,
-    pub host: String,
-    pub is_authorize: bool,
-    pub matches: Vec<crate::account_manager::proxy::matching::AuthProxyMatch>,
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthProxyDrainResult {
-    pub request: Option<BrowserOpenResult>,
-    pub pending_count: usize,
-    pub dropped_count: u32,
-    pub rejected_count: u32,
-}
-
-/// 接收一次"用 bench 打开"的 URL（`bench-auth://authorize?...` 或直接是
-/// `https://.../authorize?...` 这类 OAuth 登录链接），返回统一的处理结果:
-/// - `target`: 真正要登录的目标 URL
-/// - `return_url`: 识别出的回调地址(loopback 或自定义 scheme),可能为空
-/// - `host`: target 的 host(用于自动建站/分组)
-/// - `is_authorize`: 是否像登录/authorize 链接
-/// - `matches`: 按 host 匹配到的、已开启代理的账号
-fn prepare_browser_open(
-    state: &AccountManagerState,
-    url: &str,
-) -> AccountManagerResult<BrowserOpenResult> {
-    use crate::account_manager::proxy::protocol;
-
-    if url.len() > MAX_BROWSER_OPEN_URL_BYTES {
-        return Err(AccountManagerError::invalid_input(
-            "browser open URL exceeds size limit",
-        ));
-    }
-
-    let (target, return_url, request_state) = if url.starts_with("bench-auth://") {
-        let req =
-            protocol::parse_auth_proxy_url(url).map_err(AccountManagerError::invalid_input)?;
-        (req.target, Some(req.return_url), req.state)
-    } else {
-        let ret = protocol::extract_loopback_callback(url);
-        (url.to_string(), ret, None)
-    };
-
-    let target = protocol::validate_target_url(&target)
-        .map_err(AccountManagerError::invalid_input)?
-        .to_string();
-    let request_state = url::Url::parse(&target)
-        .ok()
-        .and_then(|parsed| {
-            parsed
-                .query_pairs()
-                .find(|(key, _)| key == "state")
-                .map(|(_, value)| value.into_owned())
-        })
-        .or(request_state);
-    let snapshot = state.read_snapshot_checked()?;
-    if let Some(ref ret) = return_url {
-        protocol::validate_return_url(ret, &snapshot.external_apps)
-            .map_err(AccountManagerError::invalid_input)?;
-    }
-
-    let host = url::Url::parse(&target)
-        .ok()
-        .and_then(|u| u.host_str().map(|h| h.to_lowercase()))
-        .unwrap_or_default();
-    let is_authorize = protocol::is_oauth_authorize_like(&target);
-
-    let matches = crate::account_manager::proxy::matching::match_target_to_stations(
-        &target,
-        &snapshot.stations,
-        &snapshot.accounts,
-    );
-    let allowed_account_ids = snapshot
-        .accounts
-        .iter()
-        .filter(|account| account.proxy_enabled)
-        .map(|account| account.id.clone())
-        .collect::<Vec<_>>();
-    let ticket = state.issue_auth_proxy_ticket(
-        target.clone(),
-        return_url.clone(),
-        request_state,
-        host.clone(),
-        allowed_account_ids,
-    );
-
-    protocol::audit_log(
-        "handle_browser_open",
-        &[
-            ("host", &host),
-            ("is_authorize", if is_authorize { "true" } else { "false" }),
-            ("matches", &matches.len().to_string()),
-        ],
-    );
-
-    Ok(BrowserOpenResult {
-        ticket_id: ticket.id,
-        expires_at_ts: ticket.expires_at_ts,
-        target,
-        return_url,
-        host,
-        is_authorize,
-        matches,
-    })
-}
-
-#[tauri::command]
-pub fn handle_browser_open(
-    state: State<'_, AccountManagerState>,
-    url: String,
-) -> AccountManagerResult<BrowserOpenResult> {
-    prepare_browser_open(&state, &url)
-}
-
-#[tauri::command]
-pub fn get_auth_proxy_inbox_status(
-    state: State<'_, AccountManagerState>,
-) -> AccountManagerResult<AuthProxyInboxStatus> {
-    state.ensure_ready()?;
-    Ok(state.auth_proxy_inbox_status())
-}
-
-#[tauri::command]
-pub fn drain_auth_proxy_request(
-    state: State<'_, AccountManagerState>,
-) -> AccountManagerResult<AuthProxyDrainResult> {
-    state.ensure_ready()?;
-    Ok(drain_auth_proxy_request_impl(&state))
-}
-
-pub(crate) fn drain_auth_proxy_request_impl(state: &AccountManagerState) -> AuthProxyDrainResult {
-    let mut dropped_count = 0u32;
-    let mut rejected_count = 0u32;
-
-    loop {
-        let (url, status) = state.take_auth_proxy_url();
-        dropped_count = dropped_count.saturating_add(status.dropped_count);
-        let Some(url) = url else {
-            return AuthProxyDrainResult {
-                request: None,
-                pending_count: status.pending_count,
-                dropped_count,
-                rejected_count,
-            };
-        };
-
-        match prepare_browser_open(state, &url) {
-            Ok(request) => {
-                return AuthProxyDrainResult {
-                    request: Some(request),
-                    pending_count: status.pending_count,
-                    dropped_count,
-                    rejected_count,
-                };
-            }
-            Err(_) => {
-                rejected_count = rejected_count.saturating_add(1);
-                eprintln!("[account_manager] discarded malformed auth proxy deep link");
-            }
+    let retry_ticket = ticket.clone();
+    match run_proxy_login(&app, &state, account_id, ticket, None).await {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            restore_proxy_ticket_after_failure(&state, retry_ticket);
+            Err(error)
         }
     }
 }
@@ -762,15 +602,68 @@ pub async fn proxy_login_new_account<R: Runtime>(
     username: Option<String>,
 ) -> AccountManagerResult<StationAccount> {
     let ticket = state.consume_auth_proxy_ticket(&ticket_id, None, true)?;
-    let host = trim_or_invalid(&ticket.host, "host")?;
+    let retry_ticket = ticket.clone();
+    let host = match trim_or_invalid(&ticket.host, "host") {
+        Ok(host) => host.to_lowercase(),
+        Err(error) => {
+            restore_proxy_ticket_after_failure(&state, retry_ticket);
+            return Err(error);
+        }
+    };
 
-    // 1. 确保 Station 存在(按 host 匹配,否则新建)。
-    let station = ensure_station_for_host(&app, &state, &host)?;
-
-    // 2. 创建新账号(Persistent + 开启代理)。默认名使用语言无关 canonical 值,
-    //    展示层按 locale 决定是否本地化（§4 语言无关 canonical value）。
+    // Station 的查找/创建与新账号插入在同一持久化 mutation 内，避免
+    // 并发深链重复建站，也避免账号写入失败后留下刚创建的空站点。
     let display_name = normalize_optional(username).unwrap_or_else(|| format!("{host} account"));
-    let account = StationAccount {
+    let (account, station, station_created) =
+        match storage::with_state_mut(&app, &state, |snapshot| {
+            let (station, station_created) = ensure_station_for_host(snapshot, &host);
+            let account = build_proxy_account(&station.id, display_name);
+            snapshot.accounts.push(account.clone());
+            Ok((account, station, station_created))
+        }) {
+            Ok(created) => created,
+            Err(error) => {
+                restore_proxy_ticket_after_failure(&state, retry_ticket);
+                return Err(error);
+            }
+        };
+
+    // 启动代理登录失败时回滚新建 account；仅当新建的空 Station 仍未被改动且无人使用时一起清理。
+    match run_proxy_login(
+        &app,
+        &state,
+        account.id.clone(),
+        ticket,
+        Some(station.id.clone()),
+    )
+    .await
+    {
+        Ok(()) => Ok(account),
+        Err(login_error) => {
+            if webview::remove_account_data_dir(&app, &account.id).is_err() {
+                eprintln!("[account_manager] auth proxy new-account WebView cleanup failed");
+                return Err(AccountManagerError::store_fail(
+                    "proxy login failed and its login window could not be cleaned up",
+                ));
+            }
+            let cleanup = storage::with_state_mut(&app, &state, |snapshot| {
+                rollback_new_proxy_account(snapshot, &account.id, &station, station_created)
+            });
+            if cleanup.is_ok() {
+                restore_proxy_ticket_after_failure(&state, retry_ticket);
+                Err(login_error)
+            } else {
+                eprintln!("[account_manager] auth proxy new-account cleanup failed");
+                Err(AccountManagerError::store_fail(
+                    "proxy login failed and new account cleanup could not be completed",
+                ))
+            }
+        }
+    }
+}
+
+fn build_proxy_account(station_id: &str, username: String) -> StationAccount {
+    StationAccount {
         account_type: AccountType::Persistent,
         website: None,
         session: None,
@@ -782,8 +675,8 @@ pub async fn proxy_login_new_account<R: Runtime>(
         first_login_at: None,
         status_reason: None,
         id: new_id("acct"),
-        station_id: station.id.clone(),
-        username: display_name,
+        station_id: station_id.to_string(),
+        username,
         notes: String::new(),
         phone: None,
         tg_account: None,
@@ -795,42 +688,86 @@ pub async fn proxy_login_new_account<R: Runtime>(
         last_refreshed_at: None,
         created_at: now_label(),
         has_password: false,
-    };
-    let account = storage::with_state_mut(&app, &state, |snapshot| {
-        snapshot.accounts.push(account.clone());
-        Ok(account.clone())
-    })?;
-
-    // 3. 启动代理登录(新账号无密码,直接进入手动登录)。
-    run_proxy_login(&app, &state, account.id.clone(), ticket).await?;
-
-    Ok(account)
+    }
 }
 
-/// 找到 website host 等于 `host` 的 Station;不存在则自动新建(remark=host)。
-fn ensure_station_for_host<R: Runtime>(
-    app: &AppHandle<R>,
-    state: &AccountManagerState,
+fn ensure_auth_proxy_account_matches_target(
+    snapshot: &AccountManagerSnapshot,
+    account_id: &str,
+    target_url: &str,
+    expected_station_id: Option<&str>,
+) -> AccountManagerResult<()> {
+    let current_station_id = snapshot
+        .accounts
+        .iter()
+        .find(|account| account.id == account_id && account.proxy_enabled)
+        .map(|account| account.station_id.as_str());
+    let matches = crate::account_manager::proxy::matching::match_target_to_stations(
+        target_url,
+        &snapshot.stations,
+        &snapshot.accounts,
+    );
+    if matches.iter().any(|matched_station| {
+        Some(matched_station.station_id.as_str()) == current_station_id
+            && Some(matched_station.station_id.as_str()) == expected_station_id
+            && matched_station
+                .accounts
+                .iter()
+                .any(|account| account.id == account_id)
+    }) {
+        return Ok(());
+    }
+    Err(AccountManagerError::invalid_input(
+        "account is no longer eligible for this auth proxy target",
+    ))
+}
+
+fn rollback_new_proxy_account(
+    snapshot: &mut AccountManagerSnapshot,
+    account_id: &str,
+    station: &RelayStation,
+    station_created: bool,
+) -> AccountManagerResult<()> {
+    if snapshot.accounts.iter().any(|item| item.id == account_id) {
+        super::shared::remove_account_metadata(snapshot, account_id)?;
+    }
+    if station_created
+        && !snapshot
+            .accounts
+            .iter()
+            .any(|item| item.station_id == station.id)
+    {
+        let station_unchanged = snapshot
+            .stations
+            .iter()
+            .find(|stored| stored.id == station.id)
+            .and_then(|stored| {
+                Some(serde_json::to_value(stored).ok()? == serde_json::to_value(station).ok()?)
+            })
+            .unwrap_or(false);
+        if station_unchanged {
+            snapshot.stations.retain(|stored| stored.id != station.id);
+        }
+    }
+    Ok(())
+}
+
+/// 在已锁定的 canonical snapshot 中查找或新建 Station。
+/// 调用方必须在 `storage::with_state_mut` 闭包内使用，保证 check-and-insert 原子化。
+fn ensure_station_for_host(
+    snapshot: &mut AccountManagerSnapshot,
     host: &str,
-) -> AccountManagerResult<RelayStation> {
+) -> (RelayStation, bool) {
     let host_norm = host.trim().to_lowercase();
 
-    let existing = state
-        .read_snapshot_checked()?
-        .stations
-        .into_iter()
-        .find(|s| {
-            let sh = s
-                .website
-                .trim()
-                .trim_start_matches("https://")
-                .trim_start_matches("http://")
-                .trim_end_matches('/')
-                .to_lowercase();
-            sh == host_norm || host_norm.ends_with(&format!(".{sh}"))
-        });
+    let existing = snapshot.stations.iter().find(|station| {
+        let Some(station_host) = normalized_station_hostname(&station.website) else {
+            return false;
+        };
+        station_host == host_norm || host_norm.ends_with(&format!(".{station_host}"))
+    });
     if let Some(station) = existing {
-        return Ok(station);
+        return (station.clone(), false);
     }
 
     let station = RelayStation {
@@ -846,37 +783,126 @@ fn ensure_station_for_host<R: Runtime>(
         network_proxy: None,
         login_fingerprint: None,
     };
-    storage::with_state_mut(app, state, |snapshot| {
-        snapshot.stations.push(station.clone());
-        Ok(station.clone())
-    })
+    snapshot.stations.push(station.clone());
+    (station, true)
+}
+
+fn restore_proxy_ticket_after_failure(state: &AccountManagerState, ticket: AuthProxyTicket) {
+    if !state.restore_auth_proxy_ticket(ticket) {
+        eprintln!("[account_manager] auth proxy ticket expired or could not be restored");
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::account_manager::state::AccountManagerState;
 
     #[test]
-    fn auth_proxy_drain_skips_malformed_entries_and_returns_the_next_valid_request() {
-        let state = AccountManagerState::new();
-        state
-            .enqueue_auth_proxy_url("bench-auth://authorize".into())
-            .expect("enqueue malformed request");
-        state
-            .enqueue_auth_proxy_url(
-                "bench-auth://authorize?target=https%3A%2F%2Fexample.com%2Foauth%2Fauthorize&return=demo%3A%2Fcallback"
-                    .into(),
-            )
-            .expect("enqueue valid request");
+    fn auth_proxy_station_creation_is_idempotent_within_canonical_snapshot() {
+        let mut snapshot = AccountManagerSnapshot::default();
 
-        let result = drain_auth_proxy_request_impl(&state);
+        let (created, was_created) = ensure_station_for_host(&mut snapshot, "Example.com");
+        let (existing, was_created_again) = ensure_station_for_host(&mut snapshot, "example.com");
 
-        assert_eq!(result.rejected_count, 1);
-        assert_eq!(result.pending_count, 0);
-        let request = result.request.expect("valid request");
-        assert_eq!(request.host, "example.com");
-        assert_eq!(request.return_url.as_deref(), Some("demo:/callback"));
-        assert!(!request.ticket_id.is_empty());
+        assert!(was_created);
+        assert!(!was_created_again);
+        assert_eq!(created.id, existing.id);
+        assert_eq!(snapshot.stations.len(), 1);
+    }
+
+    #[test]
+    fn auth_proxy_reuses_a_station_with_a_login_path_and_query() {
+        let mut snapshot = AccountManagerSnapshot::default();
+        snapshot.stations.push(RelayStation {
+            id: "stn-existing".into(),
+            remark: "Example".into(),
+            website: "https://example.com/login/path?tenant=work".into(),
+            created_at: String::new(),
+            login_detection: LoginDetectionConfig::default(),
+            exclusivity_mode: Default::default(),
+            auth_profile: None,
+            probe_failure_count: 0,
+            session_ttl_hours: crate::account_manager::types::default_session_ttl_hours(),
+            network_proxy: None,
+            login_fingerprint: None,
+        });
+
+        let (station, created) = ensure_station_for_host(&mut snapshot, "example.com");
+
+        assert!(!created);
+        assert_eq!(station.id, "stn-existing");
+        assert_eq!(snapshot.stations.len(), 1);
+    }
+
+    #[test]
+    fn auth_proxy_rechecks_account_station_match_before_launch() {
+        let mut snapshot = AccountManagerSnapshot::default();
+        let (matched_station, _) = ensure_station_for_host(&mut snapshot, "example.com");
+        let (unmatched_station, _) = ensure_station_for_host(&mut snapshot, "other.example");
+        let account = build_proxy_account(&matched_station.id, "example account".into());
+        snapshot.accounts.push(account.clone());
+
+        assert!(ensure_auth_proxy_account_matches_target(
+            &snapshot,
+            &account.id,
+            "https://example.com/oauth/authorize",
+            Some(&matched_station.id),
+        )
+        .is_ok());
+
+        snapshot.accounts[0].station_id = unmatched_station.id;
+        assert!(ensure_auth_proxy_account_matches_target(
+            &snapshot,
+            &account.id,
+            "https://example.com/oauth/authorize",
+            Some(&matched_station.id),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn failed_new_account_login_removes_its_account_and_unused_created_station() {
+        let mut snapshot = AccountManagerSnapshot::default();
+        let (station, station_created) = ensure_station_for_host(&mut snapshot, "example.com");
+        let account = build_proxy_account(&station.id, "example.com account".into());
+        snapshot.accounts.push(account.clone());
+
+        rollback_new_proxy_account(&mut snapshot, &account.id, &station, station_created)
+            .expect("rollback should succeed");
+
+        assert!(snapshot.accounts.is_empty());
+        assert!(snapshot.stations.is_empty());
+    }
+
+    #[test]
+    fn failed_new_account_login_keeps_station_used_by_another_account() {
+        let mut snapshot = AccountManagerSnapshot::default();
+        let (station, station_created) = ensure_station_for_host(&mut snapshot, "example.com");
+        let failed_account = build_proxy_account(&station.id, "first".into());
+        let surviving_account = build_proxy_account(&station.id, "second".into());
+        snapshot.accounts.push(failed_account.clone());
+        snapshot.accounts.push(surviving_account);
+
+        rollback_new_proxy_account(&mut snapshot, &failed_account.id, &station, station_created)
+            .expect("rollback should preserve the other account");
+
+        assert_eq!(snapshot.accounts.len(), 1);
+        assert_eq!(snapshot.stations.len(), 1);
+    }
+
+    #[test]
+    fn failed_new_account_login_keeps_a_station_changed_during_launch() {
+        let mut snapshot = AccountManagerSnapshot::default();
+        let (station, station_created) = ensure_station_for_host(&mut snapshot, "example.com");
+        let account = build_proxy_account(&station.id, "first".into());
+        snapshot.accounts.push(account.clone());
+        snapshot.stations[0].remark = "User edited station".into();
+
+        rollback_new_proxy_account(&mut snapshot, &account.id, &station, station_created)
+            .expect("rollback should preserve user edits");
+
+        assert!(snapshot.accounts.is_empty());
+        assert_eq!(snapshot.stations.len(), 1);
+        assert_eq!(snapshot.stations[0].remark, "User edited station");
     }
 }

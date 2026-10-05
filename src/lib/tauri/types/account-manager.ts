@@ -348,18 +348,8 @@ export interface AuthProxyMatch {
 export interface AuthProxyRequest {
   ticketId: string
   expiresAtTs: number
-  target: string
-  returnUrl: string
-  state?: string | null
-  site?: string | null
-}
-
-export interface AuthProxyResult {
-  token: string
-  tokenType: "cookie" | "bearer" | "code" | "sessionProof" | "unknown"
-  state?: string | null
-  stationId: string
-  accountId: string
+  hasReturnUrl: boolean
+  returnScheme?: string | null
 }
 
 /// `handle_browser_open` 的统一返回:把一次"用 bench 打开 URL"
@@ -367,10 +357,10 @@ export interface AuthProxyResult {
 export interface BrowserOpenResult {
   ticketId: string
   expiresAtTs: number
-  target: string
-  returnUrl?: string | null
   host: string
   isAuthorize: boolean
+  hasReturnUrl: boolean
+  returnScheme?: string | null
   matches: AuthProxyMatch[]
 }
 

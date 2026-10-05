@@ -49,13 +49,22 @@ pub fn extract_hostname(target: &str) -> Result<(String, String), String> {
     Ok((hostname, parsed.to_string()))
 }
 
+/// Station websites may include a sign-in path or query. Match only their parsed
+/// HTTP(S) hostname so these details cannot prevent a valid station match.
+pub(crate) fn normalized_station_hostname(website: &str) -> Option<String> {
+    let parsed = Url::parse(website.trim()).ok()?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return None;
+    }
+    parsed.host_str().map(str::to_ascii_lowercase)
+}
+
 /// 匹配目标 URL 对应的 Station
 ///
 /// 策略:
-/// 1. 精确匹配 website hostname
-/// 2. 子域名匹配 (api.github.com → github.com)
-/// 3. SSO 提供商模糊匹配
-/// 4. 返回所有匹配结果
+/// 1. 精确 hostname、同一可注册域与目标子域优先匹配
+/// 2. SSO 提供商匹配
+/// 3. 其余 Station 仍以 manual 候选返回，供用户明确选择
 pub fn match_target_to_stations(
     target: &str,
     stations: &[super::super::types::RelayStation],
@@ -66,38 +75,36 @@ pub fn match_target_to_stations(
     };
 
     let mut results: Vec<AuthProxyMatch> = Vec::new();
+    let mut manual_results: Vec<AuthProxyMatch> = Vec::new();
 
     for station in stations {
-        let station_host = station
-            .website
-            .trim_start_matches("https://")
-            .trim_start_matches("http://")
-            .trim_end_matches('/')
-            .to_lowercase();
+        let station_host = normalized_station_hostname(&station.website);
 
-        let confidence = if station_host == hostname {
-            MatchConfidence::Exact
-        } else if hostname.ends_with(&format!(".{station_host}")) || hostname == station_host {
-            // 子域名或相同
-            MatchConfidence::Exact
-        } else {
-            // SSO 模糊匹配
-            let sso_match = SSO_PROVIDERS
-                .iter()
-                .find(|(h, _)| hostname == *h || hostname.ends_with(&format!(".{h}")));
-            match sso_match {
-                Some(_)
-                    if station_host.contains("microsoft")
-                        || station_host.contains("okta")
-                        || station_host.contains("auth0")
-                        || station_host.contains("sso")
-                        || station_host.contains("login") =>
-                {
-                    MatchConfidence::Sso
+        let confidence = station_host.as_deref().and_then(|station_host| {
+            if station_host == hostname
+                || hostname.ends_with(&format!(".{station_host}"))
+                || same_registrable_domain(&hostname, station_host)
+            {
+                Some(MatchConfidence::Exact)
+            } else {
+                // SSO provider hosts may authenticate an otherwise matching site.
+                let sso_match = SSO_PROVIDERS
+                    .iter()
+                    .find(|(h, _)| hostname == *h || hostname.ends_with(&format!(".{h}")));
+                match sso_match {
+                    Some(_)
+                        if station_host.contains("microsoft")
+                            || station_host.contains("okta")
+                            || station_host.contains("auth0")
+                            || station_host.contains("sso")
+                            || station_host.contains("login") =>
+                    {
+                        Some(MatchConfidence::Sso)
+                    }
+                    _ => None,
                 }
-                _ => continue,
             }
-        };
+        });
 
         let station_accounts: Vec<StationAccount> = accounts
             .iter()
@@ -105,16 +112,29 @@ pub fn match_target_to_stations(
             .cloned()
             .collect();
 
-        results.push(AuthProxyMatch {
+        let candidate = AuthProxyMatch {
             station_id: station.id.clone(),
             station_name: station.remark.clone(),
             website: station.website.clone(),
             accounts: station_accounts,
-            confidence,
-        });
+            confidence: confidence.clone().unwrap_or(MatchConfidence::Manual),
+        };
+        if confidence.is_some() {
+            results.push(candidate);
+        } else {
+            manual_results.push(candidate);
+        }
     }
 
+    results.extend(manual_results);
     results
+}
+
+fn same_registrable_domain(left: &str, right: &str) -> bool {
+    match (psl::domain_str(left), psl::domain_str(right)) {
+        (Some(left_domain), Some(right_domain)) => left_domain == right_domain,
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -181,6 +201,20 @@ mod tests {
     }
 
     #[test]
+    fn station_url_path_and_query_do_not_block_hostname_match() {
+        let stations = vec![make_station(
+            "s1",
+            "https://github.com/login/oauth?tenant=work",
+            "GitHub",
+        )];
+        let result =
+            match_target_to_stations("https://github.com/login/oauth/authorize", &stations, &[]);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].confidence, MatchConfidence::Exact);
+    }
+
+    #[test]
     fn subdomain_match() {
         let stations = vec![make_station("s1", "https://github.com", "GitHub")];
         let accounts = vec![make_account("s1", "a1", true)];
@@ -204,10 +238,45 @@ mod tests {
     }
 
     #[test]
-    fn no_match_returns_empty() {
-        let stations = vec![make_station("s1", "https://github.com", "GitHub")];
-        let accounts = vec![];
-        let result = match_target_to_stations("https://gitlab.com", &stations, &accounts);
-        assert_eq!(result.len(), 0);
+    fn registrable_domain_match_is_symmetric_and_uses_public_suffix_rules() {
+        let stations = vec![
+            make_station("parent", "https://example.com", "Example"),
+            make_station("child", "https://login.example.co.uk", "UK Example"),
+            make_station("unrelated-uk", "https://other.co.uk", "Other UK"),
+            make_station("private-suffix", "https://alice.github.io", "Alice Pages"),
+        ];
+
+        let result = match_target_to_stations("https://example.co.uk/oauth", &stations, &[]);
+
+        assert_eq!(result[0].station_id, "child");
+        assert_eq!(result[0].confidence, MatchConfidence::Exact);
+        assert!(result
+            .iter()
+            .any(|item| item.station_id == "parent" && item.confidence == MatchConfidence::Manual));
+        assert!(result.iter().any(|item| {
+            item.station_id == "unrelated-uk" && item.confidence == MatchConfidence::Manual
+        }));
+
+        let result = match_target_to_stations("https://bob.github.io", &stations, &[]);
+        assert!(result.iter().any(|item| item.station_id == "private-suffix"
+            && item.confidence == MatchConfidence::Manual));
+    }
+
+    #[test]
+    fn unmatched_stations_remain_manual_candidates() {
+        let stations = vec![make_station("s1", "https://unrelated.example", "Unrelated")];
+        let accounts = vec![make_account("s1", "a1", true)];
+
+        let result = match_target_to_stations("https://github.com/login", &stations, &accounts);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].confidence, MatchConfidence::Manual);
+        assert_eq!(result[0].accounts[0].id, "a1");
+    }
+
+    #[test]
+    fn no_stations_returns_empty() {
+        let result = match_target_to_stations("https://gitlab.com", &[], &[]);
+        assert!(result.is_empty());
     }
 }

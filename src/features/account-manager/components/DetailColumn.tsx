@@ -91,6 +91,7 @@ export function DetailColumn({
   capturingFingerprint,
   error,
   onRetryError,
+  retryLabel,
   onDismissError,
   className,
 }: {
@@ -122,7 +123,8 @@ export function DetailColumn({
   refreshingAccount?: boolean
   savingSchedule?: boolean
   error?: string | null
-  onRetryError?: () => void
+  onRetryError?: () => unknown
+  retryLabel?: string
   onDismissError?: () => void
   className?: string
 }) {
@@ -237,7 +239,12 @@ export function DetailColumn({
       <div className="flex min-h-0 flex-1 flex-col">
         {error && (
           <div className="px-2 pt-2">
-            <InlineErrorBar message={error} onRetry={onRetryError} onDismiss={onDismissError} />
+            <InlineErrorBar
+              message={error}
+              onRetry={onRetryError}
+              retryLabel={retryLabel}
+              onDismiss={onDismissError}
+            />
           </div>
         )}
         {station ? (

@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   getAccountManagerCapabilities: vi.fn(),
   refreshAll: vi.fn(),
   refreshStation: vi.fn(),
+  retryInit: vi.fn(),
 }))
 
 vi.mock("@/features/account-manager/services/account-manager.repository", () => ({
@@ -27,7 +28,12 @@ vi.mock("@/features/account-manager/services/account-manager.repository", () => 
     listAllAccounts: mocks.listAllAccounts,
     refreshAll: mocks.refreshAll,
     refreshStation: mocks.refreshStation,
+    retryInit: mocks.retryInit,
   },
+}))
+
+vi.mock("@/features/account-manager/hooks/useAuthProxy", () => ({
+  useAuthProxy: () => ({ setAuthProxyOpen: vi.fn() }),
 }))
 
 vi.mock("sonner", () => ({
@@ -107,10 +113,20 @@ function refreshed(id: string, username: string): StationAccount {
   return { ...makeAccount(id, "a", username), lastRefreshedAt: "2026-09-03 12:00" }
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise
+  })
+  return { promise, resolve }
+}
+
 beforeEach(() => {
+  mocks.listStations.mockClear()
   mocks.listStations.mockResolvedValue(stations)
   mocks.listAllAccounts.mockResolvedValue(accounts)
   mocks.getAccountManagerCapabilities.mockResolvedValue(capabilities)
+  mocks.retryInit.mockResolvedValue(undefined)
   mocks.refreshAll.mockReset()
   mocks.refreshStation.mockReset()
 })
@@ -196,5 +212,71 @@ describe("account-manager batch refresh partial (A1-8)", () => {
       result.current.dismissRegionError("account")
     })
     expect(result.current.regionErrors.account).toBeNull()
+  })
+
+  it("keeps loaded data visible and stores only an error code when reload fails", async () => {
+    const { result } = renderHook(() => useAccountManagerController())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.stations).toHaveLength(1)
+    expect(result.current.accounts).toHaveLength(5)
+
+    const privateError = {
+      code: "STORE_FAIL",
+      message: "https://private.example/?token=do-not-store",
+    }
+    let rejectInitialReload: (error: unknown) => void = () => undefined
+    mocks.listStations
+      .mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            rejectInitialReload = reject
+          }),
+      )
+      .mockRejectedValueOnce(privateError)
+
+    let reload: Promise<void> = Promise.resolve()
+    act(() => {
+      reload = result.current.loadInitialData()
+    })
+    expect(result.current.reloading).toBe(true)
+
+    await act(async () => {
+      rejectInitialReload(privateError)
+      await reload.catch(() => undefined)
+    })
+
+    expect(result.current.loading).toBe(false)
+    expect(result.current.reloading).toBe(false)
+    expect(result.current.loadError).toBeNull()
+    expect(result.current.stations).toHaveLength(1)
+    expect(result.current.accounts).toHaveLength(5)
+    expect(result.current.regionErrors.station?.errorCode).toBe("STORE_FAIL")
+    expect(JSON.stringify(result.current.regionErrors.station)).not.toContain("do-not-store")
+  })
+
+  it("ignores an older load after the route controller unmounts and remounts", async () => {
+    const firstLoad = deferred<RelayStation[]>()
+    const secondLoad = deferred<RelayStation[]>()
+    mocks.listStations
+      .mockImplementationOnce(() => firstLoad.promise)
+      .mockImplementationOnce(() => secondLoad.promise)
+
+    const firstRoute = renderHook(() => useAccountManagerController())
+    await waitFor(() => expect(mocks.listStations).toHaveBeenCalledTimes(1))
+    firstRoute.unmount()
+
+    const secondRoute = renderHook(() => useAccountManagerController())
+    await waitFor(() => expect(mocks.listStations).toHaveBeenCalledTimes(2))
+
+    await act(async () => {
+      secondLoad.resolve([makeStation("new-route")])
+    })
+    await waitFor(() => expect(secondRoute.result.current.stations[0]?.id).toBe("new-route"))
+
+    await act(async () => {
+      firstLoad.resolve([makeStation("stale-route")])
+    })
+    expect(secondRoute.result.current.stations[0]?.id).toBe("new-route")
+    secondRoute.unmount()
   })
 })

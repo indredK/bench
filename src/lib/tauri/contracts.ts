@@ -31,7 +31,6 @@ import type {
   AuthProfile,
   AuthProxyDrainResult,
   AuthProxyInboxStatus,
-  AuthProxyResult,
   BrowserCaptureOutcome,
   BrowserDailySyncOutcome,
   BrowserInjectStatus,
@@ -420,8 +419,9 @@ export const TAURI_COMMAND_CONTRACTS = {
     { stationId: string },
     LoginFingerprintDetail | null
   >()("get_login_fingerprint_detail"),
-  proxy_login: defineTauriCommand<{ accountId: string; ticketId: string }, AuthProxyResult>()(
-    "proxy_login",
+  proxy_login: defineTauriCommand<{ accountId: string; ticketId: string }, void>()("proxy_login"),
+  open_auth_proxy_return_url: defineTauriCommand<{ ticketId: string }, void>()(
+    "open_auth_proxy_return_url",
   ),
   handle_browser_open: defineTauriCommand<{ url: string }, BrowserOpenResult>()(
     "handle_browser_open",
@@ -1185,6 +1185,7 @@ export const TAURI_COMMANDS = {
     confirmLoginFingerprint: commandName("confirm_login_fingerprint"),
     getLoginFingerprintDetail: commandName("get_login_fingerprint_detail"),
     proxyLogin: commandName("proxy_login"),
+    openAuthProxyReturnUrl: commandName("open_auth_proxy_return_url"),
     handleBrowserOpen: commandName("handle_browser_open"),
     getAuthProxyInboxStatus: commandName("get_auth_proxy_inbox_status"),
     drainAuthProxyRequest: commandName("drain_auth_proxy_request"),
@@ -1508,6 +1509,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   confirm_login_fingerprint: ["stationId", "accountId"],
   get_login_fingerprint_detail: ["stationId"],
   proxy_login: ["accountId", "ticketId"],
+  open_auth_proxy_return_url: ["ticketId"],
   handle_browser_open: ["url"],
   get_auth_proxy_inbox_status: [],
   drain_auth_proxy_request: [],

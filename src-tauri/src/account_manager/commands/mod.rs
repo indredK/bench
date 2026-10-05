@@ -7,6 +7,7 @@
 //! fn and re-exports them only via the defining module).
 
 mod account;
+mod auth_proxy_inbox;
 mod browser_session;
 mod external_apps;
 mod fingerprint;
@@ -18,6 +19,7 @@ mod shared;
 mod station;
 
 pub use account::*;
+pub use auth_proxy_inbox::*;
 pub use browser_session::*;
 pub use external_apps::*;
 pub use fingerprint::*;

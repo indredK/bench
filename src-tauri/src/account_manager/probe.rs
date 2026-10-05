@@ -147,7 +147,7 @@ async fn classify_http_response(
     while let Some(chunk) = response
         .chunk()
         .await
-        .map_err(|e| AccountManagerError::store_fail(format!("HTTP probe body: {e}")))?
+        .map_err(|e| AccountManagerError::probe_failed(format!("HTTP probe body: {e}")))?
     {
         let remaining = HTTP_PROBE_MAX_BODY_BYTES.saturating_sub(body.len());
         if remaining == 0 {
@@ -182,7 +182,7 @@ async fn run_http_probe(
     }
     let client = client
         .build()
-        .map_err(|e| AccountManagerError::store_fail(format!("HTTP probe client: {e}")))?;
+        .map_err(|e| AccountManagerError::probe_failed(format!("HTTP probe client: {e}")))?;
     let cookie_header = saved_session
         .map(|session| cookie_header_for_url(session, target))
         .filter(|header| !header.is_empty());
@@ -222,7 +222,7 @@ async fn run_http_probe(
                     sleep(delay).await;
                 }
                 Err(error) => {
-                    return Err(AccountManagerError::store_fail(format!(
+                    return Err(AccountManagerError::probe_failed(format!(
                         "HTTP probe request: {error}"
                     )));
                 }
@@ -231,7 +231,7 @@ async fn run_http_probe(
         Ok(None)
     })
     .await
-    .map_err(|_| AccountManagerError::store_fail("HTTP probe deadline exceeded"))?
+    .map_err(|_| AccountManagerError::probe_failed("HTTP probe deadline exceeded"))?
 }
 
 // ═══════════════════════════════════════════════

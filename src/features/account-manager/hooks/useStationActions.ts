@@ -10,7 +10,7 @@ import {
   accountManagerUseCases,
   isInvalidInput,
 } from "@/features/account-manager/services/account-manager.use-cases"
-import { makeRegionError } from "@/features/account-manager/errors"
+import { describeRegionError, makeRegionError } from "@/features/account-manager/errors"
 import { useAccountManagerStore } from "@/features/account-manager/store"
 import { useGuardedAsync, useGuardedAsyncSet } from "@/hooks/useGuardedAsync"
 import type { ProbeStrategy } from "@/lib/tauri/types/account-manager"
@@ -35,7 +35,7 @@ export function useStationActions({
     useGuardedAsyncSet<string>()
 
   const retryViaReload = () => {
-    void loadInitialData()
+    return loadInitialData()
   }
 
   function handleAddStation(remark: string, website: string, sessionSettings?: SessionSettings) {
@@ -53,12 +53,12 @@ export function useStationActions({
         if (isInvalidInput(error)) {
           toast.error(translateInvalidInput(t, error, "accountManager.toasts.createStationFailed"))
         } else {
-          useAccountManagerStore.getState().setRegionError(
-            "station",
-            makeRegionError(error, "accountManager.errors.stationAction", {
-              retry: retryViaReload,
-            }),
-          )
+          const payload = makeRegionError(error, "accountManager.errors.stationAction", {
+            retry: retryViaReload,
+            retryLabel: "refresh",
+          })
+          useAccountManagerStore.getState().setRegionError("station", payload)
+          toast.error(describeRegionError(t, payload))
         }
         return false
       }
@@ -88,12 +88,12 @@ export function useStationActions({
         if (isInvalidInput(error)) {
           toast.error(translateInvalidInput(t, error, "accountManager.toasts.updateStationFailed"))
         } else {
-          useAccountManagerStore.getState().setRegionError(
-            "station",
-            makeRegionError(error, "accountManager.errors.stationAction", {
-              retry: retryViaReload,
-            }),
-          )
+          const payload = makeRegionError(error, "accountManager.errors.stationAction", {
+            retry: retryViaReload,
+            retryLabel: "refresh",
+          })
+          useAccountManagerStore.getState().setRegionError("station", payload)
+          toast.error(describeRegionError(t, payload))
         }
         return false
       }
@@ -137,12 +137,12 @@ export function useStationActions({
         if (isInvalidInput(error)) {
           toast.error(translateInvalidInput(t, error, "accountManager.toasts.deleteStationFailed"))
         } else {
-          useAccountManagerStore.getState().setRegionError(
-            "station",
-            makeRegionError(error, "accountManager.errors.stationAction", {
-              retry: retryViaReload,
-            }),
-          )
+          const payload = makeRegionError(error, "accountManager.errors.stationAction", {
+            retry: retryViaReload,
+            retryLabel: "refresh",
+          })
+          useAccountManagerStore.getState().setRegionError("station", payload)
+          toast.error(describeRegionError(t, payload))
         }
       }
     })
@@ -183,6 +183,7 @@ export function useStationActions({
             "station",
             makeRegionError(error, "accountManager.errors.stationAction", {
               retry: retryViaReload,
+              retryLabel: "refresh",
             }),
           )
         }
@@ -210,6 +211,7 @@ export function useStationActions({
           "detail",
           makeRegionError(error, "accountManager.errors.detailAction", {
             retry: () => handleRedetectProfile(stationId, accountId),
+            scope: { stationId, accountId },
           }),
         )
       }
@@ -233,6 +235,7 @@ export function useStationActions({
           "detail",
           makeRegionError(error, "accountManager.errors.detailAction", {
             retry: () => handleProbeStrategyChange(stationId, next),
+            scope: { stationId },
           }),
         )
       }
