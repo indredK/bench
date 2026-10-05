@@ -153,7 +153,7 @@ L1 → L2 映射：
 | pollution | DNS 污染检测：对域名跑检测（本地 + 公共 DNS 对照），输出 `PollutionReport`（finding 列表）                                                                                                                                                                            |
 | pcap      | 诊断抓包（`pcap-diag`，默认 5s）：重传/乱序/RST 统计；无特权时 tcpdump 计数降级；可取消；缺 pack 时引导安装 `pcap-diag`                                                                                                                                               |
 | dnssec    | DNSSEC 校验（Cloudflare DoH AD 位验证链），输出 `DnsSecCheckResult`                                                                                                                                                                                                   |
-| whois     | WHOIS 查询（任意 query），输出 `WhoisInfo`                                                                                                                                                                                                                            |
+| whois     | RDAP 查询（域名、IPv4、IPv6 分别走对应 endpoint），输出 `WhoisInfo`；通过 HTTPS 流式读取，最多保留 16 KiB，超限时 `partial=true`                                                                                                                                      |
 
 **交互细节**：
 
