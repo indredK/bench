@@ -489,7 +489,6 @@ export interface ArpNeighbor {
 export interface LanDiscoveryResult {
   mode: string
   neighbors: ArpNeighbor[]
-  message?: string
   emptyReason?: string
   cidr?: string
   cancelled: boolean

@@ -57,10 +57,6 @@ pub async fn discover_lan<R: Runtime>(app: Option<&AppHandle<R>>) -> AppResult<L
         return Ok(LanDiscoveryResult {
             mode: "arp-cache".into(),
             neighbors: cache,
-            message: Some(
-                "No primary IPv4 — Local Network permission may be required, or link is down."
-                    .into(),
-            ),
             empty_reason: Some("permission".into()),
             cidr: None,
             cancelled: false,
@@ -132,35 +128,19 @@ pub async fn discover_lan<R: Runtime>(app: Option<&AppHandle<R>>) -> AppResult<L
         .map(|g| neighbors.iter().any(|n| n.ip == g.to_string()))
         .unwrap_or(false);
 
-    let (empty_reason, message) = if cancelled {
-        (None, Some("LAN discovery cancelled mid-sweep.".into()))
+    let empty_reason = if cancelled {
+        None
     } else if neighbors.is_empty() {
-        (
-            Some("quiet".into()),
-            Some(
-                "No neighbors found. May be a quiet network, Wi‑Fi client isolation, or Local Network permission."
-                    .into(),
-            ),
-        )
+        Some("quiet".into())
     } else if neighbors.len() <= 1 && gateway_seen {
-        (
-            Some("isolation".into()),
-            Some("Only the gateway responded — guest Wi‑Fi / client isolation is likely.".into()),
-        )
+        Some("isolation".into())
     } else {
-        (
-            None,
-            Some(
-                "Degraded: ARP cache + TCP connect /24 sweep. Privileged ARP request needs adv-scanner."
-                    .into(),
-            ),
-        )
+        None
     };
 
     Ok(LanDiscoveryResult {
         mode: "arp-cache+tcp-sweep".into(),
         neighbors,
-        message,
         empty_reason,
         cidr: Some(cidr),
         cancelled,

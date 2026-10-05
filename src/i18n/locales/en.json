@@ -2111,8 +2111,8 @@
       "confirmRun": "Scan anyway"
     },
     "arp": {
-      "hint": "List neighbors from the OS ARP/neighbor cache (degraded discovery).",
-      "degradedHint": "Degraded: cache only. Privileged ARP sweep needs adv-scanner.",
+      "hint": "Read the ARP cache and check TCP reachability on this Mac's IPv4 /24 at ports 80/443/22.",
+      "degradedHint": "Using cache and TCP probes. Privileged ARP requests need adv-scanner.",
       "run": "Refresh ARP cache",
       "running": "Reading…",
       "empty": "No neighbors in the ARP cache.",
@@ -2122,7 +2122,13 @@
       "openSettings": "Open system network settings",
       "cidr": "Sweep CIDR: {{cidr}}",
       "meta": "{{count}} neighbors · mode={{mode}} · {{ms}} ms",
-      "cancelled": "LAN discovery was cancelled mid-sweep."
+      "cancelled": "LAN discovery was cancelled.",
+      "cancelledPartial": "Kept {{count}} neighbor(s) already found.",
+      "cancelledEmpty": "No neighbors were found before cancellation.",
+      "macUnresolved": "MAC unresolved",
+      "sourceCache": "ARP cache",
+      "sourceTcpSweep": "TCP reachability probe",
+      "sourceUnknown": "other source"
     },
     "lanSvc": {
       "hint": "Browse mDNS/DNS-SD and SSDP/UPnP announcements on the local network (read-only).",

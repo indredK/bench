@@ -161,13 +161,13 @@ L1 → L2 映射：
 
 - **SecurityAuthGate**：未授权时 L1=security 显示琥珀色提示 + 「我确认 — 启用安全工具」按钮；点击后 `authorizeSecurity` 置位并持久化 localStorage；已授权显示「本机已授权使用安全工具。」+「撤销」；授权/撤销即时生效。未授权点击任何安全工具，use-case 直接 `setError(securityAuthRequired)` 且不发起 IPC。
 - **端口扫描确认**：目标非内网（非私有/回环）或展开端口数 >64 时，点击「扫描端口」先弹 `DestructiveConfirmDialog`（展示目标 + 约 N 个端口 + 「仅扫描自有或已授权资产，当前为 TCP connect」），确认「仍然扫描」才执行；勾选范围内可免确认。端口范围解析失败（如超 256、非法语法）由后端返回 `INVALID_INPUT`。
-- **空态细分（arp）**：按 `emptyReason` 区分「权限不足（引导打开系统网络设置）/ 客户端隔离（仅网关响应）/ 安静网络（无邻居）」三种空态文案，不统一显示空。
+- **空态与结果来源（arp）**：按 `emptyReason` 区分无 IPv4、客户端隔离和安静网络；ARP 缓存与 TCP 探测来源使用本地化标签。TCP 探测发现的主机没有 MAC 时不标成 ARP 未完成项；取消时提示是否保留了已发现邻居。
 
 ## 7. 发现（discover）L1
 
 | 面板    | 说明                                                                                                                                                                                                                                                                                                                                 |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| arp     | 局域网发现：ARP 缓存 + TCP /24 扫（degraded；特权 RAW 扫待 helper）；输出邻居表（ip/mac/iface/source）；空态区分 权限不足（引导开 Local Network 权限）/隔离/安静；可取消                                                                                                                                                             |
+| arp     | 局域网发现：读取 ARP 缓存并对本机 IPv4 /24 的 TCP 80/443/22 做可达性探测；输出邻居表（ip/mac/iface/source，来源本地化）；TCP 发现的主机无 MAC 属正常，不标作未完成 ARP；可取消并保留部分结果                                                                                                                                         |
 | lan-svc | mDNS/DNS-SD + SSDP/UPnP 服务浏览（只读），输出 `LanServicesResult`                                                                                                                                                                                                                                                                   |
 | nat     | 多 STUN 映射观察（映射一致 / 不同 / 无有效响应；不推断具体 NAT 类型），输出 `NatProbeResult`                                                                                                                                                                                                                                         |
 | ntp     | 并行查询 Cloudflare、Google 与 pool.ntp.org；由 `sntpc` 校验 SNTP 响应后按有效来源计算中位数，输出 `NtpProbeResult.sources` 的逐源状态、偏移、RTT 与错误码。来源请求单独限时且超时不累加；IPv4/IPv6 按解析结果匹配绑定套接字。逐源状态与错误原因由前端本地化展示。                                                                   |
@@ -213,7 +213,7 @@ L1 → L2 映射：
 - `PingProbeResult` / `PingSample`；`DnsLookupResult` / `DnsRecordItem`；`TcpConnectResult`；`ProbeTargetResult`（icmp/http/tls）；`TracerouteHop` / `TracerouteResult`；`PathMtuResult`；`SpeedTestResult` / `SpeedSampleEvent` / `SpeedSource`。
 - `SitesProbeResult` / `SiteSampleResult`；`FixResult`；`CaptivePortalResult`；`PublicIpInfo`；`ProxyVpnStatus`；`Ipv6StackResult`。
 - `PortScanResult` / `PortSampleEvent`；`PollutionReport`；`WhoisInfo`；`DnsSecCheckResult`；`PcapDiagResult`。
-- `LanDiscoveryResult`（neighbors/mode/cidr/emptyReason）、`LanServicesResult`；`NatProbeResult.natType` 为 `consistent-across-servers` / `varied-across-servers` / `blocked-or-timeout`；`NtpProbeResult`；`MultiNodeDnsResult` / `ProbeNode`。
+- `LanDiscoveryResult`（neighbors/mode/cidr/emptyReason/cancelled）、`LanServicesResult`；`NatProbeResult.natType` 为 `consistent-across-servers` / `varied-across-servers` / `blocked-or-timeout`；`NtpProbeResult`；`MultiNodeDnsResult` / `ProbeNode`。
 - `NetworkProbeDefaultsCatalog` / `DefaultsOverride`；`HostsOverride`；`FirewallStatus`。
 - store 关键状态：nav、capabilities、capabilityPacks、defaults、各结果/流式数组、loading*（每工具独立）、error、securityAuthorized、activeSessionId、cancelRequestedSessionId、commandLog、reportHistory。
 

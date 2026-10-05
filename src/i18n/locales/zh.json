@@ -2111,8 +2111,8 @@
       "confirmRun": "仍然扫描"
     },
     "arp": {
-      "hint": "读取系统 ARP/邻居缓存中的局域网邻居（降级发现）。",
-      "degradedHint": "降级：仅缓存。特权 ARP 扫需 adv-scanner。",
+      "hint": "读取 ARP 缓存，并对本机 IPv4 /24 执行 TCP 80/443/22 可达性探测。",
+      "degradedHint": "当前使用缓存与 TCP 探测；特权 ARP 请求需 adv-scanner。",
       "run": "刷新 ARP 缓存",
       "running": "读取中…",
       "empty": "ARP 缓存中无邻居。",
@@ -2122,7 +2122,13 @@
       "openSettings": "打开系统网络设置",
       "cidr": "扫描网段：{{cidr}}",
       "meta": "{{count}} 个邻居 · mode={{mode}} · {{ms}} ms",
-      "cancelled": "局域网发现已在扫描中取消。"
+      "cancelled": "局域网发现已取消。",
+      "cancelledPartial": "已保留已发现的 {{count}} 个邻居。",
+      "cancelledEmpty": "取消前尚未发现邻居。",
+      "macUnresolved": "未解析到 MAC",
+      "sourceCache": "ARP 缓存",
+      "sourceTcpSweep": "TCP 可达性探测",
+      "sourceUnknown": "其他来源"
     },
     "lanSvc": {
       "hint": "只读浏览局域网 mDNS/DNS-SD 与 SSDP/UPnP 通告。",

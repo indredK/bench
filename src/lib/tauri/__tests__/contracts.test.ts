@@ -37,7 +37,12 @@ import type {
   SystemInfoData,
 } from "@/lib/tauri/types"
 import type { AppUpdateInfo, AppUpdateInstallResult } from "@/lib/tauri/types/updater"
-import type { NtpProbeResult, NtpSourceResult } from "@/lib/tauri/types/network-probe"
+import type {
+  ArpNeighbor,
+  LanDiscoveryResult,
+  NtpProbeResult,
+  NtpSourceResult,
+} from "@/lib/tauri/types/network-probe"
 import type {
   AccountManagerCapabilities,
   AccountManagerCapability,
@@ -177,6 +182,21 @@ describe("Tauri contracts", () => {
         "NtpSourceResult",
         "camel",
         dtoKeys<NtpSourceResult>(["server", "ok", "offsetSeconds", "rttSeconds", "errorCode"]),
+      ],
+      ["ArpNeighbor", "camel", dtoKeys<ArpNeighbor>(["ip", "mac", "iface", "source"])],
+      [
+        "LanDiscoveryResult",
+        "camel",
+        dtoKeys<LanDiscoveryResult>([
+          "mode",
+          "neighbors",
+          "emptyReason",
+          "cidr",
+          "cancelled",
+          "sessionId",
+          "elapsedMs",
+          "commandHint",
+        ]),
       ],
       [
         "NtpProbeResult",

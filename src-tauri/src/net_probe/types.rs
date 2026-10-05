@@ -732,8 +732,6 @@ pub struct ArpNeighbor {
 pub struct LanDiscoveryResult {
     pub mode: String,
     pub neighbors: Vec<ArpNeighbor>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
     /// none | quiet | permission | isolation | unknown
     #[serde(skip_serializing_if = "Option::is_none")]
     pub empty_reason: Option<String>,

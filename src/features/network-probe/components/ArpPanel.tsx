@@ -8,6 +8,17 @@ import { OpenSystemNetworkSettingsButton } from "@/features/network-probe/compon
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
 
+function arpSourceKey(source: string) {
+  switch (source) {
+    case "arp-cache":
+      return "networkProbe.arp.sourceCache"
+    case "tcp-sweep":
+      return "networkProbe.arp.sourceTcpSweep"
+    default:
+      return "networkProbe.arp.sourceUnknown"
+  }
+}
+
 interface ArpPanelProps {
   loading: boolean
   result: LanDiscoveryResult | null
@@ -89,9 +100,6 @@ export function ArpPanel({
               {t("networkProbe.arp.cidr", { cidr: result.cidr })}
             </p>
           ) : null}
-          {result.message ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
-          ) : null}
           <p className="text-muted-foreground text-xs">
             {t("networkProbe.arp.meta", {
               count: result.neighbors.length,
@@ -99,31 +107,44 @@ export function ArpPanel({
               ms: result.elapsedMs.toFixed(0),
             })}
           </p>
-          {result.neighbors.length === 0 ? (
-            <div className="space-y-2">
-              <p className="text-muted-foreground text-sm">{t(emptyKey)}</p>
-              {result.cancelled ? (
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  {t("networkProbe.arp.cancelled")}
-                </p>
-              ) : null}
-              {result.emptyReason === "permission" && onOpenSettings ? (
-                <OpenSystemNetworkSettingsButton
-                  opening={openingSettings}
-                  label={t("networkProbe.arp.openSettings")}
-                  onOpen={onOpenSettings}
-                  size="sm"
-                />
-              ) : null}
+          {result.cancelled ? (
+            <div role="status" className="text-sm text-amber-700 dark:text-amber-400">
+              <p>{t("networkProbe.arp.cancelled")}</p>
+              <p className="text-xs">
+                {result.neighbors.length > 0
+                  ? t("networkProbe.arp.cancelledPartial", {
+                      count: result.neighbors.length,
+                    })
+                  : t("networkProbe.arp.cancelledEmpty")}
+              </p>
             </div>
+          ) : null}
+          {result.neighbors.length === 0 ? (
+            result.cancelled ? null : (
+              <div className="space-y-2">
+                <p className="text-muted-foreground text-sm">{t(emptyKey)}</p>
+                {result.emptyReason === "permission" && onOpenSettings ? (
+                  <OpenSystemNetworkSettingsButton
+                    opening={openingSettings}
+                    label={t("networkProbe.arp.openSettings")}
+                    onOpen={onOpenSettings}
+                    size="sm"
+                  />
+                ) : null}
+              </div>
+            )
           ) : (
             <ul className="space-y-1 font-mono text-xs">
               {result.neighbors.map((n) => (
                 <li key={n.ip}>
                   {n.ip}
-                  {n.mac ? ` · ${n.mac}` : " · (incomplete)"}
+                  {n.mac
+                    ? ` · ${n.mac}`
+                    : n.source === "arp-cache"
+                      ? ` · ${t("networkProbe.arp.macUnresolved")}`
+                      : ""}
                   {n.iface ? ` · ${n.iface}` : ""}
-                  {n.source ? ` · ${n.source}` : ""}
+                  {` · ${t(arpSourceKey(n.source))}`}
                 </li>
               ))}
             </ul>
