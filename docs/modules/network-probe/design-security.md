@@ -204,7 +204,8 @@ uninstallCapabilityPack(packId): void
 
 ## 7. UX
 
-- 所有危险范围扫描：确认对话框展示**精确目标、端口范围、速率、预计时长**。
+- 所有危险范围扫描：确认对话框展示**精确目标、端口范围、速率、预计时长**；端口扫描说明实际可能采用 SYN 或 TCP connect，不把权限降级模式写死。
+- 端口样本状态、扫描方式与取消说明由前端按 locale 显示，不将 Rust 返回的英文诊断原文直接展示。
 - 命令透明：降级路径必须写明，例如 `scanPorts … // degraded: tcp connect`；缺包写 `// missing_pack: adv-scanner`。
 - 结果风险色：info / warn / high；high 仅用于「高度疑似劫持/暴露」，避免恐吓式全红。
 - Post 标签：L2 与按钮统一 `Post` badge，不进 MVP 验收。

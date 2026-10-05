@@ -54,6 +54,29 @@ function estimatePortCount(spec: string): number {
   return n
 }
 
+function getPortStateKey(state: string): string {
+  switch (state) {
+    case "open":
+    case "closed":
+    case "filtered":
+    case "error":
+      return state
+    default:
+      return "unknown"
+  }
+}
+
+function getPortModeKey(mode: string): string {
+  switch (mode) {
+    case "nmap-syn-or-connect":
+      return "nmap"
+    case "tcp-connect":
+      return "tcpConnect"
+    default:
+      return "unknown"
+  }
+}
+
 export function PortScanPanel({
   loading,
   canCancel,
@@ -102,9 +125,7 @@ export function PortScanPanel({
               })}
             </p>
           ) : (
-            <p className="text-xs text-amber-700 dark:text-amber-400">
-              {t("networkProbe.ports.degradedHint")}
-            </p>
+            <p className="text-muted-foreground text-xs">{t("networkProbe.ports.scanModeHint")}</p>
           )}
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-[10rem] flex-1 space-y-1">
@@ -161,14 +182,17 @@ export function PortScanPanel({
           {t("networkProbe.ports.openList", { ports: open.join(", ") })}
         </p>
       ) : null}
-      {result?.message ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
+      {result ? (
+        <div className="text-muted-foreground space-y-1 text-xs">
+          <p>{t(`networkProbe.ports.mode.${getPortModeKey(result.mode)}`)}</p>
+          {result.cancelled ? <p>{t("networkProbe.ports.cancelled")}</p> : null}
+        </div>
       ) : null}
       {samples.length > 0 ? (
         <ul className="text-muted-foreground space-y-0.5 font-mono text-xs">
           {samples.map((s) => (
             <li key={`${s.port}-${s.state}`}>
-              {s.port}: {s.state}
+              {s.port}: {t(`networkProbe.ports.state.${getPortStateKey(s.state)}`)}
               {s.serviceHint ? ` (${s.serviceHint})` : ""}
               {s.rttMs != null ? ` · ${s.rttMs.toFixed(0)} ms` : ""}
             </li>

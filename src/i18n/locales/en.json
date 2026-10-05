@@ -2098,17 +2098,30 @@
       "dotDetail": "DoT"
     },
     "ports": {
-      "hint": "TCP connect scan of a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",
-      "degradedHint": "Degraded mode: TCP connect only. Install adv-scanner / nmap for SYN stealth.",
+      "hint": "Port scan of a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",
+      "scanModeHint": "SYN mode needs a scanner with the required privileges; otherwise Bench uses TCP connect.",
       "target": "Target",
       "range": "Ports",
       "run": "Scan ports",
       "running": "Scanning…",
       "cancel": "Cancel",
       "openList": "Open: {{ports}}",
+      "state": {
+        "open": "Open",
+        "closed": "Closed",
+        "filtered": "Filtered / no response",
+        "error": "Error",
+        "unknown": "Unknown"
+      },
+      "mode": {
+        "nmap": "Scanned with Nmap; SYN is used when permitted, otherwise it falls back to TCP connect.",
+        "tcpConnect": "Scanned with TCP connect.",
+        "unknown": "Unknown scan method."
+      },
+      "cancelled": "Scan cancelled; the results below were received before cancellation.",
       "confirmTitle": "Confirm port scan scope",
       "confirmDesc": "Target {{target}} · about {{count}} ports. Public hosts or large ranges need an extra confirm.",
-      "confirmConsequence": "Only scan assets you own or are authorized to test. TCP connect only (no SYN).",
+      "confirmConsequence": "Only scan assets you own or are authorized to test. The scanner may use SYN or TCP connect; Nmap scripts and service-version detection are disabled.",
       "confirmRun": "Scan anyway"
     },
     "arp": {
