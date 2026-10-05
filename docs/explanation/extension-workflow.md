@@ -126,9 +126,9 @@ tauri-app/
 | `ExtensionAssets`（asset provider 包装） | 资源解析顺序：插件目录 `$APPDATA/extensions/<id>/…` → 内置资源                                                                                     | P1 实读 Tauri 源码后选择的路径，优于原计划的 `asset://` 顶层窗口：IPC 天然同源、CSP 零改动、无 `asset://` 与 `http://asset.localhost` 的平台差异 |
 | `acl::guarded`（IPC 网关）               | 每个 `ext-<id>` 窗口只能调用宿主能力面且由该插件已校验 manifest 声明的业务命令；能力发现 `ext_capabilities` 与宿主诊断 `ext_poc_report` 是基础接口 | 补上 **Tauri 自定命令默认全窗口放行**的缺口；权限按窗口缓存并在销毁、禁用、卸载时撤销；capability 不能替代此网关                                 |
 | `manifest.rs`                            | schema 校验、id/semver/entry/ACL 子集/engines，fail-closed                                                                                         | 新增与其对接的签名与完整性校验见 roadmap P3.1                                                                                                    |
-| 命令面                                   | `ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall`                                                                            | 契约双写，单测护航                                                                                                                               |
+| 命令面                                   | `ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall`                                                                            | 仅 Bench 主界面可调用；旧 manifest 保留可读以便恢复和卸载，新市场包禁止申请这些命令                                                              |
 
-**单个插件的权限边界** = `manifest.acl.commands` ⊆ `EXTENSION_ALLOWED_COMMANDS` ⊆ 后端全部命令。运行时双重校验宿主白名单与该窗口 manifest ACL，缺权限状态也 fail-closed；只有 `ext_capabilities` 与 `ext_poc_report` 这两个宿主基础接口无需插件重复声明。
+**插件运行时权限边界** = `manifest.acl.commands` ∩ `EXTENSION_ALLOWED_COMMANDS`；业务调用还必须由当前窗口的 manifest ACL 明确声明。`EXTENSION_ALLOWED_COMMANDS` 不包含宿主生命周期命令，`ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall` 只由 Bench 主界面调用。为兼容升级前安装的数据，manifest parser 仍识别这四个旧命令，但新市场包在预览和提交时都会拒绝它们。缺权限状态 fail-closed；只有 `ext_capabilities` 与 `ext_poc_report` 这两个宿主基础接口无需插件重复声明。
 
 插件开窗、市场更新、启停和卸载按插件 ID 串行。更新前先撤销旧 ACL 并关闭运行窗口，之后才替换 bundle；若窗口关闭失败，则恢复旧授权并中止更新。信任弹窗会说明更新会关闭已打开的插件窗口。
 

@@ -361,7 +361,7 @@ impl ExtensionEntry {
 impl ExtensionAcl {
     fn validate(&self) -> AppResult<()> {
         for command in &self.commands {
-            if !acl::is_command_allowed(command) {
+            if !acl::is_command_registered(command) {
                 return Err(AppError::forbidden_path(format!(
                     "acl.commands contains `{command}` which is not in the host allow-list"
                 )));
@@ -497,6 +497,17 @@ mod tests {
             ExtensionManifest::parse(&text).unwrap_err().code,
             "FORBIDDEN_PATH"
         );
+    }
+
+    #[test]
+    fn reads_legacy_host_only_acl_for_recovery() {
+        let text = VALID_MANIFEST.replace(
+            "[\"photo_triage_scan\", \"photo_triage_trash\"]",
+            "[\"ext_uninstall\"]",
+        );
+        let manifest = ExtensionManifest::parse(&text)
+            .expect("legacy host-only ACL must remain parseable for recovery and uninstall");
+        assert_eq!(manifest.acl.commands, vec!["ext_uninstall".to_string()]);
     }
 
     #[test]

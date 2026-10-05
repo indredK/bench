@@ -5,8 +5,9 @@
 //! **deny-by-default 网关**：`ext-` 前缀窗口只能调用注册表内的命令，
 //! 其余窗口（main / splashscreen）行为不变。
 //!
-//! 注册表语义：**允许暴露给 extension 空间的命令全集**。业务命令还必须列入
-//! 创建该窗口时验证的 `manifest.acl.commands`；能力发现和宿主诊断接口例外。
+//! `EXTENSION_ALLOWED_COMMANDS` 是允许暴露给 extension 空间的命令全集。业务命令还必须列入
+//! 创建该窗口时验证的 `manifest.acl.commands`；能力发现和宿主诊断接口例外。旧 manifest
+//! 曾声明的宿主生命周期命令另存为 host-only 注册项，允许恢复解析，但永不授予插件窗口。
 
 use std::{
     collections::{HashMap, HashSet},
@@ -102,10 +103,6 @@ impl Drop for ExtensionTransitionGuard<'_> {
 pub const EXTENSION_ALLOWED_COMMANDS: &[&str] = &[
     // extension host 自身
     "ext_poc_report",
-    "ext_list_installed",
-    "ext_open",
-    "ext_set_enabled",
-    "ext_uninstall",
     "ext_data_dir",
     // 能力面自助发现（返回本注册表快照，spec §9.4）
     "ext_capabilities",
@@ -191,9 +188,22 @@ pub const EXTENSION_ALLOWED_COMMANDS: &[&str] = &[
     // hardware 为纯前端插件（零 IPC，acl.commands 为空，P5 迁移）
 ];
 
-/// 命令是否在 extension 允许清单内。
+/// 生命周期命令保留为已注册命令，以便读取和清理旧 manifest；始终只允许宿主窗口调用。
+pub const EXTENSION_HOST_ONLY_COMMANDS: &[&str] = &[
+    "ext_list_installed",
+    "ext_open",
+    "ext_set_enabled",
+    "ext_uninstall",
+];
+
+/// 命令是否可由 extension 窗口调用。
 pub fn is_command_allowed(command: &str) -> bool {
     EXTENSION_ALLOWED_COMMANDS.contains(&command)
+}
+
+/// 命令是否为 Bench 已知的 extension IPC（包括旧 manifest 可能声明的宿主专用命令）。
+pub fn is_command_registered(command: &str) -> bool {
+    is_command_allowed(command) || EXTENSION_HOST_ONLY_COMMANDS.contains(&command)
 }
 
 /// 判断命令是否既在宿主能力面内，也由当前插件明确声明。
@@ -358,17 +368,43 @@ mod tests {
     }
 
     #[test]
-    fn ext_host_commands_allowed() {
+    fn extension_management_commands_are_not_extension_capabilities() {
         for command in [
-            "ext_poc_report",
             "ext_list_installed",
             "ext_open",
             "ext_set_enabled",
             "ext_uninstall",
-            "ext_data_dir",
-            "ext_capabilities",
         ] {
+            assert!(
+                !is_command_allowed(command),
+                "`{command}` must remain host-only"
+            );
+            assert!(
+                is_command_registered(command),
+                "legacy manifests declaring `{command}` must remain readable"
+            );
+            let declared = HashSet::from([command.to_string()]);
+            assert!(
+                !command_allowed_for_manifest(&declared, command),
+                "a plugin manifest must not grant `{command}`"
+            );
+        }
+    }
+
+    #[test]
+    fn ext_host_commands_allowed() {
+        for command in ["ext_poc_report", "ext_data_dir", "ext_capabilities"] {
             assert!(is_command_allowed(command));
+        }
+    }
+
+    #[test]
+    fn plugin_capabilities_hide_host_only_commands() {
+        assert!(EXTENSION_ALLOWED_COMMANDS
+            .iter()
+            .all(|command| !EXTENSION_HOST_ONLY_COMMANDS.contains(command)));
+        for command in EXTENSION_HOST_ONLY_COMMANDS {
+            assert!(!EXTENSION_ALLOWED_COMMANDS.contains(command));
         }
     }
 

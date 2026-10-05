@@ -678,6 +678,7 @@ pub async fn ext_market_commit(
                 "staged registry package must keep distribution `market`",
             ));
         }
+        validate_market_extension_acl(&manifest)?;
         let host_version = app.package_info().version.to_string();
         if !manifest.satisfies_engines(&host_version) {
             return Err(AppError::unsupported(format!(
@@ -858,6 +859,7 @@ fn verify_staged_package(
             "registry package manifest must declare distribution `market`",
         ));
     }
+    validate_market_extension_acl(&manifest)?;
 
     // 步骤 7：engines。
     if !manifest.satisfies_engines(host_version) {
@@ -894,6 +896,22 @@ fn verify_manifest_signature_for_source(
         None if official_source => Ok(()),
         None => signature::verify_distribution_signature(manifest, &canonical),
     }
+}
+
+/// 市场包不能请求只供 Bench 主界面使用的插件生命周期 IPC。
+/// manifest parser 仍识别这些命令，以便升级前安装的旧插件可以被查看和卸载。
+fn validate_market_extension_acl(manifest: &ExtensionManifest) -> AppResult<()> {
+    if let Some(command) = manifest
+        .acl
+        .commands
+        .iter()
+        .find(|command| !super::acl::is_command_allowed(command))
+    {
+        return Err(AppError::forbidden_path(format!(
+            "market extension ACL cannot request host-only command `{command}`"
+        )));
+    }
+    Ok(())
 }
 
 /// 流式计算文件 sha256 + 大小（与 integrity 模块一致的 hex 规则）。
@@ -1205,6 +1223,23 @@ mod tests {
         .expect("official registry package passes registry and per-file integrity checks");
         assert!(manifest.signature.is_none());
         assert!(staging.join("index.html").is_file());
+        fs::remove_dir_all(zip_path.parent().unwrap()).ok();
+    }
+
+    #[test]
+    fn market_acl_rejects_host_lifecycle_commands_but_legacy_manifest_remains_parseable() {
+        let text = OFFICIAL_UNSIGNED_MANIFEST
+            .replace("\"commands\": []", "\"commands\": [\"ext_uninstall\"]");
+        ExtensionManifest::parse(&text).expect("legacy manifest ACL remains parseable");
+        let (zip_path, hash, size) = build_zip_with_manifest("host-lifecycle-acl", b"test", &text);
+        let entry = registry_version(&hash, size);
+        let staging = temp_root("host-lifecycle-acl").join("staging");
+        let err = verify_staged_package(
+            &zip_path, &staging, "fake-ext", "1.0.0", &entry, "1.30.0", None, true,
+        )
+        .expect_err("new market packages must not receive host lifecycle IPC");
+        assert_eq!(err.code, "FORBIDDEN_PATH");
+        assert!(err.message.contains("host-only command `ext_uninstall`"));
         fs::remove_dir_all(zip_path.parent().unwrap()).ok();
     }
 
