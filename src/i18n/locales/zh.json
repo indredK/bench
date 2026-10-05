@@ -2132,10 +2132,19 @@
     },
     "lanSvc": {
       "hint": "只读浏览局域网 mDNS/DNS-SD 与 SSDP/UPnP 通告。",
-      "readOnlyHint": "只读发现。不暴露 UPnP Write / AddPortMapping。",
+      "readOnlyHint": "仅执行只读发现；不请求设备描述，也不会调用 UPnP 写操作。",
       "run": "浏览局域网服务",
       "running": "浏览中…",
       "empty": "监听窗口内无 mDNS/SSDP 响应。",
+      "emptyPartial": "可用的发现协议在监听窗口内均未收到响应。",
+      "protocolMdns": "mDNS",
+      "protocolSsdp": "SSDP",
+      "protocolFailed": "{{protocol}} 发现未能完成。",
+      "unknownDevice": "未知设备",
+      "deviceId": "设备 ID",
+      "txtProperties": "TXT 属性",
+      "location": "设备描述地址",
+      "locationUnavailable": "不可用或格式无效",
       "meta": "{{count}} 个服务 · {{ms}} ms"
     },
     "pcap": {

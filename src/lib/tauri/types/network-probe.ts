@@ -498,19 +498,27 @@ export interface LanDiscoveryResult {
 }
 
 export interface LanServiceItem {
-  protocol: string
+  protocol: LanServiceProtocol
   name: string
   serviceType?: string
   host?: string
   port?: number
-  detail: string
+  uuid?: string
+  location?: string
+  txtProperties?: string[]
+}
+
+export type LanServiceProtocol = "mdns" | "ssdp"
+
+export interface LanServiceIssue {
+  protocol: LanServiceProtocol
+  code: string
 }
 
 export interface LanServicesResult {
   items: LanServiceItem[]
-  message?: string
+  issues: LanServiceIssue[]
   elapsedMs: number
-  commandHint: string
 }
 
 export interface PcapDiagResult {

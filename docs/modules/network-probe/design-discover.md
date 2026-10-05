@@ -72,16 +72,17 @@ macOS 注意：
 
 ### 3.2 局域网服务（mDNS / SSDP）
 
-| 协议          | macOS 路径                                                                            | 产出                                                    |
-| ------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| mDNS / DNS-SD | Bonjour：`dns_sd` API 或成熟 crate（如 `mdns-sd`）浏览 `_services._dns-sd._udp.local` | 服务名、类型、端口、TXT                                 |
-| SSDP / UPnP   | UDP 1900 M-SEARCH；解析 `LOCATION` 后 HTTP GET device desc（限长）                    | 设备类型、友微名、控制 URL（只展示，不调用危险 action） |
+| 协议          | macOS 路径                                                                                | 产出                                                |
+| ------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| mDNS / DNS-SD | 使用 `mdns-sd` 浏览 `_services._dns-sd._udp.local.`，再订阅枚举出的服务类型并解析服务实例 | 服务名、类型、端口、TXT                             |
+| SSDP / UPnP   | 使用 `ssdp-client` 搜索并按 USN UUID 去重；仅显示清理后的 `LOCATION`，不自动请求 URL      | 服务端标识、设备类型、LOCATION（不触发危险 action） |
 
 护栏：
 
 - 不自动调用 UPnP `AddPortMapping` 等写操作。
+- `LOCATION` 来自未经认证的局域网响应；删除凭据、查询参数与片段后仅作为文本显示，不发起 HTTP 请求，避免把设备通告变成 SSRF 入口。
 - 浏览器式超时；同一 UUID 去重。
-- 结果虚拟化（设备可能很多）。
+- 发现有总时限、设备数与 SSDP 响应数上限；最多 256 项使用虚拟滚动，避免大量广播拖慢界面。
 
 ### 3.3 STUN 映射观察
 
@@ -211,7 +212,7 @@ listProbeNodes(): ProbeNode[]
 
 - [ ] ARP 有特权路径 + ping 降级；CIDR 硬顶
 - [ ] 需要 pack 时正确返回 `missing_pack` 并完成安装校验流（D-017）
-- [ ] mDNS/SSDP 只读浏览；无 UPnP 写操作
+- [x] mDNS/SSDP 只读浏览；无 UPnP 写操作
 - [x] 多 STUN Binding、严格响应校验、IPv4/IPv6 映射与多源故障转移；完整 NAT 类型分类因缺少 RFC 5780 兼容服务端而明确不作推断
 - [ ] NTP offset 阈值；不擅自改系统钟
 

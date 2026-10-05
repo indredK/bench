@@ -743,10 +743,26 @@ pub struct LanDiscoveryResult {
     pub command_hint: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LanServiceProtocol {
+    Mdns,
+    Ssdp,
+}
+
+impl LanServiceProtocol {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Mdns => "mdns",
+            Self::Ssdp => "ssdp",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LanServiceItem {
-    pub protocol: String,
+    pub protocol: LanServiceProtocol,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_type: Option<String>,
@@ -754,17 +770,27 @@ pub struct LanServiceItem {
     pub host: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub port: Option<u16>,
-    pub detail: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub txt_properties: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LanServiceIssue {
+    pub protocol: LanServiceProtocol,
+    pub code: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LanServicesResult {
     pub items: Vec<LanServiceItem>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
+    pub issues: Vec<LanServiceIssue>,
     pub elapsed_ms: f64,
-    pub command_hint: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
