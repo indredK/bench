@@ -2265,6 +2265,7 @@
       "gatekeeperNote": "Ad-hoc / unsigned builds cannot claim Gatekeeper trust for sidecars (D-010).",
       "empty": "No packs available on this platform.",
       "refresh": "Refresh",
+      "refreshing": "Refreshing…",
       "install": "Install",
       "installing": "Installing…",
       "uninstall": "Uninstall",

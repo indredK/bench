@@ -51,20 +51,49 @@ function unwrapSettled<T>(result: PromiseSettledResult<T>): T {
   return result.value
 }
 
+type CapabilityPackSnapshot = [
+  Awaited<ReturnType<typeof networkProbeRepository.listCapabilityPacks>>,
+  Awaited<ReturnType<typeof networkProbeRepository.getCapabilities>>,
+]
+
+let capabilityPackSnapshotRequest: Promise<CapabilityPackSnapshot> | null = null
+
+function loadCapabilityPackSnapshot(): Promise<CapabilityPackSnapshot> {
+  if (capabilityPackSnapshotRequest) return capabilityPackSnapshotRequest
+
+  useNetworkProbeStore.getState().setLoadingCapabilityPacks(true)
+  const request: Promise<CapabilityPackSnapshot> = Promise.resolve()
+    .then(() =>
+      Promise.all([
+        networkProbeRepository.listCapabilityPacks(),
+        networkProbeRepository.getCapabilities(),
+      ]),
+    )
+    .then(([packs, capabilities]) => {
+      useNetworkProbeStore.getState().setCapabilityPackSnapshot(packs, capabilities)
+      return [packs, capabilities] as CapabilityPackSnapshot
+    })
+  let trackedRequest: Promise<CapabilityPackSnapshot>
+  trackedRequest = request.finally(() => {
+    if (capabilityPackSnapshotRequest !== trackedRequest) return
+    capabilityPackSnapshotRequest = null
+    useNetworkProbeStore.getState().setLoadingCapabilityPacks(false)
+  })
+  capabilityPackSnapshotRequest = trackedRequest
+  return trackedRequest
+}
+
 export const networkProbeUseCases = {
   async bootstrap() {
     const store = useNetworkProbeStore.getState()
     store.setError(null)
     try {
-      const [capabilities, defaults, packs, nodes] = await Promise.all([
-        networkProbeRepository.getCapabilities(),
+      const [, defaults, nodes] = await Promise.all([
+        loadCapabilityPackSnapshot(),
         networkProbeRepository.getDefaults(),
-        networkProbeRepository.listCapabilityPacks(),
         networkProbeRepository.listProbeNodes(),
       ])
-      store.setCapabilities(capabilities)
       store.setDefaults(defaults)
-      store.setCapabilityPacks(packs)
       store.setProbeNodes(nodes)
     } catch (error) {
       store.setError({
@@ -593,15 +622,12 @@ export const networkProbeUseCases = {
 
   async refreshCapabilityPacks() {
     const store = useNetworkProbeStore.getState()
+    if (store.loadingCapabilityPacks) return
+    if (store.error?.key === "networkProbe.errors.packsFailed") store.setError(null)
     try {
-      const [packs, capabilities] = await Promise.all([
-        networkProbeRepository.listCapabilityPacks(),
-        networkProbeRepository.getCapabilities(),
-      ])
-      store.setCapabilityPacks(packs)
-      store.setCapabilities(capabilities)
+      await loadCapabilityPackSnapshot()
     } catch (error) {
-      store.setError({
+      useNetworkProbeStore.getState().setError({
         key: "networkProbe.errors.packsFailed",
         fallback: getErrorMessage(error),
       })

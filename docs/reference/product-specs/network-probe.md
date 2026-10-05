@@ -183,8 +183,8 @@ L1 → L2 映射：
 
 - pack 列表为单选项列表（点击选中高亮），选中后右侧描述区展示 pack 描述 + Gatekeeper 说明；安装/卸载按钮带 CommandHint 包裹（hover 显示真实命令）。
 - **focusPackId 自动聚焦**：从 pcap 面板「管理能力包」入口进入时自动选中 `pcap-diag`、从端口/ARP 面板进入时自动选中 `adv-scanner`（`focusPackId → setSelected`）；pack 列表为空时右侧显示 `packs.empty` 占位。
-- `busy` 为真时**全部按钮禁用**（刷新/安装/卸载/测试哈希失败），安装按钮文案切为「安装中…」；进度文本 `packId phase bytes/totalBytes` 实时刷新，安装完成/失败后清除。
-- **能力包刷新防重入由对话框承载**：`refreshCapabilityPacks` 用例**没有**自身 loading 标志（连续调用会并发重读），其防重入依赖 PackInstallDialog 的页面级 `busy` 状态（`onRefresh/onInstall/onUninstall/onVerifyFail` 均以 `busy` 包裹，执行中按钮全部禁用）。
+- 安装/卸载期间 `busy` 禁用全部操作按钮；能力包快照刷新使用 store 级 `loadingCapabilityPacks` 单飞状态，刷新、安装、卸载与哈希验证按钮均禁用，刷新按钮显示「正在刷新…」。刷新失败保留上次成功的 packs/capabilities 快照并显示可重试错误；重试只清除能力包自己的旧错误。安装按钮在安装期间显示「安装中…」；进度文本 `packId phase bytes/totalBytes` 实时刷新，安装完成/失败后清除。
+- **能力包快照一致性**：手动刷新与启动 bootstrap 共用同一个在途请求，能力包列表和能力矩阵只有在两项读取均成功后才一起写入 store，避免快速重复点击、初始化与刷新竞态造成旧响应覆盖新状态。
 - 已安装 pack 显示「卸载」（destructive 样式）；未安装显示「安装」；`markerOnly`（制品未发布）显示标记提示。
 - 「测试哈希失败」按钮（验证通道）仅用于开发验证：安装强制返回 hash 不匹配并写入命令日志，不实际安装。
 
@@ -274,7 +274,7 @@ L1 → L2 映射：
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
 - **单工具防重入**：每个 use-case 入口 `if (store.loadingX) return`；同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
-- **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；**能力包刷新除外**——`refreshCapabilityPacks` 无 loading 标志，防重入由 PackInstallDialog 的 `busy` 提供（见 §8）。
+- **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）、能力包快照（`loadingCapabilityPacks`）在用例内以 loading 标志防重复触发。能力包手动刷新与 bootstrap 共用单个在途请求，页面同时反馈加载进度并禁用相互冲突的操作（见 §8）。
 - **agent 注册与移除防重入**：`addAgent` / `removeAgent` 共用 `agentAction` 状态；执行期间添加、移除和节点刷新入口禁用，并显示当前操作。前端用例再次检查 action 锁，避免快速连点重复调用。后端将 agent 注册表的读取、变更和原子写入放在进程内互斥区；重复端点注册复用现有节点，重复移除安全成功；注册表损坏或读取失败会向调用方报错，不静默丢弃 agent。macOS 真机验证记录见 `../../roadmap/planned/network-probe.md`。
 - **网络服务与系统设置防重入**：`loadNetworkServices` 在用例入口阻止并发刷新并维护 `idle/loading/loaded/failed`；成功空结果与失败分别展示并提供重试，修改操作只在服务已加载后开放。`openSystemNetworkSettings` 由概览、ARP 与修复面板共用 busy 状态；执行中显示进度并禁用入口，用例入口再做一次防重入检查。打开设置时只清除该动作自己的旧错误，不覆盖其他操作错误。
 

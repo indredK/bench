@@ -114,6 +114,7 @@ interface NetworkProbeState {
   }
   capabilities: NetworkProbeCapabilities | null
   capabilityPacks: CapabilityPackInfo[]
+  loadingCapabilityPacks: boolean
   packProgressText: string | null
   defaults: NetworkProbeDefaultsCatalog | null
   summary: LocalNetworkSummary | null
@@ -196,6 +197,11 @@ interface NetworkProbeState {
   setOfflineSub: (offlineSub: NetworkProbeOfflineSub) => void
   setCapabilities: (capabilities: NetworkProbeCapabilities | null) => void
   setCapabilityPacks: (capabilityPacks: CapabilityPackInfo[]) => void
+  setCapabilityPackSnapshot: (
+    capabilityPacks: CapabilityPackInfo[],
+    capabilities: NetworkProbeCapabilities,
+  ) => void
+  setLoadingCapabilityPacks: (loading: boolean) => void
   setPackProgressText: (packProgressText: string | null) => void
   setDefaults: (defaults: NetworkProbeDefaultsCatalog | null) => void
   setSummary: (summary: LocalNetworkSummary | null) => void
@@ -349,6 +355,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   nav: loadNav(),
   capabilities: null,
   capabilityPacks: [],
+  loadingCapabilityPacks: false,
   packProgressText: null,
   defaults: null,
   summary: null,
@@ -445,6 +452,9 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   },
   setCapabilities: (capabilities) => set({ capabilities }),
   setCapabilityPacks: (capabilityPacks) => set({ capabilityPacks }),
+  setCapabilityPackSnapshot: (capabilityPacks, capabilities) =>
+    set({ capabilityPacks, capabilities }),
+  setLoadingCapabilityPacks: (loadingCapabilityPacks) => set({ loadingCapabilityPacks }),
   setPackProgressText: (packProgressText) => set({ packProgressText }),
   setDefaults: (defaults) => set({ defaults }),
   setSummary: (summary) => set({ summary }),

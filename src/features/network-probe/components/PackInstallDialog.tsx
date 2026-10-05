@@ -19,6 +19,7 @@ interface PackInstallDialogProps {
   open: boolean
   packs: CapabilityPackInfo[]
   busy: boolean
+  refreshing: boolean
   progressText?: string | null
   focusPackId?: string | null
   onOpenChange: (open: boolean) => void
@@ -32,6 +33,7 @@ export function PackInstallDialog({
   open,
   packs,
   busy,
+  refreshing,
   progressText,
   focusPackId,
   onOpenChange,
@@ -48,6 +50,7 @@ export function PackInstallDialog({
   }, [focusPackId])
 
   const current = packs.find((p) => p.id === selected) ?? packs[0] ?? null
+  const actionBusy = busy || refreshing
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -98,15 +101,15 @@ export function PackInstallDialog({
         </div>
 
         <DialogFooter className="flex-wrap gap-2">
-          <Button type="button" variant="outline" disabled={busy} onClick={onRefresh}>
-            {t("networkProbe.packs.refresh")}
+          <Button type="button" variant="outline" disabled={actionBusy} onClick={onRefresh}>
+            {refreshing ? t("networkProbe.packs.refreshing") : t("networkProbe.packs.refresh")}
           </Button>
           {current?.status === "installed" ? (
             <CommandHint hint={t("networkProbe.cmd.uninstallPack", { packId: current.id })}>
               <Button
                 type="button"
                 variant="destructive"
-                disabled={busy}
+                disabled={actionBusy}
                 onClick={() => onUninstall(current.id)}
               >
                 {t("networkProbe.packs.uninstall")}
@@ -114,7 +117,7 @@ export function PackInstallDialog({
             </CommandHint>
           ) : current ? (
             <CommandHint hint={t("networkProbe.cmd.installPack", { packId: current.id })}>
-              <Button type="button" disabled={busy} onClick={() => onInstall(current.id)}>
+              <Button type="button" disabled={actionBusy} onClick={() => onInstall(current.id)}>
                 {busy ? t("networkProbe.packs.installing") : t("networkProbe.packs.install")}
               </Button>
             </CommandHint>
@@ -123,7 +126,7 @@ export function PackInstallDialog({
             <Button
               type="button"
               variant="outline"
-              disabled={busy}
+              disabled={actionBusy}
               onClick={() => onVerifyFail(current.id)}
             >
               {t("networkProbe.packs.verifyFail")}

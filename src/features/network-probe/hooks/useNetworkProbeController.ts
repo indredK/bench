@@ -24,6 +24,7 @@ export function useNetworkProbeController() {
   const nav = useNetworkProbeStore((s) => s.nav)
   const capabilities = useNetworkProbeStore((s) => s.capabilities)
   const capabilityPacks = useNetworkProbeStore((s) => s.capabilityPacks)
+  const loadingCapabilityPacks = useNetworkProbeStore((s) => s.loadingCapabilityPacks)
   const packProgressText = useNetworkProbeStore((s) => s.packProgressText)
   const defaults = useNetworkProbeStore((s) => s.defaults)
   const summary = useNetworkProbeStore((s) => s.summary)
@@ -255,6 +256,7 @@ export function useNetworkProbeController() {
     offlineSub: nav.offlineSub,
     capabilities,
     capabilityPacks,
+    loadingCapabilityPacks,
     packProgressText,
     toolEnabled: {
       ping: toolEnabled(tools, "ping"),

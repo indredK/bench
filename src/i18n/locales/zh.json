@@ -2265,6 +2265,7 @@
       "gatekeeperNote": "ad-hoc / 未签名构建不得宣称 sidecar 已获 Gatekeeper 信任（D-010）。",
       "empty": "当前平台无可用能力包。",
       "refresh": "刷新",
+      "refreshing": "正在刷新…",
       "install": "安装",
       "installing": "安装中…",
       "uninstall": "卸载",
