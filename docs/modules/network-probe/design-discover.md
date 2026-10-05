@@ -9,13 +9,13 @@
 
 ## 1. 用户心智与 L2 清单
 
-| L2 id     | 面板       | 主能力                          | 交付         |
-| --------- | ---------- | ------------------------------- | ------------ |
-| `arp`     | ARP 发现   | 局域网主机表 + ARP 欺骗迹象入口 | Post-MVP-Adv |
-| `lan-svc` | 局域网服务 | mDNS/DNS-SD、SSDP/UPnP 浏览     | Post-MVP-Adv |
-| `nat`     | NAT 类型   | STUN 分类                       | Post-MVP-Adv |
-| `ntp`     | NTP 时间   | 偏移与可达性                    | Post-MVP-Adv |
-| `nodes`   | 多节点对比 | local + Globalping / agent      | Post-MVP-C   |
+| L2 id     | 面板          | 主能力                                           | 交付         |
+| --------- | ------------- | ------------------------------------------------ | ------------ |
+| `arp`     | ARP 发现      | 局域网主机表 + ARP 欺骗迹象入口                  | Post-MVP-Adv |
+| `lan-svc` | 局域网服务    | mDNS/DNS-SD、SSDP/UPnP 浏览                      | Post-MVP-Adv |
+| `nat`     | STUN 映射观察 | 多服务器 Binding 映射对照（不冒称完整 NAT 分类） | Post-MVP-Adv |
+| `ntp`     | NTP 时间      | 偏移与可达性                                     | Post-MVP-Adv |
+| `nodes`   | 多节点对比    | local + Globalping / agent                       | Post-MVP-C   |
 
 与「安全」分工：安全偏**威胁与暴露**；发现偏**拓扑与环境属性**。ARP 欺骗检测算法可两边复用同一 backend，UI 入口可双链。
 
@@ -83,14 +83,16 @@ macOS 注意：
 - 浏览器式超时；同一 UUID 去重。
 - 结果虚拟化（设备可能很多）。
 
-### 3.3 NAT 类型（STUN）
+### 3.3 STUN 映射观察
 
-| 项     | 约定                                                                                              |
-| ------ | ------------------------------------------------------------------------------------------------- |
-| 协议   | STUN Binding（RFC 8489）；多服务器对照                                                            |
-| 分类   | 至少：Open / Full Cone / Restricted / Port-Restricted / Symmetric / UDP Blocked（映射到产品文案） |
-| 实现   | 轻量 STUN client（评估 `hightower-stun` 或自研最小 Binding）；**不必**引入完整 ICE/TURN 栈        |
-| 服务器 | 可配列表（Google STUN 等公共源）；失败转移；遵守配额                                              |
+| 项     | 约定                                                                                             |
+| ------ | ------------------------------------------------------------------------------------------------ |
+| 协议   | STUN Binding（RFC 8489）；多服务器对照                                                           |
+| 结果   | 映射一致、映射不同、无有效响应；这些结果不等同于 Open / Cone / Symmetric 等 NAT 类型             |
+| 实现   | 使用 `rtc-stun` 编解码并自行以 Tokio 收发；校验来源、事务 ID、消息类型与报文长度；支持 IPv4/IPv6 |
+| 服务器 | 使用 [defaults.md](./defaults.md) §8.1 的有界内置列表；逐源失败转移；当前尚不支持用户自定义      |
+
+仅用不同公网服务器的 Binding 映射对照，无法判断地址依赖过滤等行为，也不能据此区分锥形/对称 NAT。完整分类需要 RFC 5780 行为发现、明确支持相应测试的服务端和过滤测试；当前公共服务器列表不保证这些能力，因此界面只报告观测值。若未来增加兼容服务端，应单独扩展为有能力探测时才显示的分类结果。
 
 与「公网出口」区别：出口要的是 **IP/ASN**；NAT 要的是 **映射行为**。可共用一次 Binding 的 XOR-MAPPED-ADDRESS 作出口候选，但 UI 分面板。
 
@@ -210,7 +212,7 @@ listProbeNodes(): ProbeNode[]
 - [ ] ARP 有特权路径 + ping 降级；CIDR 硬顶
 - [ ] 需要 pack 时正确返回 `missing_pack` 并完成安装校验流（D-017）
 - [ ] mDNS/SSDP 只读浏览；无 UPnP 写操作
-- [ ] STUN NAT 分类 + 多源故障转移
+- [x] 多 STUN Binding、严格响应校验、IPv4/IPv6 映射与多源故障转移；完整 NAT 类型分类因缺少 RFC 5780 兼容服务端而明确不作推断
 - [ ] NTP offset 阈值；不擅自改系统钟
 
 **C**

@@ -562,10 +562,7 @@ mod tests {
         let rename_count = std::sync::atomic::AtomicUsize::new(0);
         let err = promote_staged_bundle_with(&staging, &final_dir, |from, to| {
             if rename_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 1 {
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "simulated rename failure",
-                ))
+                Err(std::io::Error::other("simulated rename failure"))
             } else {
                 fs::rename(from, to)
             }

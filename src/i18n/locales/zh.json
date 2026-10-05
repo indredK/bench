@@ -1625,7 +1625,7 @@
       "whois": "WHOIS",
       "arp": "ARP 发现",
       "lan-svc": "局域网服务",
-      "nat": "NAT 类型",
+      "nat": "STUN 映射观察",
       "ntp": "NTP",
       "nodes": "多节点对比"
     },
@@ -2145,11 +2145,16 @@
       "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
     },
     "nat": {
-      "hint": "对公网 STUN 服务器做 Binding，查看映射地址 / NAT 暴露情况。",
+      "hint": "对比多个 STUN 服务器报告的公网映射地址。",
+      "scopeNote": "映射一致性不能单独判定锥形 NAT、对称 NAT 等具体类型。",
       "run": "探测 NAT",
       "running": "探测中…",
-      "type": "结果",
-      "mapped": "映射地址"
+      "type": "观测结果",
+      "consistent": "响应服务器返回的映射一致",
+      "varied": "不同服务器返回的映射不同",
+      "blockedOrTimeout": "无有效响应（可能被阻断或超时）",
+      "mapped": "映射地址",
+      "details": "服务器详情"
     },
     "ntp": {
       "hint": "查询 pool.ntp.org 时钟偏移。过大偏差可能影响 TLS 与鉴权。",

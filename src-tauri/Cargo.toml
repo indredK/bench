@@ -68,6 +68,7 @@ ed25519-dalek = "3"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 futures-util = "0.3"
 rand = "0.10"
+rtc-stun = { version = "0.21", default-features = false }
 aes-gcm = "0.11"
 keyring = "4"
 uuid = { version = "1", features = ["v4"] }

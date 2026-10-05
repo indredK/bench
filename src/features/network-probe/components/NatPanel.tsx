@@ -1,5 +1,5 @@
 /**
- * Feature UI / 功能界面: NAT type via STUN.
+ * Feature UI / 功能界面: STUN mapping observation.
  */
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
@@ -15,6 +15,12 @@ interface NatPanelProps {
   onRun: () => void
 }
 
+const resultLabels: Record<string, string> = {
+  "consistent-across-servers": "networkProbe.nat.consistent",
+  "varied-across-servers": "networkProbe.nat.varied",
+  "blocked-or-timeout": "networkProbe.nat.blockedOrTimeout",
+}
+
 export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: NatPanelProps) {
   const { t } = useTranslation()
   return (
@@ -22,6 +28,7 @@ export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: Na
       toolbar={
         <>
           <p className="text-muted-foreground text-sm">{t("networkProbe.nat.hint")}</p>
+          <p className="text-muted-foreground text-xs">{t("networkProbe.nat.scopeNote")}</p>
           {!toolEnabled ? (
             <p className="text-xs text-amber-700 dark:text-amber-400">
               {t("networkProbe.caps.toolDisabled", {
@@ -42,7 +49,9 @@ export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: Na
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div>
             {t("networkProbe.nat.type")}:{" "}
-            <span className="font-mono font-medium">{result.natType}</span>
+            <span className="font-medium">
+              {resultLabels[result.natType] ? t(resultLabels[result.natType]) : result.natType}
+            </span>
           </div>
           {result.mappedAddress ? (
             <div>
@@ -50,7 +59,12 @@ export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: Na
               <span className="font-mono">{result.mappedAddress}</span>
             </div>
           ) : null}
-          {result.detail ? <p className="text-muted-foreground text-xs">{result.detail}</p> : null}
+          {result.detail ? (
+            <details className="text-muted-foreground text-xs">
+              <summary className="cursor-pointer">{t("networkProbe.nat.details")}</summary>
+              <p className="mt-1">{result.detail}</p>
+            </details>
+          ) : null}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}

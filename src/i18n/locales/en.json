@@ -1625,7 +1625,7 @@
       "whois": "WHOIS",
       "arp": "ARP discovery",
       "lan-svc": "LAN services",
-      "nat": "NAT type",
+      "nat": "STUN mapping",
       "ntp": "NTP",
       "nodes": "Multi-node"
     },
@@ -2145,11 +2145,16 @@
       "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
     },
     "nat": {
-      "hint": "STUN Binding against a public server to learn your mapped address / NAT exposure.",
+      "hint": "Compare the public mapping reported by several STUN servers.",
+      "scopeNote": "Mapping consistency alone cannot identify a specific NAT type such as cone or symmetric NAT.",
       "run": "Probe NAT",
       "running": "Probing…",
-      "type": "Result",
-      "mapped": "Mapped address"
+      "type": "Observation",
+      "consistent": "Same mapping across responding servers",
+      "varied": "Different mappings across servers",
+      "blockedOrTimeout": "No valid response (blocked or timed out)",
+      "mapped": "Mapped address",
+      "details": "Server details"
     },
     "ntp": {
       "hint": "Query pool.ntp.org for clock offset. Large skew can break TLS and auth.",

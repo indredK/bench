@@ -203,13 +203,15 @@ ASN（可选第二跳）：
 
 ## 8. Post-MVP 默认（预置，不进 MVP 验收）
 
-### 8.1 STUN（`stun_servers`）· S-DIS-03
+### 8.1 STUN（当前实现的内置列表；用户自定义待实现）· S-DIS-03
 
-| id         | server                     |
-| ---------- | -------------------------- |
-| `google-a` | `stun.l.google.com:19302`  |
-| `google-b` | `stun1.l.google.com:19302` |
-| `google-c` | `stun2.l.google.com:19302` |
+| id             | server                     |
+| -------------- | -------------------------- |
+| `google-a`     | `stun.l.google.com:19302`  |
+| `google-b`     | `stun1.l.google.com:19302` |
+| `cloudflare-a` | `stun.cloudflare.com:3478` |
+
+运行时逐源探测并对 DNS 返回的至多两个地址做故障转移；此表目前由 Rust 内置常量提供，`defaults-override.json` 尚不能覆盖 STUN 主机。
 
 ### 8.2 NTP（`ntp_servers`）· S-DIS-03
 

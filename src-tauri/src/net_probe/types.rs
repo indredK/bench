@@ -674,7 +674,7 @@ pub struct PortScanResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NatProbeResult {
-    /// stun-mapped | blocked-or-timeout | unknown | fail
+    /// consistent-across-servers | varied-across-servers | blocked-or-timeout
     pub nat_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mapped_address: Option<String>,
