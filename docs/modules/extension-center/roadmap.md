@@ -5,7 +5,7 @@
 > **架构边界与工作流**（含作者侧流程）：[extension-workflow.md](../../explanation/extension-workflow.md)
 > **插件中心功能规格**：[product-specs/extension-center.md](../../reference/product-specs/extension-center.md) ｜ **未完成项**：[planned/extension-center.md](../../roadmap/planned/extension-center.md)
 > **方向性决策**：[DECISIONS.md](../../explanation/decisions.md)（D-023 / D-024）
-> **最后更新**：2026-10-06（修复插件生命周期 IPC 越权；诊断筛选与权限说明 UX 待完成）。
+> **最后更新**：2026-10-06（修复插件生命周期 IPC 越权及诊断筛选/刷新恢复体验；人类可读权限说明待完成）。
 
 ## 成本原则（贯穿全部阶段）
 
@@ -24,21 +24,21 @@
 
 ## 进度总览
 
-| 阶段     | 内容                                                            | 状态                                         |
-| -------- | --------------------------------------------------------------- | -------------------------------------------- |
-| P0       | 产品定案（2.0 = 插件化第三方生态）                              | ✅ 完成                                      |
-| P1       | 概念验证（ExtensionAssets 同源加载 + IPC）                      | ✅ 完成                                      |
-| P2       | 契约先行 + 插件中心最小版 + photo-triage bundled                | ✅ 完成                                      |
-| P2b      | photo-triage 完整 UI 迁移（独立 bundle）                        | ✅ 完成                                      |
-| P3       | 运行时治理（engines 门控 / 签名骨架 / 语言注入 / 卸载）         | ✅ 完成                                      |
-| **P3.1** | **包完整性安全地基**（逐文件 hash 清单 + 降级防护 + 公钥三态）  | ✅ 完成（2026-09-08）                        |
-| **P3.2** | **Windows 双平台 CI 门禁**（verify job，不产包）                | ✅ 完成（2026-09-08）*                       |
-| **P3.3** | **安全解压 + 审计日志**                                         | ✅ 完成（2026-09-08）                        |
-| **P3.4** | **bundled 产物发布集成**（随正式包发布）                        | ✅ 完成（2026-09-08）*                       |
-| **P4**   | **market 端到端闭环**（静态 registry → 安装向导 → 验签 → 启用） | 🟡 主流程完成；诊断筛选与权限说明 UX 待补齐* |
-| P4.5     | 作者侧交付（SDK / 模板 / 脚手架 / 打包签名）                    | ✅ 实物已交付；新手验收待完成                |
-| P5       | 增量迁移（带停止线，每批复评）                                  | ⬜ P4 之后                                   |
-| P6       | Windows release 产物                                            | ⬜ 最后                                      |
+| 阶段     | 内容                                                            | 状态                                   |
+| -------- | --------------------------------------------------------------- | -------------------------------------- |
+| P0       | 产品定案（2.0 = 插件化第三方生态）                              | ✅ 完成                                |
+| P1       | 概念验证（ExtensionAssets 同源加载 + IPC）                      | ✅ 完成                                |
+| P2       | 契约先行 + 插件中心最小版 + photo-triage bundled                | ✅ 完成                                |
+| P2b      | photo-triage 完整 UI 迁移（独立 bundle）                        | ✅ 完成                                |
+| P3       | 运行时治理（engines 门控 / 签名骨架 / 语言注入 / 卸载）         | ✅ 完成                                |
+| **P3.1** | **包完整性安全地基**（逐文件 hash 清单 + 降级防护 + 公钥三态）  | ✅ 完成（2026-09-08）                  |
+| **P3.2** | **Windows 双平台 CI 门禁**（verify job，不产包）                | ✅ 完成（2026-09-08）*                 |
+| **P3.3** | **安全解压 + 审计日志**                                         | ✅ 完成（2026-09-08）                  |
+| **P3.4** | **bundled 产物发布集成**（随正式包发布）                        | ✅ 完成（2026-09-08）*                 |
+| **P4**   | **market 端到端闭环**（静态 registry → 安装向导 → 验签 → 启用） | 🟡 主流程完成；安装权限说明 UX 待补齐* |
+| P4.5     | 作者侧交付（SDK / 模板 / 脚手架 / 打包签名）                    | ✅ 实物已交付；新手验收待完成          |
+| P5       | 增量迁移（带停止线，每批复评）                                  | ⬜ P4 之后                             |
+| P6       | Windows release 产物                                            | ⬜ 最后                                |
 
 > **P3.1 已完成（2026-09-08）**：插件产物格式（manifest schema v2）已冻结，P3.3 的 download/extract 可在此格式上实现。
 > **P3.2–P4 实现已交付**：PR #109 的 macOS 与 Windows CI 均通过（[运行记录](https://github.com/indredK/bench/actions/runs/36353062738)）。本机 Bench 真机已打开 Extension Center，市场目录成功加载；尚未完成干净用户目录中的安装、升级、卸载全流程。P3.4 正式 release 包全新安装验收仍待完成。
@@ -207,7 +207,7 @@ pnpm run test:critical       # ✓ 145 passed
 - [x] 2026-10-06 修复插件窗口可跨插件调用 `ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall`：能力快照隐藏这些 host-only 命令，运行时拒绝调用，市场包预览与提交双重拒绝；旧 manifest 仍可解析以便用户查看并卸载遗留插件，macOS 真机隔离 QA profile 验证拒绝且 canary 未被删除
 - [ ] 安装信任披露将 ACL 原始命令标识转换为中英文的人类可读描述；未知命令名仍显示原文作为兼容兜底
 - [x] 诊断面板：`ext_diagnostics` 返回 `ext-audit.log` + `ext-diagnostics.jsonl` 各最近 200 条，插件中心内直接查看
-- [ ] 运行时诊断按 `kind` 筛选；筛选仅解析插件诊断 JSONL 的 `kind` 字段，未知/旧格式记录保留为「其他」，刷新失败时保留上次成功数据并可重试
+- [x] 运行时诊断按 `kind` 筛选；筛选仅解析插件诊断 JSONL 的 `kind` 字段，未知/旧格式记录保留为「其他」，刷新失败时保留上次成功数据并可重试；2026-10-06 macOS 隔离 profile 真机验证筛选、语言切换、刷新失败与恢复
 - [x] minisign 真实签名：管线已按 spec §4 全量校验（canonical + trusted comment）；单测以确定性 ed25519 夹具构造真实签名走通正向路径。_签出首批插件需 registry 私钥环境（外部前置）_
 - [x] 能力兼容标记：market 版本条目包含 `compatible` / `installed` / `updateAvailable` / `yanked` / `revokedReason` / `installable`；安装候选由后端综合 engines、吊销、下架和版本单调性计算；D-017 pack 形态（degraded/missing_pack）当前无 pack 交付物，字段位预留、随首个 pack 插件启用
 

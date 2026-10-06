@@ -2706,10 +2706,24 @@
       "toastInstalled": "插件已安装"
     },
     "diagnostics": {
-      "hint": "插件审计日志与运行时错误（最近 200 条）",
+      "hint": "插件审计日志与运行时错误（最近 200 条）；运行时记录可按类型筛选",
       "audit": "审计日志 ext-audit.log",
       "runtime": "运行时诊断 ext-diagnostics.jsonl",
-      "empty": "暂无记录"
+      "empty": "暂无记录",
+      "filteredEmpty": "此类型暂无记录",
+      "filterLabel": "运行时诊断类型",
+      "filters": {
+        "all": "全部",
+        "windowError": "页面错误",
+        "unhandledRejection": "未处理的 Promise 拒绝",
+        "consoleError": "控制台错误",
+        "boot": "启动记录",
+        "other": "其他（未知或旧格式）"
+      },
+      "loadFailed": "诊断信息加载失败",
+      "refreshFailed": "刷新诊断信息失败，仍显示上次成功加载的记录",
+      "refreshing": "正在刷新诊断…",
+      "loading": "正在加载诊断记录"
     },
     "tabBridge": "跨端接入",
     "bridgeTitle": "浏览器扩展与 MCP 接入",

@@ -2706,10 +2706,24 @@
       "toastInstalled": "Extension installed"
     },
     "diagnostics": {
-      "hint": "Extension audit log and runtime errors (last 200 entries)",
+      "hint": "Extension audit log and runtime errors (last 200 entries); filter runtime records by type",
       "audit": "Audit log ext-audit.log",
       "runtime": "Runtime diagnostics ext-diagnostics.jsonl",
-      "empty": "No records"
+      "empty": "No records",
+      "filteredEmpty": "No records match this type",
+      "filterLabel": "Runtime diagnostic type",
+      "filters": {
+        "all": "All",
+        "windowError": "Window errors",
+        "unhandledRejection": "Unhandled rejections",
+        "consoleError": "Console errors",
+        "boot": "Startup",
+        "other": "Other (unknown or legacy)"
+      },
+      "loadFailed": "Failed to load diagnostics",
+      "refreshFailed": "Failed to refresh diagnostics. Showing the last successfully loaded records.",
+      "refreshing": "Refreshing diagnostics…",
+      "loading": "Loading diagnostics"
     },
     "tabBridge": "Cross-platform",
     "bridgeTitle": "Browser Extension & MCP",
