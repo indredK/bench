@@ -11,10 +11,45 @@ import type { DnsSecCheckResult } from "@/lib/tauri/types/network-probe"
 
 const DNSSEC_STATUSES = new Set(["secure", "insecure", "bogus", "unknown", "unsupported"])
 
+const DNSSEC_DETAIL_KEYS: Record<string, string> = {
+  localValidationSecure: "networkProbe.dnssec.details.localValidationSecure",
+  localValidationInsecure: "networkProbe.dnssec.details.localValidationInsecure",
+  localValidationBogus: "networkProbe.dnssec.details.localValidationBogus",
+  localValidationIndeterminate: "networkProbe.dnssec.details.localValidationIndeterminate",
+  resolverServfail: "networkProbe.dnssec.details.resolverServfail",
+  resolverFailure: "networkProbe.dnssec.details.resolverFailure",
+  noAnswer: "networkProbe.dnssec.details.noAnswer",
+  requestTimedOut: "networkProbe.dnssec.details.requestTimedOut",
+  resolverConfigurationFailed: "networkProbe.dnssec.details.resolverConfigurationFailed",
+}
+
+const DOH_DETAIL_KEYS: Record<string, string> = {
+  authenticatedData: "networkProbe.dnssec.dohDetails.authenticatedData",
+  notAuthenticated: "networkProbe.dnssec.dohDetails.notAuthenticated",
+  missingAdSignal: "networkProbe.dnssec.dohDetails.missingAdSignal",
+  resolverServfail: "networkProbe.dnssec.dohDetails.resolverServfail",
+  resolverFailure: "networkProbe.dnssec.dohDetails.resolverFailure",
+  httpError: "networkProbe.dnssec.dohDetails.httpError",
+  requestFailed: "networkProbe.dnssec.dohDetails.requestFailed",
+  invalidResponse: "networkProbe.dnssec.dohDetails.invalidResponse",
+  responseTooLarge: "networkProbe.dnssec.dohDetails.responseTooLarge",
+}
+
+const DOT_DETAIL_KEYS: Record<string, string> = {
+  tlsVerifiedQuerySucceeded: "networkProbe.dnssec.dotDetails.tlsVerifiedQuerySucceeded",
+  tlsVerifiedDnsResponse: "networkProbe.dnssec.dotDetails.tlsVerifiedDnsResponse",
+  tlsOrQueryFailed: "networkProbe.dnssec.dotDetails.tlsOrQueryFailed",
+  timedOut: "networkProbe.dnssec.dotDetails.timedOut",
+}
+
 function formatLatency(value: number | undefined) {
   if (value == null) return "—"
   if (value < 1) return "<1"
   return value < 10 ? value.toFixed(1) : value.toFixed(0)
+}
+
+function localizedDetailKey(values: Record<string, string>, value: string, fallback: string) {
+  return Object.hasOwn(values, value) ? values[value] : fallback
 }
 
 interface DnsSecPanelProps {
@@ -30,9 +65,42 @@ export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }:
   const [domain, setDomain] = useState("cloudflare.com")
   const technicalDetails = result
     ? [
-        { label: t("networkProbe.dnssec.dnssecDetail"), value: result.dnssecDetail },
-        { label: t("networkProbe.dnssec.dohDetail"), value: result.dohDetail },
-        { label: t("networkProbe.dnssec.dotDetail"), value: result.dotDetail },
+        {
+          label: t("networkProbe.dnssec.dnssecDetail"),
+          value: result.dnssecDetail
+            ? t(
+                localizedDetailKey(
+                  DNSSEC_DETAIL_KEYS,
+                  result.dnssecDetail,
+                  "networkProbe.dnssec.details.unknown",
+                ),
+              )
+            : undefined,
+        },
+        {
+          label: t("networkProbe.dnssec.dohDetail"),
+          value: result.dohDetail
+            ? t(
+                localizedDetailKey(
+                  DOH_DETAIL_KEYS,
+                  result.dohDetail,
+                  "networkProbe.dnssec.dohDetails.unknown",
+                ),
+              )
+            : undefined,
+        },
+        {
+          label: t("networkProbe.dnssec.dotDetail"),
+          value: result.dotDetail
+            ? t(
+                localizedDetailKey(
+                  DOT_DETAIL_KEYS,
+                  result.dotDetail,
+                  "networkProbe.dnssec.dotDetails.unknown",
+                ),
+              )
+            : undefined,
+        },
       ].filter((detail): detail is { label: string; value: string } => Boolean(detail.value))
     : []
 
@@ -90,7 +158,7 @@ export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }:
               <div className="text-muted-foreground text-xs">{t("networkProbe.dnssec.doh")}</div>
               <div className="font-mono text-sm">
                 {result.dohOk
-                  ? t("networkProbe.dnssec.okMs", { ms: formatLatency(result.dohRttMs) })
+                  ? t("networkProbe.dnssec.dohOkMs", { ms: formatLatency(result.dohRttMs) })
                   : t("networkProbe.dnssec.fail")}
               </div>
             </div>
@@ -98,7 +166,7 @@ export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }:
               <div className="text-muted-foreground text-xs">{t("networkProbe.dnssec.dot")}</div>
               <div className="font-mono text-sm">
                 {result.dotOk
-                  ? t("networkProbe.dnssec.okMs", { ms: formatLatency(result.dotRttMs) })
+                  ? t("networkProbe.dnssec.dotOkMs", { ms: formatLatency(result.dotRttMs) })
                   : t("networkProbe.dnssec.fail")}
               </div>
             </div>

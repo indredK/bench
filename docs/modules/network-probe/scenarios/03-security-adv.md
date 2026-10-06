@@ -128,8 +128,9 @@ Post-MVP-Adv
 
 ### 步骤
 
-1. 「DNSSEC / DoH」查询域名 → 得 secure/bogus/insecure；测 DoH/DoT 可达
-2. 「WHOIS」查同一域名（优先 RDAP）
+1. 「DNSSEC / DoH」查询域名 → Hickory 通过 Cloudflare DoT 和根信任锚本机验证，结果为 secure / bogus / insecure / unknown；Cloudflare DoH AD 位作为独立远端信号显示。
+2. DoT 只有完成 TLS 证书验证并收到 DNS 响应才显示成功；纯 TCP 853 连通不算 DoT 成功。SERVFAIL 显示“无法确定”，不得直接标为 bogus。
+3. 「WHOIS」查同一域名（优先 RDAP）
 
 ### 期望
 

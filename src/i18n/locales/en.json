@@ -2106,7 +2106,7 @@
       "running": "Checking…",
       "status": "DNSSEC status",
       "statusValue": {
-        "secure": "Secure (validated)",
+        "secure": "Secure (validated locally)",
         "insecure": "Unsigned (insecure)",
         "bogus": "Validation failed",
         "unknown": "Unknown",
@@ -2114,12 +2114,44 @@
       },
       "doh": "DoH",
       "dot": "DoT",
-      "okMs": "ok · {{ms}} ms",
+      "dohOkMs": "DoH response received · {{ms}} ms",
+      "dotOkMs": "TLS verified · DNS response received · {{ms}} ms",
       "fail": "unreachable / failed",
       "technicalDetails": "Technical details",
       "dnssecDetail": "DNSSEC",
       "dohDetail": "DoH",
-      "dotDetail": "DoT"
+      "dotDetail": "DoT",
+      "details": {
+        "localValidationSecure": "Hickory validated the DNSSEC signature chain using its root trust anchors.",
+        "localValidationInsecure": "The local validator confirmed the answer has no verifiable signed chain (usually an unsigned zone).",
+        "localValidationBogus": "The local validator found an invalid DNSSEC signature or proof.",
+        "localValidationIndeterminate": "The resolver responded, but there was not enough data to determine DNSSEC status.",
+        "resolverServfail": "The resolver returned SERVFAIL; this alone does not establish that DNSSEC is bogus.",
+        "resolverFailure": "The resolver returned an error, so DNSSEC status could not be determined.",
+        "noAnswer": "No answer or negative proof was available to determine DNSSEC status.",
+        "requestTimedOut": "The DoT DNS query timed out.",
+        "resolverConfigurationFailed": "The local DNSSEC validator could not be configured.",
+        "unknown": "DNSSEC status is unknown."
+      },
+      "dohDetails": {
+        "authenticatedData": "Cloudflare DoH returned AD=true; this is the remote resolver's validation signal.",
+        "notAuthenticated": "Cloudflare DoH returned AD=false; the local validation result is shown separately.",
+        "missingAdSignal": "The response did not include an AD bit.",
+        "resolverServfail": "Cloudflare DoH returned SERVFAIL; this alone does not prove DNSSEC failure.",
+        "resolverFailure": "Cloudflare DoH returned a DNS error status.",
+        "httpError": "Cloudflare DoH returned an HTTP error.",
+        "requestFailed": "Could not reach Cloudflare DoH.",
+        "invalidResponse": "Cloudflare DoH returned an invalid response.",
+        "responseTooLarge": "The Cloudflare DoH response exceeded the size limit.",
+        "unknown": "DoH status is unknown."
+      },
+      "dotDetails": {
+        "tlsVerifiedQuerySucceeded": "The Cloudflare DoT TLS certificate was verified and the DNS query completed.",
+        "tlsVerifiedDnsResponse": "The Cloudflare DoT TLS certificate was verified and a DNS response was received.",
+        "tlsOrQueryFailed": "DoT TLS certificate verification or the DNS query failed.",
+        "timedOut": "The DoT TLS handshake or DNS query timed out.",
+        "unknown": "DoT status is unknown."
+      }
     },
     "ports": {
       "hint": "Port scan of a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",

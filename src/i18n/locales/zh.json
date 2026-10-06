@@ -2106,7 +2106,7 @@
       "running": "检查中…",
       "status": "DNSSEC 状态",
       "statusValue": {
-        "secure": "安全（验证通过）",
+        "secure": "安全（本机验证通过）",
         "insecure": "未签名（不安全）",
         "bogus": "验证失败",
         "unknown": "无法确定",
@@ -2114,12 +2114,44 @@
       },
       "doh": "DoH",
       "dot": "DoT",
-      "okMs": "可达 · {{ms}} ms",
+      "dohOkMs": "已收到 DoH 响应 · {{ms}} ms",
+      "dotOkMs": "TLS 已验证 · 已收到 DNS 响应 · {{ms}} ms",
       "fail": "不可达 / 失败",
       "technicalDetails": "技术诊断详情",
       "dnssecDetail": "DNSSEC",
       "dohDetail": "DoH",
-      "dotDetail": "DoT"
+      "dotDetail": "DoT",
+      "details": {
+        "localValidationSecure": "Hickory 使用根信任锚验证了 DNSSEC 签名链。",
+        "localValidationInsecure": "本机验证器确认该答案没有可验证的签名链（通常为未签名区域）。",
+        "localValidationBogus": "本机验证器发现 DNSSEC 签名或证明无效。",
+        "localValidationIndeterminate": "已连接解析器，但缺少足够数据确定 DNSSEC 状态。",
+        "resolverServfail": "解析器返回 SERVFAIL；单凭此错误不能判断 DNSSEC 为 bogus。",
+        "resolverFailure": "解析器返回错误，DNSSEC 状态无法确定。",
+        "noAnswer": "没有可用于判断 DNSSEC 的答案或否定证明。",
+        "requestTimedOut": "DoT DNS 查询超时。",
+        "resolverConfigurationFailed": "无法配置本机 DNSSEC 验证器。",
+        "unknown": "DNSSEC 状态未知。"
+      },
+      "dohDetails": {
+        "authenticatedData": "Cloudflare DoH 返回 AD=true；这是远端解析器的验证信号。",
+        "notAuthenticated": "Cloudflare DoH 返回 AD=false；本机验证结果单独显示。",
+        "missingAdSignal": "响应中没有 AD 位。",
+        "resolverServfail": "Cloudflare DoH 返回 SERVFAIL；这不单独证明 DNSSEC 失败。",
+        "resolverFailure": "Cloudflare DoH 返回 DNS 错误状态。",
+        "httpError": "Cloudflare DoH 返回 HTTP 错误。",
+        "requestFailed": "无法连接 Cloudflare DoH。",
+        "invalidResponse": "Cloudflare DoH 响应格式无效。",
+        "responseTooLarge": "Cloudflare DoH 响应超过大小限制。",
+        "unknown": "DoH 状态未知。"
+      },
+      "dotDetails": {
+        "tlsVerifiedQuerySucceeded": "已验证 Cloudflare DoT TLS 证书并完成 DNS 查询。",
+        "tlsVerifiedDnsResponse": "已验证 Cloudflare DoT TLS 证书并收到 DNS 响应。",
+        "tlsOrQueryFailed": "DoT TLS 证书验证或 DNS 查询失败。",
+        "timedOut": "DoT TLS 握手或 DNS 查询超时。",
+        "unknown": "DoT 状态未知。"
+      }
     },
     "ports": {
       "hint": "对自有或已授权主机做端口扫描。最多 256 端口；可取消。",
