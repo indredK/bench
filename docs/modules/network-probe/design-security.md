@@ -164,7 +164,7 @@ HTTPS 请求失败（包括域名解析、连接、超时或 TLS 校验失败）
 | 能力   | 实现要点                                                                                                                                                                  |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | DNSSEC | `hickory-resolver` 使用内置根信任锚在 DoT 响应上本机验证；结果：secure / bogus / insecure / unknown。只有 Hickory 明确报告签名验证失败时才标 bogus；SERVFAIL 归 unknown。 |
-| DoH    | HTTPS POST/GET 到可信 DoH URL（可配）；测延迟与是否被劫持到非 TLS                                                                                                         |
+| DoH    | 使用固定的 Cloudflare JSON API HTTPS endpoint；校验 HTTPS 证书、限制响应体为 16 KiB，并单独展示 RCODE 与 AD 位远端信号。当前不支持自定义 resolver URL。                   |
 | DoT    | Hickory DoT 查询至 TLS 853；校验证书主机名和系统/WebPKI 根证书，不降级为明文 TCP。DoT 响应同时供本机 DNSSEC 验证使用。                                                    |
 
 系统是否已启用加密 DNS：可读 Network Extension / 配置描述（能读多少算多少；读不到则 `partial`）。
