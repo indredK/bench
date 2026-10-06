@@ -45,6 +45,10 @@ vi.mock("react-i18next", () => ({
           "Permission details are hidden until verified",
         "extensionCenter.market.permissionGroups.photoTriage":
           "Local photo scanning and file organization",
+        "extensionCenter.market.permissionDescriptions.photoTriage.scanFolder":
+          "Scan a local photo folder",
+        "extensionCenter.market.permissionDescriptions.photoTriage.movePhotosToTrash":
+          "Move selected photos to the system Trash or Recycle Bin",
         "extensionCenter.market.capabilityStatusNote":
           "Supported means commands passed the host ACL allow-list check",
         "extensionCenter.market.noOptionalPacks": "No optional packs are declared",
@@ -58,7 +62,7 @@ vi.mock("react-i18next", () => ({
         "extensionCenter.market.revokedReason": "Reason: {reason}",
         "extensionCenter.market.selectVersion": "Select a version to install",
         "extensionCenter.market.noInstallableVersion":
-          "No compatible release is currently available to install",
+          "No installable release is currently available",
         "extensionCenter.market.noUpdateAvailable": "No compatible update is currently available",
         "extensionCenter.market.revokedBanner": "Revoked extensions were force-disabled",
         "extensionCenter.market.revokedNote":
@@ -215,9 +219,7 @@ describe("MarketPanel version selection", () => {
 
     render(<MarketPanel />)
 
-    expect(
-      screen.getByText("No compatible release is currently available to install"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("No installable release is currently available")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Install" })).not.toBeInTheDocument()
   })
 
@@ -228,7 +230,7 @@ describe("MarketPanel version selection", () => {
 
     expect(screen.getByText("No compatible update is currently available")).toBeInTheDocument()
     expect(
-      screen.queryByText("No compatible release is currently available to install"),
+      screen.queryByText("No installable release is currently available"),
     ).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Install" })).not.toBeInTheDocument()
   })
@@ -329,8 +331,10 @@ describe("MarketPanel version selection", () => {
       "Official registry package checksum and file manifest verified",
     )
     expect(dialog).toHaveTextContent("Local photo scanning and file organization")
-    expect(dialog).toHaveTextContent("photo_triage_scan")
-    expect(dialog).toHaveTextContent("photo_triage_trash")
+    expect(dialog).toHaveTextContent("Scan a local photo folder")
+    expect(dialog).toHaveTextContent("Move selected photos to the system Trash or Recycle Bin")
+    expect(dialog).not.toHaveTextContent("photo_triage_scan")
+    expect(dialog).not.toHaveTextContent("photo_triage_trash")
     expect(dialog).toHaveTextContent(">=1.2.0")
   })
 })

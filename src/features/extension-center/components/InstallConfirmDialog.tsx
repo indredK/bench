@@ -16,6 +16,7 @@ import type {
 } from "@/lib/tauri/types/extension-center"
 
 import { selectMetadata, useResolvedLocale } from "../lib/metadata"
+import { describePermission } from "../lib/permission-descriptions"
 
 type PermissionGroup =
   | "extensionManagement"
@@ -328,8 +329,8 @@ export function InstallConfirmDialog({
                       </div>
                       <ul className="flex flex-col gap-1">
                         {commands.map((command) => (
-                          <li key={command} className="font-mono text-xs break-all">
-                            {command}
+                          <li key={command} className="text-xs leading-relaxed break-words">
+                            {describePermission(command, t)}
                           </li>
                         ))}
                       </ul>
