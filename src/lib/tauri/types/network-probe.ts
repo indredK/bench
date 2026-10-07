@@ -76,10 +76,12 @@ export interface DefaultRouteInfo {
   present: boolean
 }
 
+export type TcpConnectStatus = "ok" | "timeout" | "refused" | "unreachable" | "dns_failed" | "error"
+
 export interface TcpConnectResult {
   host: string
   port: number
-  status: string
+  status: TcpConnectStatus
   rttMs?: number
   message?: string
   commandHint: string

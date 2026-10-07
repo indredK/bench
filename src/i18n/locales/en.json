@@ -1717,11 +1717,23 @@
       "hint": "Probe TCP reachability to a host:port (developer essential).",
       "host": "Host",
       "port": "Port",
+      "portHint": "Enter an integer port from 1 to 65535.",
+      "portInvalid": "Port must be an integer from 1 to 65535.",
       "run": "Connect",
       "running": "Connecting…",
       "status": "Status",
+      "statusValue": {
+        "ok": "Connected",
+        "timeout": "Connection timed out",
+        "refused": "Connection refused",
+        "unreachable": "Network unreachable",
+        "dnsFailed": "DNS resolution failed",
+        "error": "Connection failed",
+        "unknown": "Unknown status"
+      },
       "rtt": "RTT",
-      "rttValue": "RTT: {{ms}} ms"
+      "rttValue": "RTT: {{ms}} ms",
+      "technicalDetails": "Technical details"
     },
     "ping": {
       "hint": "ICMP echo probe with latency, jitter, and loss (requires Local Network permission on macOS).",
@@ -2399,7 +2411,6 @@
     },
     "cmd": {
       "summary": "getLocalNetworkSummary()",
-      "tcpConnect": "tcpConnect(local, '{{host}}', {{port}})",
       "pingHost": "pingHost(local, '{{target}}', {count:{{count}}})",
       "dnsLookup": "dnsLookup(local, '{{domain}}', {rrType:'{{rrType}}',resolver:'{{resolver}}'})",
       "probeTarget": "probeTarget(local, '{{input}}')",

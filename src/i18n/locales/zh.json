@@ -1717,11 +1717,23 @@
       "hint": "探测 host:port 的 TCP 连通性（开发者刚需）。",
       "host": "主机",
       "port": "端口",
+      "portHint": "请输入 1 到 65535 之间的整数端口。",
+      "portInvalid": "端口必须是 1 到 65535 之间的整数。",
       "run": "连接",
       "running": "连接中…",
       "status": "状态",
+      "statusValue": {
+        "ok": "已连接",
+        "timeout": "连接超时",
+        "refused": "连接被拒绝",
+        "unreachable": "网络不可达",
+        "dnsFailed": "DNS 解析失败",
+        "error": "连接失败",
+        "unknown": "未知状态"
+      },
       "rtt": "RTT",
-      "rttValue": "RTT: {{ms}} ms"
+      "rttValue": "RTT: {{ms}} ms",
+      "technicalDetails": "技术详情"
     },
     "ping": {
       "hint": "ICMP Echo 探测延迟、抖动与丢包（macOS 需本地网络权限）。",
@@ -2399,7 +2411,6 @@
     },
     "cmd": {
       "summary": "getLocalNetworkSummary()",
-      "tcpConnect": "tcpConnect(local, '{{host}}', {{port}})",
       "pingHost": "pingHost(local, '{{target}}', {count:{{count}}})",
       "dnsLookup": "dnsLookup(local, '{{domain}}', {rrType:'{{rrType}}',resolver:'{{resolver}}'})",
       "probeTarget": "probeTarget(local, '{{input}}')",

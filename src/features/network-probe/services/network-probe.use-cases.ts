@@ -2,6 +2,7 @@
  * Use Cases / 用例: orchestrate feature flows; 只编排业务流.
  */
 import { networkProbeRepository } from "@/features/network-probe/services/network-probe.repository"
+import { formatTcpConnectCommand } from "@/features/network-probe/utils/tcp-command"
 import { redactProbeTargetForDisplay } from "@/features/network-probe/utils/probe-target-display"
 import { type NetworkProbeKind, useNetworkProbeStore } from "@/features/network-probe/store"
 import { TAURI_EVENTS } from "@/lib/tauri/contracts"
@@ -187,6 +188,7 @@ export const networkProbeUseCases = {
     store.setLoadingTcp(true)
     store.clearError("networkProbe.errors.tcpFailed")
     store.setTcpResult(null)
+    store.appendCommandLog(formatTcpConnectCommand(host, port))
     try {
       const result = await networkProbeRepository.tcpConnect(host.trim(), port)
       store.setTcpResult(result)

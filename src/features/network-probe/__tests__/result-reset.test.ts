@@ -190,6 +190,16 @@ describe("network-probe result reset before rerun", () => {
     expect(commandLog).not.toContain("private")
   })
 
+  it("logs TCP attempts even when the connection request fails", async () => {
+    repository.tcpConnect.mockRejectedValueOnce(new Error("simulated IPC failure"))
+
+    await networkProbeUseCases.runTcpConnect("example.com", 443)
+
+    expect(useNetworkProbeStore.getState().commandLog.join("\n")).toContain(
+      'tcpConnect(local, "example.com", 443, 3000)',
+    )
+  })
+
   it("preserves all overview snapshots when a refresh fails", async () => {
     const staleHosts = [stale]
     useNetworkProbeStore.setState({ summary: stale, firewall: stale, hosts: staleHosts } as never)
