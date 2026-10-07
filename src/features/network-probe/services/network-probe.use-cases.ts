@@ -221,11 +221,6 @@ export const networkProbeUseCases = {
       )
       const result = await networkProbeRepository.pingHost(target.trim(), count)
       store.setPingResult(result)
-      if (result.packetsReceived === 0) {
-        store.appendCommandLog(
-          "pingHost // hint: Local Network permission may be required on macOS",
-        )
-      }
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.pingFailed",

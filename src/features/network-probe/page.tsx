@@ -508,6 +508,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     remoteResult={globalpingActive ? c.globalpingPingResult : null}
                     remoteMode={globalpingActive}
                     remoteLocationLabel={globalpingLocationLabel}
+                    platform={c.capabilities?.platform}
                     toolEnabled={globalpingActive || c.toolEnabled.ping}
                     toolStatus={globalpingActive ? undefined : c.toolStatus.ping}
                     onRun={(target, count) =>

@@ -15,10 +15,14 @@ interface PingPanelProps {
   remoteResult?: GlobalpingPingResult | null
   remoteMode?: boolean
   remoteLocationLabel?: string
+  platform?: string
   toolEnabled: boolean
   toolStatus?: string
   onRun: (target: string, count: number) => void
 }
+
+const LOCAL_MAX_COUNT = 20
+const GLOBALPING_MAX_COUNT = 16
 
 export function PingPanel({
   loading,
@@ -26,6 +30,7 @@ export function PingPanel({
   remoteResult,
   remoteMode = false,
   remoteLocationLabel,
+  platform,
   toolEnabled,
   toolStatus,
   onRun,
@@ -33,8 +38,13 @@ export function PingPanel({
   const { t } = useTranslation()
   const [target, setTarget] = useState("1.1.1.1")
   const [count, setCount] = useState("4")
+  const maxCount = remoteMode ? GLOBALPING_MAX_COUNT : LOCAL_MAX_COUNT
+  const countValue = Number(count)
+  const countIsValid = Number.isInteger(countValue) && countValue >= 1 && countValue <= maxCount
+  const showCountValidation = count.length > 0 && !countIsValid
   const showLocalNetworkHint =
     result != null && result.packetsSent > 0 && result.packetsReceived === 0
+  const localFailureDetails = result?.samples.filter((sample) => !sample.ok && sample.error) ?? []
 
   return (
     <ProbePanelShell
@@ -76,10 +86,19 @@ export function PingPanel({
                 id="np-ping-count"
                 value={count}
                 onChange={(e) => setCount(e.target.value)}
-                inputMode="numeric"
-                max={remoteMode ? 16 : undefined}
+                type="number"
+                min={1}
+                max={maxCount}
+                step={1}
+                aria-invalid={showCountValidation}
+                aria-describedby={showCountValidation ? "np-ping-count-error" : undefined}
                 autoComplete="off"
               />
+              {showCountValidation ? (
+                <p id="np-ping-count-error" className="text-destructive text-xs">
+                  {t("networkProbe.ping.countInvalid", { min: 1, max: maxCount })}
+                </p>
+              ) : null}
             </div>
             <CommandHint
               hint={
@@ -95,14 +114,10 @@ export function PingPanel({
             >
               <Button
                 type="button"
-                disabled={
-                  loading ||
-                  !toolEnabled ||
-                  !target.trim() ||
-                  !Number(count) ||
-                  (remoteMode && (Number(count) < 1 || Number(count) > 16))
-                }
-                onClick={() => onRun(target, Number(count))}
+                disabled={loading || !toolEnabled || !target.trim() || !countIsValid}
+                onClick={() => {
+                  if (countIsValid) onRun(target, countValue)
+                }}
               >
                 {loading ? t("networkProbe.ping.running") : t("networkProbe.ping.run")}
               </Button>
@@ -118,7 +133,11 @@ export function PingPanel({
     >
       {showLocalNetworkHint ? (
         <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t("networkProbe.caps.localNetworkHint")}
+          {t(
+            platform === "macos"
+              ? "networkProbe.ping.noRepliesMacHint"
+              : "networkProbe.ping.noRepliesHint",
+          )}
         </p>
       ) : null}
       {result ? (
@@ -154,11 +173,25 @@ export function PingPanel({
                     })
                   : t("networkProbe.ping.sampleFail", {
                       seq: s.seq,
-                      error: s.error ?? "timeout",
+                      error: t("networkProbe.ping.noResponse"),
                     })}
               </li>
             ))}
           </ul>
+          {localFailureDetails.length > 0 ? (
+            <details className="text-muted-foreground text-xs">
+              <summary className="w-fit cursor-pointer">
+                {t("networkProbe.ping.technicalDetails")}
+              </summary>
+              <ul className="mt-1 space-y-1 font-mono break-all">
+                {localFailureDetails.map((sample) => (
+                  <li key={sample.seq}>
+                    #{sample.seq}: {sample.error}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}

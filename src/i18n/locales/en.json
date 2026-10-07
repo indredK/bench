@@ -1745,7 +1745,12 @@
       "summary": "Sent {{sent}} · received {{received}} · loss {{loss}}%",
       "rttSummary": "RTT min/avg/max/jitter: {{min}} / {{avg}} / {{max}} / {{jitter}} ms",
       "sampleOk": "#{{seq}} {{ms}} ms",
-      "sampleFail": "#{{seq}} fail — {{error}}"
+      "sampleFail": "#{{seq}} fail — {{error}}",
+      "noResponse": "No response received",
+      "technicalDetails": "Technical details",
+      "countInvalid": "Count must be an integer from {{min}} to {{max}}.",
+      "noRepliesHint": "No probes received a reply. A firewall, target policy, or unreachable network may be responsible; confirm with another probe.",
+      "noRepliesMacHint": "No probes received a reply. Local Network permission, a firewall, target policy, or an unreachable network may be responsible; confirm with another probe."
     },
     "dns": {
       "hint": "Query DNS records via system resolver or a custom resolver IP.",
@@ -2465,8 +2470,7 @@
     },
     "caps": {
       "banner": "platform={{platform}} · privilege={{privilege}} (tools from capabilities matrix)",
-      "toolDisabled": "{{tool}} status={{status}} — action disabled by capabilities matrix",
-      "localNetworkHint": "All probes lost. This may be Local Network permission (macOS Privacy), a firewall, or a real outage — not a single conclusion."
+      "toolDisabled": "{{tool}} status={{status}} — action disabled by capabilities matrix"
     },
     "badge": {
       "post": "Post",

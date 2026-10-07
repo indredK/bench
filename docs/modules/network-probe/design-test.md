@@ -62,6 +62,8 @@ src-tauri/src/net_probe/
 | 套接字 | 非 root：`SOCK_DGRAM`/`IPPROTO_ICMP`（Apple 惯例）；root：可 RAW              |
 | 输出   | 每包 RTT + 结束汇总（min/avg/max/stddev/loss%）                               |
 | 流式   | `network-probe://ping-sample`；`count`/`intervalMs` 有硬顶（防打爆）          |
+| 输入   | 本机次数为 1–20 整数，Globalping 为 1–16 整数；无效时提示并禁用运行           |
+| 失败   | 逐包失败显示本地化摘要；原始 ICMP 诊断放默认折叠的技术详情                    |
 | 校验   | host 禁止 shell 元字符（对齐现有 `validate_host`）；拒绝空、过长、以 `-` 开头 |
 | 降级   | ICMP 不可用 → 返回 `degraded` 并建议改用 TCP/HTTP；UI 不显示假 0ms            |
 

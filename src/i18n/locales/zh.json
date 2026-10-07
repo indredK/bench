@@ -1745,7 +1745,12 @@
       "summary": "发送 {{sent}} · 收到 {{received}} · 丢包 {{loss}}%",
       "rttSummary": "RTT 最小/平均/最大/抖动: {{min}} / {{avg}} / {{max}} / {{jitter}} ms",
       "sampleOk": "#{{seq}} {{ms}} ms",
-      "sampleFail": "#{{seq}} 失败 — {{error}}"
+      "sampleFail": "#{{seq}} 失败 — {{error}}",
+      "noResponse": "未收到响应",
+      "technicalDetails": "技术详情",
+      "countInvalid": "次数必须是 {{min}}–{{max}} 之间的整数。",
+      "noRepliesHint": "所有探测都未收到响应。可能是防火墙、目标端策略或网络不可达；请用其他探测交叉确认。",
+      "noRepliesMacHint": "所有探测都未收到响应。可能是本地网络权限、防火墙、目标端策略或网络不可达；请用其他探测交叉确认。"
     },
     "dns": {
       "hint": "通过系统解析器或指定 DNS IP 查询记录。",
@@ -2465,8 +2470,7 @@
     },
     "caps": {
       "banner": "platform={{platform}} · privilege={{privilege}}（工具状态来自能力矩阵）",
-      "toolDisabled": "{{tool}} status={{status}} — 已按能力矩阵禁用",
-      "localNetworkHint": "全部探测丢失。可能是 macOS「本地网络」权限、防火墙，或真实断网——不要当成唯一结论。"
+      "toolDisabled": "{{tool}} status={{status}} — 已按能力矩阵禁用"
     },
     "badge": {
       "post": "Post",
