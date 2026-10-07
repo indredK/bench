@@ -11,6 +11,13 @@ import { ScanCancelButton } from "@/features/network-probe/components/ScanCancel
 import type { TracerouteHop, TracerouteResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
+const TRACEROUTE_MODE_LABEL_KEYS: Record<string, string> = {
+  privileged: "networkProbe.traceroute.mode.privileged",
+  unprivileged: "networkProbe.traceroute.mode.unprivileged",
+  unavailable: "networkProbe.traceroute.mode.unavailable",
+  cancelled: "networkProbe.traceroute.mode.cancelled",
+}
+
 interface TraceroutePanelProps {
   loading: boolean
   canCancel: boolean
@@ -47,9 +54,14 @@ export function TraceroutePanel({
 
   // 跑动中只渲染本轮 streaming 跳数: 旧 result 优先会遮蔽新一轮逐跳进度。
   const hops = loading ? streamingHops : result?.hops?.length ? result.hops : streamingHops
-  const modeKey = result?.privilegeMode
-    ? `networkProbe.traceroute.mode.${result.privilegeMode}`
-    : null
+  const modeKey = result ? TRACEROUTE_MODE_LABEL_KEYS[result.privilegeMode] : null
+  const messageKey = result?.cancelled
+    ? null
+    : result?.privilegeMode === "unprivileged"
+      ? "networkProbe.traceroute.message.unprivileged"
+      : result?.privilegeMode === "unavailable"
+        ? "networkProbe.traceroute.message.unavailable"
+        : null
 
   return (
     <ProbePanelShell
@@ -160,14 +172,36 @@ export function TraceroutePanel({
           <div>
             {t("networkProbe.traceroute.meta", {
               ip: result.resolvedIp,
-              mode: modeKey ? t(modeKey, { defaultValue: result.privilegeMode }) : "—",
+              mode: modeKey ? t(modeKey) : "—",
               ms: result.elapsedMs.toFixed(0),
             })}
             {result.cancelled ? (
               <span className="ml-2">{t("networkProbe.traceroute.cancelled")}</span>
             ) : null}
           </div>
-          {result.message ? <div>{result.message}</div> : null}
+          {messageKey ? <div>{t(messageKey)}</div> : null}
+          {result.message || result.commandHint ? (
+            <details className="text-xs">
+              <summary className="w-fit cursor-pointer select-none">
+                {t("networkProbe.traceroute.technicalDetails")}
+              </summary>
+              <div className="mt-1 space-y-1">
+                {result.message ? (
+                  <p className="break-words">
+                    <span className="font-medium">
+                      {t("networkProbe.traceroute.technicalReason")}:
+                    </span>{" "}
+                    {result.message}
+                  </p>
+                ) : null}
+                {result.commandHint ? (
+                  <pre className="font-mono break-all whitespace-pre-wrap">
+                    {result.commandHint}
+                  </pre>
+                ) : null}
+              </div>
+            </details>
+          ) : null}
         </div>
       ) : null}
 
@@ -238,10 +272,6 @@ export function TraceroutePanel({
             </tbody>
           </table>
         </div>
-      ) : null}
-
-      {result?.commandHint ? (
-        <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
       ) : null}
     </ProbePanelShell>
   )

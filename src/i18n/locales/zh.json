@@ -2500,6 +2500,12 @@
       "cancelled": "已取消",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "尚无跳点。运行追踪以填充表格。",
+      "message": {
+        "unprivileged": "特权 ICMP 不可用，已使用无特权 UDP 完成追踪。",
+        "unavailable": "Traceroute 当前不可用；展开技术详情可查看原因。"
+      },
+      "technicalDetails": "技术详情",
+      "technicalReason": "原始说明",
       "mode": {
         "privileged": "特权 ICMP",
         "unprivileged": "无特权 UDP",

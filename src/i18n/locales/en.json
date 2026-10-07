@@ -2500,6 +2500,12 @@
       "cancelled": "cancelled",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "No hops yet. Run a trace to populate the table.",
+      "message": {
+        "unprivileged": "Privileged ICMP is unavailable; the trace completed using unprivileged UDP.",
+        "unavailable": "Traceroute is unavailable. Expand technical details to see why."
+      },
+      "technicalDetails": "Technical details",
+      "technicalReason": "Raw message",
       "mode": {
         "privileged": "privileged ICMP",
         "unprivileged": "unprivileged UDP",
