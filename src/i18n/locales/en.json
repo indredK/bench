@@ -1801,7 +1801,8 @@
       "icmpMs": "ICMP {{ms}} ms",
       "httpMs": "HTTP {{status}} · {{ms}} ms",
       "mbps": "{{mbps}} Mbps",
-      "fail": "fail — {{error}}",
+      "failed": "Probe failed",
+      "failureDetails": "Technical details",
       "customTitle": "Custom sites",
       "customInput": "URL or host",
       "customPlaceholder": "https://registry.npmjs.org",
@@ -1832,7 +1833,6 @@
       "icmpMs": "ICMP {{ms}} ms",
       "mbps": "{{mbps}} Mbps",
       "sampleSmall": "Sample small",
-      "fail": "{{error}}",
       "testedAt": "at {{time}}",
       "cancelled": "Batch cancelled — finished cards keep their results.",
       "sites": {

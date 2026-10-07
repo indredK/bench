@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { ScanCancelButton } from "@/features/network-probe/components/ScanCancelButton"
+import { SiteProbeFailure } from "@/features/network-probe/components/SiteProbeFailure"
 import type { SiteSampleResult, SitesProbeResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
@@ -22,6 +23,7 @@ const CUSTOM_SITES_KEY = "network-probe:custom-sites"
 
 interface SitesProbePanelProps {
   loading: boolean
+  busy?: boolean
   canCancel: boolean
   cancelRequested: boolean
   result: SitesProbeResult | null
@@ -83,6 +85,7 @@ function Sparkline({ values }: { values: number[] }) {
 
 export function SitesProbePanel({
   loading,
+  busy = loading,
   canCancel,
   cancelRequested,
   result,
@@ -144,7 +147,7 @@ export function SitesProbePanel({
                 className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
                 value={packId}
                 onChange={(e) => setPackId(e.target.value)}
-                disabled={loading}
+                disabled={busy}
               >
                 {packs.map((id) => (
                   <option key={id} value={id}>
@@ -156,7 +159,7 @@ export function SitesProbePanel({
             <CommandHint hint={t("networkProbe.cmd.sitesProbe", { packId })}>
               <Button
                 type="button"
-                disabled={loading || !packId || !toolEnabled}
+                disabled={busy || !packId || !toolEnabled}
                 onClick={() => onRunPack(packId)}
               >
                 {loading ? t("networkProbe.sites.running") : t("networkProbe.sites.run")}
@@ -184,13 +187,13 @@ export function SitesProbePanel({
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder={t("networkProbe.sites.customPlaceholder")}
                   autoComplete="off"
-                  disabled={loading}
+                  disabled={busy}
                 />
               </div>
               <Button
                 type="button"
                 variant="secondary"
-                disabled={loading || !draft.trim()}
+                disabled={busy || !draft.trim()}
                 onClick={addCustom}
               >
                 {t("networkProbe.sites.customAdd")}
@@ -198,7 +201,7 @@ export function SitesProbePanel({
               <CommandHint hint={t("networkProbe.cmd.sitesProbeCustom", { n: customSites.length })}>
                 <Button
                   type="button"
-                  disabled={loading || customSites.length === 0 || !toolEnabled}
+                  disabled={busy || customSites.length === 0 || !toolEnabled}
                   onClick={() => onRunCustom(customSites)}
                 >
                   {t("networkProbe.sites.customRun")}
@@ -216,7 +219,7 @@ export function SitesProbePanel({
                     <button
                       type="button"
                       className="text-muted-foreground hover:text-foreground"
-                      disabled={loading}
+                      disabled={busy}
                       onClick={() => setCustomSites((prev) => prev.filter((s) => s !== site))}
                       aria-label={t("networkProbe.sites.customRemove")}
                     >
@@ -266,7 +269,7 @@ export function SitesProbePanel({
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Sparkline values={sparklines[row.id] ?? []} />
+                  <Sparkline values={sparklines[row.target.trim()] ?? []} />
                   <div className="text-right text-xs">
                     {row.ok ? (
                       <span className="font-medium text-emerald-700 dark:text-emerald-400">
@@ -288,9 +291,7 @@ export function SitesProbePanel({
                           .join(" · ")}
                       </span>
                     ) : (
-                      <span className="text-destructive">
-                        {t("networkProbe.sites.fail", { error: row.error ?? "—" })}
-                      </span>
+                      <SiteProbeFailure error={row.error} className="max-w-[32rem] text-right" />
                     )}
                   </div>
                 </div>

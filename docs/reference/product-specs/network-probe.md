@@ -113,15 +113,15 @@ L1 → L2 映射：
 
 ### 4.1 官方站点 official
 
-- 官方站点包（`official` pack）卡片网格；每卡：站点名 + host、状态徽标（idle/ok/fail/running）、最近测试时间 + 延迟（HTTP TTFB 优先，回退 ICMP）、吞吐（HTTP 有界下载，≤1MiB/5s → `downloadMbps`）。
-- 顶部「测试全部」+ 统计（总数/OK/失败）；点击单卡只测该站（保留既有结果不丢）；运行中可取消。
+- 官方站点包（`official` pack）卡片网格；每卡：站点名 + host、状态徽标（idle/ok/fail/running）、最近测试时间 + 延迟（HTTP TTFB 优先，回退 ICMP）、吞吐（HTTP 有界下载，≤1MiB/5s → `downloadMbps`）。失败状态使用本地化摘要，原始诊断默认折叠在卡片操作按钮之外的「技术详情」中。
+- 顶部「测试全部」+ 统计（总数/OK/失败）；点击单卡只测该站（保留既有官网卡片结果）；运行中可取消。官网卡片的结果流与区域/自定义站点结果表相互隔离。
 - 流式事件 `site-sample` 实时更新卡片；结果按 target 合并去重（指纹去重），单卡多次测试保留历史。
 
 ### 4.2 区域站点包 + 自定义 packs
 
 - 区域包下拉（global / cn-friendly / dev / official，取自 defaults.sitePacks 除 official 外全部），运行整包。
 - **自定义站点**：输入目标（多个，最多 24 个，去重）→「添加」→「运行自定义」；列表 chip 可逐个移除；持久化于 sessionStorage（`network-probe:custom-sites`）。
-- 结果表：每行 id、target · channel（degraded 标记）、Sparkline 迷你趋势线（近 20 次延迟）、ICMP/HTTP/吞吐或失败原因；流式刷新。
+- 结果表：每行 id、target · channel（degraded 标记）、按 target 归档的 Sparkline 迷你趋势线（近 20 次延迟）、ICMP/HTTP/吞吐或本地化失败摘要；原始错误诊断默认折叠在「技术详情」中；流式刷新。官网单卡样本不会混入区域/自定义站点结果表或趋势线。
 
 ## 5. 测试（test）L1
 

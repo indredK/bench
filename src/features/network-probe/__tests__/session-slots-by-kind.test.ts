@@ -10,6 +10,7 @@ const {
   runHealthScan,
   scanPorts,
   sitesProbe,
+  sitesProbeCustom,
   runTraceroute,
   discoverLan,
   runPcapDiag,
@@ -18,6 +19,7 @@ const {
   runHealthScan: vi.fn(),
   scanPorts: vi.fn(),
   sitesProbe: vi.fn(),
+  sitesProbeCustom: vi.fn(),
   runTraceroute: vi.fn(),
   discoverLan: vi.fn(),
   runPcapDiag: vi.fn(),
@@ -29,6 +31,7 @@ vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
     runHealthScan,
     scanPorts,
     sitesProbe,
+    sitesProbeCustom,
     runTraceroute,
     discoverLan,
     runPcapDiag,
@@ -90,6 +93,7 @@ beforeEach(() => {
   runHealthScan.mockReset()
   scanPorts.mockReset()
   sitesProbe.mockReset()
+  sitesProbeCustom.mockReset()
   runTraceroute.mockReset()
   discoverLan.mockReset()
   runPcapDiag.mockReset()
@@ -105,6 +109,7 @@ beforeEach(() => {
     healthResult: null,
     portScanResult: null,
     sitesResult: null,
+    sitesResultOwner: "packs",
     tracerouteResult: null,
     lanResult: null,
     pcapResult: null,
@@ -219,6 +224,7 @@ describe("network-probe rerun clears previous results", () => {
     const state = useNetworkProbeStore.getState()
     expect(state.healthResult).toBeNull()
     expect(state.sitesResult).toBeNull()
+    expect(state.sitesResultOwner).toBe("official")
     expect(state.tracerouteResult).toBeNull()
 
     health.resolve({
@@ -251,6 +257,7 @@ describe("network-probe rerun clears previous results", () => {
     const done = useNetworkProbeStore.getState()
     expect(done.healthResult?.sessionId).toBe("health-2")
     expect(done.sitesResult?.sessionId).toBe("sites-2")
+    expect(done.sitesResultOwner).toBe("official")
     expect(done.tracerouteResult?.sessionId).toBe("tr-2")
   })
 
@@ -333,5 +340,37 @@ describe("network-probe rerun clears previous results", () => {
 
     expect(useNetworkProbeStore.getState().pcapResult).toBeNull()
     expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.pcapFailed")
+  })
+})
+
+describe("site probe result ownership", () => {
+  it("keeps a single official-site custom probe owned by the official panel", async () => {
+    const sites = deferred<Record<string, unknown>>()
+    sitesProbeCustom.mockReturnValue(sites.promise)
+
+    const sitesPromise = networkProbeUseCases.runSitesProbeCustom(
+      ["https://www.baidu.com"],
+      "official",
+    )
+    await flushMicrotasks()
+
+    expect(sitesProbeCustom).toHaveBeenCalledWith(["https://www.baidu.com"])
+    expect(useNetworkProbeStore.getState().loadingSites).toBe(true)
+    expect(useNetworkProbeStore.getState().sitesResultOwner).toBe("official")
+
+    sites.resolve({
+      sessionId: "official-site-1",
+      packId: "custom",
+      results: [],
+      cancelled: false,
+      elapsedMs: 1,
+      commandHint: "",
+    })
+    await sitesPromise
+
+    const state = useNetworkProbeStore.getState()
+    expect(state.sitesResult?.sessionId).toBe("official-site-1")
+    expect(state.sitesResultOwner).toBe("official")
+    expect(state.loadingSites).toBe(false)
   })
 })

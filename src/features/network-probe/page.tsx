@@ -36,6 +36,7 @@ import { ReportPanel } from "@/features/network-probe/components/ReportPanel"
 import { ScanOpinionPanel } from "@/features/network-probe/components/ScanOpinionPanel"
 import { SecurityAuthGate } from "@/features/network-probe/components/SecurityAuthGate"
 import { SitesProbePanel } from "@/features/network-probe/components/SitesProbePanel"
+import { selectSiteProbePanelResults } from "@/features/network-probe/utils/site-probe-results"
 import { SpeedPanel } from "@/features/network-probe/components/SpeedPanel"
 import { TcpConnectPanel } from "@/features/network-probe/components/TcpConnectPanel"
 import { TraceroutePanel } from "@/features/network-probe/components/TraceroutePanel"
@@ -111,6 +112,18 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   const officialPresets = useMemo(
     () => c.defaults?.sitePacks?.[OFFICIAL_PACK_ID] ?? [],
     [c.defaults],
+  )
+  const sitePackData = selectSiteProbePanelResults(
+    c.sitesResultOwner,
+    "packs",
+    c.sitesResult,
+    c.sitesStreaming,
+  )
+  const officialSiteData = selectSiteProbePanelResults(
+    c.sitesResultOwner,
+    "official",
+    c.sitesResult,
+    c.sitesStreaming,
   )
   const probeNodes =
     c.probeNodes.length > 0
@@ -374,12 +387,13 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
 
                 {showSitePacks ? (
                   <SitesProbePanel
-                    loading={c.loadingSites}
+                    loading={c.loadingSites && c.sitesResultOwner === "packs"}
+                    busy={c.loadingSites}
                     canCancel={Boolean(activeSessionIdByKind.sites) && c.loadingSites}
                     cancelRequested={isScanCancelRequested("sites")}
-                    result={c.sitesResult}
-                    streaming={c.sitesStreaming}
-                    sparklines={c.siteSparklineById}
+                    result={sitePackData.result}
+                    streaming={sitePackData.streaming}
+                    sparklines={c.siteSparklineByTarget}
                     packIds={sitePackIds}
                     toolEnabled={c.toolEnabled.sitesProbe}
                     toolStatus={c.toolStatus.sitesProbe}
@@ -391,16 +405,17 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
 
                 {showOfficialSites ? (
                   <OfficialSitesPanel
-                    loading={c.loadingSites}
+                    loading={c.loadingSites && c.sitesResultOwner === "official"}
+                    busy={c.loadingSites}
                     canCancel={Boolean(activeSessionIdByKind.sites) && c.loadingSites}
                     cancelRequested={isScanCancelRequested("sites")}
                     presets={officialPresets}
-                    result={c.sitesResult}
-                    streaming={c.sitesStreaming}
+                    result={officialSiteData.result}
+                    streaming={officialSiteData.streaming}
                     toolEnabled={c.toolEnabled.sitesProbe}
                     toolStatus={c.toolStatus.sitesProbe}
                     onTestAll={() => c.runSitesProbe(OFFICIAL_PACK_ID)}
-                    onTestOne={(target) => c.runSitesProbeCustom([target])}
+                    onTestOne={(target) => c.runSitesProbeCustom([target], "official")}
                     onCancel={() => c.cancelScan("sites")}
                   />
                 ) : null}

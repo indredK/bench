@@ -4,7 +4,11 @@
 import { networkProbeRepository } from "@/features/network-probe/services/network-probe.repository"
 import { formatTcpConnectCommand } from "@/features/network-probe/utils/tcp-command"
 import { redactProbeTargetForDisplay } from "@/features/network-probe/utils/probe-target-display"
-import { type NetworkProbeKind, useNetworkProbeStore } from "@/features/network-probe/store"
+import {
+  type NetworkProbeKind,
+  type SiteProbeResultOwner,
+  useNetworkProbeStore,
+} from "@/features/network-probe/store"
 import { TAURI_EVENTS } from "@/lib/tauri/contracts"
 import { getErrorCode, getErrorMessage } from "@/lib/tauri/errors"
 import type {
@@ -350,6 +354,7 @@ export const networkProbeUseCases = {
   async runSitesProbe(packId: string) {
     const store = useNetworkProbeStore.getState()
     if (store.loadingSites) return
+    store.setSitesResultOwner(packId === "official" ? "official" : "packs")
     store.setLoadingSites(true)
     store.clearError("networkProbe.errors.sitesFailed")
     store.resetSitesStreaming()
@@ -385,9 +390,10 @@ export const networkProbeUseCases = {
     }
   },
 
-  async runSitesProbeCustom(targets: string[]) {
+  async runSitesProbeCustom(targets: string[], resultOwner: SiteProbeResultOwner = "packs") {
     const store = useNetworkProbeStore.getState()
     if (store.loadingSites) return
+    store.setSitesResultOwner(resultOwner)
     store.setLoadingSites(true)
     store.clearError("networkProbe.errors.sitesFailed")
     store.resetSitesStreaming()

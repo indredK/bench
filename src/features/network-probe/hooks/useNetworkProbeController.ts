@@ -7,6 +7,7 @@ import {
   type NetworkProbeKind,
   type NetworkProbeL1,
   type NetworkProbeOfflineSub,
+  type SiteProbeResultOwner,
   useNetworkProbeStore,
 } from "@/features/network-probe/store"
 import { canUseTauriCommands } from "@/platform/capabilities"
@@ -38,8 +39,9 @@ export function useNetworkProbeController() {
   const probeResult = useNetworkProbeStore((s) => s.probeResult)
   const globalpingHttpResult = useNetworkProbeStore((s) => s.globalpingHttpResult)
   const sitesResult = useNetworkProbeStore((s) => s.sitesResult)
+  const sitesResultOwner = useNetworkProbeStore((s) => s.sitesResultOwner)
   const sitesStreaming = useNetworkProbeStore((s) => s.sitesStreaming)
-  const siteSparklineById = useNetworkProbeStore((s) => s.siteSparklineById)
+  const siteSparklineByTarget = useNetworkProbeStore((s) => s.siteSparklineByTarget)
   const healthResult = useNetworkProbeStore((s) => s.healthResult)
   const healthStreamingItems = useNetworkProbeStore((s) => s.healthStreamingItems)
   const networkServices = useNetworkProbeStore((s) => s.networkServices)
@@ -183,7 +185,8 @@ export function useNetworkProbeController() {
     [],
   )
   const runSitesProbeCustom = useCallback(
-    (targets: string[]) => networkProbeUseCases.runSitesProbeCustom(targets),
+    (targets: string[], resultOwner?: SiteProbeResultOwner) =>
+      networkProbeUseCases.runSitesProbeCustom(targets, resultOwner),
     [],
   )
   const runHealthScan = useCallback(() => networkProbeUseCases.runHealthScan(), [])
@@ -338,8 +341,9 @@ export function useNetworkProbeController() {
     probeResult,
     globalpingHttpResult,
     sitesResult,
+    sitesResultOwner,
     sitesStreaming,
-    siteSparklineById,
+    siteSparklineByTarget,
     healthResult,
     healthStreamingItems,
     networkServices,

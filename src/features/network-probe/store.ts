@@ -51,6 +51,7 @@ const REPORT_HISTORY_KEY = "network-probe:report-history"
 
 export type NetworkServicesLoadState = "idle" | "loading" | "loaded" | "failed"
 export type SpeedSourcesLoadState = "idle" | "loading" | "loaded" | "failed"
+export type SiteProbeResultOwner = "official" | "packs"
 
 function loadSecurityAuthorized(): boolean {
   if (typeof localStorage === "undefined") return false
@@ -130,8 +131,9 @@ interface NetworkProbeState {
   probeResult: ProbeTargetResult | null
   globalpingHttpResult: GlobalpingHttpResult | null
   sitesResult: SitesProbeResult | null
+  sitesResultOwner: SiteProbeResultOwner
   sitesStreaming: SiteSampleResult[]
-  siteSparklineById: Record<string, number[]>
+  siteSparklineByTarget: Record<string, number[]>
   healthResult: HealthScanResult | null
   healthStreamingItems: HealthCheckItem[]
   networkServices: string[]
@@ -223,6 +225,7 @@ interface NetworkProbeState {
   setProbeResult: (probeResult: ProbeTargetResult | null) => void
   setGlobalpingHttpResult: (result: GlobalpingHttpResult | null) => void
   setSitesResult: (sitesResult: SitesProbeResult | null) => void
+  setSitesResultOwner: (owner: SiteProbeResultOwner) => void
   resetSitesStreaming: () => void
   upsertSiteSample: (sample: SiteSampleResult) => void
   setHealthResult: (healthResult: HealthScanResult | null) => void
@@ -362,6 +365,8 @@ function sparkMs(sample: SiteSampleResult): number | null {
   return null
 }
 
+const MAX_SITE_SPARKLINE_TARGETS = 128
+
 export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   nav: loadNav(),
   capabilities: null,
@@ -380,8 +385,9 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   probeResult: null,
   globalpingHttpResult: null,
   sitesResult: null,
+  sitesResultOwner: "packs",
   sitesStreaming: [],
-  siteSparklineById: {},
+  siteSparklineByTarget: {},
   healthResult: null,
   healthStreamingItems: [],
   networkServices: [],
@@ -489,6 +495,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setProbeResult: (probeResult) => set({ probeResult }),
   setGlobalpingHttpResult: (globalpingHttpResult) => set({ globalpingHttpResult }),
   setSitesResult: (sitesResult) => set({ sitesResult }),
+  setSitesResultOwner: (sitesResultOwner) => set({ sitesResultOwner }),
   resetSitesStreaming: () => set({ sitesStreaming: [] }),
   upsertSiteSample: (sample) =>
     set((state) => {
@@ -498,15 +505,18 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
           ? [...state.sitesStreaming, sample]
           : state.sitesStreaming.map((s, i) => (i === idx ? sample : s))
       const ms = sparkMs(sample)
-      const prev = state.siteSparklineById[sample.id] ?? []
-      const siteSparklineById =
-        ms == null
-          ? state.siteSparklineById
-          : {
-              ...state.siteSparklineById,
-              [sample.id]: [...prev.slice(-19), ms],
-            }
-      return { sitesStreaming, siteSparklineById }
+      const targetKey = sample.target.trim() || sample.id
+      const prev = state.siteSparklineByTarget[targetKey] ?? []
+      let siteSparklineByTarget = state.siteSparklineByTarget
+      if (ms != null) {
+        const next = { ...siteSparklineByTarget }
+        delete next[targetKey]
+        next[targetKey] = [...prev.slice(-19), ms]
+        const oldestTargets = Object.keys(next).slice(0, -MAX_SITE_SPARKLINE_TARGETS)
+        for (const oldTarget of oldestTargets) delete next[oldTarget]
+        siteSparklineByTarget = next
+      }
+      return { sitesStreaming, siteSparklineByTarget }
     }),
   setHealthResult: (healthResult) => set({ healthResult }),
   resetHealthStreaming: () => set({ healthStreamingItems: [] }),

@@ -1801,7 +1801,8 @@
       "icmpMs": "ICMP {{ms}} ms",
       "httpMs": "HTTP {{status}} · {{ms}} ms",
       "mbps": "{{mbps}} Mbps",
-      "fail": "失败 — {{error}}",
+      "failed": "探测失败",
+      "failureDetails": "技术详情",
       "customTitle": "自定义站点",
       "customInput": "URL 或主机",
       "customPlaceholder": "https://registry.npmjs.org",
@@ -1832,7 +1833,6 @@
       "icmpMs": "ICMP {{ms}} ms",
       "mbps": "{{mbps}} Mbps",
       "sampleSmall": "样本过小",
-      "fail": "{{error}}",
       "testedAt": "测于 {{time}}",
       "cancelled": "批量已取消 — 已完成的卡片结果会保留。",
       "sites": {
