@@ -6,8 +6,12 @@ import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, options?: { count?: number }) =>
-      key === "networkProbe.arp.cancelledPartial" ? `${key} ${options?.count ?? 0}` : key,
+    t: (key: string, options?: { count?: number; mode?: string; ms?: string }) =>
+      key === "networkProbe.arp.cancelledPartial"
+        ? `${key} ${options?.count ?? 0}`
+        : key === "networkProbe.arp.meta"
+          ? `${options?.count ?? 0} ${options?.mode ?? ""} ${options?.ms ?? ""}`
+          : key,
   }),
 }))
 
@@ -37,6 +41,43 @@ const result: LanDiscoveryResult = {
 afterEach(() => cleanup())
 
 describe("ArpPanel result feedback", () => {
+  it("localizes the mode summary and keeps raw mode and command in collapsed technical details", () => {
+    render(<ArpPanel loading={false} result={result} toolEnabled onRun={() => undefined} />)
+
+    const summary = screen.getByText(
+      (_, element) =>
+        element?.tagName === "P" &&
+        element.textContent?.includes("networkProbe.arp.modeCacheTcpSweep") === true,
+    )
+    expect(summary.textContent).not.toContain("arp-cache+tcp-sweep")
+
+    const command = screen.getByText(result.commandHint)
+    const details = command.closest("details")
+    expect(details?.open).toBe(false)
+    expect(details?.textContent).toContain("networkProbe.arp.technicalDetails")
+    expect(details?.textContent).toContain("networkProbe.arp.rawMode")
+    expect(details?.textContent).toContain("arp-cache+tcp-sweep")
+  })
+
+  it("uses a localized fallback for a mode added by a newer backend", () => {
+    render(
+      <ArpPanel
+        loading={false}
+        result={{ ...result, mode: "future-backend-mode" }}
+        toolEnabled
+        onRun={() => undefined}
+      />,
+    )
+
+    const summary = screen.getByText(
+      (_, element) =>
+        element?.tagName === "P" &&
+        element.textContent?.includes("networkProbe.arp.modeUnknown") === true,
+    )
+    expect(summary.textContent).not.toContain("future-backend-mode")
+    expect(screen.getByText("future-backend-mode").closest("details")).toBeTruthy()
+  })
+
   it("localizes the discovery source and does not mark a TCP-only neighbor as incomplete ARP", () => {
     render(<ArpPanel loading={false} result={result} toolEnabled onRun={() => undefined} />)
 

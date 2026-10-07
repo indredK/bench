@@ -20,6 +20,17 @@ function arpSourceKey(source: string) {
   }
 }
 
+function arpModeKey(mode: string) {
+  switch (mode) {
+    case "arp-cache":
+      return "networkProbe.arp.modeCache"
+    case "arp-cache+tcp-sweep":
+      return "networkProbe.arp.modeCacheTcpSweep"
+    default:
+      return "networkProbe.arp.modeUnknown"
+  }
+}
+
 interface ArpPanelProps {
   loading: boolean
   result: LanDiscoveryResult | null
@@ -106,7 +117,7 @@ export function ArpPanel({
           <p className="text-muted-foreground text-xs">
             {t("networkProbe.arp.meta", {
               count: result.neighbors.length,
-              mode: result.mode,
+              mode: t(arpModeKey(result.mode)),
               ms: result.elapsedMs.toFixed(0),
             })}
           </p>
@@ -152,7 +163,25 @@ export function ArpPanel({
               ))}
             </ul>
           )}
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+          {result.mode || result.commandHint ? (
+            <details className="text-muted-foreground rounded-lg border px-3 py-2 text-xs">
+              <summary className="w-fit cursor-pointer select-none">
+                {t("networkProbe.arp.technicalDetails")}
+              </summary>
+              <div className="mt-2 space-y-2">
+                {result.mode ? (
+                  <p>
+                    {t("networkProbe.arp.rawMode")}: <code>{result.mode}</code>
+                  </p>
+                ) : null}
+                {result.commandHint ? (
+                  <pre className="font-mono break-all whitespace-pre-wrap">
+                    {result.commandHint}
+                  </pre>
+                ) : null}
+              </div>
+            </details>
+          ) : null}
         </div>
       ) : null}
     </ProbePanelShell>
