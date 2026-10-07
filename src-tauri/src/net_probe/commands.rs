@@ -17,7 +17,7 @@ pub async fn get_network_probe_capabilities(app: AppHandle) -> AppResult<Network
 
 #[tauri::command]
 pub async fn list_probe_nodes(app: AppHandle) -> AppResult<Vec<ProbeNode>> {
-    let agents = super::agent::agents_as_nodes(&app)?;
+    let agents = super::agent::agents_as_nodes(&app).await?;
     Ok(super::globalping::list_nodes_with_agents(&agents))
 }
 
@@ -154,7 +154,9 @@ pub async fn network_probe_add_agent(
 
 #[tauri::command]
 pub async fn network_probe_remove_agent(app: AppHandle, agent_id: String) -> AppResult<()> {
-    super::agent::remove_agent(&app, agent_id)
+    tauri::async_runtime::spawn_blocking(move || super::agent::remove_agent(&app, agent_id))
+        .await
+        .map_err(|error| AppError::task_failed(format!("remove_agent registry update: {error}")))?
 }
 
 #[tauri::command]

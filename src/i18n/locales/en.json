@@ -2226,7 +2226,7 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "Compare DNS answers from this Mac and Globalping locations. Register HTTPS agents for self-hosted probes.",
+      "hint": "Compare DNS answers from this Mac and Globalping locations. Register HTTPS/WSS agents for self-hosted probes.",
       "run": "Compare DNS (multi-node)",
       "running": "Comparing…",
       "refresh": "Refresh nodes",
@@ -2242,6 +2242,13 @@
       "addingAgent": "Adding…",
       "removeAgent": "Remove",
       "removingAgent": "Removing…",
+      "agentReachable": "Reachable",
+      "agentUnreachable": "Unreachable",
+      "endpointError": {
+        "invalid": "Enter a valid HTTPS or WSS URL.",
+        "scheme": "Use HTTPS or WSS. Plaintext connections are not supported.",
+        "credentials": "Credentials, query parameters, and fragments are not supported in endpoint URLs yet."
+      },
       "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
     },
     "nat": {
@@ -2357,7 +2364,7 @@
       "lanSvc": "browseLanServices(local) // mDNS+SSDP",
       "pcap": "startPacketCapture(local) // tcpdump counters",
       "compareDns": "dnsLookup(multi, domain)",
-      "addAgent": "addAgent(label, https://…)",
+      "addAgent": "addAgent(label, https://… or wss://…)",
       "nat": "probeNat(local)",
       "ntp": "probeNtp(local)",
       "installPack": "installCapabilityPack('{{packId}}')",
@@ -2431,7 +2438,8 @@
       "pcapFailed": "Packet diagnostics failed.",
       "nodesFailed": "Failed to list probe nodes.",
       "multiNodeFailed": "Multi-node DNS compare failed.",
-      "agentFailed": "Agent registry operation failed."
+      "agentFailed": "Agent registry operation failed.",
+      "agentInvalidInput": "The agent details are invalid or the endpoint was rejected by a network security rule."
     }
   },
   "extensionCenter": {

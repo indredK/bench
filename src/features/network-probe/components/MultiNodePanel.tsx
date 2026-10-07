@@ -11,6 +11,26 @@ import type { NetworkProbeAgentAction } from "@/features/network-probe/store"
 import { getProbeNodeDisplayLabel } from "@/features/network-probe/utils/probe-node-label"
 import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
 
+type AgentEndpointError = "invalid" | "scheme" | "credentials" | null
+
+function getAgentEndpointError(endpoint: string): AgentEndpointError {
+  const value = endpoint.trim()
+  if (!value) return null
+
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return "invalid"
+  }
+
+  if (url.protocol !== "https:" && url.protocol !== "wss:") return "scheme"
+  if (url.username || url.password || value.includes("?") || value.includes("#")) {
+    return "credentials"
+  }
+  return null
+}
+
 interface MultiNodePanelProps {
   loading: boolean
   loadingNodes: boolean
@@ -42,6 +62,9 @@ export function MultiNodePanel({
   const [domain, setDomain] = useState("example.com")
   const [label, setLabel] = useState("")
   const [endpoint, setEndpoint] = useState("https://")
+  const [endpointTouched, setEndpointTouched] = useState(false)
+  const endpointError = getAgentEndpointError(endpoint)
+  const showEndpointError = endpointTouched && endpointError !== null
   const nodeKindsById = useMemo(() => new Map(nodes.map((node) => [node.id, node.kind])), [nodes])
 
   return (
@@ -104,6 +127,20 @@ export function MultiNodePanel({
                     {n.endpoint ? ` · ${n.endpoint}` : ""}
                   </span>
                   {n.kind === "remote-agent" ? (
+                    <span
+                      role="status"
+                      className={
+                        n.reachable
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-muted-foreground"
+                      }
+                    >
+                      {n.reachable
+                        ? t("networkProbe.nodes.agentReachable")
+                        : t("networkProbe.nodes.agentUnreachable")}
+                    </span>
+                  ) : null}
+                  {n.kind === "remote-agent" ? (
                     <Button
                       type="button"
                       size="sm"
@@ -130,18 +167,33 @@ export function MultiNodePanel({
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder={t("networkProbe.nodes.labelPlaceholder")}
+                aria-label={t("networkProbe.nodes.labelPlaceholder")}
+                maxLength={80}
               />
               <Input
                 className="min-w-[16rem] flex-1"
                 value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
+                onChange={(e) => {
+                  setEndpointTouched(true)
+                  setEndpoint(e.target.value)
+                }}
                 placeholder={t("networkProbe.nodes.endpointPlaceholder")}
+                aria-label={t("networkProbe.nodes.endpointPlaceholder")}
+                aria-invalid={showEndpointError}
+                aria-describedby={
+                  showEndpointError ? "network-probe-agent-endpoint-error" : undefined
+                }
+                maxLength={2048}
               />
               <CommandHint hint={t("networkProbe.cmd.addAgent")}>
                 <Button
                   type="button"
                   disabled={
-                    loadingNodes || agentAction !== null || !label.trim() || !endpoint.trim()
+                    loadingNodes ||
+                    agentAction !== null ||
+                    !label.trim() ||
+                    !endpoint.trim() ||
+                    endpointError !== null
                   }
                   onClick={() => onAddAgent(label.trim(), endpoint.trim())}
                 >
@@ -151,6 +203,15 @@ export function MultiNodePanel({
                 </Button>
               </CommandHint>
             </div>
+            {showEndpointError ? (
+              <p
+                id="network-probe-agent-endpoint-error"
+                role="alert"
+                className="text-destructive text-xs"
+              >
+                {t(`networkProbe.nodes.endpointError.${endpointError}`)}
+              </p>
+            ) : null}
           </div>
         </>
       }

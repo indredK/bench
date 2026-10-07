@@ -86,4 +86,66 @@ describe("MultiNodePanel node loading", () => {
 
     expect(props.onCompare).not.toHaveBeenCalled()
   })
+
+  it("blocks insecure agent URLs and explains the validation error before submit", () => {
+    const props = createProps(false)
+    render(<MultiNodePanel {...props} />)
+
+    fireEvent.change(screen.getByLabelText("networkProbe.nodes.labelPlaceholder"), {
+      target: { value: "Lab" },
+    })
+    fireEvent.change(screen.getByLabelText("networkProbe.nodes.endpointPlaceholder"), {
+      target: { value: "http://agent.example.test" },
+    })
+
+    expect(screen.getByRole("alert")).toHaveTextContent("networkProbe.nodes.endpointError.scheme")
+    expect(screen.getByRole("button", { name: "networkProbe.nodes.addAgent" })).toBeDisabled()
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.addAgent" }))
+    expect(props.onAddAgent).not.toHaveBeenCalled()
+  })
+
+  it("rejects credentials and query parameters in an agent URL", () => {
+    const props = createProps(false)
+    render(<MultiNodePanel {...props} />)
+
+    fireEvent.change(screen.getByLabelText("networkProbe.nodes.labelPlaceholder"), {
+      target: { value: "Lab" },
+    })
+    fireEvent.change(screen.getByLabelText("networkProbe.nodes.endpointPlaceholder"), {
+      target: { value: "https://agent.example.test?token=secret" },
+    })
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "networkProbe.nodes.endpointError.credentials",
+    )
+    expect(screen.getByRole("button", { name: "networkProbe.nodes.addAgent" })).toBeDisabled()
+  })
+
+  it("accepts a WSS endpoint and renders the latest health result", () => {
+    const props = {
+      ...createProps(false),
+      nodes: [
+        ...nodes,
+        {
+          id: "agent-1",
+          kind: "remote-agent" as const,
+          label: "Lab",
+          endpoint: "wss://agent.example.test",
+          reachable: true,
+        },
+      ],
+    }
+    render(<MultiNodePanel {...props} />)
+
+    fireEvent.change(screen.getByLabelText("networkProbe.nodes.labelPlaceholder"), {
+      target: { value: "Another lab" },
+    })
+    fireEvent.change(screen.getByLabelText("networkProbe.nodes.endpointPlaceholder"), {
+      target: { value: "wss://agent.example.test" },
+    })
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "networkProbe.nodes.addAgent" })).toBeEnabled()
+    expect(screen.getByText("networkProbe.nodes.agentReachable")).toBeInTheDocument()
+  })
 })

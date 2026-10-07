@@ -4,7 +4,7 @@
 import { networkProbeRepository } from "@/features/network-probe/services/network-probe.repository"
 import { type NetworkProbeKind, useNetworkProbeStore } from "@/features/network-probe/store"
 import { TAURI_EVENTS } from "@/lib/tauri/contracts"
-import { getErrorMessage } from "@/lib/tauri/errors"
+import { getErrorCode, getErrorMessage } from "@/lib/tauri/errors"
 import type {
   CapabilityPackProgress,
   HealthCheckItem,
@@ -1046,14 +1046,20 @@ export const networkProbeUseCases = {
     if (store.loadingNodes || store.agentAction) return
     store.setAgentAction({ kind: "add" })
     store.clearError("networkProbe.errors.agentFailed")
-    store.appendCommandLog(`addAgent('${label}', '${endpoint}')`)
+    store.clearError("networkProbe.errors.agentInvalidInput")
+    store.appendCommandLog("addAgent(label, endpoint)")
     try {
-      await networkProbeRepository.addAgent(label, endpoint)
-      const nodes = await networkProbeRepository.listProbeNodes()
-      store.setProbeNodes(nodes)
+      const node = await networkProbeRepository.addAgent(label, endpoint)
+      const nodes = useNetworkProbeStore.getState().probeNodes
+      useNetworkProbeStore
+        .getState()
+        .setProbeNodes([...nodes.filter((current) => current.id !== node.id), node])
     } catch (error) {
       store.setError({
-        key: "networkProbe.errors.agentFailed",
+        key:
+          getErrorCode(error) === "INVALID_INPUT"
+            ? "networkProbe.errors.agentInvalidInput"
+            : "networkProbe.errors.agentFailed",
         fallback: getErrorMessage(error),
       })
     } finally {
@@ -1066,6 +1072,7 @@ export const networkProbeUseCases = {
     if (store.loadingNodes || store.agentAction) return
     store.setAgentAction({ kind: "remove", agentId })
     store.clearError("networkProbe.errors.agentFailed")
+    store.clearError("networkProbe.errors.agentInvalidInput")
     store.appendCommandLog(`removeAgent('${agentId}')`)
     try {
       await networkProbeRepository.removeAgent(agentId)

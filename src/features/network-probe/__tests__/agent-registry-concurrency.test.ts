@@ -55,7 +55,6 @@ describe("network-probe agent registry reentry", () => {
   it("coalesces repeated add requests while the first request is pending", async () => {
     const addResult = deferred<unknown>()
     addAgent.mockReturnValue(addResult.promise)
-    listProbeNodes.mockResolvedValue([])
 
     const first = networkProbeUseCases.addAgent("Lab", "https://agent.example.test")
     expect(useNetworkProbeStore.getState().agentAction).toEqual({ kind: "add" })
@@ -63,9 +62,17 @@ describe("network-probe agent registry reentry", () => {
     await networkProbeUseCases.addAgent("Lab", "https://agent.example.test")
     expect(addAgent).toHaveBeenCalledTimes(1)
 
-    addResult.resolve({} as never)
+    addResult.resolve({
+      id: "agent-1",
+      kind: "remote-agent",
+      label: "Lab",
+      endpoint: "https://agent.example.test/",
+      reachable: true,
+    })
     await first
     expect(useNetworkProbeStore.getState().agentAction).toBeNull()
+    expect(useNetworkProbeStore.getState().probeNodes[0]?.reachable).toBe(true)
+    expect(listProbeNodes).not.toHaveBeenCalled()
   })
 
   it("coalesces repeated remove requests while refreshing the registry", async () => {
@@ -93,6 +100,14 @@ describe("network-probe agent registry reentry", () => {
 
     expect(useNetworkProbeStore.getState().agentAction).toBeNull()
     expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.agentFailed")
+  })
+
+  it("localizes invalid agent endpoints separately from registry failures", async () => {
+    addAgent.mockRejectedValue({ code: "INVALID_INPUT", message: "Agent URL is invalid" })
+
+    await networkProbeUseCases.addAgent("Lab", "http://agent.example.test")
+
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.agentInvalidInput")
   })
 })
 

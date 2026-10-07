@@ -131,6 +131,8 @@ Post-MVP-C
 - 禁止明文；禁止局域网自动扩散发现 agent
 - SSRF：拒云元数据等危险目标
 
+当前注册/健康检查协议：HTTPS `GET /v1/health` 需返回 2xx；WSS 在 `/v1/health` 完成 TLS WebSocket 升级并响应 Ping/Pong。两者均使用系统证书信任库，不跟随 HTTP 重定向，单端点超时 5 秒。当前不支持把凭据放入 URL；Keychain 鉴权、429 语义和远程探测执行仍待 C2-3 完成。
+
 ### 档位
 
 Post-MVP-C

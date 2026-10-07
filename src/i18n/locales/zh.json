@@ -2226,7 +2226,7 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "对比本机与 Globalping 多地的 DNS 答案。可注册 HTTPS agent 作为自有探测节点。",
+      "hint": "对比本机与 Globalping 多地的 DNS 答案。可注册 HTTPS/WSS agent 作为自有探测节点。",
       "run": "多节点对比 DNS",
       "running": "对比中…",
       "refresh": "刷新节点",
@@ -2242,6 +2242,13 @@
       "addingAgent": "添加中…",
       "removeAgent": "移除",
       "removingAgent": "移除中…",
+      "agentReachable": "可达",
+      "agentUnreachable": "暂不可达",
+      "endpointError": {
+        "invalid": "请输入有效的 HTTPS 或 WSS 地址。",
+        "scheme": "端点必须使用 HTTPS 或 WSS，明文连接不受支持。",
+        "credentials": "端点 URL 暂不支持用户名/密码、查询参数或片段，请移除后重试。"
+      },
       "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
     },
     "nat": {
@@ -2357,7 +2364,7 @@
       "lanSvc": "browseLanServices(local) // mDNS+SSDP",
       "pcap": "startPacketCapture(local) // tcpdump counters",
       "compareDns": "dnsLookup(multi, domain)",
-      "addAgent": "addAgent(label, https://…)",
+      "addAgent": "addAgent(label, https://… 或 wss://…)",
       "nat": "probeNat(local)",
       "ntp": "probeNtp(local)",
       "installPack": "installCapabilityPack('{{packId}}')",
@@ -2431,7 +2438,8 @@
       "pcapFailed": "包级诊断失败。",
       "nodesFailed": "列举探测节点失败。",
       "multiNodeFailed": "多节点 DNS 对比失败。",
-      "agentFailed": "Agent 注册操作失败。"
+      "agentFailed": "Agent 注册操作失败。",
+      "agentInvalidInput": "Agent 信息不合法，或端点被网络安全规则拒绝。"
     }
   },
   "extensionCenter": {
