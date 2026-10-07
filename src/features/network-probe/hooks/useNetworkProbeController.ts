@@ -33,6 +33,7 @@ export function useNetworkProbeController() {
   const tcpResult = useNetworkProbeStore((s) => s.tcpResult)
   const pingResult = useNetworkProbeStore((s) => s.pingResult)
   const globalpingPingResult = useNetworkProbeStore((s) => s.globalpingPingResult)
+  const pingStreamingSamples = useNetworkProbeStore((s) => s.pingStreamingSamples)
   const dnsResult = useNetworkProbeStore((s) => s.dnsResult)
   const probeResult = useNetworkProbeStore((s) => s.probeResult)
   const globalpingHttpResult = useNetworkProbeStore((s) => s.globalpingHttpResult)
@@ -71,6 +72,9 @@ export function useNetworkProbeController() {
   const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
   // 会话按探测种类分槽: 面板只读自己那一槽, 决定 Cancel 目标与按钮可见性。
   const activeSessionIdByKind = useNetworkProbeStore((s) => s.activeSessionIdByKind)
+  const cancelRequestedSessionIdByKind = useNetworkProbeStore(
+    (s) => s.cancelRequestedSessionIdByKind,
+  )
   const commandLog = useNetworkProbeStore((s) => s.commandLog)
   const loadingSummary = useNetworkProbeStore((s) => s.loadingSummary)
   const networkServicesLoadState = useNetworkProbeStore((s) => s.networkServicesLoadState)
@@ -329,6 +333,7 @@ export function useNetworkProbeController() {
     tcpResult,
     pingResult,
     globalpingPingResult,
+    pingStreamingSamples,
     dnsResult,
     probeResult,
     globalpingHttpResult,
@@ -366,6 +371,7 @@ export function useNetworkProbeController() {
     reportHistory,
     securityAuthorized,
     activeSessionIdByKind,
+    cancelRequestedSessionIdByKind,
     commandLog,
     loadingSummary,
     networkServicesLoadState,

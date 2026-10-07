@@ -11,6 +11,7 @@ const { repository } = vi.hoisted(() => ({
     checkHostsOverrides: vi.fn(),
     tcpConnect: vi.fn(),
     pingHost: vi.fn(),
+    cancelScan: vi.fn(),
     dnsLookup: vi.fn(),
     probeTarget: vi.fn(),
     detectCaptivePortal: vi.fn(),
@@ -175,6 +176,66 @@ describe("network-probe result reset before rerun", () => {
 
     expect(currentValue(probe.resultKey)).toBeNull()
     expect(useNetworkProbeStore.getState().error).not.toBeNull()
+  })
+
+  it("streams only the active Ping session and keeps a cancelled partial result", async () => {
+    let resolvePing!: (value: unknown) => void
+    repository.pingHost.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolvePing = resolve
+      }),
+    )
+
+    const run = networkProbeUseCases.runPing("192.0.2.1", 20)
+    await vi.waitFor(() => {
+      expect(listeners.has("network-probe:scan-session")).toBe(true)
+      expect(listeners.has("network-probe:ping-sample")).toBe(true)
+    })
+
+    listeners.get("network-probe:scan-session")?.({
+      payload: { sessionId: "active-ping-session", kind: "ping" },
+    })
+    listeners.get("network-probe:ping-sample")?.({
+      payload: {
+        sessionId: "stale-ping-session",
+        sample: { seq: 9, ok: true, rttMs: 10 },
+      },
+    })
+    listeners.get("network-probe:ping-sample")?.({
+      payload: {
+        sessionId: "active-ping-session",
+        sample: { seq: 0, ok: true, rttMs: 12 },
+      },
+    })
+
+    expect(useNetworkProbeStore.getState().pingStreamingSamples).toEqual([
+      { seq: 0, ok: true, rttMs: 12 },
+    ])
+
+    const cancel = networkProbeUseCases.cancelScan("ping")
+    expect(repository.cancelScan).toHaveBeenCalledWith("active-ping-session")
+    expect(useNetworkProbeStore.getState().cancelRequestedSessionIdByKind.ping).toBe(
+      "active-ping-session",
+    )
+
+    resolvePing({
+      target: "192.0.2.1",
+      resolvedIp: "192.0.2.1",
+      packetsSent: 1,
+      packetsReceived: 1,
+      lossPercent: 0,
+      samples: [{ seq: 0, ok: true, rttMs: 12 }],
+      sessionId: "active-ping-session",
+      cancelled: true,
+      commandHint: "pingHost(...) // sessionId=active-ping-session",
+    })
+    await Promise.all([run, cancel])
+
+    expect(useNetworkProbeStore.getState().pingResult?.cancelled).toBe(true)
+    expect(useNetworkProbeStore.getState().activeSessionIdByKind.ping).toBeNull()
+    expect(useNetworkProbeStore.getState().commandLog.join("\n")).toContain(
+      "pingHost cancelled sessionId=active-ping-session packets=1",
+    )
   })
 
   it("logs custom target failures without URL secrets", async () => {

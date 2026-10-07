@@ -99,7 +99,7 @@ export type NetworkProbeL1 = "basic" | "sites" | "test" | "security" | "discover
  * 注意与 `ProbeNode.kind`（local / remote-proxy / remote-agent）不是一回事——那是「探测原点」。
  */
 export type NetworkProbeKind =
-  "health" | "sites" | "traceroute" | "speed" | "ports" | "pcap" | "lan"
+  "health" | "sites" | "ping" | "traceroute" | "speed" | "ports" | "pcap" | "lan"
 
 export type NetworkProbeOfflineSub =
   "all" | "captive" | "proxy" | "ipv6" | "mtu" | "egress" | "diff"
@@ -317,6 +317,7 @@ const OFFLINE_SUBS: NetworkProbeOfflineSub[] = [
 const EMPTY_SESSION_ID_SLOTS: Record<NetworkProbeKind, string | null> = {
   health: null,
   sites: null,
+  ping: null,
   traceroute: null,
   speed: null,
   ports: null,

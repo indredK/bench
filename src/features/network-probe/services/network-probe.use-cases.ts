@@ -10,7 +10,7 @@ import { getErrorCode, getErrorMessage } from "@/lib/tauri/errors"
 import type {
   CapabilityPackProgress,
   HealthCheckItem,
-  PingSample,
+  PingSampleEvent,
   SiteSampleResult,
   SpeedSampleEvent,
   PortSampleEvent,
@@ -211,23 +211,33 @@ export const networkProbeUseCases = {
     store.setGlobalpingPingResult(null)
     store.resetPingStreaming()
     store.appendCommandLog(`pingHost('${target.trim()}', ${count})`)
-    let unlisten: (() => void) | undefined
+    const sessions = createScanSessionTracker("ping")
+    let unlistenSamples: (() => void) | undefined
     try {
-      unlisten = await listenToPlatformEvent<PingSample>(
+      await sessions.start()
+      unlistenSamples = await listenToPlatformEvent<PingSampleEvent>(
         TAURI_EVENTS.networkProbe.pingSample,
         (event) => {
-          useNetworkProbeStore.getState().appendPingSample(event.payload)
+          const current = useNetworkProbeStore.getState()
+          if (event.payload.sessionId !== current.activeSessionIdByKind.ping) return
+          current.appendPingSample(event.payload.sample)
         },
       )
       const result = await networkProbeRepository.pingHost(target.trim(), count)
       store.setPingResult(result)
+      if (result.cancelled) {
+        store.appendCommandLog(
+          `pingHost cancelled sessionId=${result.sessionId ?? "unknown"} packets=${result.packetsSent}`,
+        )
+      }
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.pingFailed",
         fallback: getErrorMessage(error),
       })
     } finally {
-      unlisten?.()
+      unlistenSamples?.()
+      sessions.stop()
       useNetworkProbeStore.getState().setLoadingPing(false)
     }
   },

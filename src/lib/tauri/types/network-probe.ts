@@ -94,6 +94,11 @@ export interface PingSample {
   error?: string
 }
 
+export interface PingSampleEvent {
+  sessionId: string
+  sample: PingSample
+}
+
 export interface PingProbeResult {
   target: string
   resolvedIp: string
@@ -105,6 +110,8 @@ export interface PingProbeResult {
   maxRttMs?: number
   stddevRttMs?: number
   samples: PingSample[]
+  sessionId?: string
+  cancelled: boolean
   commandHint: string
 }
 

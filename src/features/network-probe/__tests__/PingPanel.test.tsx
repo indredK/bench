@@ -28,25 +28,35 @@ const timeoutResult: PingProbeResult = {
   packetsReceived: 0,
   lossPercent: 100,
   samples: [{ seq: 0, ok: false, error: "Request timeout for icmp_seq 0" }],
+  cancelled: false,
   commandHint: "pingHost(local, '192.0.2.1', {count:1})",
 }
 
 function renderPanel(
   options: {
     result?: PingProbeResult | null
+    loading?: boolean
+    streamingSamples?: PingProbeResult["samples"]
     onRun?: (target: string, count: number) => void
+    onCancel?: () => void
+    canCancel?: boolean
+    cancelRequested?: boolean
     remoteMode?: boolean
     platform?: string
   } = {},
 ) {
   return render(
     <PingPanel
-      loading={false}
+      loading={options.loading ?? false}
       result={options.result ?? null}
+      streamingSamples={options.streamingSamples}
       remoteMode={options.remoteMode}
       platform={options.platform ?? "macos"}
       toolEnabled={true}
+      canCancel={options.canCancel}
+      cancelRequested={options.cancelRequested}
       onRun={options.onRun ?? vi.fn()}
+      onCancel={options.onCancel}
     />,
   )
 }
@@ -58,7 +68,7 @@ describe("PingPanel", () => {
     renderPanel({ result: timeoutResult })
 
     expect(screen.getByText("networkProbe.ping.noRepliesMacHint")).toBeTruthy()
-    const failure = screen.getByText("networkProbe.ping.sampleFail")
+    const failure = screen.getByText("networkProbe.ping.noResponse")
     expect(failure.textContent).not.toContain(timeoutResult.samples[0].error)
     const details = screen.getByText("networkProbe.ping.technicalDetails").closest("details")
     expect(details?.open).toBe(false)
@@ -103,5 +113,52 @@ describe("PingPanel", () => {
     expect(
       screen.getByRole("button", { name: "networkProbe.ping.run" }).hasAttribute("disabled"),
     ).toBe(true)
+  })
+
+  it("renders streamed local samples in a live table before the run completes", () => {
+    renderPanel({
+      loading: true,
+      streamingSamples: [{ seq: 0, ok: true, rttMs: 12.3 }],
+    })
+
+    expect(screen.getByRole("table", { name: "networkProbe.ping.liveResults" })).toBeTruthy()
+    expect(screen.getByText("networkProbe.ping.sequence")).toBeTruthy()
+    expect(screen.getByText("networkProbe.ping.reply")).toBeTruthy()
+    expect(screen.getByText("12.3 ms")).toBeTruthy()
+    expect(screen.getByLabelText("networkProbe.ping.target").hasAttribute("disabled")).toBe(true)
+  })
+
+  it("lets the user cancel a local run and reports the cancelling state", () => {
+    const onCancel = vi.fn()
+    const { rerender } = renderPanel({ loading: true, canCancel: true, onCancel })
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.ping.cancel" }))
+    expect(onCancel).toHaveBeenCalledOnce()
+
+    rerender(
+      <PingPanel
+        loading
+        result={null}
+        toolEnabled
+        canCancel
+        cancelRequested
+        onRun={vi.fn()}
+        onCancel={onCancel}
+      />,
+    )
+    expect(
+      screen.getByRole("button", { name: "networkProbe.ping.cancelling" }).hasAttribute("disabled"),
+    ).toBe(true)
+  })
+
+  it("shows the partial result state after cancellation", () => {
+    renderPanel({ result: { ...timeoutResult, cancelled: true } })
+
+    expect(screen.getByText("networkProbe.ping.cancelled")).toBeTruthy()
+  })
+
+  it("does not offer cancellation for Globalping requests", () => {
+    renderPanel({ loading: true, remoteMode: true, canCancel: true })
+
+    expect(screen.queryByRole("button", { name: "networkProbe.ping.cancel" })).toBeNull()
   })
 })

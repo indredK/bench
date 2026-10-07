@@ -505,12 +505,19 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <PingPanel
                     loading={c.loadingPing}
                     result={globalpingActive ? null : c.pingResult}
+                    streamingSamples={globalpingActive ? [] : c.pingStreamingSamples}
                     remoteResult={globalpingActive ? c.globalpingPingResult : null}
                     remoteMode={globalpingActive}
                     remoteLocationLabel={globalpingLocationLabel}
                     platform={c.capabilities?.platform}
                     toolEnabled={globalpingActive || c.toolEnabled.ping}
                     toolStatus={globalpingActive ? undefined : c.toolStatus.ping}
+                    canCancel={!globalpingActive && c.activeSessionIdByKind.ping != null}
+                    cancelRequested={
+                      c.activeSessionIdByKind.ping != null &&
+                      c.cancelRequestedSessionIdByKind.ping === c.activeSessionIdByKind.ping
+                    }
+                    onCancel={() => c.cancelScan("ping")}
                     onRun={(target, count) =>
                       globalpingActive
                         ? c.runGlobalpingPing(target, count, globalpingLocation)

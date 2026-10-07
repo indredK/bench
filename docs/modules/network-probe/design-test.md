@@ -56,16 +56,16 @@ src-tauri/src/net_probe/
 
 ### 3.1 Ping（`pingHost`）
 
-| 项     | 约定                                                                          |
-| ------ | ----------------------------------------------------------------------------- |
-| 库     | `surge-ping`                                                                  |
-| 套接字 | 非 root：`SOCK_DGRAM`/`IPPROTO_ICMP`（Apple 惯例）；root：可 RAW              |
-| 输出   | 每包 RTT + 结束汇总（min/avg/max/stddev/loss%）                               |
-| 流式   | `network-probe://ping-sample`；`count`/`intervalMs` 有硬顶（防打爆）          |
-| 输入   | 本机次数为 1–20 整数，Globalping 为 1–16 整数；无效时提示并禁用运行           |
-| 失败   | 逐包失败显示本地化摘要；原始 ICMP 诊断放默认折叠的技术详情                    |
-| 校验   | host 禁止 shell 元字符（对齐现有 `validate_host`）；拒绝空、过长、以 `-` 开头 |
-| 降级   | ICMP 不可用 → 返回 `degraded` 并建议改用 TCP/HTTP；UI 不显示假 0ms            |
+| 项     | 约定                                                                                                                                         |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 库     | `surge-ping`                                                                                                                                 |
+| 套接字 | 非 root：`SOCK_DGRAM`/`IPPROTO_ICMP`（Apple 惯例）；root：可 RAW                                                                             |
+| 输出   | 每包 RTT + 结束汇总（min/avg/max/stddev/loss%）                                                                                              |
+| 流式   | `network-probe:ping-sample` 逐包推送到实时结果表；本机 Ping 建立独立扫描会话，运行期间可 `cancelScan`；`count`/`intervalMs` 有硬顶（防打爆） |
+| 输入   | 本机次数为 1–20 整数，Globalping 为 1–16 整数；无效时提示并禁用运行                                                                          |
+| 失败   | 逐包失败显示本地化摘要；原始 ICMP 诊断放默认折叠的技术详情                                                                                   |
+| 校验   | host 禁止 shell 元字符（对齐现有 `validate_host`）；拒绝空、过长、以 `-` 开头                                                                |
+| 降级   | ICMP 不可用 → 返回 `degraded` 并建议改用 TCP/HTTP；UI 不显示假 0ms                                                                           |
 
 真机注意：macOS **本地网络**隐私权限会影响 LAN ping；能力矩阵标 `D/S`，UI 给设置跳转文案。
 
@@ -162,7 +162,7 @@ UI：测试入口与「上不了网」入口共用面板组件；面包屑标明
 - 目标输入：最近 N 条历史（本地，脱敏）；一键填 `1.1.1.1` / `cloudflare.com`。
 - 结果区下方固定 `CommandHint` + 写入命令日志。
 - TCP 连通：端口只接受 1–65535 整数；状态按界面语言显示，原始系统错误折叠在技术详情中；每次尝试均写入带时间戳命令日志，命令预览与结果使用同一转义格式。
-- Ping/Traceroute：实时表 + 停止按钮；离开面板**不**自动 clear 结果（导航记忆 §3.1）。
+- Ping/Traceroute：实时表 + 停止按钮；本机 Ping 取消后只汇总已完成样本，Globalping Ping 不提供取消；离开面板**不**自动 clear 结果（导航记忆 §3.1）。
 - 长跳点表 >50：虚拟化（Polish 可延后，但接口预留）。
 - 测速面板标 `Post`，不进 MVP 验收。
 
