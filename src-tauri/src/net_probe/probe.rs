@@ -1,4 +1,6 @@
-use super::input::{looks_like_url, parse_http_url, validate_probe_input};
+use super::input::{
+    looks_like_url, parse_http_url, redact_probe_target_for_display, validate_probe_input,
+};
 use super::types::{HttpProbeDetail, IcmpProbeDetail, ProbeTargetResult, TlsLightDetail};
 use crate::error::{AppError, AppResult};
 use futures_util::StreamExt;
@@ -18,7 +20,8 @@ pub async fn probe_target(input: String) -> AppResult<ProbeTargetResult> {
     validate_probe_input(&input)?;
     let trimmed = input.trim().to_string();
     let is_url = looks_like_url(&trimmed);
-    let command_hint = format!("probeTarget(local, '{trimmed}')");
+    let display_input = redact_probe_target_for_display(&trimmed);
+    let command_hint = format!("probeTarget(local, '{display_input}')");
 
     let icmp = if is_url {
         None
@@ -32,10 +35,22 @@ pub async fn probe_target(input: String) -> AppResult<ProbeTargetResult> {
         parse_http_url(&trimmed)?
     };
 
-    let (http, tls) = probe_http(http_url, false).await;
+    let (mut http, mut tls) = probe_http(http_url, false).await;
+    if let Some(detail) = http.as_mut() {
+        detail.final_url = detail
+            .final_url
+            .as_deref()
+            .map(redact_probe_target_for_display);
+        // reqwest error messages can contain the complete URL, including signed queries.
+        // The UI renders localized summaries from status/availability instead.
+        detail.error = None;
+    }
+    if let Some(detail) = tls.as_mut() {
+        detail.detail = None;
+    }
 
     Ok(ProbeTargetResult {
-        input: trimmed,
+        input: display_input,
         kind: if is_url { "url" } else { "host" }.into(),
         icmp,
         http,

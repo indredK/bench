@@ -177,6 +177,19 @@ describe("network-probe result reset before rerun", () => {
     expect(useNetworkProbeStore.getState().error).not.toBeNull()
   })
 
+  it("logs custom target failures without URL secrets", async () => {
+    repository.probeTarget.mockRejectedValueOnce(new Error("simulated IPC failure"))
+
+    await networkProbeUseCases.runProbeTarget(
+      "https://user:secret@example.com/health?token=private#section",
+    )
+
+    const commandLog = useNetworkProbeStore.getState().commandLog.join("\n")
+    expect(commandLog).toContain("probeTarget(local, 'https://example.com/health?…#…')")
+    expect(commandLog).not.toContain("secret")
+    expect(commandLog).not.toContain("private")
+  })
+
   it("preserves all overview snapshots when a refresh fails", async () => {
     const staleHosts = [stale]
     useNetworkProbeStore.setState({ summary: stale, firewall: stale, hosts: staleHosts } as never)

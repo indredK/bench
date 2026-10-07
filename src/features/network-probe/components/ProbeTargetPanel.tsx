@@ -7,6 +7,7 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { redactProbeTargetForDisplay } from "@/features/network-probe/utils/probe-target-display"
 import type { GlobalpingHttpResult, ProbeTargetResult } from "@/lib/tauri/types/network-probe"
 
 interface ProbeTargetPanelProps {
@@ -59,7 +60,9 @@ export function ProbeTargetPanel({
                   ? t("networkProbe.globalping.remoteHttpCommandHint", {
                       location: remoteLocationLabel ?? t("networkProbe.globalping.locations.world"),
                     })
-                  : t("networkProbe.cmd.probeTarget", { input: input.trim() || "…" })
+                  : t("networkProbe.cmd.probeTarget", {
+                      input: redactProbeTargetForDisplay(input) || "…",
+                    })
               }
             >
               <Button
@@ -100,12 +103,15 @@ export function ProbeTargetPanel({
                     status: result.http.status ?? "—",
                     ms: result.http.ttfbMs?.toFixed(0) ?? "—",
                   })
-                : t("networkProbe.probe.httpFail", {
-                    error: result.http.error ?? "—",
-                  })}
+                : result.http.status != null
+                  ? t("networkProbe.probe.httpStatusFail", {
+                      status: result.http.status,
+                      ms: result.http.ttfbMs?.toFixed(0) ?? "—",
+                    })
+                  : t("networkProbe.probe.httpRequestFail")}
               {result.http.finalUrl ? (
                 <div className="text-muted-foreground font-mono text-xs">
-                  {result.http.finalUrl}
+                  {redactProbeTargetForDisplay(result.http.finalUrl)}
                 </div>
               ) : null}
             </div>
@@ -115,9 +121,7 @@ export function ProbeTargetPanel({
               {t("networkProbe.probe.tls")}:{" "}
               {result.tls.handshakeOk
                 ? t("networkProbe.probe.tlsOk")
-                : t("networkProbe.probe.tlsFail", {
-                    detail: result.tls.detail ?? "—",
-                  })}
+                : t("networkProbe.probe.tlsFail")}
             </div>
           ) : null}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>

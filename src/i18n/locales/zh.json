@@ -1758,10 +1758,11 @@
       "icmpFail": "失败 — {{error}}",
       "http": "HTTP",
       "httpOk": "{{status}} · TTFB {{ms}} ms",
-      "httpFail": "失败 — {{error}}",
+      "httpStatusFail": "服务器返回 HTTP {{status}} · TTFB {{ms}} ms",
+      "httpRequestFail": "未收到 HTTP 响应。请检查地址、服务端口和网络后重试。",
       "tls": "TLS",
       "tlsOk": "握手成功",
-      "tlsFail": "失败 — {{detail}}"
+      "tlsFail": "握手失败。请检查证书和服务端配置。"
     },
     "sites": {
       "hint": "对内置站点包做 ICMP / HTTP 延迟与有界下载吞吐探测。自定义站流式采样并显示火花线；可中途取消。",

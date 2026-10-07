@@ -97,7 +97,7 @@ Tokio TcpStream::connect 带 timeout
 
 流水线：
 
-1. 规范化 URL / host（拒绝 file://、危险 scheme）。
+1. 规范化 URL / host（拒绝 file://、危险 scheme）；结果 URL、错误详情与命令提示不回显 userinfo、查询值或片段。
 2. 可选 ICMP（同 ping 引擎）。
 3. HTTP(S)：`reqwest` + `rustls`；记录状态码、TTFB、重定向终局。
 4. HTTPS 轻量 TLS：证书 notAfter、subject/SAN 与 host 是否匹配；**完整 MITM 链分析留给安全 Tab**。

@@ -2,6 +2,7 @@
  * Use Cases / 用例: orchestrate feature flows; 只编排业务流.
  */
 import { networkProbeRepository } from "@/features/network-probe/services/network-probe.repository"
+import { redactProbeTargetForDisplay } from "@/features/network-probe/utils/probe-target-display"
 import { type NetworkProbeKind, useNetworkProbeStore } from "@/features/network-probe/store"
 import { TAURI_EVENTS } from "@/lib/tauri/contracts"
 import { getErrorCode, getErrorMessage } from "@/lib/tauri/errors"
@@ -282,6 +283,7 @@ export const networkProbeUseCases = {
     store.clearError("networkProbe.errors.probeFailed")
     store.setProbeResult(null)
     store.setGlobalpingHttpResult(null)
+    store.appendCommandLog(`probeTarget(local, '${redactProbeTargetForDisplay(input)}')`)
     try {
       const result = await networkProbeRepository.probeTarget(input.trim())
       store.setProbeResult(result)

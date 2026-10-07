@@ -1758,10 +1758,11 @@
       "icmpFail": "fail — {{error}}",
       "http": "HTTP",
       "httpOk": "{{status}} · TTFB {{ms}} ms",
-      "httpFail": "fail — {{error}}",
+      "httpStatusFail": "Server returned HTTP {{status}} · TTFB {{ms}} ms",
+      "httpRequestFail": "No HTTP response. Check the URL, service port, and network, then retry.",
       "tls": "TLS",
       "tlsOk": "handshake ok",
-      "tlsFail": "fail — {{detail}}"
+      "tlsFail": "Handshake failed. Check the certificate and server configuration."
     },
     "sites": {
       "hint": "Probe a built-in site pack with ICMP/HTTP latency and bounded download throughput. Custom hosts stream in with sparklines; cancel stops mid-run.",
