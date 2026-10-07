@@ -2212,7 +2212,12 @@
       "run": "Lookup public IP",
       "running": "Looking up…",
       "empty": "No egress lookup yet.",
-      "asn": "ASN: {{asn}}{{org}}"
+      "asn": "ASN: {{asn}}{{org}}",
+      "failed": "Couldn't obtain a public egress IP from the available services.",
+      "technicalDetails": "Technical details",
+      "source": "API source",
+      "response": "Raw response",
+      "command": "Command hint"
     },
     "speed": {
       "hint": "LibreSpeed-compatible bandwidth probe (ping / download / upload). Cancel stops mid-run.",

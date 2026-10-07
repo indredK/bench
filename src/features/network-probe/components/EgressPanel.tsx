@@ -1,10 +1,12 @@
 /**
  * Feature UI / 功能界面: public egress IP (dual entry with Offline).
  */
-import { useTranslation } from "react-i18next"
+import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { PublicIpResult } from "@/features/network-probe/components/PublicIpResult"
 import type { PublicIpInfo } from "@/lib/tauri/types/network-probe"
+import { useTranslation } from "react-i18next"
 
 interface EgressPanelProps {
   loading: boolean
@@ -27,33 +29,16 @@ export function EgressPanel({ loading, result, onRun, dualFrom }: EgressPanelPro
               {t(`networkProbe.dualEntry.from.${dualFrom}`)}
             </p>
           ) : null}
-          <Button type="button" disabled={loading} onClick={onRun}>
-            {loading ? t("networkProbe.egress.running") : t("networkProbe.egress.run")}
-          </Button>
-          <p className="text-muted-foreground font-mono text-xs">{t("networkProbe.cmd.egress")}</p>
+          <CommandHint hint={t("networkProbe.cmd.egress")}>
+            <Button type="button" disabled={loading} onClick={onRun}>
+              {loading ? t("networkProbe.egress.running") : t("networkProbe.egress.run")}
+            </Button>
+          </CommandHint>
         </>
       }
     >
       {result ? (
-        <div className="space-y-1 rounded-lg border px-3 py-2 text-sm">
-          <div>
-            {t("networkProbe.offline.ip")}:{" "}
-            <span className="font-mono font-medium">{result.ip ?? "—"}</span>
-            {result.source ? (
-              <span className="text-muted-foreground"> · {result.source}</span>
-            ) : null}
-          </div>
-          {result.asn ? (
-            <div className="text-muted-foreground text-xs">
-              {t("networkProbe.egress.asn", {
-                asn: result.asn,
-                org: result.org ? ` · ${result.org}` : "",
-              })}
-            </div>
-          ) : null}
-          {result.detail ? <p className="text-muted-foreground text-xs">{result.detail}</p> : null}
-          <p className="text-muted-foreground font-mono text-[10px]">{result.commandHint}</p>
-        </div>
+        <PublicIpResult result={result} />
       ) : (
         <p className="text-muted-foreground text-sm">{t("networkProbe.egress.empty")}</p>
       )}

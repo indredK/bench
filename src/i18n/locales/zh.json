@@ -2212,7 +2212,12 @@
       "run": "查询公网 IP",
       "running": "查询中…",
       "empty": "尚未查询出口。",
-      "asn": "ASN: {{asn}}{{org}}"
+      "asn": "ASN: {{asn}}{{org}}",
+      "failed": "未能从可用服务获取公网出口 IP。",
+      "technicalDetails": "技术详情",
+      "source": "API 来源",
+      "response": "原始响应",
+      "command": "命令提示"
     },
     "speed": {
       "hint": "兼容 LibreSpeed 的带宽测速（ping / 下载 / 上传）。可取消中途停止。",

@@ -3,6 +3,7 @@
  */
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { PublicIpResult } from "@/features/network-probe/components/PublicIpResult"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { NetworkProbeOfflineSub } from "@/features/network-probe/store"
 import type {
@@ -90,27 +91,7 @@ export function OfflinePanel({
             {t("networkProbe.offline.egressTitle")}
           </h3>
           {publicIp ? (
-            <>
-              <div>
-                {t("networkProbe.offline.ip")}:{" "}
-                <span className="font-mono font-medium">{publicIp.ip ?? "—"}</span>
-                {publicIp.source ? (
-                  <span className="text-muted-foreground"> · {publicIp.source}</span>
-                ) : null}
-              </div>
-              {publicIp.asn ? (
-                <div className="text-muted-foreground text-xs">
-                  {t("networkProbe.egress.asn", {
-                    asn: publicIp.asn,
-                    org: publicIp.org ? ` · ${publicIp.org}` : "",
-                  })}
-                </div>
-              ) : null}
-              {publicIp.detail ? (
-                <p className="text-muted-foreground text-xs">{publicIp.detail}</p>
-              ) : null}
-              <p className="text-muted-foreground font-mono text-[10px]">{publicIp.commandHint}</p>
-            </>
+            <PublicIpResult result={publicIp} embedded />
           ) : (
             <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
           )}
