@@ -102,6 +102,7 @@ function renderPanel(scanResult: PortScanResult = result) {
     <PortScanPanel
       loading={false}
       canCancel={false}
+      cancelRequested={false}
       result={scanResult}
       streaming={[]}
       toolEnabled

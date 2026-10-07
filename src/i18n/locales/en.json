@@ -2395,6 +2395,9 @@
       "historyItem": "{{session}}… · {{count}} checks · {{ms}} ms · {{opinions}} opinions",
       "privacyHint": "Exports may include public IP, Wi‑Fi SSID, hosts overrides, and local addresses. Share only with people you trust."
     },
+    "scan": {
+      "cancelling": "Cancelling…"
+    },
     "traceroute": {
       "hint": "Path hop table via trippy (privileged ICMP, falls back to unprivileged UDP). Loss % is color-coded. ASN via Team Cymru DNS (may be empty).",
       "target": "Target",

@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ScanCancelButton } from "@/features/network-probe/components/ScanCancelButton"
 import type {
   SitePreset,
   SiteSampleResult,
@@ -18,6 +19,7 @@ const OFFICIAL_PACK_ID = "official"
 interface OfficialSitesPanelProps {
   loading: boolean
   canCancel: boolean
+  cancelRequested: boolean
   presets: SitePreset[]
   result: SitesProbeResult | null
   streaming: SiteSampleResult[]
@@ -65,6 +67,7 @@ function fingerprintOf(row: SiteSampleResult): string {
 export function OfficialSitesPanel({
   loading,
   canCancel,
+  cancelRequested,
   presets,
   result,
   streaming,
@@ -162,11 +165,11 @@ export function OfficialSitesPanel({
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("common.cancel")}
-                </Button>
-              </CommandHint>
+              <ScanCancelButton
+                label={t("common.cancel")}
+                cancelRequested={cancelRequested}
+                onCancel={onCancel}
+              />
             ) : null}
             {presets.length > 0 ? (
               <span className="text-muted-foreground text-xs">

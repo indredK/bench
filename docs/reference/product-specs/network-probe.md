@@ -141,7 +141,7 @@ L1 → L2 映射：
 **交互细节**：
 
 - **输入护栏（后端 clamp/校验）**：本机 ping 次数 clamp `[1,20]`（默认 4）、间隔 clamp `[100,5000]ms`；Globalping Ping 限制 `[1,16]`；远端 Ping/HTTP 拒绝私有/保留 IP、localhost 与常见内网后缀，HTTP URL 拒绝凭据和片段；traceroute `maxTtl` 默认 20、`rounds` 默认 3；端口扫描最多 256 端口（去重后超限返回 `INVALID_INPUT`）；自定义站点最多 24 个且去重；非法 host / 空端口列表返回 `INVALID_INPUT` 并走错误横幅。
-- **单工具防重入**：ping / dns / tcp / custom / traceroute / mtu / egress / speed 各自独立 loading，运行中按钮禁用 + 运行中文案，不可重复触发；本机 Ping、traceroute 与 speed 可取消，取消请求期间显示「正在取消」并禁用重复请求；Globalping Ping 是远端测量，本期不提供取消。
+- **单工具防重入**：ping / dns / tcp / custom / traceroute / mtu / egress / speed 各自独立 loading，运行中按钮禁用 + 运行中文案，不可重复触发；所有支持取消的扫描面板在取消请求期间显示「正在取消」并禁用重复请求，同一会话最多发起一次取消；Globalping Ping 是远端测量，本期不提供取消。
 - **本机 Ping 实时与取消**：DNS 解析和 ICMP 初始化完成后开始显示逐包表格与取消入口；取消保留已完成样本，收发/丢包汇总仅统计完成的尝试，不把尚未执行的包计为丢包。
 - **ping 全丢包提示**：`packetsReceived === 0` 时命令日志追加「可能需 Local Network 权限」提示（不静默）。
 - **测速冷却**：测速源失败/不可达时 `speedCooldownUntil = now + 30s`，期间「开始测速」禁用并倒计时提示（`测速源失败 — {{seconds}} 秒后可重试`），冷却结束自动恢复；取消成功不计入冷却。

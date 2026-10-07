@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ScanCancelButton } from "@/features/network-probe/components/ScanCancelButton"
 import type { HealthCheckItem, HealthScanResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
@@ -15,6 +16,7 @@ interface HealthTreePanelProps {
   result: HealthScanResult | null
   streamingItems: HealthCheckItem[]
   canCancel: boolean
+  cancelRequested: boolean
   onRun: () => void
   onCancel: () => void
 }
@@ -24,6 +26,7 @@ export function HealthTreePanel({
   result,
   streamingItems,
   canCancel,
+  cancelRequested,
   onRun,
   onCancel,
 }: HealthTreePanelProps) {
@@ -43,11 +46,12 @@ export function HealthTreePanel({
               </Button>
             </CommandHint>
             {loading ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" disabled={!canCancel} onClick={onCancel}>
-                  {t("networkProbe.health.cancel")}
-                </Button>
-              </CommandHint>
+              <ScanCancelButton
+                disabled={!canCancel}
+                label={t("networkProbe.health.cancel")}
+                cancelRequested={cancelRequested}
+                onCancel={onCancel}
+              />
             ) : null}
             {result ? (
               <span className="text-muted-foreground text-xs">

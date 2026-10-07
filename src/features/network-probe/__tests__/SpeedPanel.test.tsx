@@ -74,6 +74,7 @@ function renderPanel(options: {
     <SpeedPanel
       loading={options.loading ?? false}
       canCancel={options.loading ?? false}
+      cancelRequested={false}
       sources={options.sources ?? [source]}
       sourcesLoadState={options.sourcesLoadState ?? "loaded"}
       result={options.result ?? null}

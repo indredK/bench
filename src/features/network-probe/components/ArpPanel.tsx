@@ -6,6 +6,7 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { OpenSystemNetworkSettingsButton } from "@/features/network-probe/components/OpenSystemNetworkSettingsButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ScanCancelButton } from "@/features/network-probe/components/ScanCancelButton"
 import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
 
 function arpSourceKey(source: string) {
@@ -25,6 +26,7 @@ interface ArpPanelProps {
   toolEnabled: boolean
   toolStatus?: string
   canCancel?: boolean
+  cancelRequested?: boolean
   openingSettings?: boolean
   onRun: () => void
   onCancel?: () => void
@@ -37,6 +39,7 @@ export function ArpPanel({
   toolEnabled,
   toolStatus,
   canCancel,
+  cancelRequested = false,
   openingSettings = false,
   onRun,
   onCancel,
@@ -76,11 +79,11 @@ export function ArpPanel({
               </Button>
             </CommandHint>
             {canCancel && onCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("common.cancel")}
-                </Button>
-              </CommandHint>
+              <ScanCancelButton
+                label={t("common.cancel")}
+                cancelRequested={cancelRequested}
+                onCancel={onCancel}
+              />
             ) : null}
             {onOpenSettings ? (
               <OpenSystemNetworkSettingsButton

@@ -2395,6 +2395,9 @@
       "historyItem": "{{session}}… · {{count}} 项检查 · {{ms}} ms · {{opinions}} 条建议",
       "privacyHint": "导出内容可能含公网 IP、Wi‑Fi SSID、hosts 异常与本机地址。请仅分享给可信对象。"
     },
+    "scan": {
+      "cancelling": "正在取消…"
+    },
     "traceroute": {
       "hint": "基于 trippy 的路径跳点表（优先特权 ICMP，不足时降级无特权 UDP）。丢包率着色。ASN 经 Team Cymru DNS（可空）。",
       "target": "目标",
