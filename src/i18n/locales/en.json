@@ -2170,10 +2170,35 @@
         "blackhole": "blackhole",
         "fail": "fail",
         "unsupported": "unsupported",
-        "degraded": "degraded"
+        "degraded": "degraded",
+        "unknown": "unknown"
+      },
+      "method": {
+        "binary": "DF binary search",
+        "ladder": "quick size ladder",
+        "none": "no available method",
+        "unknown": "unknown method"
       },
       "meta": "{{ip}} · {{method}} · {{ms}} ms",
       "pathMtu": "Path MTU ≈ {{value}}",
+      "message": {
+        "blackhole": "Large DF packets timed out; a PMTUD blackhole may be present.",
+        "unsupported": "Path MTU probing is not supported on this platform.",
+        "failed": "The path MTU could not be confirmed. Expand technical details for the cause.",
+        "degraded": "The probe completed in degraded mode.",
+        "belowEthernet": "The path MTU was estimated below the standard Ethernet MTU.",
+        "unknown": "The probe returned an unknown status. Expand technical details for the raw result."
+      },
+      "stepDetail": {
+        "received": "Response received",
+        "packetTooLarge": "Packet exceeded the path limit",
+        "timeout": "Response timed out",
+        "permission": "System permission is insufficient",
+        "failed": "No response was received"
+      },
+      "technicalDetails": "Technical details",
+      "technicalReason": "Raw message",
+      "technicalStep": "{{payload}}-byte payload: {{detail}}",
       "ok": "ok",
       "fail": "fail",
       "col": {

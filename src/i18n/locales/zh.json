@@ -2170,10 +2170,35 @@
         "blackhole": "黑洞",
         "fail": "失败",
         "unsupported": "不支持",
-        "degraded": "降级"
+        "degraded": "降级",
+        "unknown": "未知"
+      },
+      "method": {
+        "binary": "DF 二分探测",
+        "ladder": "快速分档探测",
+        "none": "无可用探测方式",
+        "unknown": "未知探测方式"
       },
       "meta": "{{ip}} · {{method}} · {{ms}} ms",
       "pathMtu": "路径 MTU ≈ {{value}}",
+      "message": {
+        "blackhole": "较大的 DF 数据包超时，可能存在 PMTUD 黑洞。",
+        "unsupported": "当前平台不支持路径 MTU 探测。",
+        "failed": "无法确认路径 MTU；可展开技术详情查看原因。",
+        "degraded": "本次探测以降级方式完成。",
+        "belowEthernet": "已估算路径 MTU，低于标准以太网 MTU。",
+        "unknown": "探测返回了未知状态；可展开技术详情查看原始结果。"
+      },
+      "stepDetail": {
+        "received": "已收到响应",
+        "packetTooLarge": "数据包超过路径限制",
+        "timeout": "等待响应超时",
+        "permission": "系统权限不足",
+        "failed": "未能获得响应"
+      },
+      "technicalDetails": "技术详情",
+      "technicalReason": "原始说明",
+      "technicalStep": "载荷 {{payload}} 字节：{{detail}}",
       "ok": "成功",
       "fail": "失败",
       "col": {
