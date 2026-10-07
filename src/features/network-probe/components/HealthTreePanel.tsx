@@ -6,6 +6,7 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { ScanCancelButton } from "@/features/network-probe/components/ScanCancelButton"
+import { presentHealthCheckItem } from "@/features/network-probe/utils/health-check-presentation"
 import type { HealthCheckItem, HealthScanResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
@@ -80,23 +81,7 @@ export function HealthTreePanel({
               </h3>
               <ul className="divide-border divide-y rounded-lg border text-sm">
                 {layerItems.map((row) => (
-                  <li
-                    key={row.key}
-                    className="flex flex-wrap items-start justify-between gap-2 px-3 py-2"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-mono text-xs font-medium">{row.key}</div>
-                      {row.detail ? (
-                        <div className="text-muted-foreground text-xs">{row.detail}</div>
-                      ) : null}
-                      {row.commandHint ? (
-                        <div className="text-muted-foreground/80 font-mono text-[10px]">
-                          {row.commandHint}
-                        </div>
-                      ) : null}
-                    </div>
-                    <StatusBadge status={row.status} />
-                  </li>
+                  <HealthCheckRow key={row.key} row={row} />
                 ))}
               </ul>
             </section>
@@ -107,6 +92,45 @@ export function HealthTreePanel({
         <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
       ) : null}
     </ProbePanelShell>
+  )
+}
+
+function HealthCheckRow({ row }: { row: HealthCheckItem }) {
+  const { t } = useTranslation()
+  const presentation = presentHealthCheckItem(row)
+
+  return (
+    <li className="flex flex-wrap items-start justify-between gap-2 px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-medium">{t(presentation.labelKey)}</div>
+        {presentation.detailKey ? (
+          <div className="text-muted-foreground mt-0.5 text-xs">
+            {t(presentation.detailKey, presentation.detailValues)}
+          </div>
+        ) : null}
+        {presentation.technicalDetail || presentation.commandHint ? (
+          <details className="text-muted-foreground mt-1 min-w-0 text-xs">
+            <summary className="cursor-pointer select-none">
+              {t("networkProbe.health.technicalDetails")}
+            </summary>
+            <div className="mt-1 font-mono text-[10px]">
+              {t("networkProbe.health.checkKey", { key: presentation.checkKey })}
+            </div>
+            {presentation.technicalDetail ? (
+              <pre className="bg-muted mt-1 max-w-full overflow-x-auto rounded px-2 py-1 font-mono text-[10px] break-all whitespace-pre-wrap">
+                {presentation.technicalDetail}
+              </pre>
+            ) : null}
+            {presentation.commandHint ? (
+              <pre className="bg-muted text-muted-foreground mt-1 max-w-full overflow-x-auto rounded px-2 py-1 font-mono text-[10px] break-all whitespace-pre-wrap">
+                {presentation.commandHint}
+              </pre>
+            ) : null}
+          </details>
+        ) : null}
+      </div>
+      <StatusBadge status={row.status} />
+    </li>
   )
 }
 
