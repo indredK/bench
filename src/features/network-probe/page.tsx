@@ -29,6 +29,7 @@ import { PcapDiagPanel } from "@/features/network-probe/components/PcapDiagPanel
 import { PingPanel } from "@/features/network-probe/components/PingPanel"
 import { PollutionPanel } from "@/features/network-probe/components/PollutionPanel"
 import { PortScanPanel } from "@/features/network-probe/components/PortScanPanel"
+import { ProbeOriginSelector } from "@/features/network-probe/components/ProbeOriginSelector"
 import { ProbeTargetPanel } from "@/features/network-probe/components/ProbeTargetPanel"
 import { ReportPanel } from "@/features/network-probe/components/ReportPanel"
 import { ScanOpinionPanel } from "@/features/network-probe/components/ScanOpinionPanel"
@@ -40,7 +41,6 @@ import { TraceroutePanel } from "@/features/network-probe/components/TracerouteP
 import { WhoisPanel } from "@/features/network-probe/components/WhoisPanel"
 import { CommandLogSidePanel } from "@/features/network-probe/components/CommandLogSidePanel"
 import { useNetworkProbeController } from "@/features/network-probe/hooks/useNetworkProbeController"
-import { getProbeNodeDisplayLabel } from "@/features/network-probe/utils/probe-node-label"
 import {
   OFFLINE_SUBS,
   type NetworkProbeL1,
@@ -48,14 +48,6 @@ import {
 } from "@/features/network-probe/store"
 import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { FeatureDescriptor } from "@/platform/capabilities"
 
@@ -229,40 +221,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
               </button>
             ))}
           </nav>
-          {/* 探测原点当前只有本机可选: 非 local 项标 disabled 并提示尚未实现, 避免「选了却仍本机跑」的假连接。 */}
-          <Select value={activeNode?.id ?? "local"}>
-            <TooltipProvider delay={280}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <SelectTrigger
-                    size="sm"
-                    className="h-8 w-[9.5rem] shrink-0"
-                    aria-label={t("networkProbe.nodeSelect.label")}
-                  >
-                    <SelectValue placeholder={t("networkProbe.nodeSelect.label")} />
-                  </SelectTrigger>
-                </TooltipTrigger>
-                <TooltipContent className="text-[11px]">
-                  {t("networkProbe.nodeSelect.localOnlyHint")}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <SelectContent>
-              {probeNodes.map((n) => {
-                const pending = n.kind !== "local"
-                return (
-                  <SelectItem key={n.id} value={n.id} disabled={pending}>
-                    {getProbeNodeDisplayLabel(n.kind, n.label, t("networkProbe.nodeSelect.local"))}
-                    {pending ? (
-                      <span className="text-muted-foreground ml-1 text-[10px] font-bold tracking-wider uppercase">
-                        {t("networkProbe.badge.planning")}
-                      </span>
-                    ) : null}
-                  </SelectItem>
-                )
-              })}
-            </SelectContent>
-          </Select>
+          <ProbeOriginSelector nodes={probeNodes} activeNode={activeNode} />
           <Button
             type="button"
             variant="outline"
