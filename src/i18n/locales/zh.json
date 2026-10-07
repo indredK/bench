@@ -1228,7 +1228,22 @@
     "DEFAULT_BROWSER_CHANGE_REQUIRES_USER_ACTION": "请在 macOS 设置中完成默认浏览器更改。",
     "SCAN_IN_PROGRESS": "正在扫描中，请稍候",
     "SCAN_CANCELED": "扫描已取消",
-    "NO_SESSION": "请先选择一个照片目录"
+    "NO_SESSION": "请先选择一个照片目录",
+    "GP_CREDENTIAL_STORE": "无法访问系统凭证库。",
+    "GP_TOKEN_INVALID": "Globalping 令牌格式无效。",
+    "GP_TARGET_INVALID": "远端目标无效。请使用公网主机或 IP；私有/保留地址、URL 凭据和片段不受支持。",
+    "GP_PACKET_COUNT_INVALID": "Ping 包数必须在 1 到 16 之间。",
+    "GP_RATE_LIMITED": "Globalping 请求次数已达上限，请稍后重试或配置令牌。",
+    "GP_AUTH_FAILED": "Globalping 拒绝了已配置的令牌，请检查令牌或移除它。",
+    "GP_REQUEST_FAILED": "无法完成 Globalping 请求。",
+    "GP_TIMEOUT": "Globalping 测量超时。",
+    "GP_NO_PROBES": "所选区域当前没有可用的 Globalping 探针。",
+    "GP_PROBE_FAILED": "Globalping 探针未能完成测量。",
+    "GP_PARSE": "Globalping 返回的数据无法识别。",
+    "GP_READ": "无法读取 Globalping 响应。",
+    "GP_CLIENT": "无法初始化 Globalping 连接。",
+    "GP_URL": "Globalping 请求地址无效。",
+    "GP_RESPONSE_TOO_LARGE": "Globalping 响应超过安全大小限制。"
   },
   "common": {
     "yes": "有",
@@ -1581,7 +1596,52 @@
     "nodeSelect": {
       "label": "探测原点",
       "local": "本机",
-      "localOnlyHint": "远端节点执行尚未实现，当前所有探测都在本机运行。"
+      "localOnlyHint": "当前工具暂不支持远端执行，探测会在本机运行。",
+      "remoteHint": "Ping/HTTP 目标会发送给 Globalping，并从所选区域的探针执行。",
+      "localSelectedHint": "当前选择在本机运行；选择 Globalping 可从远端探针测量。",
+      "remoteScope": "仅 Ping / HTTP"
+    },
+    "globalping": {
+      "manageToken": "配置 Globalping 令牌",
+      "tokenTitle": "Globalping 访问令牌",
+      "tokenDescription": "令牌保存在系统凭证库中，不会写入命令日志。可留空使用匿名额度；已认证测量可能按 Globalping 规则消耗账户点数。",
+      "tokenChecking": "正在检查系统凭证库…",
+      "tokenConfigured": "已配置令牌；下次测量会使用它。",
+      "tokenNotConfigured": "未配置令牌；测量会使用 Globalping 匿名额度。",
+      "tokenLabel": "访问令牌",
+      "tokenSaved": "令牌已安全保存。",
+      "tokenSaveFailed": "无法保存令牌。",
+      "tokenRemove": "移除令牌",
+      "tokenRemoved": "令牌已从系统凭证库移除。",
+      "tokenRemoveFailed": "无法移除令牌。",
+      "tokenStatusFailed": "无法读取系统凭证库状态。",
+      "tokenStatusUnknown": "令牌状态未知，请重试检查。",
+      "tokenSave": "保存令牌",
+      "tokenWorking": "处理中…",
+      "pingHint": "通过 Globalping 在所选区域的公共探针上发送 ICMP Ping。",
+      "publicTargetHint": "Globalping 测量参数和结果可能被公开，请勿输入敏感目标。仅测公网目标；已知私有/保留 IP 和常见内网后缀会拦截，其他主机名仍会发送给 Globalping。",
+      "remotePingCommandHint": "Globalping Ping · {{location}}",
+      "remoteHttpCommandHint": "Globalping HTTP · {{location}}",
+      "packetLimit": "Globalping 每次最多发送 16 个 Ping 包。",
+      "resultFrom": "探测来源：{{location}}",
+      "actualProbeLocation": "实际探针：{{city}} / {{country}}",
+      "packetLost": "超时或丢包",
+      "locations": {
+        "world": "全球",
+        "US": "美国",
+        "Europe": "欧洲",
+        "Asia": "亚洲"
+      },
+      "httpHint": "通过 Globalping 从所选区域检查 HTTP(S) 响应和首字节时间。",
+      "httpPrivacyHint": "完整 URL（包括路径和查询参数）会发送给 Globalping；测量参数和结果可能被公开。不要输入签名链接、凭证或内网地址。",
+      "httpStatus": "HTTP 状态：{{status}}",
+      "httpTtfb": "首字节时间：{{ms}} ms",
+      "resolvedAddress": "解析 IP",
+      "measurementStatus": {
+        "failed": "测量失败",
+        "offline": "探针离线",
+        "unknown": "测量未完成"
+      }
     },
     "sideLog": {
       "title": "命令日志",
@@ -2438,6 +2498,7 @@
       "pcapFailed": "包级诊断失败。",
       "nodesFailed": "列举探测节点失败。",
       "multiNodeFailed": "多节点 DNS 对比失败。",
+      "globalpingFailed": "Globalping 远端测量失败。",
       "agentFailed": "Agent 注册操作失败。",
       "agentInvalidInput": "Agent 信息不合法，或端点被网络安全规则拒绝。"
     }

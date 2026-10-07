@@ -197,6 +197,30 @@ export function compareDnsMulti(domain: string, locations?: string[] | null) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.compareDnsMulti, { domain, locations })
 }
 
+export function isGlobalpingTokenConfigured() {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.globalpingTokenIsConfigured)
+}
+
+export function saveGlobalpingToken(token: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.saveGlobalpingToken, { token })
+}
+
+export function deleteGlobalpingToken() {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.deleteGlobalpingToken)
+}
+
+export function globalpingPing(target: string, packets: number, location: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.globalpingPing, {
+    target,
+    packets,
+    location,
+  })
+}
+
+export function globalpingHttp(input: string, location: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.globalpingHttp, { input, location })
+}
+
 export function addAgent(label: string, endpoint: string) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.addAgent, { label, endpoint })
 }

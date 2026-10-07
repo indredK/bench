@@ -106,6 +106,39 @@ export interface PingProbeResult {
   commandHint: string
 }
 
+export interface GlobalpingPingSample {
+  seq: number
+  rttMs?: number
+}
+
+export interface GlobalpingPingResult {
+  target: string
+  location: string
+  probeCity?: string
+  probeCountry?: string
+  resolvedAddress?: string
+  packetsSent: number
+  packetsReceived: number
+  lossPercent: number
+  minRttMs?: number
+  avgRttMs?: number
+  maxRttMs?: number
+  samples: GlobalpingPingSample[]
+  commandHint: string
+}
+
+export interface GlobalpingHttpResult {
+  target: string
+  location: string
+  probeCity?: string
+  probeCountry?: string
+  resolvedAddress?: string
+  statusCode?: number
+  ttfbMs?: number
+  measurementStatus: string
+  commandHint: string
+}
+
 export interface SpeedSource {
   id: string
   name: string

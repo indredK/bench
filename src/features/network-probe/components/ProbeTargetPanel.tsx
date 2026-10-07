@@ -7,15 +7,25 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
-import type { ProbeTargetResult } from "@/lib/tauri/types/network-probe"
+import type { GlobalpingHttpResult, ProbeTargetResult } from "@/lib/tauri/types/network-probe"
 
 interface ProbeTargetPanelProps {
   loading: boolean
   result: ProbeTargetResult | null
+  remoteResult?: GlobalpingHttpResult | null
+  remoteMode?: boolean
+  remoteLocationLabel?: string
   onRun: (input: string) => void
 }
 
-export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelProps) {
+export function ProbeTargetPanel({
+  loading,
+  result,
+  remoteResult,
+  remoteMode = false,
+  remoteLocationLabel,
+  onRun,
+}: ProbeTargetPanelProps) {
   const { t } = useTranslation()
   const [input, setInput] = useState("https://example.com")
 
@@ -23,7 +33,14 @@ export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelPro
     <ProbePanelShell
       toolbar={
         <>
-          <p className="text-muted-foreground text-sm">{t("networkProbe.probe.hint")}</p>
+          <p className="text-muted-foreground text-sm">
+            {t(remoteMode ? "networkProbe.globalping.httpHint" : "networkProbe.probe.hint")}
+          </p>
+          {remoteMode ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.globalping.httpPrivacyHint")}
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-[14rem] flex-1 space-y-1">
               <label className="text-xs font-medium" htmlFor="np-probe-input">
@@ -36,7 +53,15 @@ export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelPro
                 autoComplete="off"
               />
             </div>
-            <CommandHint hint={t("networkProbe.cmd.probeTarget", { input: input.trim() || "…" })}>
+            <CommandHint
+              hint={
+                remoteMode
+                  ? t("networkProbe.globalping.remoteHttpCommandHint", {
+                      location: remoteLocationLabel ?? t("networkProbe.globalping.locations.world"),
+                    })
+                  : t("networkProbe.cmd.probeTarget", { input: input.trim() || "…" })
+              }
+            >
               <Button
                 type="button"
                 disabled={loading || !input.trim()}
@@ -96,6 +121,48 @@ export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelPro
             </div>
           ) : null}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+        </div>
+      ) : null}
+      {remoteResult ? (
+        <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
+          <div className="font-medium">
+            {t("networkProbe.globalping.resultFrom", {
+              location: remoteLocationLabel ?? remoteResult.location,
+            })}
+          </div>
+          {remoteResult.probeCity || remoteResult.probeCountry ? (
+            <div className="text-muted-foreground text-xs">
+              {t("networkProbe.globalping.actualProbeLocation", {
+                city: remoteResult.probeCity ?? "—",
+                country: remoteResult.probeCountry ?? "—",
+              })}
+            </div>
+          ) : null}
+          <div>
+            {t("networkProbe.globalping.httpStatus", {
+              status:
+                remoteResult.measurementStatus === "finished"
+                  ? (remoteResult.statusCode ?? "—")
+                  : t(
+                      `networkProbe.globalping.measurementStatus.${remoteResult.measurementStatus === "failed" || remoteResult.measurementStatus === "offline" ? remoteResult.measurementStatus : "unknown"}`,
+                    ),
+            })}
+          </div>
+          {remoteResult.ttfbMs != null ? (
+            <div>
+              {t("networkProbe.globalping.httpTtfb", {
+                ms: remoteResult.ttfbMs.toFixed(0),
+              })}
+            </div>
+          ) : null}
+          {remoteResult.resolvedAddress ? (
+            <div>
+              {t("networkProbe.globalping.resolvedAddress")}:{" "}
+              <span className="font-mono">{remoteResult.resolvedAddress}</span>
+            </div>
+          ) : null}
+          <div className="text-muted-foreground font-mono text-xs">{remoteResult.target}</div>
+          <div className="text-muted-foreground font-mono text-xs">{remoteResult.commandHint}</div>
         </div>
       ) : null}
     </ProbePanelShell>

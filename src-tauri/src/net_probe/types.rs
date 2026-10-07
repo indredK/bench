@@ -279,6 +279,56 @@ pub struct PingProbeResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GlobalpingPingSample {
+    pub seq: u32,
+    pub rtt_ms: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingPingResult {
+    pub target: String,
+    pub location: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub probe_city: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub probe_country: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_address: Option<String>,
+    pub packets_sent: u32,
+    pub packets_received: u32,
+    pub loss_percent: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_rtt_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avg_rtt_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_rtt_ms: Option<f64>,
+    pub samples: Vec<GlobalpingPingSample>,
+    pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingHttpResult {
+    pub target: String,
+    pub location: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub probe_city: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub probe_country: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ttfb_ms: Option<f64>,
+    pub measurement_status: String,
+    pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DnsRecordItem {
     pub name: String,
     pub rr_type: String,

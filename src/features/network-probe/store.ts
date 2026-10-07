@@ -36,6 +36,8 @@ import type {
   LanServicesResult,
   PcapDiagResult,
   MultiNodeDnsResult,
+  GlobalpingPingResult,
+  GlobalpingHttpResult,
   ProbeNode,
   TcpConnectResult,
   TracerouteHop,
@@ -122,9 +124,11 @@ interface NetworkProbeState {
   hosts: HostsOverride[] | null
   tcpResult: TcpConnectResult | null
   pingResult: PingProbeResult | null
+  globalpingPingResult: GlobalpingPingResult | null
   pingStreamingSamples: PingSample[]
   dnsResult: DnsLookupResult | null
   probeResult: ProbeTargetResult | null
+  globalpingHttpResult: GlobalpingHttpResult | null
   sitesResult: SitesProbeResult | null
   sitesStreaming: SiteSampleResult[]
   siteSparklineById: Record<string, number[]>
@@ -212,10 +216,12 @@ interface NetworkProbeState {
   setHosts: (hosts: HostsOverride[] | null) => void
   setTcpResult: (tcpResult: TcpConnectResult | null) => void
   setPingResult: (pingResult: PingProbeResult | null) => void
+  setGlobalpingPingResult: (result: GlobalpingPingResult | null) => void
   resetPingStreaming: () => void
   appendPingSample: (sample: PingSample) => void
   setDnsResult: (dnsResult: DnsLookupResult | null) => void
   setProbeResult: (probeResult: ProbeTargetResult | null) => void
+  setGlobalpingHttpResult: (result: GlobalpingHttpResult | null) => void
   setSitesResult: (sitesResult: SitesProbeResult | null) => void
   resetSitesStreaming: () => void
   upsertSiteSample: (sample: SiteSampleResult) => void
@@ -367,9 +373,11 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   hosts: null,
   tcpResult: null,
   pingResult: null,
+  globalpingPingResult: null,
   pingStreamingSamples: [],
   dnsResult: null,
   probeResult: null,
+  globalpingHttpResult: null,
   sitesResult: null,
   sitesStreaming: [],
   siteSparklineById: {},
@@ -467,6 +475,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setHosts: (hosts) => set({ hosts }),
   setTcpResult: (tcpResult) => set({ tcpResult }),
   setPingResult: (pingResult) => set({ pingResult }),
+  setGlobalpingPingResult: (globalpingPingResult) => set({ globalpingPingResult }),
   resetPingStreaming: () => set({ pingStreamingSamples: [] }),
   appendPingSample: (sample) =>
     set((state) => ({
@@ -477,6 +486,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     })),
   setDnsResult: (dnsResult) => set({ dnsResult }),
   setProbeResult: (probeResult) => set({ probeResult }),
+  setGlobalpingHttpResult: (globalpingHttpResult) => set({ globalpingHttpResult }),
   setSitesResult: (sitesResult) => set({ sitesResult }),
   resetSitesStreaming: () => set({ sitesStreaming: [] }),
   upsertSiteSample: (sample) =>

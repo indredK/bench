@@ -253,17 +253,17 @@ type ProbeNode = {
 
 ### 4.2 路由（`node.rs`）
 
-| kind           | 行为               | 交付档     |
-| -------------- | ------------------ | ---------- |
-| `local`        | 本机执行           | MVP        |
-| `remote-proxy` | Globalping REST    | Post-MVP-C |
-| `remote-agent` | 自有 agent（§4.4） | Post-MVP-C |
+| kind           | 行为                                                                   | 交付档                    |
+| -------------- | ---------------------------------------------------------------------- | ------------------------- |
+| `local`        | 本机执行                                                               | MVP                       |
+| `remote-proxy` | Globalping REST；DNS 多节点、Ping、HTTP 已接通，选择器只在支持面板启用 | Post-MVP-C（C2-2 已交付） |
+| `remote-agent` | 自有 agent（§4.4）；HTTPS/WSS 注册与健康检查已接通，远程执行仍待       | Post-MVP-C（C2-3）        |
 
-MVP：`listProbeNodes` 至少返回 `local`；选中非 local 时 UI 提示「后续版本」或隐藏（实现前不要假连接）。
+Globalping 之外的工具继续固定本机执行并禁用远端选项；Agent 远程执行完成前也保持禁用。切换原点时清除该面板旧结果，界面明确展示实际执行区域。
 
-### 4.3 多节点对比（Post-MVP-C）
+### 4.3 DNS 多节点对比（部分交付）
 
-同一 `(target, tool)` 结果入 `store.byNode`；并排展示（例：本机 DNS 正常、探点 A 污染）。
+本机与最多 3 个 Globalping 区域的 DNS 答案已并排展示；跨自有 Agent 的通用 `(target, tool)` 路由与结果对比仍待 C2-3。
 
 ### 4.4 自有 agent 协议草图（Post-MVP-C）
 
@@ -519,11 +519,11 @@ src/features/network-probe/
 
 ### 9.4 第三方配额
 
-| 服务                | 约束                                                     |
-| ------------------- | -------------------------------------------------------- |
-| Globalping          | 遵守 ToS；匿名额度用尽提示配置 token；失败映射结构化错误 |
-| librespeed 公共实例 | 可配置；禁止打爆单一公共源（并发/间隔上限）；鼓励自建    |
-| 公网 IP / ASN API   | 多源故障转移；缓存短 TTL；不把 API key 写进前端          |
+| 服务                | 约束                                                                                               |
+| ------------------- | -------------------------------------------------------------------------------------------------- |
+| Globalping          | 遵守 ToS；匿名额度与可选 token；认证额度可能消耗账户点数；429/认证失败/超时/无探针均映射结构化错误 |
+| librespeed 公共实例 | 可配置；禁止打爆单一公共源（并发/间隔上限）；鼓励自建                                              |
+| 公网 IP / ASN API   | 多源故障转移；缓存短 TTL；不把 API key 写进前端                                                    |
 
 ### 9.5 隐私与落盘
 
@@ -602,14 +602,16 @@ src/features/network-probe/
 
 ### 11.1 Globalping（Post-MVP-C）
 
-- 免费 REST；五种测量：ping / traceroute / dns / mtr / http。
+- HTTPS REST；官方 API 支持 ping / traceroute / dns / mtr / http。Bench 已接通 DNS 多节点、Ping 与 HTTP；不把未接通的 traceroute / mtr 显示为可执行能力。
 - **不含带宽测速** → 测速走 §11.3。
-- Rust 用 `reqwest` 轮询 status；遵守配额〔§9.4〕。
+- Rust 复用 `reqwest` 创建并轮询 measurement，ETag 缓存轮询结果、间隔不短于 500ms、响应体限制 256 KiB、总时限 45 秒，拒绝重定向。
+- 匿名调用可用；可选 Bearer token 由 `keyring` 存系统凭证库，不进前端 state / 命令日志。认证测量可能消耗 Globalping 账户点数；429 显示配置令牌或稍后重试提示。
+- 每个远端 Ping/HTTP measurement 最多选一个探针；Ping 1–16 包。阻止私有/保留 IP literal 和常见内网 host 后缀；HTTP 拒绝 URL 凭据与片段。HTTP 路径/查询会发送给 Globalping，界面与命令日志将查询脱敏，不读取或展示远端响应正文。
 
 ### 11.2 remote 双路径
 
-- Globalping 代理 + 自有 agent；运行时用户选；对比视图 Post-MVP-C。
-- 多节点对比语义见 §4.3（非 §5.3）。
+- Globalping 代理已用于 DNS 多节点、Ping 与 HTTP；原点选择器只在已接通的 Ping/HTTP 面板启用。匿名配额、可选凭证库令牌和输入隐私边界见 §11.1。
+- 自有 agent 当前支持 HTTPS/WSS 注册与健康检查；凭证鉴权、远程执行和跨 Agent 通用结果对比仍待 C2-3。DNS 多节点对比语义见 §4.3（非 §5.3）。
 
 ### 11.3 带宽测速（Post-MVP-C）
 

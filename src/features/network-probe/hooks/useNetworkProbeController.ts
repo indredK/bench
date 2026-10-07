@@ -32,8 +32,10 @@ export function useNetworkProbeController() {
   const hosts = useNetworkProbeStore((s) => s.hosts)
   const tcpResult = useNetworkProbeStore((s) => s.tcpResult)
   const pingResult = useNetworkProbeStore((s) => s.pingResult)
+  const globalpingPingResult = useNetworkProbeStore((s) => s.globalpingPingResult)
   const dnsResult = useNetworkProbeStore((s) => s.dnsResult)
   const probeResult = useNetworkProbeStore((s) => s.probeResult)
+  const globalpingHttpResult = useNetworkProbeStore((s) => s.globalpingHttpResult)
   const sitesResult = useNetworkProbeStore((s) => s.sitesResult)
   const sitesStreaming = useNetworkProbeStore((s) => s.sitesStreaming)
   const siteSparklineById = useNetworkProbeStore((s) => s.siteSparklineById)
@@ -141,6 +143,11 @@ export function useNetworkProbeController() {
     (target: string, count: number) => networkProbeUseCases.runPing(target, count),
     [],
   )
+  const runGlobalpingPing = useCallback(
+    (target: string, packets: number, location: string) =>
+      networkProbeUseCases.runGlobalpingPing(target, packets, location),
+    [],
+  )
   const runDnsLookup = useCallback(
     (domain: string, rrType: string, resolver?: string) =>
       networkProbeUseCases.runDnsLookup(domain, rrType, resolver),
@@ -150,6 +157,23 @@ export function useNetworkProbeController() {
     (input: string) => networkProbeUseCases.runProbeTarget(input),
     [],
   )
+  const runGlobalpingHttp = useCallback(
+    (input: string, location: string) => networkProbeUseCases.runGlobalpingHttp(input, location),
+    [],
+  )
+  const clearProbeOriginResults = useCallback(
+    () => networkProbeUseCases.clearProbeOriginResults(),
+    [],
+  )
+  const getGlobalpingTokenStatus = useCallback(
+    () => networkProbeUseCases.getGlobalpingTokenStatus(),
+    [],
+  )
+  const saveGlobalpingToken = useCallback(
+    (token: string) => networkProbeUseCases.saveGlobalpingToken(token),
+    [],
+  )
+  const deleteGlobalpingToken = useCallback(() => networkProbeUseCases.deleteGlobalpingToken(), [])
   const runSitesProbe = useCallback(
     (packId: string) => networkProbeUseCases.runSitesProbe(packId),
     [],
@@ -304,8 +328,10 @@ export function useNetworkProbeController() {
     hosts,
     tcpResult,
     pingResult,
+    globalpingPingResult,
     dnsResult,
     probeResult,
+    globalpingHttpResult,
     sitesResult,
     sitesStreaming,
     siteSparklineById,
@@ -377,8 +403,14 @@ export function useNetworkProbeController() {
     refreshOverview,
     runTcpConnect,
     runPing,
+    runGlobalpingPing,
     runDnsLookup,
     runProbeTarget,
+    runGlobalpingHttp,
+    clearProbeOriginResults,
+    getGlobalpingTokenStatus,
+    saveGlobalpingToken,
+    deleteGlobalpingToken,
     runSitesProbe,
     runSitesProbeCustom,
     runHealthScan,

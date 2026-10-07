@@ -1,11 +1,12 @@
 use super::types::{
     CapabilityPackInfo, CapabilityPackInstallResult, CaptivePortalResult, DefaultRouteInfo,
     DefaultsOverride, DnsLookupResult, DnsSecCheckResult, FirewallStatus, FixResult,
-    HealthScanResult, HostsOverride, Ipv6StackResult, LanDiscoveryResult, LanServicesResult,
-    LocalNetworkSummary, MultiNodeDnsResult, NatProbeResult, NetworkProbeCapabilities,
-    NetworkProbeDefaultsCatalog, NtpProbeResult, PathMtuResult, PcapDiagResult, PingProbeResult,
-    PollutionReport, PortScanResult, ProbeNode, ProbeTargetResult, ProxyVpnStatus, PublicIpInfo,
-    SitesProbeResult, SpeedSource, SpeedTestResult, TcpConnectResult, TracerouteResult, WhoisInfo,
+    GlobalpingHttpResult, GlobalpingPingResult, HealthScanResult, HostsOverride, Ipv6StackResult,
+    LanDiscoveryResult, LanServicesResult, LocalNetworkSummary, MultiNodeDnsResult, NatProbeResult,
+    NetworkProbeCapabilities, NetworkProbeDefaultsCatalog, NtpProbeResult, PathMtuResult,
+    PcapDiagResult, PingProbeResult, PollutionReport, PortScanResult, ProbeNode, ProbeTargetResult,
+    ProxyVpnStatus, PublicIpInfo, SitesProbeResult, SpeedSource, SpeedTestResult, TcpConnectResult,
+    TracerouteResult, WhoisInfo,
 };
 use crate::error::{AppError, AppResult};
 use tauri::AppHandle;
@@ -141,6 +142,38 @@ pub async fn network_probe_compare_dns_multi(
     locations: Option<Vec<String>>,
 ) -> AppResult<MultiNodeDnsResult> {
     super::globalping::compare_dns_multi(domain, locations.unwrap_or_default()).await
+}
+
+#[tauri::command]
+pub async fn network_probe_globalping_token_is_configured() -> AppResult<bool> {
+    super::globalping::token_is_configured().await
+}
+
+#[tauri::command]
+pub async fn network_probe_save_globalping_token(token: String) -> AppResult<()> {
+    super::globalping::save_token(token).await
+}
+
+#[tauri::command]
+pub async fn network_probe_delete_globalping_token() -> AppResult<()> {
+    super::globalping::delete_token().await
+}
+
+#[tauri::command]
+pub async fn network_probe_globalping_ping(
+    target: String,
+    packets: u32,
+    location: String,
+) -> AppResult<GlobalpingPingResult> {
+    super::globalping::run_ping(target, packets, location).await
+}
+
+#[tauri::command]
+pub async fn network_probe_globalping_http(
+    input: String,
+    location: String,
+) -> AppResult<GlobalpingHttpResult> {
+    super::globalping::run_http(input, location).await
 }
 
 #[tauri::command]

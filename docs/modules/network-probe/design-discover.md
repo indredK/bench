@@ -125,12 +125,13 @@ type ProbeNode = {
 
 #### Globalping（`remote-proxy`）
 
-| 项   | 约定                                                      |
-| ---- | --------------------------------------------------------- |
-| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 轮询 status |
-| 能力 | ping / traceroute / dns / mtr / http（**无带宽**）        |
-| 配额 | 匿名额度用尽 → 提示配置 token；错误映射 `AppError`        |
-| ToS  | 遵守官方限额；前端展示剩余额度（若 API 提供）             |
+| 项         | 约定                                                                                                                                                                                                                                                                    |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 传输       | HTTPS REST；复用 Rust `reqwest` 创建 measurement + 轮询，遵守 API 的 500ms 最小间隔、使用 ETag、响应上限 256 KiB、客户端总时限 45 秒；不跟随重定向                                                                                                                      |
+| 能力       | DNS 多节点对比、Ping、HTTP（**无带宽**）；Ping/HTTP 每次最多选 1 个探针，Ping 包数 1–16                                                                                                                                                                                 |
+| 配额       | 匿名调用可用；可选 Bearer token 存系统凭证库并用于 DNS/Ping/HTTP；429 提示配置令牌或稍后重试，认证调用可能依 Globalping 规则消耗账户点数                                                                                                                                |
+| 输入与隐私 | 面向公网目标；拦截已知私有/保留 IP literal 和常见内网后缀，不在本机解析其余主机名；HTTP 拒绝 URL 凭据和片段，路径与查询会发送给 Globalping；查询参数从命令日志、提示和结果 URL 脱敏，不解析/展示远端响应正文。Globalping 测量参数和结果可能公开，界面提示勿输入敏感目标 |
+| ToS        | 遵守官方限额；不并发探测大量节点，不做带宽测试                                                                                                                                                                                                                          |
 
 #### 自有 agent（`remote-agent`）
 
@@ -147,7 +148,7 @@ type ProbeNode = {
 | 发现     | **手动**添加 endpoint；不做局域网自动扩散（防变僵尸网络）                                                                              |
 | 密钥     | Keychain / 系统安全存储；不进前端持久化明文                                                                                            |
 
-当前注册表仅接受不含用户名/密码、查询参数和片段的端点 URL，避免把令牌持久化到注册表或命令日志；凭证安全存储与请求鉴权仍属于 C2-3 待完成项。WSS 使用现有 `tokio-tungstenite`，TLS 证书按系统信任库校验；健康检查不跟随 HTTP 重定向。
+Globalping 的令牌走专用系统凭证库项，不落前端 store、注册表或命令日志。自有 Agent 注册表仅接受不含用户名/密码、查询参数和片段的端点 URL，避免把 agent 凭据持久化到注册表或命令日志；Agent 请求凭证安全存储与远程执行仍属于 C2-3 待完成项。WSS 使用现有 `tokio-tungstenite`，TLS 证书按系统信任库校验；健康检查不跟随 HTTP 重定向。
 
 #### 对比视图
 
@@ -157,7 +158,7 @@ UI：表格列 = 节点；行 = 指标（RTT、DNS 答案、hop 差异）
 例：本机 DNS 正常、探点 A 污染 → 结论导向「链路/污染在途中」
 ```
 
-MVP：`listProbeNodes()` 至少返回 `local`；远程 kind 在类型中预留，UI 选中时提示「后续版本」。
+当前：`listProbeNodes()` 返回本机、Globalping 区域与注册的 Agent。只有 Test→Ping 和 Test→自定义目标允许选择 Globalping；其他工具将远端选项禁用并说明仍在本机执行。Agent 远程执行完成前始终禁用。
 
 ---
 
@@ -221,7 +222,7 @@ listProbeNodes(): ProbeNode[]
 
 **C**
 
-- [ ] `listProbeNodes` + Globalping 至少一种测量端到端
+- [x] `listProbeNodes` + Globalping DNS/Ping/HTTP 测量端到端（C2-2）
 - [ ] agent 鉴权/限速/拒绝 shell 有测试
 - [ ] `store.byNode` 对比视图；单节点失败可诊断
 - [ ] 远程能力不要求本机 Adv pack（本机零重库）

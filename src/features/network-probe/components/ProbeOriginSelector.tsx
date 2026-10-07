@@ -13,13 +13,20 @@ import { getProbeNodeDisplayLabel } from "@/features/network-probe/utils/probe-n
 interface ProbeOriginSelectorProps {
   nodes: ProbeNode[]
   activeNode: ProbeNode | undefined
+  remoteEnabled?: boolean
+  onChange?: (nodeId: string) => void
 }
 
-export function ProbeOriginSelector({ nodes, activeNode }: ProbeOriginSelectorProps) {
+export function ProbeOriginSelector({
+  nodes,
+  activeNode,
+  remoteEnabled = false,
+  onChange,
+}: ProbeOriginSelectorProps) {
   const { t } = useTranslation()
 
   return (
-    <Select value={activeNode?.id ?? "local"}>
+    <Select value={activeNode?.id ?? "local"} onValueChange={onChange}>
       <TooltipProvider delay={280}>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -32,19 +39,40 @@ export function ProbeOriginSelector({ nodes, activeNode }: ProbeOriginSelectorPr
             </SelectTrigger>
           </TooltipTrigger>
           <TooltipContent className="text-[11px]">
-            {t("networkProbe.nodeSelect.localOnlyHint")}
+            {t(
+              !remoteEnabled
+                ? "networkProbe.nodeSelect.localOnlyHint"
+                : activeNode?.kind === "remote-proxy"
+                  ? "networkProbe.nodeSelect.remoteHint"
+                  : "networkProbe.nodeSelect.localSelectedHint",
+            )}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <SelectContent>
         {nodes.map((node) => {
-          const pending = node.kind !== "local"
+          const isGlobalping = node.kind === "remote-proxy"
+          const isAgent = node.kind === "remote-agent"
+          const disabled = node.kind !== "local" && (!isGlobalping || !remoteEnabled)
           return (
-            <SelectItem key={node.id} value={node.id} disabled={pending}>
-              {getProbeNodeDisplayLabel(node.kind, node.label, t("networkProbe.nodeSelect.local"))}
-              {pending ? (
+            <SelectItem key={node.id} value={node.id} disabled={disabled}>
+              {getProbeNodeDisplayLabel(
+                node.kind,
+                node.label,
+                t("networkProbe.nodeSelect.local"),
+                isGlobalping
+                  ? t(`networkProbe.globalping.locations.${node.region ?? "world"}`, {
+                      defaultValue: node.label,
+                    })
+                  : undefined,
+              )}
+              {isAgent ? (
                 <span className="text-muted-foreground ml-1 text-[10px] font-bold tracking-wider uppercase">
                   {t("networkProbe.badge.planning")}
+                </span>
+              ) : isGlobalping && !remoteEnabled ? (
+                <span className="text-muted-foreground ml-1 text-[10px] font-medium">
+                  {t("networkProbe.nodeSelect.remoteScope")}
                 </span>
               ) : null}
             </SelectItem>

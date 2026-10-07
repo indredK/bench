@@ -6,6 +6,8 @@ export function getProbeNodeDisplayLabel(
   kind: string | undefined,
   backendLabel: string,
   localLabel: string,
+  remoteLabel?: string,
 ): string {
-  return kind === "local" ? localLabel : backendLabel
+  if (kind === "local") return localLabel
+  return remoteLabel ?? backendLabel
 }

@@ -1228,7 +1228,22 @@
     "DEFAULT_BROWSER_CHANGE_REQUIRES_USER_ACTION": "Finish changing the default browser in macOS settings.",
     "SCAN_IN_PROGRESS": "A scan is already in progress, please wait",
     "SCAN_CANCELED": "Scan cancelled",
-    "NO_SESSION": "Please pick a photo folder first"
+    "NO_SESSION": "Please pick a photo folder first",
+    "GP_CREDENTIAL_STORE": "The system credential store is unavailable.",
+    "GP_TOKEN_INVALID": "The Globalping token format is invalid.",
+    "GP_TARGET_INVALID": "The remote target is invalid. Use a public host or IP; private/reserved addresses, URL credentials, and fragments are blocked.",
+    "GP_PACKET_COUNT_INVALID": "Ping packet count must be between 1 and 16.",
+    "GP_RATE_LIMITED": "Globalping rate limit reached. Try again later or configure a token.",
+    "GP_AUTH_FAILED": "Globalping rejected the configured token. Check it or remove it.",
+    "GP_REQUEST_FAILED": "The Globalping request could not be completed.",
+    "GP_TIMEOUT": "The Globalping measurement timed out.",
+    "GP_NO_PROBES": "No Globalping probe is currently available in this region.",
+    "GP_PROBE_FAILED": "The Globalping probe could not finish the measurement.",
+    "GP_PARSE": "The Globalping response could not be understood.",
+    "GP_READ": "The Globalping response could not be read.",
+    "GP_CLIENT": "The Globalping connection could not be initialized.",
+    "GP_URL": "The Globalping request URL is invalid.",
+    "GP_RESPONSE_TOO_LARGE": "The Globalping response exceeded the safety limit."
   },
   "common": {
     "yes": "Yes",
@@ -1581,7 +1596,52 @@
     "nodeSelect": {
       "label": "Probe origin",
       "local": "This Mac",
-      "localOnlyHint": "Remote probe execution isn't implemented yet — every probe still runs on this Mac."
+      "localOnlyHint": "This tool doesn't support remote execution yet, so the probe runs on this Mac.",
+      "remoteHint": "Ping/HTTP targets are sent to Globalping and run from the selected region.",
+      "localSelectedHint": "This probe runs on this Mac. Choose Globalping to measure from a remote probe.",
+      "remoteScope": "Ping / HTTP only"
+    },
+    "globalping": {
+      "manageToken": "Configure Globalping token",
+      "tokenTitle": "Globalping access token",
+      "tokenDescription": "The token is stored in the system credential store and is excluded from command logs. Leave it blank to use the anonymous quota. Authenticated measurements may use account credits under Globalping's limits.",
+      "tokenChecking": "Checking the system credential store…",
+      "tokenConfigured": "A token is configured and will be used for the next measurement.",
+      "tokenNotConfigured": "No token is configured; measurements use Globalping's anonymous quota.",
+      "tokenLabel": "Access token",
+      "tokenSaved": "The token was saved securely.",
+      "tokenSaveFailed": "The token could not be saved.",
+      "tokenRemove": "Remove token",
+      "tokenRemoved": "The token was removed from the system credential store.",
+      "tokenRemoveFailed": "The token could not be removed.",
+      "tokenStatusFailed": "The system credential store status could not be read.",
+      "tokenStatusUnknown": "Token status is unknown. Check again to retry.",
+      "tokenSave": "Save token",
+      "tokenWorking": "Working…",
+      "pingHint": "Send an ICMP ping to a public probe in the selected Globalping region.",
+      "publicTargetHint": "Globalping measurement details and results may be public; don't use sensitive targets. Known private/reserved IPs and common local suffixes are blocked, but other hostnames are still sent to Globalping.",
+      "remotePingCommandHint": "Globalping Ping · {{location}}",
+      "remoteHttpCommandHint": "Globalping HTTP · {{location}}",
+      "packetLimit": "Globalping supports up to 16 ping packets per measurement.",
+      "resultFrom": "Probe origin: {{location}}",
+      "actualProbeLocation": "Actual probe: {{city}} / {{country}}",
+      "packetLost": "Timed out or packet lost",
+      "locations": {
+        "world": "Worldwide",
+        "US": "United States",
+        "Europe": "Europe",
+        "Asia": "Asia"
+      },
+      "httpHint": "Check an HTTP(S) response and time to first byte from the selected Globalping region.",
+      "httpPrivacyHint": "The full URL, including path and query, is sent to Globalping; measurement details and results may be public. Don't enter signed URLs, credentials, or internal addresses.",
+      "httpStatus": "HTTP status: {{status}}",
+      "httpTtfb": "Time to first byte: {{ms}} ms",
+      "resolvedAddress": "Resolved IP",
+      "measurementStatus": {
+        "failed": "Measurement failed",
+        "offline": "Probe offline",
+        "unknown": "Measurement did not finish"
+      }
     },
     "sideLog": {
       "title": "Command log",
@@ -2438,6 +2498,7 @@
       "pcapFailed": "Packet diagnostics failed.",
       "nodesFailed": "Failed to list probe nodes.",
       "multiNodeFailed": "Multi-node DNS compare failed.",
+      "globalpingFailed": "The Globalping remote measurement failed.",
       "agentFailed": "Agent registry operation failed.",
       "agentInvalidInput": "The agent details are invalid or the endpoint was rejected by a network security rule."
     }

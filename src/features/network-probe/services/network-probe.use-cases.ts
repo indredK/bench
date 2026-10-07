@@ -60,6 +60,38 @@ type ProbeNodesSnapshot = Awaited<ReturnType<typeof networkProbeRepository.listP
 let capabilityPackSnapshotRequest: Promise<CapabilityPackSnapshot> | null = null
 let probeNodesSnapshotRequest: Promise<ProbeNodesSnapshot> | null = null
 
+const GLOBALPING_ERROR_CODES = [
+  "GP_AUTH_FAILED",
+  "GP_CLIENT",
+  "GP_CREDENTIAL_STORE",
+  "GP_NO_PROBES",
+  "GP_PACKET_COUNT_INVALID",
+  "GP_PARSE",
+  "GP_PROBE_FAILED",
+  "GP_RATE_LIMITED",
+  "GP_READ",
+  "GP_REQUEST_FAILED",
+  "GP_RESPONSE_TOO_LARGE",
+  "GP_TIMEOUT",
+  "GP_TARGET_INVALID",
+  "GP_URL",
+  "GP_TOKEN_INVALID",
+] as const
+
+function clearGlobalpingErrors() {
+  const store = useNetworkProbeStore.getState()
+  store.clearError("networkProbe.errors.globalpingFailed")
+  store.clearError("errors.INVALID_INPUT")
+  for (const code of GLOBALPING_ERROR_CODES) store.clearError(`errors.${code}`)
+}
+
+function globalpingErrorKey(error: unknown): string {
+  const code = getErrorCode(error)
+  if (code === "INVALID_INPUT") return "errors.INVALID_INPUT"
+  if ((GLOBALPING_ERROR_CODES as readonly string[]).includes(code)) return `errors.${code}`
+  return "networkProbe.errors.globalpingFailed"
+}
+
 function loadCapabilityPackSnapshot(): Promise<CapabilityPackSnapshot> {
   if (capabilityPackSnapshotRequest) return capabilityPackSnapshotRequest
 
@@ -173,6 +205,7 @@ export const networkProbeUseCases = {
     store.setLoadingPing(true)
     store.clearError("networkProbe.errors.pingFailed")
     store.setPingResult(null)
+    store.setGlobalpingPingResult(null)
     store.resetPingStreaming()
     store.appendCommandLog(`pingHost('${target.trim()}', ${count})`)
     let unlisten: (() => void) | undefined
@@ -197,6 +230,28 @@ export const networkProbeUseCases = {
       })
     } finally {
       unlisten?.()
+      useNetworkProbeStore.getState().setLoadingPing(false)
+    }
+  },
+
+  async runGlobalpingPing(target: string, packets: number, location: string) {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingPing) return
+    store.setLoadingPing(true)
+    clearGlobalpingErrors()
+    store.setPingResult(null)
+    store.setGlobalpingPingResult(null)
+    store.resetPingStreaming()
+    store.appendCommandLog(`globalpingPing('${target.trim()}', ${packets}, '${location}')`)
+    try {
+      const result = await networkProbeRepository.globalpingPing(target.trim(), packets, location)
+      store.setGlobalpingPingResult(result)
+    } catch (error) {
+      store.setError({
+        key: globalpingErrorKey(error),
+        fallback: getErrorMessage(error),
+      })
+    } finally {
       useNetworkProbeStore.getState().setLoadingPing(false)
     }
   },
@@ -226,6 +281,7 @@ export const networkProbeUseCases = {
     store.setLoadingProbe(true)
     store.clearError("networkProbe.errors.probeFailed")
     store.setProbeResult(null)
+    store.setGlobalpingHttpResult(null)
     try {
       const result = await networkProbeRepository.probeTarget(input.trim())
       store.setProbeResult(result)
@@ -237,6 +293,49 @@ export const networkProbeUseCases = {
     } finally {
       useNetworkProbeStore.getState().setLoadingProbe(false)
     }
+  },
+
+  async runGlobalpingHttp(input: string, location: string) {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingProbe) return
+    store.setLoadingProbe(true)
+    clearGlobalpingErrors()
+    store.setProbeResult(null)
+    store.setGlobalpingHttpResult(null)
+    // The URL may contain a signed query; never copy it into the in-app command log.
+    store.appendCommandLog(`globalpingHttp(target redacted, '${location}')`)
+    try {
+      const result = await networkProbeRepository.globalpingHttp(input.trim(), location)
+      store.setGlobalpingHttpResult(result)
+    } catch (error) {
+      store.setError({
+        key: globalpingErrorKey(error),
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingProbe(false)
+    }
+  },
+
+  clearProbeOriginResults() {
+    const store = useNetworkProbeStore.getState()
+    store.setPingResult(null)
+    store.setGlobalpingPingResult(null)
+    store.setProbeResult(null)
+    store.setGlobalpingHttpResult(null)
+    store.resetPingStreaming()
+  },
+
+  getGlobalpingTokenStatus() {
+    return networkProbeRepository.isGlobalpingTokenConfigured()
+  },
+
+  saveGlobalpingToken(token: string) {
+    return networkProbeRepository.saveGlobalpingToken(token)
+  },
+
+  deleteGlobalpingToken() {
+    return networkProbeRepository.deleteGlobalpingToken()
   },
 
   async runSitesProbe(packId: string) {

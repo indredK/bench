@@ -5,7 +5,9 @@ import { ProbeOriginSelector } from "@/features/network-probe/components/ProbeOr
 import type { ProbeNode } from "@/lib/tauri/types/network-probe"
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? key,
+  }),
 }))
 
 vi.mock("@/components/ui/tooltip", () => ({
@@ -37,7 +39,7 @@ const nodes: ProbeNode[] = [
 afterEach(() => cleanup())
 
 describe("ProbeOriginSelector", () => {
-  it("keeps remote nodes disabled until their execution paths are implemented", () => {
+  it("keeps Globalping disabled outside supported tools and keeps agents planned", () => {
     render(<ProbeOriginSelector nodes={nodes} activeNode={nodes[0]} />)
 
     expect(screen.getByRole("tooltip")).toHaveTextContent("networkProbe.nodeSelect.localOnlyHint")
@@ -45,7 +47,7 @@ describe("ProbeOriginSelector", () => {
     fireEvent.click(trigger)
 
     const globalping = screen.getByRole("option", {
-      name: /Globalping.*networkProbe.badge.planning/,
+      name: /Globalping.*networkProbe.nodeSelect.remoteScope/,
     })
     const agent = screen.getByRole("option", { name: /Lab.*networkProbe.badge.planning/ })
     expect(globalping).toHaveAttribute("aria-disabled", "true")
@@ -57,5 +59,19 @@ describe("ProbeOriginSelector", () => {
     fireEvent.click(globalping)
 
     expect(trigger).toHaveTextContent("networkProbe.nodeSelect.local")
+  })
+
+  it("allows Globalping selection when the current tool supports remote execution", () => {
+    const onChange = vi.fn()
+    render(
+      <ProbeOriginSelector nodes={nodes} activeNode={nodes[0]} remoteEnabled onChange={onChange} />,
+    )
+
+    fireEvent.click(screen.getByRole("combobox", { name: "networkProbe.nodeSelect.label" }))
+    const globalping = screen.getByRole("option", { name: "Globalping · world" })
+    expect(globalping).not.toHaveAttribute("aria-disabled", "true")
+    fireEvent.click(globalping)
+
+    expect(onChange).toHaveBeenCalledWith("gp-world")
   })
 })
