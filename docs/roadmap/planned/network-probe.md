@@ -13,7 +13,7 @@
 
 ### Wave 0 · Polish 基线（可并行）
 
-- [ ] **P0-1** MVP 面板空态 / 失败态 / 重入与取消一致性扫尾（S-X-* · coding §3/§5；Health 检查项名称/摘要本地化与原始诊断折叠、TCP/Ping/Sites/Official 失败状态本地化及技术详情折叠、官网与区域站点结果隔离、输入边界、本机 Ping 实时表/取消已完成；Health/Traceroute/Speed/Ports/PCAP/ARP 已统一取消中反馈，其他空态/失败态/重入仍待审查）。
+- [ ] **P0-1** MVP 面板空态 / 失败态 / 重入与取消一致性扫尾（S-X-* · coding §3/§5；Health 检查项名称/摘要本地化与原始诊断折叠、TCP/Ping/Sites/Official 失败状态本地化及技术详情折叠、官网与区域站点结果隔离、输入边界、本机 Ping 实时表/取消已完成；Health/Traceroute/Speed/Ports/PCAP/ARP 已统一取消中反馈，NTP 逐源失败状态本地化、原始诊断与命令默认折叠且来源列表去重；其他空态/失败态/重入仍待审查）。
 - [ ] **P0-2** 关键测试补强：契约 · cancel 幂等 · Advisor 纯函数 · 无特权降级（部分完成，◐）。
 
 ### Wave 3 · 安全 Tab（续）
@@ -97,3 +97,4 @@
 - 2026-10-08：P0-1 Health 真机复现扫描树直接显示英文后端 detail、内部检查 key，挤占结果行且中英文界面都未做摘要本地化；21 项检查增加双语名称和摘要映射，未匹配诊断按状态显示本地化兜底摘要，原始 detail、commandHint 与稳定 key 收入默认折叠的技术详情。另修正本机摘要读取失败时 IPv4/IPv6 项把英文 `No summary` 当作地址显示的问题。macOS 27.0.1 arm64 隔离 QA 真机运行完整 L0–L3 扫描，确认名称/摘要为中文、技术详情默认收起，展开后可查看原始诊断与命令；缺少摘要的 IPv4/IPv6 注入路径均显示本地化摘要不可用提示。Network Probe 137 项、关键测试 244 项、`lint:fe`、`build:fe`、格式与文档检查通过。QA app、归档、`dist` 与插件 staging 已移入废纸篓；共享 Rust 构建缓存保留，正式 Bench 保持关闭。Windows 真机回归按用户安排延期；P0-1 其他空态/失败态/重入问题仍待审查。
 - 2026-10-08：P0-1 MTU 真机复现中文结果区泄漏内部方法名 `ping-df-binary`、后端步骤串 `ok payload=64`，并在结果和工具栏重复展示命令；状态、方法、摘要和逐步结果改为双语映射，原始诊断/步骤/命令收入默认折叠的技术详情，未知状态安全回退。修复版 macOS arm64 隔离 QA 对 `127.0.0.1` 完成实机探测，中英文均确认方法与步骤已本地化、技术详情默认收起且可展开查看原始信息；Network Probe 152 项、关键测试 244 项、`lint:fe`、`build:fe`、格式、文档与 diff 检查通过。QA app、app support、偏好设置、`dist` 和插件 staging 已移入废纸篓；共享 Rust 构建缓存保留，Windows 真机回归按用户安排延期，P0-1 其他空态/失败态/重入问题仍待审查。
 - 2026-10-08：P0-1 ARP 真机复现结果摘要直接显示内部模式名 `arp-cache+tcp-sweep` 和带会话 ID 的原始命令；改为中英文模式摘要，未知模式显示本地化兜底，原始模式与命令放入默认折叠的技术详情。macOS arm64 独立 QA app 在本机私有 /24 完成一次真机探测，中英文均显示本地化结果；技术详情默认收起，展开后可查看原始模式与命令。ARP 面板用例 5 项、Network Probe 154 项、关键用例 244 项、`lint:fe`、`build:fe`、格式与 diff 检查通过。QA app、app support/cache/preferences、`dist`、插件 staging 与测试结果已移入废纸篓；共享 Rust 构建缓存与正式 `bench-host` 保留，正式 Bench 保持关闭。Windows 真机回归按用户安排延期，P0-1 其他面板仍待审查。
+- 2026-10-08：P0-1 NTP 真机复现结果卡把 `probeNtp(...)` 原始命令直接显示，且顶层服务器串与逐源列表重复；逐源失败原因继续本地化，将原始 `detail`/`commandHint` 收入默认折叠的技术详情并去掉重复服务器摘要。macOS arm64 独立 QA app 对文档列出的三个公共源运行一次，中英文均确认失败摘要与逐源超时原因本地化、来源只显示一次；技术详情默认收起，展开可查看原始错误与命令。当前网络三源均超时，NTP 成功路径仍待可达 UDP/123 的网络复验。NTP 面板用例 2 项、Network Probe 154 项、关键用例 244 项、`lint:fe`、`build:fe`、格式与 diff 检查通过。QA app、app support/cache/preferences、`dist` 与插件 staging 已移入废纸篓；共享 Rust 构建缓存与正式 `bench-host` 保留，正式 Bench 保持关闭。Windows 真机回归按用户安排延期。

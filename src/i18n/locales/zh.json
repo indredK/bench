@@ -2477,6 +2477,7 @@
       "sourceResults": "NTP 来源结果",
       "sourceOffset": "{{server}}：偏移 {{seconds}} 秒",
       "sourceFailed": "{{server}}：{{reason}}",
+      "technicalDetails": "技术详情",
       "severity": {
         "ok": "偏差正常",
         "info": "轻微偏差",

@@ -65,7 +65,14 @@ describe("NtpPanel source feedback", () => {
     expect(
       screen.getByText("networkProbe.ntp.sourceFailed networkProbe.ntp.errors.response"),
     ).toBeTruthy()
-    expect(screen.queryByText(failedResult.detail ?? "")).toBeNull()
+    expect(screen.queryByText(failedResult.server)).toBeNull()
+
+    const command = screen.getByText(failedResult.commandHint)
+    const details = command.closest("details")
+    expect(details?.open).toBe(false)
+    expect(details?.textContent).toContain("networkProbe.ntp.technicalDetails")
+    expect(details?.textContent).toContain(failedResult.detail)
+    expect(screen.getByText(failedResult.detail ?? "").closest("details")).toBe(details)
   })
 
   it("localizes severity and keeps partial source failures visible with a valid offset", () => {

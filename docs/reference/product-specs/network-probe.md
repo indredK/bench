@@ -179,6 +179,8 @@ L1 → L2 映射：
 | ntp     | 并行查询 Cloudflare、Google 与 pool.ntp.org；由 `sntpc` 校验 SNTP 响应后按有效来源计算中位数，输出 `NtpProbeResult.sources` 的逐源状态、偏移、RTT 与错误码。来源请求单独限时且超时不累加；IPv4/IPv6 按解析结果匹配绑定套接字。逐源状态与错误原因由前端本地化展示。                                                                                                                                                                                                                                                            |
 | nodes   | **多节点 DNS 对比 + agent 注册**：域名对比（local + Globalping 各区域结果按节点列出）；节点列表（local / Globalping 区域 / remote-agent）；Globalping 可选令牌存系统凭证库并用于 DNS/Ping/HTTP；注册 agent（label + HTTPS/WSS endpoint）→ `addAgent`（TLS 健康检查：HTTPS `GET /v1/health` 2xx 或 WSS `/v1/health` Ping/Pong；拒绝明文、URL 凭据与重定向），可移除；刷新节点并显示最新可达状态。节点加载/刷新中显示进度，未稳定前禁用对比；刷新失败保留最后成功的节点快照并提供重试。自有 agent 令牌存储与远程执行仍待 C2-3。 |
 
+NTP 结果按来源展示本地化偏移或失败原因；后端原始 `detail` 与 `commandHint` 默认折叠在技术详情中，公共源列表不重复显示。
+
 ## 8. 能力包（D-017 packs）
 
 - **能力包**：`adv-scanner`（SYN 扫描）、`pcap-diag`（诊断抓包）、`priv-helper`（特权 helper）。内置 manifest（packId / version / hash / 签名来源）。

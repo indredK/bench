@@ -2477,6 +2477,7 @@
       "sourceResults": "NTP source results",
       "sourceOffset": "{{server}}: offset {{seconds}} s",
       "sourceFailed": "{{server}}: {{reason}}",
+      "technicalDetails": "Technical details",
       "severity": {
         "ok": "within range",
         "info": "minor skew",

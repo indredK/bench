@@ -74,7 +74,6 @@ export function NtpPanel({ loading, result, toolEnabled, toolStatus, onRun }: Nt
     >
       {result ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
-          <div className="font-mono text-xs">{result.server}</div>
           {result.offsetSeconds != null ? (
             <div>
               {t("networkProbe.ntp.offset", {
@@ -103,7 +102,23 @@ export function NtpPanel({ loading, result, toolEnabled, toolStatus, onRun }: Nt
               </li>
             ))}
           </ul>
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+          {result.detail || result.commandHint ? (
+            <details className="text-muted-foreground rounded-lg border px-3 py-2 text-xs">
+              <summary className="w-fit cursor-pointer select-none">
+                {t("networkProbe.ntp.technicalDetails")}
+              </summary>
+              <div className="mt-2 space-y-2">
+                {result.detail ? (
+                  <pre className="font-mono break-all whitespace-pre-wrap">{result.detail}</pre>
+                ) : null}
+                {result.commandHint ? (
+                  <pre className="font-mono break-all whitespace-pre-wrap">
+                    {result.commandHint}
+                  </pre>
+                ) : null}
+              </div>
+            </details>
+          ) : null}
         </div>
       ) : null}
     </ProbePanelShell>
