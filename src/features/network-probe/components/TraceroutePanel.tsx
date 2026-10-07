@@ -38,6 +38,12 @@ export function TraceroutePanel({
   const [target, setTarget] = useState("1.1.1.1")
   const [maxTtl, setMaxTtl] = useState("20")
   const [rounds, setRounds] = useState("3")
+  const maxTtlValue = Number(maxTtl)
+  const roundsValue = Number(rounds)
+  const maxTtlIsValid = Number.isInteger(maxTtlValue) && maxTtlValue >= 1 && maxTtlValue <= 32
+  const roundsIsValid = Number.isInteger(roundsValue) && roundsValue >= 1 && roundsValue <= 10
+  const showMaxTtlValidation = maxTtl.length > 0 && !maxTtlIsValid
+  const showRoundsValidation = rounds.length > 0 && !roundsIsValid
 
   // 跑动中只渲染本轮 streaming 跳数: 旧 result 优先会遮蔽新一轮逐跳进度。
   const hops = loading ? streamingHops : result?.hops?.length ? result.hops : streamingHops
@@ -79,10 +85,21 @@ export function TraceroutePanel({
                 id="np-tr-ttl"
                 value={maxTtl}
                 onChange={(e) => setMaxTtl(e.target.value)}
+                type="number"
+                min={1}
+                max={32}
+                step={1}
+                aria-invalid={showMaxTtlValidation}
+                aria-describedby={showMaxTtlValidation ? "np-tr-ttl-error" : undefined}
                 inputMode="numeric"
                 autoComplete="off"
                 disabled={loading}
               />
+              {showMaxTtlValidation ? (
+                <p id="np-tr-ttl-error" className="text-destructive text-xs">
+                  {t("networkProbe.traceroute.maxTtlInvalid")}
+                </p>
+              ) : null}
             </div>
             <div className="w-20 space-y-1">
               <label className="text-xs font-medium" htmlFor="np-tr-rounds">
@@ -92,10 +109,21 @@ export function TraceroutePanel({
                 id="np-tr-rounds"
                 value={rounds}
                 onChange={(e) => setRounds(e.target.value)}
+                type="number"
+                min={1}
+                max={10}
+                step={1}
+                aria-invalid={showRoundsValidation}
+                aria-describedby={showRoundsValidation ? "np-tr-rounds-error" : undefined}
                 inputMode="numeric"
                 autoComplete="off"
                 disabled={loading}
               />
+              {showRoundsValidation ? (
+                <p id="np-tr-rounds-error" className="text-destructive text-xs">
+                  {t("networkProbe.traceroute.roundsInvalid")}
+                </p>
+              ) : null}
             </div>
             <CommandHint
               hint={t("networkProbe.cmd.traceroute", {
@@ -107,9 +135,11 @@ export function TraceroutePanel({
               <Button
                 type="button"
                 disabled={
-                  loading || !toolEnabled || !target.trim() || !Number(maxTtl) || !Number(rounds)
+                  loading || !toolEnabled || !target.trim() || !maxTtlIsValid || !roundsIsValid
                 }
-                onClick={() => onRun(target, Number(maxTtl), Number(rounds))}
+                onClick={() => {
+                  if (maxTtlIsValid && roundsIsValid) onRun(target, maxTtlValue, roundsValue)
+                }}
               >
                 {loading ? t("networkProbe.traceroute.running") : t("networkProbe.traceroute.run")}
               </Button>
