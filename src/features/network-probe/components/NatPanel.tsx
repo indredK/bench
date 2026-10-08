@@ -59,13 +59,17 @@ export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: Na
               <span className="font-mono">{result.mappedAddress}</span>
             </div>
           ) : null}
-          {result.detail ? (
+          {result.detail || result.commandHint ? (
             <details className="text-muted-foreground text-xs">
-              <summary className="cursor-pointer">{t("networkProbe.nat.details")}</summary>
-              <p className="mt-1">{result.detail}</p>
+              <summary className="cursor-pointer">{t("networkProbe.nat.technicalDetails")}</summary>
+              {result.detail ? <p className="mt-1">{result.detail}</p> : null}
+              {result.commandHint ? (
+                <pre className="mt-1 font-mono break-all whitespace-pre-wrap">
+                  {result.commandHint}
+                </pre>
+              ) : null}
             </details>
           ) : null}
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}
     </ProbePanelShell>

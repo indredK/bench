@@ -7,6 +7,8 @@
 
 WHOIS 失败摘要本地化，原始诊断与命令默认折叠；成功及截断的部分响应保持可见。DNSSEC 结果卡标明查询域名，原始命令默认折叠并继续保留命令日志。
 
+STUN/NAT 结果卡突出观测摘要与映射地址，原始服务器诊断和命令默认折叠。
+
 **硬性红线**（不实现 · 法律/合规约束，详见 design.md §12.3.2）：主动攻击能力——ARP 欺骗**攻击** / MITM 流量**注入** / **DoS** / 密码**爆破**，违法绝不构建；仅提供对应检测/防御版本（`detectArpSpoofing` / `checkSsl.mitmSuspected` / 暴露面评估）。
 
 **验证命令**：`pnpm run lint:fe` + `pnpm run test:critical` + `cargo clippy -- -D warnings`。

@@ -2473,7 +2473,8 @@
       "varied": "Different mappings across servers",
       "blockedOrTimeout": "No valid response (blocked or timed out)",
       "mapped": "Mapped address",
-      "details": "Server details"
+      "details": "Server details",
+      "technicalDetails": "Technical details"
     },
     "ntp": {
       "hint": "Compare Cloudflare, Google, and pool.ntp.org concurrently. Large clock skew can affect TLS and auth.",

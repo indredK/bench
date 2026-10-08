@@ -54,7 +54,10 @@ describe("NatPanel mapping observations", () => {
 
     expect(screen.getByText("networkProbe.nat.varied")).toBeTruthy()
     expect(screen.queryByText("varied-across-servers")).toBeNull()
-    expect(screen.getByText("Technical server diagnostic").closest("details")?.open).toBe(false)
+    const details = screen.getByText("networkProbe.nat.technicalDetails").closest("details")
+    expect(details?.open).toBe(false)
+    expect(screen.getByText("Technical server diagnostic").closest("details")).toBe(details)
+    expect(screen.getByText(baseResult.commandHint).closest("details")).toBe(details)
   })
 
   it("shows the honest no-response state", () => {

@@ -2473,7 +2473,8 @@
       "varied": "不同服务器返回的映射不同",
       "blockedOrTimeout": "无有效响应（可能被阻断或超时）",
       "mapped": "映射地址",
-      "details": "服务器详情"
+      "details": "服务器详情",
+      "technicalDetails": "技术详情"
     },
     "ntp": {
       "hint": "并行对比 Cloudflare、Google 和 pool.ntp.org 的时钟偏移。偏差过大可能影响 TLS 与鉴权。",
