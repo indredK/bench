@@ -94,8 +94,8 @@ test("install failure shows a retryable error instead of an empty success", asyn
     .getByRole("button", { name: /下载并安装|Install now/ })
     .first()
     .click()
-  await expect(page.getByRole("alert").or(page.getByText(/失败|Failed/).first())).toBeVisible({
-    timeout: 15_000,
-  })
+  const failureAlert = page.getByRole("alert")
+  await expect(failureAlert).toBeVisible({ timeout: 15_000 })
+  await expect(failureAlert).toContainText(/失败|Failed/)
   await expect(page.getByRole("button", { name: /重试|Retry/ })).toBeVisible()
 })
