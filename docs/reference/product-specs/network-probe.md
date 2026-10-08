@@ -84,7 +84,7 @@ L1 → L2 映射：
   - captive：状态（normal/captive/…）、detail、commandHint。
   - egress：公网 IP、来源、ASN/org、detail。
   - proxy：系统代理开关、VPN 接口列表、默认路由是否走隧道（warn）。
-  - ipv6：分别展示链路本地、唯一本地（ULA）和全球单播地址；只有全球单播地址计入全局 IPv6。状态区分正常、部分、不可用，以及有全球地址但 ICMPv6 与 HTTPv6 均不可达的失败（`Ipv6Panel` 可单独运行）；同时展示双栈对比 detail。
+  - ipv6：分别展示链路本地、唯一本地（ULA）和全球单播地址；只有全球单播地址计入全局 IPv6。状态区分正常、部分、不可用，以及有全球地址但 ICMPv6 与 HTTPv6 均不可达的失败（`Ipv6Panel` 可单独运行）；双栈结论与 NDP 状态按结构化结果本地化，原生摘要、双栈/NDP 诊断、traceroute 提示和结果中的 IPC 命令收入默认折叠的技术详情，运行按钮仍通过悬浮提示预览 IPC 命令。
   - mtu：路径 MTU 状态/数值，可跳转 Test→MTU 完整面板（`MtuPanel`）。
   - diff：对比说明文案（提示用不同出口对比）。
 

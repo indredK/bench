@@ -2151,6 +2151,23 @@
         "unavailable": "不可用",
         "fail": "失败"
       },
+      "dualValue": {
+        "both": "IPv4 与 IPv6 均可达",
+        "ipv4Only": "IPv4 可达；IPv6 尚未确认可达",
+        "ipv6Only": "IPv6 可达；IPv4 尚未确认可达",
+        "neither": "IPv4 与 IPv6 的 ICMP 目标均未响应"
+      },
+      "ndpStatus": {
+        "ok": "可用",
+        "partial": "部分可用",
+        "skip": "未检查",
+        "unknown": "未知"
+      },
+      "technicalDetails": "技术详情",
+      "reason": "原生摘要",
+      "dualDetail": "双栈诊断",
+      "ndpDetail": "NDP 诊断",
+      "tracerouteNote": "Traceroute 提示",
       "linkLocal": "链路本地",
       "uniqueLocal": "唯一本地地址（ULA）",
       "global": "全球单播",

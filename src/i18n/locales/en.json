@@ -2151,6 +2151,23 @@
         "unavailable": "unavailable",
         "fail": "fail"
       },
+      "dualValue": {
+        "both": "IPv4 and IPv6 reachable",
+        "ipv4Only": "IPv4 reachable; IPv6 not confirmed reachable",
+        "ipv6Only": "IPv6 reachable; IPv4 not confirmed reachable",
+        "neither": "Neither ICMP target responded"
+      },
+      "ndpStatus": {
+        "ok": "available",
+        "partial": "partial",
+        "skip": "not checked",
+        "unknown": "unknown"
+      },
+      "technicalDetails": "Technical details",
+      "reason": "Native summary",
+      "dualDetail": "Dual-stack diagnostic",
+      "ndpDetail": "NDP diagnostic",
+      "tracerouteNote": "Traceroute note",
       "linkLocal": "Link-local",
       "uniqueLocal": "Unique local (ULA)",
       "global": "Global",

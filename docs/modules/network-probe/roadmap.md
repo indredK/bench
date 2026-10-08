@@ -9,6 +9,8 @@ WHOIS 失败摘要本地化，原始诊断与命令默认折叠；成功及截�
 
 STUN/NAT 结果卡突出观测摘要与映射地址，原始服务器诊断和命令默认折叠。
 
+IPv6 结果卡的双栈与 NDP 状态按语言本地化；原始摘要、诊断、traceroute 提示和结果命令默认折叠，运行按钮仍通过悬浮提示预览 IPC 命令。macOS 隔离 QA 用合成 DTO 验证中英文展示和折叠行为，未执行 IPv6 探测。
+
 **硬性红线**（不实现 · 法律/合规约束，详见 design.md §12.3.2）：主动攻击能力——ARP 欺骗**攻击** / MITM 流量**注入** / **DoS** / 密码**爆破**，违法绝不构建；仅提供对应检测/防御版本（`detectArpSpoofing` / `checkSsl.mitmSuspected` / 暴露面评估）。
 
 **验证命令**：`pnpm run lint:fe` + `pnpm run test:critical` + `cargo clippy -- -D warnings`。

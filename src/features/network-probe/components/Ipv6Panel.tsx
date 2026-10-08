@@ -2,9 +2,25 @@
  * Feature UI / 功能界面: IPv6 dual-stack diagnostics.
  */
 import { useTranslation } from "react-i18next"
+import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { Ipv6StackResult } from "@/lib/tauri/types/network-probe"
+
+const NDP_STATUS_LABEL_KEYS: Record<string, string> = {
+  ok: "networkProbe.ipv6.ndpStatus.ok",
+  partial: "networkProbe.ipv6.ndpStatus.partial",
+  skip: "networkProbe.ipv6.ndpStatus.skip",
+}
+
+function dualStackValueKey(result: Ipv6StackResult) {
+  if (result.dualStack.ipv4Ok && result.dualStack.ipv6Ok) {
+    return "networkProbe.ipv6.dualValue.both"
+  }
+  if (result.dualStack.ipv4Ok) return "networkProbe.ipv6.dualValue.ipv4Only"
+  if (result.dualStack.ipv6Ok) return "networkProbe.ipv6.dualValue.ipv6Only"
+  return "networkProbe.ipv6.dualValue.neither"
+}
 
 interface Ipv6PanelProps {
   loading: boolean
@@ -27,10 +43,11 @@ export function Ipv6Panel({ loading, result, onRun, dualFrom }: Ipv6PanelProps) 
               {t(`networkProbe.dualEntry.from.${dualFrom}`)}
             </p>
           ) : null}
-          <Button type="button" disabled={loading} onClick={onRun}>
-            {loading ? t("networkProbe.ipv6.running") : t("networkProbe.ipv6.run")}
-          </Button>
-          <p className="text-muted-foreground font-mono text-xs">{t("networkProbe.cmd.ipv6")}</p>
+          <CommandHint hint={t("networkProbe.cmd.ipv6")}>
+            <Button type="button" disabled={loading} onClick={onRun}>
+              {loading ? t("networkProbe.ipv6.running") : t("networkProbe.ipv6.run")}
+            </Button>
+          </CommandHint>
         </>
       }
     >
@@ -48,9 +65,6 @@ export function Ipv6Panel({ loading, result, onRun, dualFrom }: Ipv6PanelProps) 
               · {t("networkProbe.ipv6.elapsed", { ms: result.elapsedMs.toFixed(0) })}
             </span>
           </div>
-          {result.message ? (
-            <p className="text-muted-foreground text-xs">{result.message}</p>
-          ) : null}
           <div className="text-muted-foreground text-xs">
             {t("networkProbe.ipv6.linkLocal")}:{" "}
             {result.linkLocal.length > 0 ? result.linkLocal.join(", ") : "—"}
@@ -86,16 +100,56 @@ export function Ipv6Panel({ loading, result, onRun, dualFrom }: Ipv6PanelProps) 
                 : t("networkProbe.ipv6.fail")}
           </div>
           <div className="text-muted-foreground text-xs">
-            {t("networkProbe.ipv6.dual")}: {result.dualStack.detail}
+            {t("networkProbe.ipv6.dual")}: {t(dualStackValueKey(result))}
           </div>
           <div className="text-muted-foreground text-xs">
-            {t("networkProbe.ipv6.ndp")}: {result.ndpStatus}
-            {result.ndpDetail ? ` — ${result.ndpDetail}` : ""}
+            {t("networkProbe.ipv6.ndp")}:{" "}
+            {t(NDP_STATUS_LABEL_KEYS[result.ndpStatus] ?? "networkProbe.ipv6.ndpStatus.unknown", {
+              defaultValue: result.ndpStatus,
+            })}
           </div>
-          {result.tracerouteNote ? (
-            <p className="text-muted-foreground text-xs">{result.tracerouteNote}</p>
+          {result.message ||
+          result.dualStack.detail ||
+          result.ndpDetail ||
+          result.tracerouteNote ||
+          result.commandHint ? (
+            <details className="text-muted-foreground rounded-lg border px-3 py-2 text-xs">
+              <summary className="w-fit cursor-pointer select-none">
+                {t("networkProbe.ipv6.technicalDetails")}
+              </summary>
+              <div className="mt-2 space-y-2">
+                {result.message ? (
+                  <p className="break-words">
+                    <span className="font-medium">{t("networkProbe.ipv6.reason")}:</span>{" "}
+                    {result.message}
+                  </p>
+                ) : null}
+                {result.dualStack.detail ? (
+                  <p className="break-words">
+                    <span className="font-medium">{t("networkProbe.ipv6.dualDetail")}:</span>{" "}
+                    {result.dualStack.detail}
+                  </p>
+                ) : null}
+                {result.ndpDetail ? (
+                  <p className="break-words">
+                    <span className="font-medium">{t("networkProbe.ipv6.ndpDetail")}:</span>{" "}
+                    {result.ndpDetail}
+                  </p>
+                ) : null}
+                {result.tracerouteNote ? (
+                  <p className="break-words">
+                    <span className="font-medium">{t("networkProbe.ipv6.tracerouteNote")}:</span>{" "}
+                    {result.tracerouteNote}
+                  </p>
+                ) : null}
+                {result.commandHint ? (
+                  <pre className="font-mono break-all whitespace-pre-wrap">
+                    {result.commandHint}
+                  </pre>
+                ) : null}
+              </div>
+            </details>
           ) : null}
-          <p className="text-muted-foreground font-mono text-[10px]">{result.commandHint}</p>
         </div>
       ) : (
         <p className="text-muted-foreground text-sm">{t("networkProbe.ipv6.empty")}</p>
