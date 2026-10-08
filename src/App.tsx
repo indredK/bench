@@ -5,7 +5,6 @@
  */
 import { Router, Route, Switch, useLocation } from "wouter"
 import { useHashLocation } from "wouter/use-hash-location"
-import { AnimatePresence, motion } from "motion/react"
 import { useTranslation } from "react-i18next"
 import NavigationShell from "./components/layout/NavigationShell"
 import { CustomTitlebar } from "./components/layout/CustomTitlebar"
@@ -20,7 +19,6 @@ import { SettingsDialog } from "@/components/common/SettingsDialog"
 import { UpdateDialog } from "@/components/common/UpdateDialog"
 import { useNotificationCenterStore } from "@/components/layout/notification-center/store"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useReducedMotionProps } from "@/lib/motion-utils"
 import { appFeatures, createNavigationItems, createConfigItems } from "@/features/registry"
 import { requestFeatureRefresh } from "@/features/refresh"
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController"
@@ -85,26 +83,14 @@ function AnimatedRoutes() {
     }
   }, [location, navigate])
   if (location === "" || location === "/") return null
-  return (
-    <AnimatePresence mode="wait" initial={false}>
-      <FeaturePanel key={location} location={location} />
-    </AnimatePresence>
-  )
+  return <FeaturePanel key={location} location={location} />
 }
 
 function FeaturePanel({ location }: { location: string }) {
-  const [frozenLocation] = useState(location)
   const { t } = useTranslation()
-  const { reduce } = useReducedMotionProps()
   return (
-    <motion.div
-      initial={reduce({ opacity: 0, y: 4 })}
-      animate={reduce({ opacity: 1, y: 0 })}
-      exit={reduce({ opacity: 0, y: -4 })}
-      transition={{ duration: 0.12, ease: "easeOut" }}
-      className="h-full"
-    >
-      <Switch location={frozenLocation}>
+    <div className="h-full">
+      <Switch location={location}>
         {appFeatures.map((feature) => (
           <Route key={feature.id} path={feature.path}>
             <RuntimeFeatureGate feature={feature} title={t(feature.labelKey)} icon={feature.icon}>
@@ -113,7 +99,7 @@ function FeaturePanel({ location }: { location: string }) {
           </Route>
         ))}
       </Switch>
-    </motion.div>
+    </div>
   )
 }
 

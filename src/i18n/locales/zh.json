@@ -1768,7 +1768,10 @@
       "resolverPlaceholder": "系统（默认）",
       "run": "查询",
       "running": "查询中…",
-      "meta": "{{rrType}} via {{resolver}} · {{ms}} ms",
+      "resultFor": "查询结果：{{domain}}",
+      "meta": "{{rrType}} · {{resolver}} · {{ms}} 毫秒",
+      "systemResolver": "系统 DNS",
+      "technicalDetails": "技术详情",
       "ttl": "TTL={{ttl}}",
       "empty": "未返回记录。"
     },

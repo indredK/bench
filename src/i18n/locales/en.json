@@ -1768,7 +1768,10 @@
       "resolverPlaceholder": "system (default)",
       "run": "Lookup",
       "running": "Looking up…",
+      "resultFor": "Result for {{domain}}",
       "meta": "{{rrType}} via {{resolver}} · {{ms}} ms",
+      "systemResolver": "System DNS",
+      "technicalDetails": "Technical details",
       "ttl": "TTL={{ttl}}",
       "empty": "No records returned."
     },

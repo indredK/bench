@@ -104,10 +104,16 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
     >
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
-          <div>
+          <div className="font-mono font-medium break-all">
+            {t("networkProbe.dns.resultFor", { domain: result.domain })}
+          </div>
+          <div className="text-muted-foreground">
             {t("networkProbe.dns.meta", {
               rrType: result.rrType,
-              resolver: result.resolver,
+              resolver:
+                result.resolver === "system"
+                  ? t("networkProbe.dns.systemResolver")
+                  : result.resolver,
               ms: result.elapsedMs.toFixed(0),
             })}
           </div>
@@ -125,7 +131,16 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
               ))}
             </ul>
           )}
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+          {result.commandHint ? (
+            <details className="text-muted-foreground text-xs">
+              <summary className="w-fit cursor-pointer">
+                {t("networkProbe.dns.technicalDetails")}
+              </summary>
+              <pre className="mt-1 font-mono break-all whitespace-pre-wrap">
+                {result.commandHint}
+              </pre>
+            </details>
+          ) : null}
         </div>
       ) : null}
     </ProbePanelShell>
