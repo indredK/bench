@@ -2464,7 +2464,21 @@
       "run": "Sample packet counters",
       "running": "Capturing…",
       "mode": "Mode",
-      "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
+      "status": "Status",
+      "statusValue": {
+        "complete": "complete",
+        "cancelled": "cancelled",
+        "unavailable": "unavailable",
+        "unknown": "unknown"
+      },
+      "modeValue": {
+        "counters": "counter-only sample"
+      },
+      "technicalDetails": "Technical details",
+      "diagnostic": "Diagnostic",
+      "command": "Command",
+      "noSample": "No packet sample is available.",
+      "stats": "Packets={{packets}} · RST={{rst}} · retransmit hints≈{{retrans}} · out-of-order hints≈{{ooo}}"
     },
     "nodes": {
       "hint": "Compare DNS answers from this Mac and Globalping locations. Register HTTPS/WSS agents for self-hosted probes.",

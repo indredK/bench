@@ -5,6 +5,7 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { PublicIpResult } from "@/features/network-probe/components/PublicIpResult"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { TechnicalDetails } from "@/features/network-probe/components/TechnicalDetails"
 import type { NetworkProbeOfflineSub } from "@/features/network-probe/store"
 import type {
   CaptivePortalResult,
@@ -26,28 +27,6 @@ interface OfflinePanelProps {
   mtu: PathMtuResult | null
   onRunAll: () => void
   onOpenMtu: () => void
-}
-
-function TechnicalDetails({ items }: { items: Array<{ label: string; value?: string }> }) {
-  const { t } = useTranslation()
-  const visibleItems = items.filter((item) => item.value?.trim())
-  if (visibleItems.length === 0) return null
-
-  return (
-    <details className="text-muted-foreground rounded-lg border px-3 py-2 text-xs">
-      <summary className="w-fit cursor-pointer select-none">
-        {t("networkProbe.offline.technicalDetails")}
-      </summary>
-      <dl className="mt-2 space-y-2">
-        {visibleItems.map((item) => (
-          <div key={item.label} className="space-y-0.5 break-words">
-            <dt className="font-medium">{item.label}</dt>
-            <dd>{item.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </details>
-  )
 }
 
 export function OfflinePanel({
@@ -99,6 +78,7 @@ export function OfflinePanel({
                 </span>
               </div>
               <TechnicalDetails
+                title={t("networkProbe.offline.technicalDetails")}
                 items={[
                   { label: t("networkProbe.offline.diagnostic"), value: captive.detail },
                   { label: t("networkProbe.offline.command"), value: captive.commandHint },
@@ -149,6 +129,7 @@ export function OfflinePanel({
                 </p>
               ) : null}
               <TechnicalDetails
+                title={t("networkProbe.offline.technicalDetails")}
                 items={[
                   { label: t("networkProbe.offline.proxyDiagnostic"), value: proxyVpn.proxyDetail },
                   { label: t("networkProbe.offline.command"), value: proxyVpn.commandHint },

@@ -2464,7 +2464,21 @@
       "run": "采样包计数",
       "running": "采集中…",
       "mode": "模式",
-      "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
+      "status": "状态",
+      "statusValue": {
+        "complete": "已完成",
+        "cancelled": "已取消",
+        "unavailable": "不可用",
+        "unknown": "未知"
+      },
+      "modeValue": {
+        "counters": "仅计数器采样"
+      },
+      "technicalDetails": "技术详情",
+      "diagnostic": "诊断详情",
+      "command": "命令",
+      "noSample": "没有可用的采样数据。",
+      "stats": "数据包={{packets}} · RST={{rst}} · 重传提示≈{{retrans}} · 乱序提示≈{{ooo}}"
     },
     "nodes": {
       "hint": "对比本机与 Globalping 多地的 DNS 答案。可注册 HTTPS/WSS agent 作为自有探测节点。",
