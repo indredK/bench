@@ -49,7 +49,7 @@ L1 → L2 映射：
 - **bootstrap 加载**：首次进入 `bootstrap()` 并行拉取 capabilities / defaults / packs / nodes；任一失败在顶部错误横幅展示 `networkProbe.errors.bootstrapFailed`（可重试，重进页面或刷新按钮触发），不阻断其余面板。
 - **错误横幅**：每个操作按本地化 key 独立保留错误（文案优先 `networkProbe.errors.<tool>Failed`，兜底后端 `message`），限高滚动并可逐条关闭。探测、修复、刷新和系统设置操作开始时只清除同一操作的旧错误；并行失败互不覆盖，其他操作开始也不会抹掉已有错误。
 - **每工具 loading 独立 + 防重入**：`loading*`（每工具一个）为真时对应「运行」按钮禁用并显示运行中文案（如「Ping → 探测中…」）；use-case 入口统一 `if (store.loadingX) return` 短路，同一工具不可并发、不同工具可并行。网络服务刷新与系统设置启动也有独立 loading 状态和程序化防重入。
-- **Ping 输入与失败反馈**：本机 Ping 次数必须是 1–20 的整数，Globalping Ping 是 1–16 的整数；无效时说明范围并禁用运行。逐包错误以本地化的「未收到响应」展示，原始 ICMP 诊断收在默认折叠的技术详情中；全丢包提示按平台描述可能原因，不把 macOS 权限提示显示到 Windows。
+- **Ping 输入与失败反馈**：本机 Ping 次数必须是 1–20 的整数，Globalping Ping 是 1–16 的整数；无效时说明范围并禁用运行。逐包错误以本地化的「未收到响应」展示；本机与 Globalping 结果里的原始诊断和成功命令均收在默认折叠的技术详情中，命令日志侧栏仍保留每次探测命令。全丢包提示按平台描述可能原因，不把 macOS 权限提示显示到 Windows。
 - **能力降级**：`toolEnabled=false`（status 为 `unsupported`/`missing_pack`）时按钮禁用并显示 toolDisabled 提示（`{{tool}} status={{status}} — 已按能力矩阵禁用`）；缺 pack 的工具给出「管理能力包」入口跳转 PackInstallDialog。
 - **命令日志侧栏**：每个探测命令追加一行时间戳日志（`appendCommandLog`），运行中/成功/失败/取消均有摘要；可折叠（sessionStorage 记忆）、清空需二次确认。
 - **键盘**：各面板均为表单 + 按钮触发（Enter 提交表单）；无全局快捷键（见 §9）。

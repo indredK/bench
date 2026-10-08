@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { PingPanel } from "@/features/network-probe/components/PingPanel"
-import type { PingProbeResult } from "@/lib/tauri/types/network-probe"
+import type { GlobalpingPingResult, PingProbeResult } from "@/lib/tauri/types/network-probe"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -32,6 +32,32 @@ const timeoutResult: PingProbeResult = {
   commandHint: "pingHost(local, '192.0.2.1', {count:1})",
 }
 
+const successResult: PingProbeResult = {
+  ...timeoutResult,
+  target: "127.0.0.1",
+  resolvedIp: "127.0.0.1",
+  packetsReceived: 1,
+  lossPercent: 0,
+  samples: [{ seq: 0, ok: true, rttMs: 0.3 }],
+  commandHint: "pingHost(local, '127.0.0.1', {count:1}) // sessionId=test-session-id",
+}
+
+const remoteSuccessResult: GlobalpingPingResult = {
+  target: "example.com",
+  location: "Helsinki",
+  probeCity: "Helsinki",
+  probeCountry: "FI",
+  resolvedAddress: "203.0.113.10",
+  packetsSent: 1,
+  packetsReceived: 1,
+  lossPercent: 0,
+  minRttMs: 12.3,
+  avgRttMs: 12.3,
+  maxRttMs: 12.3,
+  samples: [{ seq: 1, rttMs: 12.3 }],
+  commandHint: "globalping.measure('ping', 'example.com')",
+}
+
 function renderPanel(
   options: {
     result?: PingProbeResult | null
@@ -42,6 +68,7 @@ function renderPanel(
     canCancel?: boolean
     cancelRequested?: boolean
     remoteMode?: boolean
+    remoteResult?: GlobalpingPingResult | null
     platform?: string
   } = {},
 ) {
@@ -49,6 +76,7 @@ function renderPanel(
     <PingPanel
       loading={options.loading ?? false}
       result={options.result ?? null}
+      remoteResult={options.remoteResult}
       streamingSamples={options.streamingSamples}
       remoteMode={options.remoteMode}
       platform={options.platform ?? "macos"}
@@ -73,6 +101,27 @@ describe("PingPanel", () => {
     const details = screen.getByText("networkProbe.ping.technicalDetails").closest("details")
     expect(details?.open).toBe(false)
     expect(details?.textContent).toContain(timeoutResult.samples[0].error)
+  })
+
+  it("keeps the successful local command collapsed in technical details", () => {
+    renderPanel({ result: successResult })
+
+    const command = screen.getByText(successResult.commandHint)
+    const details = command.closest("details")
+
+    expect(details?.open).toBe(false)
+    expect(details?.textContent).toContain(successResult.commandHint)
+    expect(screen.getByRole("table", { name: "networkProbe.ping.liveResults" })).toBeTruthy()
+  })
+
+  it("keeps the Globalping command collapsed in technical details", () => {
+    renderPanel({ remoteMode: true, remoteResult: remoteSuccessResult })
+
+    const command = screen.getByText(remoteSuccessResult.commandHint)
+    const details = command.closest("details")
+
+    expect(details?.open).toBe(false)
+    expect(details?.textContent).toContain(remoteSuccessResult.commandHint)
   })
 
   it("uses platform-neutral missed-reply guidance outside macOS", () => {

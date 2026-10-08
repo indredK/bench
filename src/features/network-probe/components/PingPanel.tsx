@@ -234,22 +234,26 @@ export function PingPanel({
               </tbody>
             </table>
           </div>
-          {localFailureDetails.length > 0 ? (
+          {result && (localFailureDetails.length > 0 || result.commandHint) ? (
             <details className="text-muted-foreground text-xs">
               <summary className="w-fit cursor-pointer">
                 {t("networkProbe.ping.technicalDetails")}
               </summary>
-              <ul className="mt-1 space-y-1 font-mono break-all">
-                {localFailureDetails.map((sample) => (
-                  <li key={sample.seq}>
-                    #{sample.seq + 1}: {sample.error}
-                  </li>
-                ))}
-              </ul>
+              {localFailureDetails.length > 0 ? (
+                <ul className="mt-1 space-y-1 font-mono break-all">
+                  {localFailureDetails.map((sample) => (
+                    <li key={sample.seq}>
+                      #{sample.seq + 1}: {sample.error}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {result.commandHint ? (
+                <pre className="mt-1 font-mono break-all whitespace-pre-wrap">
+                  {result.commandHint}
+                </pre>
+              ) : null}
             </details>
-          ) : null}
-          {result ? (
-            <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
           ) : null}
         </div>
       ) : null}
@@ -306,7 +310,14 @@ export function PingPanel({
               </li>
             ))}
           </ul>
-          <div className="text-muted-foreground font-mono text-xs">{remoteResult.commandHint}</div>
+          <details className="text-muted-foreground text-xs">
+            <summary className="w-fit cursor-pointer">
+              {t("networkProbe.ping.technicalDetails")}
+            </summary>
+            <pre className="mt-1 font-mono break-all whitespace-pre-wrap">
+              {remoteResult.commandHint}
+            </pre>
+          </details>
         </div>
       ) : null}
     </ProbePanelShell>
