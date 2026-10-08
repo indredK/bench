@@ -2309,6 +2309,7 @@
       "domain": "Domain",
       "run": "Check DNSSEC / DoH",
       "running": "Checking…",
+      "resultFor": "Result for {{domain}}",
       "status": "DNSSEC status",
       "statusValue": {
         "secure": "Secure (validated locally)",
@@ -2323,6 +2324,7 @@
       "dotOkMs": "TLS verified · DNS response received · {{ms}} ms",
       "fail": "unreachable / failed",
       "technicalDetails": "Technical details",
+      "command": "Command",
       "dnssecDetail": "DNSSEC",
       "dohDetail": "DoH",
       "dotDetail": "DoT",

@@ -101,6 +101,10 @@ export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }:
               )
             : undefined,
         },
+        {
+          label: t("networkProbe.dnssec.command"),
+          value: result.commandHint || undefined,
+        },
       ].filter((detail): detail is { label: string; value: string } => Boolean(detail.value))
     : []
 
@@ -145,6 +149,9 @@ export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }:
     >
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
+          <div className="font-medium">
+            {t("networkProbe.dnssec.resultFor", { domain: result.domain })}
+          </div>
           <div>
             {t("networkProbe.dnssec.status")}:{" "}
             <span className="font-medium">
@@ -185,7 +192,6 @@ export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }:
               </ul>
             </details>
           ) : null}
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}
     </ProbePanelShell>

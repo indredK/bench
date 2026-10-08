@@ -41,6 +41,7 @@ describe("DnsSecPanel localization and result semantics", () => {
     render(<DnsSecPanel loading={false} result={result} toolEnabled onRun={() => undefined} />)
 
     expect(screen.getByText("networkProbe.dnssec.statusValue.secure")).toBeTruthy()
+    expect(screen.getByText("networkProbe.dnssec.resultFor")).toBeTruthy()
     expect(screen.getByText("networkProbe.dnssec.details.localValidationSecure")).toBeTruthy()
     expect(screen.getByText("networkProbe.dnssec.dohDetails.authenticatedData")).toBeTruthy()
     expect(
@@ -48,6 +49,8 @@ describe("DnsSecPanel localization and result semantics", () => {
     ).toBeTruthy()
     expect(screen.getByText("networkProbe.dnssec.dohOkMs")).toBeTruthy()
     expect(screen.getByText("networkProbe.dnssec.dotOkMs")).toBeTruthy()
+    const command = screen.getByText(result.commandHint)
+    expect(command.closest("details")?.open).toBe(false)
     expect(screen.queryByText("localValidationSecure")).toBeNull()
     expect(screen.queryByText("authenticatedData")).toBeNull()
     expect(screen.queryByText("tlsVerifiedQuerySucceeded")).toBeNull()

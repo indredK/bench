@@ -2309,6 +2309,7 @@
       "domain": "域名",
       "run": "检查 DNSSEC / DoH",
       "running": "检查中…",
+      "resultFor": "查询结果：{{domain}}",
       "status": "DNSSEC 状态",
       "statusValue": {
         "secure": "安全（本机验证通过）",
@@ -2323,6 +2324,7 @@
       "dotOkMs": "TLS 已验证 · 已收到 DNS 响应 · {{ms}} ms",
       "fail": "不可达 / 失败",
       "technicalDetails": "技术诊断详情",
+      "command": "命令",
       "dnssecDetail": "DNSSEC",
       "dohDetail": "DoH",
       "dotDetail": "DoT",
