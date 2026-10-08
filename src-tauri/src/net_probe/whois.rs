@@ -113,11 +113,12 @@ pub async fn whois_lookup(query: String) -> AppResult<WhoisInfo> {
         }
         Err(fallback_error) => {
             let detail = format!("{rdap_error}\nWHOIS fallback failed: {fallback_error}");
-            let (raw_text, _) = cap_display_text(format!("{rdap_source}\n{detail}"));
             Ok(WhoisInfo {
                 query: q,
                 source: rdap_source,
-                raw_text,
+                // Preserve diagnostics in `message` for the collapsed technical-details UI;
+                // `raw_text` is reserved for an actual RDAP/WHOIS response body.
+                raw_text: String::new(),
                 partial: true,
                 error_code: Some(rdap_error_code),
                 http_status: rdap_status,

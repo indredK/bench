@@ -160,7 +160,7 @@ L1 → L2 映射：
 | pollution | 对域名比较本地与公共 DNS，并检查 hosts、HTTPS 信任与网关 ARP，输出 `PollutionReport`。检测类型、严重度和摘要按当前语言展示；原始证据与命令默认折叠在技术详情中。DNS、连接、超时或 TLS 请求失败均为 `warn`，且单凭失败不能判定拦截；`high` 仅用于正向、高可信风险信号。                                                  |
 | pcap      | 诊断抓包（`pcap-diag`，默认 5s）：重传/乱序/RST 统计；无特权时 tcpdump 计数降级；可取消；缺 pack 时引导安装 `pcap-diag`                                                                                                                                                                                                 |
 | dnssec    | Hickory 通过 Cloudflare DoT 和内置根信任锚本机验证 DNSSEC；固定 Cloudflare JSON DoH HTTPS endpoint 的 AD 位另作远端信号展示，不支持自定义 resolver URL。仅明确的验证失败标 bogus；SERVFAIL 或缺少证明标 unknown。DoT 必须完成 TLS 证书校验与 DNS 查询。输出 `DnsSecCheckResult`                                         |
-| whois     | RDAP 优先的域名/IP 查询；RDAP 不可用时经 IANA 引用回退到 WHOIS 文本，输出 `WhoisInfo`                                                                                                                                                                                                                                   |
+| whois     | RDAP 优先的域名/IP 查询；RDAP 不可用时经 IANA 引用回退到 WHOIS 文本，输出 `WhoisInfo`；失败摘要本地化，原始诊断和命令默认折叠，成功及截断的部分响应保持可见                                                                                                                                                             |
 
 **交互细节**：
 
