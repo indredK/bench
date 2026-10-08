@@ -39,6 +39,9 @@ import type {
 import type { AppUpdateInfo, AppUpdateInstallResult } from "@/lib/tauri/types/updater"
 import type {
   ArpNeighbor,
+  HealthCheckItem,
+  HealthOpinion,
+  HealthScanResult,
   LanDiscoveryResult,
   NtpProbeResult,
   NtpSourceResult,
@@ -184,6 +187,28 @@ describe("Tauri contracts", () => {
         dtoKeys<NtpSourceResult>(["server", "ok", "offsetSeconds", "rttSeconds", "errorCode"]),
       ],
       ["ArpNeighbor", "camel", dtoKeys<ArpNeighbor>(["ip", "mac", "iface", "source"])],
+      [
+        "HealthCheckItem",
+        "camel",
+        dtoKeys<HealthCheckItem>(["key", "layer", "status", "detail", "commandHint"]),
+      ],
+      [
+        "HealthOpinion",
+        "camel",
+        dtoKeys<HealthOpinion>(["id", "severity", "relatedKeys", "titleKey", "bodyKey"]),
+      ],
+      [
+        "HealthScanResult",
+        "camel",
+        dtoKeys<HealthScanResult>([
+          "items",
+          "opinions",
+          "elapsedMs",
+          "sessionId",
+          "cancelled",
+          "commandHint",
+        ]),
+      ],
       [
         "LanDiscoveryResult",
         "camel",

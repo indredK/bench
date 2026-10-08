@@ -29,6 +29,7 @@
 - [§7/§9] `src-tauri/tauri.conf.json` - `com.bench.app` 后缀警告已接受；D-011 要求 2.0 保留，不得直接改字符串 - **建议** - 状态：接受风险
 - [§3.3/§5] `src/features/network-probe/components/DnsLookupPanel.tsx` - DNS 查询期间仍可修改域名、RR 类型和 resolver，慢响应或失败时结果/错误会与当前表单值错配 - 请求期间锁定全部查询参数并补状态回归测试 - **强制** - 状态：已修复（macOS arm64 隔离 QA 真机复验）
 - [§3/§5] `src/features/network-probe/components/WhoisPanel.tsx`、`src-tauri/src/net_probe/whois.rs` - WHOIS 查询失败时原始 RDAP 响应、网络诊断和命令直接显示；HTTP 状态串重复暴露英文，且无正文的失败结果被误标为部分响应 - 失败摘要本地化、来源只显示 `rdap.org`、技术诊断/命令默认折叠；仅截断的有效正文保持可见，失败响应不再写入 `rawText` - **强制** - 状态：已修复（macOS arm64 隔离 QA 真机验证失败与成功路径）
+- [§3/§5/§9] `src-tauri/src/net_probe/advisor.rs` - Captive 探测的 `warn`（异常响应、尚不能确认门户）被 Advisor 分支静默丢弃 - 生成 `warn` 级不确定建议，增加纯函数与双语面板回归，并将 Health DTO 纳入 Rust/TS 契约检查 - **强制** - 状态：已修复（macOS arm64 原生规则测试、组件双语回归；隔离 Bench 验证导航/空态和语言切换，因 IPv6 约束未执行完整体检 UI 流程）
 
 未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
 

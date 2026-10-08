@@ -32,7 +32,7 @@
 components/BasicView/
   NetworkSummaryHeader.tsx   # overview
   HealthTree.tsx             # tree
-  ScanOpinion.tsx            # opinion
+  ScanOpinionPanel.tsx       # opinion
   SiteLatencyBoard.tsx       # sites
   OfflineSuite.tsx           # offline + 子路由
   QuickFixPanel.tsx          # fix
@@ -41,7 +41,7 @@ components/BasicView/
 src-tauri/src/net_probe/
   summary.rs      # LocalNetworkSummary / DefaultRoute / hosts / firewall
   health.rs       # L0→L3 编排 + CancellationToken
-  advisor_rules.rs
+  advisor.rs
   sites_probe.rs
   offline.rs      # captive / egress / proxy-vpn / ipv6 / mtu
   fix.rs          # flushDns / switchDns / renewDhcp / resetNetworkStack
@@ -120,7 +120,7 @@ macOS 允许非 root 使用 `SOCK_DGRAM` + `IPPROTO_ICMP`（与系统 `ping(8)` 
   G2: reach.gateway ∥ reach.public_ip ∥ reach.public_name
   G3: captive ∥ public_egress ∥ mtu（可用户取消）
 合成: diff.dns_vs_ip ← G2 结果（§5.4.2）
-结束: advisor_rules.analyze(items)
+结束: advisor::build_opinions(items)
 ```
 
 - Fake-IP（`dns.fake_ip`）：系统 `getaddrinfo` / TUN 落在 `198.18.0.0/15` 时 warn；`reach.public_name` 跳过 ICMP。
@@ -190,7 +190,7 @@ UX 强制：
 - 防重入：`useGuardedAsync`；切换 L2 不取消后台 session，除非用户点停止。
 - i18n：`networkProbe.basic.*`；command 名不翻译。
 
-Advisor：前端 `network-probe.advisor.ts` 与后端 `advisor_rules.rs` **共享规则 ID**；基础视角只展示可操作建议，依据进展开区。
+Advisor 由后端 `advisor::build_opinions` 生成唯一规则结果，前端只负责渲染；基础视角展示可操作建议，检查依据在体检树展开。
 
 ---
 

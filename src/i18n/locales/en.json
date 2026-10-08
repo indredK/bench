@@ -2036,6 +2036,10 @@
         "title": "Possible captive portal",
         "body": "Open the portal login page (hotel/café Wi‑Fi) before diagnosing DNS."
       },
+      "captiveUnconfirmed": {
+        "title": "Unexpected captive portal response",
+        "body": "The connectivity check returned an unusual response, so a portal cannot be confirmed. Check for a sign-in page and retry after signing in."
+      },
       "allClear": {
         "title": "Basic reachability looks healthy",
         "body": "If a specific site still fails, check that site, SNI/proxy, or run site latency probes."

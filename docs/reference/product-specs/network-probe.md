@@ -72,7 +72,7 @@ L1 → L2 映射：
 
 ### 3.3 体检建议 opinion（Advisor）
 
-- 展示 `healthResult.opinions`：每条建议按严重级别（critical/warn/info）着色卡片，含标题（i18n key）、正文、相关检查 key 列表。无结果时提示「先去运行体检」，可跳转 tree。
+- 展示 `healthResult.opinions`：每条建议按严重级别（critical/warn/info）着色卡片，含标题（i18n key）、正文、相关检查 key 列表。Captive 检测 `fail` 给严重的门户建议，`warn` 给不确定警告，`skip` 不给结论。无结果时提示「先去运行体检」，可跳转 tree。
 
 ### 3.4 上不了网 offline（子导航 captive/proxy/ipv6/mtu/egress/diff）
 

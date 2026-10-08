@@ -123,17 +123,22 @@ pub fn build_opinions(items: &[HealthCheckItem]) -> Vec<HealthOpinion> {
         ));
     }
 
-    if status("reach.captive") == "fail" || status("reach.captive") == "warn" {
-        let st = status("reach.captive");
-        if st == "fail" {
-            out.push(opinion(
-                "captive",
-                "critical",
-                &["reach.captive"],
-                "networkProbe.advisor.captive.title",
-                "networkProbe.advisor.captive.body",
-            ));
-        }
+    match status("reach.captive") {
+        "fail" => out.push(opinion(
+            "captive",
+            "critical",
+            &["reach.captive"],
+            "networkProbe.advisor.captive.title",
+            "networkProbe.advisor.captive.body",
+        )),
+        "warn" => out.push(opinion(
+            "captive-unconfirmed",
+            "warn",
+            &["reach.captive"],
+            "networkProbe.advisor.captiveUnconfirmed.title",
+            "networkProbe.advisor.captiveUnconfirmed.body",
+        )),
+        _ => {}
     }
 
     if out.is_empty() && status("diff.dns_vs_ip") == "pass" {
@@ -206,5 +211,128 @@ mod tests {
             Some("Fake-IP / enhanced mode likely"),
         )]);
         assert!(opinions.iter().any(|o| o.id == "fake-ip-active"));
+    }
+
+    #[test]
+    fn captive_opinion_severity_tracks_probe_confidence() {
+        let opinions = build_opinions(&[item(
+            "reach.captive",
+            "warn",
+            Some("Unexpected response from connectivity check"),
+        )]);
+
+        let opinion = opinions
+            .iter()
+            .find(|opinion| opinion.id == "captive-unconfirmed")
+            .expect("an inconclusive captive probe should remain visible to the user");
+        assert_eq!(opinion.severity, "warn");
+        assert_eq!(opinion.related_keys, ["reach.captive"]);
+
+        let confirmed = build_opinions(&[item("reach.captive", "fail", None)]);
+        let critical = confirmed
+            .iter()
+            .find(|opinion| opinion.id == "captive")
+            .expect("a confirmed captive redirect should remain critical");
+        assert_eq!(critical.severity, "critical");
+
+        let unavailable = build_opinions(&[item("reach.captive", "skip", None)]);
+        assert!(unavailable.is_empty());
+    }
+
+    #[test]
+    fn maps_all_health_failure_families_to_stable_opinion_ids() {
+        let opinions = build_opinions(&[
+            item("link.iface", "fail", None),
+            item("route.default", "fail", None),
+            item("addr.ipv4", "fail", None),
+            item("dns.resolve_name", "fail", None),
+            item("hosts.override", "fail", None),
+            item("proxy.system", "warn", None),
+            item("dns.fake_ip", "warn", None),
+            item("vpn.tunnel", "warn", None),
+        ]);
+
+        let ids: Vec<_> = opinions.iter().map(|opinion| opinion.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            [
+                "link-down",
+                "no-default-route",
+                "no-ipv4",
+                "dns-broken",
+                "hosts-hijack",
+                "proxy-on",
+                "fake-ip-active",
+                "vpn-active",
+            ]
+        );
+        assert!(opinions[..5]
+            .iter()
+            .all(|opinion| opinion.severity == "critical"));
+        assert!(opinions[5..]
+            .iter()
+            .all(|opinion| opinion.severity == "warn"));
+
+        let no_dns_servers = build_opinions(&[item("dns.servers", "fail", None)]);
+        assert!(no_dns_servers
+            .iter()
+            .any(|opinion| opinion.id == "dns-broken"));
+    }
+
+    #[test]
+    fn classifies_each_synthetic_dns_vs_ip_failure_direction() {
+        let cases = [
+            (
+                "DNS or hosts problem (IP ok, name fail)",
+                "dns-vs-ip-dns",
+                vec!["diff.dns_vs_ip", "dns.resolve_name", "hosts.override"],
+            ),
+            (
+                "Public IP unreachable → uplink / ISP / firewall",
+                "dns-vs-ip-uplink",
+                vec!["diff.dns_vs_ip", "reach.public_ip"],
+            ),
+            (
+                "Gateway unreachable → LAN / gateway / link issue",
+                "dns-vs-ip-lan",
+                vec!["diff.dns_vs_ip", "reach.gateway"],
+            ),
+        ];
+
+        for (detail, expected_id, expected_related_keys) in cases {
+            let opinions = build_opinions(&[item("diff.dns_vs_ip", "fail", Some(detail))]);
+            let found = opinions
+                .iter()
+                .find(|opinion| opinion.id == expected_id)
+                .unwrap_or_else(|| panic!("missing opinion {expected_id} for {detail}"));
+            assert_eq!(found.severity, "critical");
+            assert_eq!(found.related_keys, expected_related_keys);
+        }
+
+        let unknown_detail = build_opinions(&[item(
+            "diff.dns_vs_ip",
+            "fail",
+            Some("Mixed signals with no classified direction"),
+        )]);
+        assert!(unknown_detail.is_empty());
+    }
+
+    #[test]
+    fn does_not_show_all_clear_for_unknown_or_incomplete_health_results() {
+        assert!(build_opinions(&[]).is_empty());
+        assert!(build_opinions(&[item("diff.dns_vs_ip", "skip", None)]).is_empty());
+        assert!(build_opinions(&[item("diff.dns_vs_ip", "warn", None)]).is_empty());
+
+        let opinions = build_opinions(&[
+            item("diff.dns_vs_ip", "pass", None),
+            item("proxy.system", "warn", None),
+        ]);
+        assert_eq!(
+            opinions
+                .iter()
+                .map(|opinion| opinion.id.as_str())
+                .collect::<Vec<_>>(),
+            ["proxy-on"]
+        );
     }
 }

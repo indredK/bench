@@ -56,15 +56,14 @@
 │  hooks/useNetworkProbeController.ts             │
 │  services/network-probe.use-cases.ts (编排/校验) │
 │  services/network-probe.repository.ts (IPC+events) │
-│  services/network-probe.advisor.ts (扫描意见)    │
-│  services/network-probe.sites.ts (站点库)        │
-│  components/{NodeSelector,BasicView/,AdvancedView/,HealthReport} │
+│  utils/site-probe-results.ts (站点结果归档)      │
+│  components/ScanOpinionPanel.tsx (展示后端意见)  │
 └──────────────────────┬──────────────────────────┘
                         │ typed IPC + Tauri events
 ┌─ 后端 src-tauri/src/net_probe/ ─┐
 │  commands.rs  types.rs  state.rs  node.rs       │
 │  ping.rs  dns.rs  traceroute.rs  sites_probe.rs │
-│  health.rs  advisor_rules.rs  fix.rs            │
+│  health.rs  advisor.rs  fix.rs                   │
 │  （Post-MVP）ports / host_discovery / fingerprint │
 │  （Post-MVP）packet_capture / speed / pollution   │
 └─────────────────────────────────────────────────┘
@@ -190,8 +189,9 @@
 
 ### 3.3 Advisor
 
-- `network-probe.advisor.ts`：纯函数 `advise(item): Suggestion[]`，规则表驱动。
-- 后端 `advisor_rules.rs` 供报告导出复用同一语义（避免双源漂移：规则 ID 共享）。
+- `src-tauri/src/net_probe/advisor.rs`：纯函数 `build_opinions(items)`，规则表驱动并生成稳定的意见 ID。
+- 前端只展示后端返回的 `HealthOpinion`，规则不在两端复制；报告导出复用同一结果，避免建议语义漂移。
+- Captive 检测 `fail` 生成严重建议；`warn` 生成不确定警告，`skip` 不生成建议，避免把异常响应误报为已确认门户。
 - 基础视角只展示精简可操作建议；判定依据在展开详情或「安全 / 发现」中呈现〔决策7〕。
 
 ### 3.4 三次确认 UX（决策4 · 规格）
@@ -472,14 +472,14 @@ src/features/network-probe/
   services/
     network-probe.use-cases.ts
     network-probe.repository.ts
-    network-probe.advisor.ts
-    network-probe.sites.ts
+  utils/
+    site-probe-results.ts
   components/
-    NodeSelector.tsx
-    BasicView/{NetworkSummaryHeader,SiteLatencyBoard,HealthTree,ScanOpinion,ComprehensiveScan,QuickTools}.tsx
-    AdvancedView/...
-    HealthReport.tsx
-    TripleDestructiveConfirm.tsx   // 或 shared/common
+    ProbeOriginSelector.tsx
+    HealthTreePanel.tsx
+    ScanOpinionPanel.tsx
+    ReportPanel.tsx
+    ...
 ```
 
 占位阶段仅有 `feature.tsx` + `page.tsx`；其余随实现按需添加（避免空 store 形式主义）。
