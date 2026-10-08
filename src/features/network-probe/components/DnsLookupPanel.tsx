@@ -39,6 +39,7 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
                 autoComplete="off"
+                disabled={loading}
               />
             </div>
             <div className="w-28 space-y-1">
@@ -50,6 +51,7 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
                 className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
                 value={rrType}
                 onChange={(e) => setRrType(e.target.value)}
+                disabled={loading}
               >
                 {RR_TYPES.map((rt) => (
                   <option key={rt} value={rt}>
@@ -69,6 +71,7 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
                 placeholder={t("networkProbe.dns.resolverPlaceholder")}
                 list="np-dns-presets"
                 autoComplete="off"
+                disabled={loading}
               />
               {dnsPresets && dnsPresets.length > 0 ? (
                 <datalist id="np-dns-presets">

@@ -13,7 +13,7 @@
 
 ### Wave 0 · Polish 基线（可并行）
 
-- [ ] **P0-1** MVP 面板空态 / 失败态 / 重入与取消一致性扫尾（S-X-* · coding §3/§5；Health 检查项名称/摘要本地化与原始诊断折叠、TCP/Ping/Sites/Official 失败状态本地化及技术详情折叠、官网与区域站点结果隔离、输入边界、本机 Ping 实时表/取消已完成；Health/Traceroute/Speed/Ports/PCAP/ARP 已统一取消中反馈，NTP 逐源失败状态本地化、原始诊断与命令默认折叠且来源列表去重；公网出口双入口现共用本地化结果卡，原始 API 来源/响应/命令默认折叠，失败状态有本地化反馈；其他空态/失败态/重入仍待审查）。
+- [ ] **P0-1** MVP 面板空态 / 失败态 / 重入与取消一致性扫尾（S-X-* · coding §3/§5；Health 检查项名称/摘要本地化与原始诊断折叠、TCP/Ping/Sites/Official 失败状态本地化及技术详情折叠、官网与区域站点结果隔离、输入边界、本机 Ping 实时表/取消已完成；Health/Traceroute/Speed/Ports/PCAP/ARP 已统一取消中反馈，NTP 逐源失败状态本地化、原始诊断与命令默认折叠且来源列表去重；公网出口双入口现共用本地化结果卡，原始 API 来源/响应/命令默认折叠，失败状态有本地化反馈；DNS 查询进行中锁定域名/RR 类型/resolver；其他空态/失败态/重入仍待审查）。
 - [ ] **P0-2** 关键测试补强：契约 · cancel 幂等 · Advisor 纯函数 · 无特权降级（部分完成，◐）。
 
 ### Wave 3 · 安全 Tab（续）
@@ -100,3 +100,5 @@
 - 2026-10-08：P0-1 NTP 真机复现结果卡把 `probeNtp(...)` 原始命令直接显示，且顶层服务器串与逐源列表重复；逐源失败原因继续本地化，将原始 `detail`/`commandHint` 收入默认折叠的技术详情并去掉重复服务器摘要。macOS arm64 独立 QA app 对文档列出的三个公共源运行一次，中英文均确认失败摘要与逐源超时原因本地化、来源只显示一次；技术详情默认收起，展开可查看原始错误与命令。当前网络三源均超时，NTP 成功路径仍待可达 UDP/123 的网络复验。NTP 面板用例 2 项、Network Probe 154 项、关键用例 244 项、`lint:fe`、`build:fe`、格式与 diff 检查通过。QA app、app support/cache/preferences、`dist` 与插件 staging 已移入废纸篓；共享 Rust 构建缓存与正式 `bench-host` 保留，正式 Bench 保持关闭。Windows 真机回归按用户安排延期。
 
 - 2026-10-08：P0-1 公网出口结果卡修复：macOS 真机复现测试与「上不了网」双入口都直接展示 API 来源、原始 JSON 和内部命令，且结果布局重复；抽出共用结果组件，成功时突出 IP/ASN，失败时给出本地化状态，原始来源、响应和命令默认折叠，按钮仍通过悬浮提示提供命令预览。修复版 macOS arm64 隔离 QA 在中英文两种语言、两处入口均确认 IP/ASN 可见、技术详情默认收起且可展开；未获取 IP 的失败分支由组件回归覆盖。Network Probe 157 项、关键测试 244 项、`lint:fe`、`build:fe`、Rust cfg 守卫、格式与文档检查通过。QA app、专属 app support/cache/preferences、`dist`、插件 staging 与临时 QA 配置已移入废纸篓；共享 Rust target、sidecar 与正式 `bench-host` 保留，正式 Bench 保持关闭。
+
+- 2026-10-08：P0-1 DNS 查询真机复现慢响应期间域名可被改写，失败提示与新表单值并列后容易误判失败目标；请求期间锁定域名、RR 类型和 resolver，并加入加载态回归。macOS arm64 隔离 QA 使用慢响应解析器验证三个参数在请求期间均禁用、尝试改值不生效，结束后恢复可编辑；首次复验发现关闭窗口只会隐藏应用，已从应用菜单彻底退出旧进程后重新构建并验证。Network Probe 159 项、关键路径 244 项、`lint:fe`、`build:fe` 通过；文档、一致性链接、格式与 diff 门禁复核通过。QA app、数据、`dist`、插件 staging 与临时配置共 167 MiB 已移入废纸篓；共享 Rust target 与正式 `bench-host` 保留，正式 Bench 保持关闭。Windows 真机回归按用户安排延期；P0-1 其他面板仍待审查。
