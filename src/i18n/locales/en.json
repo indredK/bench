@@ -2123,6 +2123,10 @@
       "vpn": "VPN-like interfaces",
       "vpnNone": "none",
       "viaTunnel": "Default route appears to go through a tunnel.",
+      "technicalDetails": "Technical details",
+      "diagnostic": "Diagnostic",
+      "proxyDiagnostic": "Proxy diagnostic",
+      "command": "Command",
       "ipv6Title": "IPv6",
       "mtuTitle": "MTU / PMTUD",
       "openMtu": "Open MTU panel",
@@ -2149,7 +2153,8 @@
         "ok": "ok",
         "partial": "partial",
         "unavailable": "unavailable",
-        "fail": "fail"
+        "fail": "fail",
+        "unknown": "unknown"
       },
       "dualValue": {
         "both": "IPv4 and IPv6 reachable",

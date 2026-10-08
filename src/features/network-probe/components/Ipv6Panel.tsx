@@ -57,7 +57,7 @@ export function Ipv6Panel({ loading, result, onRun, dualFrom }: Ipv6PanelProps) 
             {t("networkProbe.ipv6.status")}:{" "}
             <span className="font-medium">
               {t(`networkProbe.ipv6.statusValue.${result.status}`, {
-                defaultValue: result.status,
+                defaultValue: t("networkProbe.ipv6.statusValue.unknown"),
               })}
             </span>
             <span className="text-muted-foreground">
@@ -104,9 +104,7 @@ export function Ipv6Panel({ loading, result, onRun, dualFrom }: Ipv6PanelProps) 
           </div>
           <div className="text-muted-foreground text-xs">
             {t("networkProbe.ipv6.ndp")}:{" "}
-            {t(NDP_STATUS_LABEL_KEYS[result.ndpStatus] ?? "networkProbe.ipv6.ndpStatus.unknown", {
-              defaultValue: result.ndpStatus,
-            })}
+            {t(NDP_STATUS_LABEL_KEYS[result.ndpStatus] ?? "networkProbe.ipv6.ndpStatus.unknown")}
           </div>
           {result.message ||
           result.dualStack.detail ||

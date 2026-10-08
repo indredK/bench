@@ -89,6 +89,6 @@ describe("Ipv6Panel", () => {
       />,
     )
 
-    expect(screen.getByText("future-status", { exact: false })).toBeTruthy()
+    expect(screen.getByText("networkProbe.ipv6.ndpStatus.unknown", { exact: false })).toBeTruthy()
   })
 })

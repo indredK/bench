@@ -81,11 +81,11 @@ L1 → L2 映射：
 - **一键诊断为 all-or-nothing**（`runOfflineDiagnostics` 内 `Promise.allSettled` 并发 5 项）：所有子项都结束后才释放 `loadingOffline`；任一子项失败即整体失败，错误横幅 `networkProbe.errors.offlineFailed`，已成功的子项结果**不落 store**；要逐项结果可改用各子面板单独运行。公网 IP 单项刷新与一键诊断共用 `loadingOffline`；IPv6 / MTU 单项探测各有 loading，但与一键诊断共用结果槽，因此均按下方规则互斥。
 - **共享结果槽互斥**：一键诊断与独立 IPv6 / MTU 探测共用 `ipv6Result` / `mtuResult`。一键诊断运行时，两处入口都禁用独立 IPv6 / MTU 操作；任一独立探测运行时，「一键诊断」按钮禁用并提示等待。use-case 同时做互斥检查，避免跨标签页切换或脚本调用导致并发覆盖结果。
 - 各子区块（依焦点显示）：
-  - captive：状态（normal/captive/…）、detail、commandHint。
+  - captive：状态（normal/captive/…）按界面语言本地化；原始 detail 与 commandHint 默认折叠在「技术详情」中，未知状态回退为本地化的 unknown。
   - egress：公网 IP、来源、ASN/org、detail。
-  - proxy：系统代理开关、VPN 接口列表、默认路由是否走隧道（warn）。
-  - ipv6：分别展示链路本地、唯一本地（ULA）和全球单播地址；只有全球单播地址计入全局 IPv6。状态区分正常、部分、不可用，以及有全球地址但 ICMPv6 与 HTTPv6 均不可达的失败（`Ipv6Panel` 可单独运行）；双栈结论与 NDP 状态按结构化结果本地化，原生摘要、双栈/NDP 诊断、traceroute 提示和结果中的 IPC 命令收入默认折叠的技术详情，运行按钮仍通过悬浮提示预览 IPC 命令。
-  - mtu：路径 MTU 状态/数值，可跳转 Test→MTU 完整面板（`MtuPanel`）。
+  - proxy：系统代理开关、VPN 接口列表、默认路由是否走隧道（warn）直接展示；原始 proxyDetail 与 commandHint 默认折叠在「技术详情」中。
+  - ipv6：摘要卡只显示本地化状态，完整详情由下方 `Ipv6Panel` 展示；分别展示链路本地、唯一本地（ULA）和全球单播地址，只有全球单播地址计入全局 IPv6。状态区分正常、部分、不可用，以及有全球地址但 ICMPv6 与 HTTPv6 均不可达的失败（`Ipv6Panel` 可单独运行）；双栈结论与 NDP 状态按结构化结果本地化，原生摘要、双栈/NDP 诊断、traceroute 提示和结果中的 IPC 命令收入默认折叠的技术详情，运行按钮仍通过悬浮提示预览 IPC 命令。
+  - mtu：摘要卡显示本地化状态与可用的路径 MTU 数值，可跳转 Test→MTU 完整面板（`MtuPanel`）；详细诊断和命令继续由完整面板的默认折叠技术详情提供。
   - diff：对比说明文案（提示用不同出口对比）。
 
 ### 3.5 修复 fix（权限无关修复中心）
