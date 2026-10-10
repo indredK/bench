@@ -87,6 +87,72 @@ describe("MultiNodePanel node loading", () => {
     expect(props.onCompare).not.toHaveBeenCalled()
   })
 
+  it("locks the domain while a comparison is running", () => {
+    render(<MultiNodePanel {...createProps(false)} loading />)
+
+    expect(screen.getByLabelText("networkProbe.nodes.domainPlaceholder")).toBeDisabled()
+    expect(screen.getByRole("button", { name: "networkProbe.nodes.running" })).toBeDisabled()
+  })
+
+  it("localizes statuses and keeps raw output and the command collapsed", () => {
+    const rawDiagnostic = ";; SERVER: 10.0.0.1#53"
+    const commandHint = "dnsLookup(multi, 'example.com') // via globalping"
+    const props = {
+      ...createProps(false),
+      nodes: [
+        ...nodes,
+        {
+          id: "gp-0",
+          kind: "remote-proxy" as const,
+          label: "Globalping · Falkenstein/DE",
+          endpoint: "globalping:world",
+          reachable: true,
+        },
+      ],
+      result: {
+        domain: "example.com",
+        answers: [
+          { nodeId: "local", nodeLabel: "This Mac", ok: true, answers: ["192.0.2.1"] },
+          {
+            nodeId: "gp-0",
+            nodeLabel: "Globalping · Falkenstein/DE",
+            ok: false,
+            answers: [],
+            detail: rawDiagnostic,
+          },
+        ],
+        elapsedMs: 1,
+        commandHint,
+      },
+    }
+
+    render(<MultiNodePanel {...props} />)
+
+    expect(screen.getByText("networkProbe.nodes.status.success")).toBeInTheDocument()
+    expect(screen.getByText("networkProbe.nodes.status.failed")).toBeInTheDocument()
+    expect(screen.getByText("networkProbe.nodes.noAnswers")).toBeInTheDocument()
+    expect(screen.getByText(rawDiagnostic).closest("details")).not.toHaveAttribute("open")
+    expect(screen.getByText(commandHint).closest("details")).not.toHaveAttribute("open")
+
+    const probeNode = screen
+      .getByText(/Globalping · Falkenstein\/DE · networkProbe\.nodes\.kind\.remoteProxy/)
+      .closest("li")
+    expect(probeNode).toHaveTextContent("networkProbe.nodes.kind.remoteProxy")
+    expect(probeNode).not.toHaveTextContent("remote-proxy")
+    expect(probeNode).not.toHaveTextContent("globalping:world")
+  })
+
+  it("shows an empty state when the service returns no node results", () => {
+    render(
+      <MultiNodePanel
+        {...createProps(false)}
+        result={{ domain: "example.com", answers: [], elapsedMs: 1, commandHint: "" }}
+      />,
+    )
+
+    expect(screen.getByRole("status")).toHaveTextContent("networkProbe.nodes.noResults")
+  })
+
   it("blocks insecure agent URLs and explains the validation error before submit", () => {
     const props = createProps(false)
     render(<MultiNodePanel {...props} />)

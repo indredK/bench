@@ -7,11 +7,23 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { TechnicalDetails } from "@/features/network-probe/components/TechnicalDetails"
 import type { NetworkProbeAgentAction } from "@/features/network-probe/store"
 import { getProbeNodeDisplayLabel } from "@/features/network-probe/utils/probe-node-label"
 import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
 
 type AgentEndpointError = "invalid" | "scheme" | "credentials" | null
+
+function getNodeKindKey(kind: string): "remoteProxy" | "remoteAgent" | "unknown" {
+  switch (kind) {
+    case "remote-proxy":
+      return "remoteProxy"
+    case "remote-agent":
+      return "remoteAgent"
+    default:
+      return "unknown"
+  }
+}
 
 function getAgentEndpointError(endpoint: string): AgentEndpointError {
   const value = endpoint.trim()
@@ -87,6 +99,8 @@ export function MultiNodePanel({
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
               placeholder={t("networkProbe.nodes.domainPlaceholder")}
+              aria-label={t("networkProbe.nodes.domainPlaceholder")}
+              disabled={loading}
             />
             <CommandHint hint={t("networkProbe.cmd.compareDns")}>
               <Button
@@ -123,8 +137,10 @@ export function MultiNodePanel({
                 <li key={n.id} className="flex flex-wrap items-center gap-2">
                   <span>
                     {getProbeNodeDisplayLabel(n.kind, n.label, t("networkProbe.nodeSelect.local"))}
-                    {n.kind === "local" ? "" : ` · ${n.kind}`}
-                    {n.endpoint ? ` · ${n.endpoint}` : ""}
+                    {n.kind === "local"
+                      ? ""
+                      : ` · ${t(`networkProbe.nodes.kind.${getNodeKindKey(n.kind)}`)}`}
+                    {n.kind === "remote-agent" && n.endpoint ? ` · ${n.endpoint}` : ""}
                   </span>
                   {n.kind === "remote-agent" ? (
                     <span
@@ -225,27 +241,51 @@ export function MultiNodePanel({
               ms: result.elapsedMs.toFixed(0),
             })}
           </p>
-          <ul className="space-y-2 text-sm">
-            {result.answers.map((a) => (
-              <li key={a.nodeId} className="rounded-md border px-3 py-2">
-                <div className="font-medium">
-                  {getProbeNodeDisplayLabel(
-                    nodeKindsById.get(a.nodeId) ?? (a.nodeId === "local" ? "local" : undefined),
-                    a.nodeLabel,
-                    t("networkProbe.nodeSelect.local"),
-                  )}{" "}
-                  <span className="font-mono text-xs">{a.ok ? "OK" : "FAIL"}</span>
-                </div>
-                {a.answers.length > 0 ? (
-                  <pre className="text-muted-foreground mt-1 overflow-auto font-mono text-xs">
-                    {a.answers.join("\n")}
-                  </pre>
-                ) : null}
-                {a.detail ? <p className="text-muted-foreground mt-1 text-xs">{a.detail}</p> : null}
-              </li>
-            ))}
-          </ul>
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+          {result.answers.length > 0 ? (
+            <ul className="space-y-2 text-sm">
+              {result.answers.map((a) => (
+                <li key={a.nodeId} className="rounded-md border px-3 py-2">
+                  <div className="font-medium">
+                    {getProbeNodeDisplayLabel(
+                      nodeKindsById.get(a.nodeId) ?? (a.nodeId === "local" ? "local" : undefined),
+                      a.nodeLabel,
+                      t("networkProbe.nodeSelect.local"),
+                    )}{" "}
+                    <span
+                      className={
+                        a.ok
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-amber-700 dark:text-amber-400"
+                      }
+                    >
+                      {t(`networkProbe.nodes.status.${a.ok ? "success" : "failed"}`)}
+                    </span>
+                  </div>
+                  {a.answers.length > 0 ? (
+                    <pre className="text-muted-foreground mt-1 overflow-auto font-mono text-xs">
+                      {a.answers.join("\n")}
+                    </pre>
+                  ) : (
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      {t("networkProbe.nodes.noAnswers")}
+                    </p>
+                  )}
+                  <TechnicalDetails
+                    title={t("networkProbe.nodes.technicalDetails")}
+                    items={[{ label: t("networkProbe.nodes.diagnostic"), value: a.detail }]}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p role="status" className="text-muted-foreground text-sm">
+              {t("networkProbe.nodes.noResults")}
+            </p>
+          )}
+          <TechnicalDetails
+            title={t("networkProbe.nodes.technicalDetails")}
+            items={[{ label: t("networkProbe.nodes.command"), value: result.commandHint }]}
+          />
         </div>
       ) : null}
     </ProbePanelShell>

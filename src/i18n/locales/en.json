@@ -2509,7 +2509,21 @@
         "scheme": "Use HTTPS or WSS. Plaintext connections are not supported.",
         "credentials": "Credentials, query parameters, and fragments are not supported in endpoint URLs yet."
       },
-      "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
+      "kind": {
+        "remoteProxy": "Public probe",
+        "remoteAgent": "Self-hosted agent",
+        "unknown": "Other node"
+      },
+      "status": {
+        "success": "Query succeeded",
+        "failed": "Query failed"
+      },
+      "noAnswers": "This node returned no A records.",
+      "noResults": "No node results are available.",
+      "technicalDetails": "Technical details",
+      "diagnostic": "Raw diagnostic",
+      "command": "Command",
+      "meta": "{{domain}} · {{count}} node results · {{ms}} ms"
     },
     "nat": {
       "hint": "Compare the public mapping reported by several STUN servers.",

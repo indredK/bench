@@ -2509,7 +2509,21 @@
         "scheme": "端点必须使用 HTTPS 或 WSS，明文连接不受支持。",
         "credentials": "端点 URL 暂不支持用户名/密码、查询参数或片段，请移除后重试。"
       },
-      "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
+      "kind": {
+        "remoteProxy": "公共探测节点",
+        "remoteAgent": "自建 Agent",
+        "unknown": "其他节点"
+      },
+      "status": {
+        "success": "查询成功",
+        "failed": "查询失败"
+      },
+      "noAnswers": "此节点未返回 A 记录。",
+      "noResults": "没有可显示的节点结果。",
+      "technicalDetails": "技术详情",
+      "diagnostic": "原始诊断",
+      "command": "命令",
+      "meta": "{{domain}} · {{count}} 个节点结果 · {{ms}} ms"
     },
     "nat": {
       "hint": "对比多个 STUN 服务器报告的公网映射地址。",
