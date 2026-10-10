@@ -2474,6 +2474,8 @@
       "protocolMdns": "mDNS",
       "protocolSsdp": "SSDP",
       "protocolFailed": "{{protocol}} 发现未能完成。",
+      "technicalDetails": "技术详情",
+      "issueCode": "错误码",
       "unknownDevice": "未知设备",
       "deviceId": "设备 ID",
       "txtProperties": "TXT 属性",

@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { TechnicalDetails } from "@/features/network-probe/components/TechnicalDetails"
 import type {
   LanServiceItem,
   LanServiceProtocol,
@@ -74,18 +75,28 @@ export function LanServicesPanel({
     >
       {result ? (
         <div className="space-y-2">
-          {result.issues.map((issue) => (
-            <p
-              key={`${issue.protocol}-${issue.code}`}
-              role="alert"
-              className="text-xs text-amber-700 dark:text-amber-400"
-            >
-              {t("networkProbe.lanSvc.protocolFailed", {
-                protocol: protocolLabel(issue.protocol),
-              })}{" "}
-              <span className="font-mono">({issue.code})</span>
-            </p>
-          ))}
+          {result.issues.length > 0 ? (
+            <>
+              {result.issues.map((issue) => (
+                <p
+                  key={`${issue.protocol}-${issue.code}`}
+                  role="alert"
+                  className="text-xs text-amber-700 dark:text-amber-400"
+                >
+                  {t("networkProbe.lanSvc.protocolFailed", {
+                    protocol: protocolLabel(issue.protocol),
+                  })}
+                </p>
+              ))}
+              <TechnicalDetails
+                title={t("networkProbe.lanSvc.technicalDetails")}
+                items={result.issues.map((issue) => ({
+                  label: `${protocolLabel(issue.protocol)} ${t("networkProbe.lanSvc.issueCode")}`,
+                  value: issue.code,
+                }))}
+              />
+            </>
+          ) : null}
           <p className="text-muted-foreground text-xs">
             {t("networkProbe.lanSvc.meta", {
               count: result.items.length,

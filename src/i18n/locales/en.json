@@ -2474,6 +2474,8 @@
       "protocolMdns": "mDNS",
       "protocolSsdp": "SSDP",
       "protocolFailed": "{{protocol}} discovery could not complete.",
+      "technicalDetails": "Technical details",
+      "issueCode": "error code",
       "unknownDevice": "Unknown device",
       "deviceId": "ID",
       "txtProperties": "TXT",

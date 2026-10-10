@@ -82,6 +82,10 @@ describe("LanServicesPanel", () => {
     expect(rows[1]?.textContent).toContain("uuid:device-123")
     expect(rows[1]?.textContent).toContain("http://192.168.1.22:5000/device.xml …")
     expect(screen.getByRole("alert").textContent).toContain("networkProbe.lanSvc.protocolSsdp")
+    expect(screen.getByRole("alert").textContent).not.toContain("SSDP_INVALID_RESPONSE")
+    const details = screen.getByText("networkProbe.lanSvc.technicalDetails").closest("details")
+    expect(details?.open).toBe(false)
+    expect(screen.getByText("SSDP_INVALID_RESPONSE").closest("details")).toBe(details)
     expect(container.textContent).not.toContain("Read-only discovery. No UPnP Write")
     expect(container.textContent).not.toContain("M-SEARCH")
     expect(container.querySelector("[data-lan-services-scroll]")?.className).toContain(
@@ -105,6 +109,35 @@ describe("LanServicesPanel", () => {
 
     expect(screen.getByText("networkProbe.lanSvc.emptyPartial")).toBeTruthy()
     expect(screen.queryByText("networkProbe.lanSvc.empty")).toBeNull()
-    expect(screen.getByRole("alert").textContent).toContain("MDNS_DAEMON")
+    expect(screen.getByRole("alert").textContent).toContain(
+      "networkProbe.lanSvc.protocolMdns discovery could not complete.",
+    )
+    expect(screen.getByRole("alert").textContent).not.toContain("MDNS_DAEMON")
+    const details = screen.getByText("networkProbe.lanSvc.technicalDetails").closest("details")
+    expect(details?.open).toBe(false)
+    expect(screen.getByText("MDNS_DAEMON").closest("details")).toBe(details)
+  })
+
+  it("uses the localized protocol-level fallback for unknown issue codes", () => {
+    const { container } = render(
+      <LanServicesPanel
+        loading={false}
+        result={{
+          items: [],
+          issues: [{ protocol: "ssdp", code: "FUTURE_INTERNAL_CODE" }],
+          elapsedMs: 20,
+        }}
+        toolEnabled
+        onRun={() => undefined}
+      />,
+    )
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "networkProbe.lanSvc.protocolSsdp discovery could not complete.",
+    )
+    expect(screen.getByRole("alert").textContent).not.toContain("FUTURE_INTERNAL_CODE")
+    const details = container.querySelector("details")
+    expect(details?.open).toBe(false)
+    expect(screen.getByText("FUTURE_INTERNAL_CODE").closest("details")).toBe(details)
   })
 })
