@@ -58,6 +58,86 @@ afterEach(() => {
 })
 
 describe("site probe failure details", () => {
+  it("keeps the draft and existing sites when the custom-site limit is reached", async () => {
+    const savedSites = Array.from(
+      { length: 24 },
+      (_, index) => `https://example.com/bench-qa-${index + 1}`,
+    )
+    sessionStorage.setItem("network-probe:custom-sites", JSON.stringify(savedSites))
+
+    render(
+      <SitesProbePanel
+        loading={false}
+        canCancel={false}
+        cancelRequested={false}
+        result={null}
+        streaming={[]}
+        sparklines={{}}
+        packIds={["global"]}
+        toolEnabled
+        onRunPack={vi.fn()}
+        onRunCustom={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    const input = screen.getByRole("textbox", { name: "networkProbe.sites.customInput" })
+    const addButton = screen.getByRole("button", { name: "networkProbe.sites.customAdd" })
+    fireEvent.change(input, { target: { value: "https://example.com/bench-qa-25" } })
+
+    expect(screen.getByText("networkProbe.sites.customCount")).toBeTruthy()
+    expect(screen.getByText("networkProbe.sites.customLimit")).toBeTruthy()
+    expect(addButton.hasAttribute("disabled")).toBe(true)
+    expect((input as HTMLInputElement).value).toBe("https://example.com/bench-qa-25")
+    expect(screen.getAllByRole("button", { name: "networkProbe.sites.customRemove" })).toHaveLength(
+      24,
+    )
+    await waitFor(() => {
+      expect(JSON.parse(sessionStorage.getItem("network-probe:custom-sites") ?? "[]")).toEqual(
+        savedSites,
+      )
+    })
+  })
+
+  it("allows adding the final custom site up to the documented limit", async () => {
+    const savedSites = Array.from(
+      { length: 23 },
+      (_, index) => `https://example.com/bench-qa-${index + 1}`,
+    )
+    sessionStorage.setItem("network-probe:custom-sites", JSON.stringify(savedSites))
+
+    render(
+      <SitesProbePanel
+        loading={false}
+        canCancel={false}
+        cancelRequested={false}
+        result={null}
+        streaming={[]}
+        sparklines={{}}
+        packIds={["global"]}
+        toolEnabled
+        onRunPack={vi.fn()}
+        onRunCustom={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    const input = screen.getByRole("textbox", { name: "networkProbe.sites.customInput" })
+    fireEvent.change(input, { target: { value: "https://example.com/bench-qa-24" } })
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.sites.customAdd" }))
+
+    expect(screen.getAllByRole("button", { name: "networkProbe.sites.customRemove" })).toHaveLength(
+      24,
+    )
+    expect(screen.getByText("networkProbe.sites.customLimit")).toBeTruthy()
+    expect((input as HTMLInputElement).value).toBe("")
+    await waitFor(() => {
+      expect(JSON.parse(sessionStorage.getItem("network-probe:custom-sites") ?? "[]")).toHaveLength(
+        24,
+      )
+    })
+  })
+
   it("shows a localized custom-site failure and keeps the raw request error collapsed", () => {
     render(
       <SitesProbePanel

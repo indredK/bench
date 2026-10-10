@@ -20,6 +20,7 @@ const PACK_LABEL_KEYS: Record<string, string> = {
 }
 
 const CUSTOM_SITES_KEY = "network-probe:custom-sites"
+const MAX_CUSTOM_SITES = 24
 
 interface SitesProbePanelProps {
   loading: boolean
@@ -115,13 +116,16 @@ export function SitesProbePanel({
   const addCustom = () => {
     const value = draft.trim()
     if (!value) return
+    if (customSites.length >= MAX_CUSTOM_SITES) return
     if (customSites.includes(value)) {
       setDraft("")
       return
     }
-    setCustomSites((prev) => [...prev, value].slice(0, 24))
+    setCustomSites((prev) => (prev.length >= MAX_CUSTOM_SITES ? prev : [...prev, value]))
     setDraft("")
   }
+
+  const customSiteLimitReached = customSites.length >= MAX_CUSTOM_SITES
 
   return (
     <ProbePanelShell
@@ -175,7 +179,15 @@ export function SitesProbePanel({
           </div>
 
           <div className="space-y-2 rounded-lg border px-3 py-2">
-            <p className="text-xs font-medium">{t("networkProbe.sites.customTitle")}</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium">{t("networkProbe.sites.customTitle")}</p>
+              <span className="text-muted-foreground text-xs tabular-nums" aria-live="polite">
+                {t("networkProbe.sites.customCount", {
+                  count: customSites.length,
+                  max: MAX_CUSTOM_SITES,
+                })}
+              </span>
+            </div>
             <div className="flex flex-wrap items-end gap-2">
               <div className="min-w-[12rem] flex-1 space-y-1">
                 <label className="text-xs font-medium" htmlFor="np-sites-custom">
@@ -193,7 +205,7 @@ export function SitesProbePanel({
               <Button
                 type="button"
                 variant="secondary"
-                disabled={busy || !draft.trim()}
+                disabled={busy || customSiteLimitReached || !draft.trim()}
                 onClick={addCustom}
               >
                 {t("networkProbe.sites.customAdd")}
@@ -208,6 +220,11 @@ export function SitesProbePanel({
                 </Button>
               </CommandHint>
             </div>
+            {customSiteLimitReached ? (
+              <p className="text-muted-foreground text-xs" role="status">
+                {t("networkProbe.sites.customLimit", { max: MAX_CUSTOM_SITES })}
+              </p>
+            ) : null}
             {customSites.length > 0 ? (
               <ul className="flex flex-wrap gap-1.5">
                 {customSites.map((site) => (
