@@ -186,7 +186,13 @@ export function presentHealthCheckItem(item: HealthCheckItem): HealthCheckPresen
     case "diff.dns_vs_ip":
       if (raw.startsWith("Gateway unreachable")) localized = detail("diagnosisGateway")
       else if (raw.startsWith("Public IP unreachable")) localized = detail("diagnosisPublicIp")
-      else if (raw.startsWith("DNS or hosts problem")) localized = detail("diagnosisDns")
+      else if (
+        raw.startsWith("DNS resolution failed") ||
+        raw.startsWith("DNS server configuration is unavailable")
+      )
+        localized = detail("diagnosisDns")
+      else if (raw.startsWith("Suspicious hosts overrides")) localized = detail("diagnosisHosts")
+      else if (raw.startsWith("Name probe failed")) localized = detail("diagnosisNameProbe")
       else if (raw.startsWith("Public path OK")) localized = detail("diagnosisPublicPath")
       else if (raw.startsWith("Basic reachability OK"))
         localized = detail("diagnosisReachabilityOk")

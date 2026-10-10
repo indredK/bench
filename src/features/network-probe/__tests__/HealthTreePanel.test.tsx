@@ -38,6 +38,47 @@ function makeResult(item: HealthCheckItem): HealthScanResult {
 }
 
 describe("HealthTreePanel localized check presentation", () => {
+  it.each([
+    [
+      "DNS resolution failed while the public IP probe passed",
+      "networkProbe.health.details.diagnosisDns",
+    ],
+    [
+      "DNS server configuration is unavailable while the name probe failed",
+      "networkProbe.health.details.diagnosisDns",
+    ],
+    [
+      "Suspicious hosts overrides were found while the name probe failed",
+      "networkProbe.health.details.diagnosisHosts",
+    ],
+    [
+      "Name probe failed, but DNS and hosts checks did not establish the cause",
+      "networkProbe.health.details.diagnosisNameProbe",
+    ],
+  ])("localizes connection diagnosis: %s", (diagnosis, expectedSummary) => {
+    const item: HealthCheckItem = {
+      key: "diff.dns_vs_ip",
+      layer: "L3",
+      status: diagnosis.startsWith("Name probe failed") ? "warn" : "fail",
+      detail: diagnosis,
+    }
+
+    render(
+      <HealthTreePanel
+        loading={false}
+        result={makeResult(item)}
+        streamingItems={[]}
+        canCancel={false}
+        cancelRequested={false}
+        onRun={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(expectedSummary)).toBeTruthy()
+    expect(screen.getByText(diagnosis).closest("details")?.open).toBe(false)
+  })
+
   it("shows a localized check name and summary while keeping raw diagnostics collapsed", () => {
     const item: HealthCheckItem = {
       key: "link.iface",

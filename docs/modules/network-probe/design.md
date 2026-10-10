@@ -336,14 +336,14 @@ L0→L3 编排，部分并行；`healthEvent` 流式；`CancellationToken`；结
 
 #### 5.4.2 DNS vs 纯 IP 对照（MVP 强制鉴别）
 
-体检必须产出可机读对照（供 Advisor）：
+体检必须产出可机读对照（供 Advisor）。公网 IP 通而域名探测失败时，只有 `dns.resolve_name` / `dns.servers` 或 `hosts.override` 明确失败，才把结论指向 DNS / Hosts；这些检查通过或无法判断时只给原因未定的警告，并提示排查代理、TLS、防火墙或目标服务：
 
-| 网关 ping | 公共 IP ping | 域名 ping/HTTP | 结论方向                                                            |
-| :-------: | :----------: | :------------: | ------------------------------------------------------------------- |
-|   fail    |      —       |       —        | 局域网/网关/链路                                                    |
-|  skip/ok  |     fail     |      fail      | 上行断或防火墙拦外网（`skip` = 隧道默认无 next-hop，非局域网 fail） |
-|  skip/ok  |      ok      |      fail      | **DNS 或 hosts 劫持**（优先查 `dns.*` / `hosts.override`）          |
-|  skip/ok  |      ok      |       ok       | 基础连通正常；若用户仍打不开站 → Captive/代理/SNI/目标站问题        |
+| 网关 ping | 公共 IP ping | 域名 ping/HTTP | 结论方向                                                                 |
+| :-------: | :----------: | :------------: | ------------------------------------------------------------------------ |
+|   fail    |      —       |       —        | 局域网/网关/链路                                                         |
+|  skip/ok  |     fail     |      fail      | 上行断或防火墙拦外网（`skip` = 隧道默认无 next-hop，非局域网 fail）      |
+|  skip/ok  |      ok      |      fail      | DNS/Hosts 检查明确失败时指向对应问题；否则标记原因未定，不归因 DNS/Hosts |
+|  skip/ok  |      ok      |       ok       | 基础连通正常；若用户仍打不开站 → Captive/代理/SNI/目标站问题             |
 
 ### 5.5「上不了网」专项（MVP-B）
 

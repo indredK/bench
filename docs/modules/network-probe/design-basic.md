@@ -123,6 +123,8 @@ macOS 允许非 root 使用 `SOCK_DGRAM` + `IPPROTO_ICMP`（与系统 `ping(8)` 
 结束: advisor::build_opinions(items)
 ```
 
+公网 IP 可达而域名探测失败时，必须结合 `dns.servers`、`dns.resolve_name` 和 `hosts.override` 的独立结果；只有对应检查明确失败才归因 DNS/Hosts，否则显示原因未定的警告。
+
 - Fake-IP（`dns.fake_ip`）：系统 `getaddrinfo` / TUN 落在 `198.18.0.0/15` 时 warn；`reach.public_name` 跳过 ICMP。
 - 流式：`network-probe://health-item`，每项含 `key/status/evidence/commandHint`。
 - `CancellationToken`：取消后不再 emit；`cancelScan` 幂等。

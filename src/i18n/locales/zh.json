@@ -1964,7 +1964,9 @@
         "domainHttp": "域名通过 HTTP 响应（{{status}}），响应时间：{{ms}} 毫秒。",
         "diagnosisGateway": "网关无法连通，请检查本地链路或网关。",
         "diagnosisPublicIp": "公网 IP 无法连通，请检查上行链路、运营商或防火墙。",
-        "diagnosisDns": "IP 可达但域名不可达，请检查 DNS 或 Hosts 覆盖项。",
+        "diagnosisDns": "IP 可达，但 DNS 解析或 DNS 服务器配置也未通过；请检查 DNS。",
+        "diagnosisHosts": "IP 可达，且发现可疑 Hosts 覆盖项；它可能影响域名探测，请检查 Hosts 文件。",
+        "diagnosisNameProbe": "域名探测未通过，但 DNS 与 Hosts 检查没有确认原因；请检查代理、TLS、防火墙或目标服务。",
         "diagnosisPublicPath": "公网路径可用；由于默认路由经过隧道，已跳过网关 ICMP 检查。",
         "diagnosisReachabilityOk": "网关、IP 和域名的基础连通性检查均已通过。",
         "diagnosisMixed": "各项检查结果不一致。展开技术详情可查看各项状态。",
@@ -2017,6 +2019,10 @@
       "dnsVsIpDns": {
         "title": "DNS / hosts 问题（IP 通、域名不通）",
         "body": "网关与公网 IP 正常，但域名可达失败。优先排查 DNS 或 hosts。"
+      },
+      "nameProbeInconclusive": {
+        "title": "域名探测原因未确定",
+        "body": "公网 IP 可达，但域名探测未通过；DNS 与 Hosts 检查没有确认原因。请检查代理、TLS、防火墙或目标服务。"
       },
       "dnsVsIpUplink": {
         "title": "上行 / 防火墙问题",

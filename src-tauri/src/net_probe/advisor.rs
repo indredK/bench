@@ -66,7 +66,10 @@ pub fn build_opinions(items: &[HealthCheckItem]) -> Vec<HealthOpinion> {
             .find(|i| i.key == "diff.dns_vs_ip")
             .and_then(|i| i.detail.clone())
             .unwrap_or_default();
-        if detail.contains("DNS or hosts") {
+        if detail.starts_with("DNS resolution failed")
+            || detail.starts_with("DNS server configuration is unavailable")
+            || detail.starts_with("Suspicious hosts overrides")
+        {
             out.push(opinion(
                 "dns-vs-ip-dns",
                 "critical",
@@ -89,6 +92,28 @@ pub fn build_opinions(items: &[HealthCheckItem]) -> Vec<HealthOpinion> {
                 &["diff.dns_vs_ip", "reach.gateway"],
                 "networkProbe.advisor.dnsVsIpLan.title",
                 "networkProbe.advisor.dnsVsIpLan.body",
+            ));
+        }
+    }
+
+    if status("diff.dns_vs_ip") == "warn" {
+        let detail = items
+            .iter()
+            .find(|i| i.key == "diff.dns_vs_ip")
+            .and_then(|i| i.detail.as_deref())
+            .unwrap_or_default();
+        if detail.starts_with("Name probe failed") {
+            out.push(opinion(
+                "name-probe-inconclusive",
+                "warn",
+                &[
+                    "diff.dns_vs_ip",
+                    "reach.public_name",
+                    "dns.resolve_name",
+                    "hosts.override",
+                ],
+                "networkProbe.advisor.nameProbeInconclusive.title",
+                "networkProbe.advisor.nameProbeInconclusive.body",
             ));
         }
     }
@@ -198,8 +223,11 @@ mod tests {
 
     #[test]
     fn dns_vs_ip_dns_branch() {
-        let opinions =
-            build_opinions(&[item("diff.dns_vs_ip", "fail", Some("DNS or hosts issue"))]);
+        let opinions = build_opinions(&[item(
+            "diff.dns_vs_ip",
+            "fail",
+            Some("DNS resolution failed while the public IP probe passed"),
+        )]);
         assert!(opinions.iter().any(|o| o.id == "dns-vs-ip-dns"));
     }
 
@@ -283,7 +311,7 @@ mod tests {
     fn classifies_each_synthetic_dns_vs_ip_failure_direction() {
         let cases = [
             (
-                "DNS or hosts problem (IP ok, name fail)",
+                "DNS resolution failed while the public IP probe passed",
                 "dns-vs-ip-dns",
                 vec!["diff.dns_vs_ip", "dns.resolve_name", "hosts.override"],
             ),
@@ -315,6 +343,31 @@ mod tests {
             Some("Mixed signals with no classified direction"),
         )]);
         assert!(unknown_detail.is_empty());
+    }
+
+    #[test]
+    fn inconclusive_name_probe_emits_warning_instead_of_dns_failure() {
+        let opinions = build_opinions(&[item(
+            "diff.dns_vs_ip",
+            "warn",
+            Some("Name probe failed, but DNS and hosts checks did not establish the cause"),
+        )]);
+        let warning = opinions
+            .iter()
+            .find(|opinion| opinion.id == "name-probe-inconclusive")
+            .expect("an unclassified name probe failure should remain visible as a warning");
+
+        assert_eq!(warning.severity, "warn");
+        assert!(!opinions.iter().any(|opinion| opinion.id == "dns-vs-ip-dns"));
+        assert_eq!(
+            warning.related_keys,
+            [
+                "diff.dns_vs_ip",
+                "reach.public_name",
+                "dns.resolve_name",
+                "hosts.override",
+            ]
+        );
     }
 
     #[test]

@@ -1964,7 +1964,9 @@
         "domainHttp": "Domain responded over HTTP ({{status}}); response time: {{ms}} ms.",
         "diagnosisGateway": "The gateway could not be reached. Check the local link or gateway.",
         "diagnosisPublicIp": "The public IP could not be reached. Check the uplink, ISP, or firewall.",
-        "diagnosisDns": "The IP is reachable, but the domain is not. Check DNS or hosts overrides.",
+        "diagnosisDns": "The IP is reachable, but DNS resolution or DNS server configuration also failed. Check DNS.",
+        "diagnosisHosts": "The IP is reachable and a suspicious hosts override was found. It may affect the domain probe; review the hosts file.",
+        "diagnosisNameProbe": "The domain probe failed, but DNS and hosts checks did not establish the cause. Check the proxy, TLS, firewall, or target service.",
         "diagnosisPublicPath": "The public network path is available; gateway ICMP was skipped for the tunnel route.",
         "diagnosisReachabilityOk": "Basic gateway, IP, and domain reachability checks passed.",
         "diagnosisMixed": "The checks returned mixed results. Expand technical details for the per-check states.",
@@ -2017,6 +2019,10 @@
       "dnsVsIpDns": {
         "title": "DNS / hosts issue (IP ok, name fail)",
         "body": "Gateway and public IP work, but name reachability failed. Prefer DNS or hosts fixes first."
+      },
+      "nameProbeInconclusive": {
+        "title": "Domain probe cause is unclear",
+        "body": "The public IP is reachable, but the domain probe failed without a confirmed DNS or hosts issue. Check the proxy, TLS, firewall, or target service."
       },
       "dnsVsIpUplink": {
         "title": "Uplink / firewall issue",
