@@ -5,7 +5,12 @@ import { PingPanel } from "@/features/network-probe/components/PingPanel"
 import type { GlobalpingPingResult, PingProbeResult } from "@/lib/tauri/types/network-probe"
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, options?: Record<string, unknown>) =>
+      key === "networkProbe.probe.resultFor" && typeof options?.target === "string"
+        ? `${key}:${options.target}`
+        : key,
+  }),
 }))
 
 vi.mock("@/components/common/CommandHint", () => ({
@@ -114,6 +119,19 @@ describe("PingPanel", () => {
     expect(screen.getByRole("table", { name: "networkProbe.ping.liveResults" })).toBeTruthy()
   })
 
+  it("keeps the original local target associated with the result after editing the input", () => {
+    renderPanel({ result: successResult })
+
+    const targetLabel = "networkProbe.probe.resultFor:127.0.0.1"
+    expect(screen.getByText(targetLabel)).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText("networkProbe.ping.target"), {
+      target: { value: "127.0.0.2" },
+    })
+
+    expect(screen.getByText(targetLabel)).toBeTruthy()
+  })
+
   it("keeps the Globalping command collapsed in technical details", () => {
     renderPanel({ remoteMode: true, remoteResult: remoteSuccessResult })
 
@@ -122,6 +140,12 @@ describe("PingPanel", () => {
 
     expect(details?.open).toBe(false)
     expect(details?.textContent).toContain(remoteSuccessResult.commandHint)
+  })
+
+  it("shows the target used for the Globalping result", () => {
+    renderPanel({ remoteMode: true, remoteResult: remoteSuccessResult })
+
+    expect(screen.getByText("networkProbe.probe.resultFor:example.com")).toBeTruthy()
   })
 
   it("uses platform-neutral missed-reply guidance outside macOS", () => {

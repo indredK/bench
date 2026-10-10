@@ -173,6 +173,9 @@ export function PingPanel({
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           {result ? (
             <div>
+              <p className="text-muted-foreground text-xs break-all">
+                {t("networkProbe.probe.resultFor", { target: result.target })}
+              </p>
               {t("networkProbe.ping.resolved")}:{" "}
               <span className="font-mono font-medium">{result.resolvedIp}</span>
             </div>
@@ -264,6 +267,9 @@ export function PingPanel({
               location: remoteLocationLabel ?? remoteResult.location,
             })}
           </div>
+          <p className="text-muted-foreground text-xs break-all">
+            {t("networkProbe.probe.resultFor", { target: remoteResult.target })}
+          </p>
           {remoteResult.probeCity || remoteResult.probeCountry ? (
             <div className="text-muted-foreground text-xs">
               {t("networkProbe.globalping.actualProbeLocation", {
