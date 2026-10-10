@@ -107,6 +107,7 @@ L1 → L2 映射：
 ### 3.6 报告 report
 
 - 当前体检结果导出：**JSON**（整份 `HealthScanResult`）与 **Markdown**（含每个检查项与建议）浏览器下载；隐私提示文案。
+- 页面摘要只显示检查数、耗时、取消状态和隐私提示；不重复展示原始 `commandHint` / session ID，命令由日志追溯；完整导出字段保持不变。
 - **历史快照**：最近 10 次未取消体检（localStorage `network-probe:report-history`），显示 sessionId/项数/耗时/建议数，可清空。
 - **命令日志**：完整命令列表，可清空。
 

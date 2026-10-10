@@ -45,6 +45,7 @@
 - [§5/§9] `src-tauri/src/net_probe/health.rs::synthesize_dns_vs_ip` - 公网 IP 可达、域名 HTTP 探测失败时无条件归因 DNS/Hosts，即使独立 DNS/Hosts 检查通过；Advisor 因此可能提示无关修复 - 合成诊断结合 `dns.servers`、`dns.resolve_name`、`hosts.override` 证据，无支持证据时改为原因未定警告，并本地化对应摘要 - **强制** - 状态：已修复（Medium；macOS 27.0.1 arm64 隔离 QA 真机运行 21 项，复现公网 IP/DNS/Hosts 正常、域名探测失败和公网出口 HTTP 200 的组合；Health Tree 显示原因未定警告，Advisor 显示代理/TLS/防火墙/目标服务建议，无 DNS/Hosts 严重错误）
 
 - [§4/§5] `src/features/network-probe/components/PackInstallDialog.tsx` - **Low**：能力包列表把后端 `installed` / `available` / `unavailable` 状态直接插入界面，中文用户可见原始英文 `available` - 状态按中英文 locale 映射，未知值回退为本地化“状态未知”；补四态组件回归 - **强制** - 状态：已修复（macOS 27.0.1 arm64 隔离 Bench QA 基线与修复版 UI 分别复现与确认；中文显示“可用”，英文显示“Available”；QA 进程退出且正式 `bench-host` 保留）
+- [§3/§5] `src/features/network-probe/components/ReportPanel.tsx` - **Low**：报告页在导出按钮下直接显示带 session ID 的原始 `commandHint`，同一会话已在两个命令日志区域展示 - 移除报告摘要中的重复原始命令，保留命令日志和带隐私提示的导出；补报告页回归 - **强制** - 状态：已修复（macOS 27.0.1 arm64 隔离 QA 对只读 21 项体检两次复现；修复版再次实跑 21 项，中英文报告页均不再显示原始命令，隐私提示、历史与命令日志保留）
 
 未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
 

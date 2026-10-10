@@ -121,7 +121,6 @@ export function ReportPanel({
                   {t("networkProbe.report.exportMd")}
                 </Button>
               </div>
-              <p className="text-muted-foreground font-mono text-xs">{health.commandHint}</p>
             </div>
           )}
         </>
