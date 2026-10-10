@@ -44,6 +44,8 @@
 - [§3/§5/§9] `src/features/network-probe/components/HealthTreePanel.tsx` - Health Tree 完成后在检查树下方直接重复输出含 `sessionId` 的 `HealthScanResult.commandHint`，即使工具栏已显示通用命令预览且右侧命令日志已记录该会话；不符合体检规格的命令/诊断默认收纳方式 - 移除结果区重复输出，保留工具栏预览、命令日志和行级默认折叠技术详情；补 session-specific command 不渲染的回归 - **强制** - 状态：已修复（Medium；macOS 27.0.1 arm64 隔离 QA 真机运行 21 项体检复现，完成后结果区暴露 session ID，行级详情保持折叠；修复版 macOS 27.0.1 arm64 QA 再跑 21 项，结果区不再显示该命令，工具栏预览、带时间戳启动/完成日志和行级折叠详情保留；HealthTreePanel 5 项、Network Probe 42 个文件/199 项、`test:critical` 244 项、`lint:fe`、88 份 Markdown 链接与 Prettier 通过；前后截图见 `/tmp/bench-dogfood-20261010/health-command/screenshots/baseline-window.png` 和 `after-window.png`）
 - [§5/§9] `src-tauri/src/net_probe/health.rs::synthesize_dns_vs_ip` - 公网 IP 可达、域名 HTTP 探测失败时无条件归因 DNS/Hosts，即使独立 DNS/Hosts 检查通过；Advisor 因此可能提示无关修复 - 合成诊断结合 `dns.servers`、`dns.resolve_name`、`hosts.override` 证据，无支持证据时改为原因未定警告，并本地化对应摘要 - **强制** - 状态：已修复（Medium；macOS 27.0.1 arm64 隔离 QA 真机运行 21 项，复现公网 IP/DNS/Hosts 正常、域名探测失败和公网出口 HTTP 200 的组合；Health Tree 显示原因未定警告，Advisor 显示代理/TLS/防火墙/目标服务建议，无 DNS/Hosts 严重错误）
 
+- [§4/§5] `src/features/network-probe/components/PackInstallDialog.tsx` - **Low**：能力包列表把后端 `installed` / `available` / `unavailable` 状态直接插入界面，中文用户可见原始英文 `available` - 状态按中英文 locale 映射，未知值回退为本地化“状态未知”；补四态组件回归 - **强制** - 状态：已修复（macOS 27.0.1 arm64 隔离 Bench QA 基线与修复版 UI 分别复现与确认；中文显示“可用”，英文显示“Available”；QA 进程退出且正式 `bench-host` 保留）
+
 未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
 
 ## 记录格式

@@ -2673,6 +2673,12 @@
       "dialogHint": "高级扫描与 helper 仅按后端 manifest 安装 — 前端不得提交下载 URL（D-017）。",
       "markerOnly": "标记安装（制品尚未发布）",
       "meta": "v{{version}} · {{sizeMb}} MB · {{status}}",
+      "status": {
+        "installed": "已安装",
+        "available": "可用",
+        "unavailable": "不可用",
+        "unknown": "状态未知"
+      },
       "gatekeeperNote": "ad-hoc / 未签名构建不得宣称 sidecar 已获 Gatekeeper 信任（D-010）。",
       "empty": "当前平台无可用能力包。",
       "refresh": "刷新",

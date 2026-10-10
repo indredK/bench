@@ -2673,6 +2673,12 @@
       "dialogHint": "Advanced scanners and helpers install from a backend manifest only — the UI never supplies download URLs (D-017).",
       "markerOnly": "marker install (artifact pending)",
       "meta": "v{{version}} · {{sizeMb}} MB · {{status}}",
+      "status": {
+        "installed": "Installed",
+        "available": "Available",
+        "unavailable": "Unavailable",
+        "unknown": "Unknown status"
+      },
       "gatekeeperNote": "Ad-hoc / unsigned builds cannot claim Gatekeeper trust for sidecars (D-010).",
       "empty": "No packs available on this platform.",
       "refresh": "Refresh",

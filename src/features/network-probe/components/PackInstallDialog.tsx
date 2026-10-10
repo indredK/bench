@@ -51,6 +51,18 @@ export function PackInstallDialog({
 
   const current = packs.find((p) => p.id === selected) ?? packs[0] ?? null
   const actionBusy = busy || refreshing
+  const packStatusLabel = (status: string) => {
+    switch (status) {
+      case "installed":
+        return t("networkProbe.packs.status.installed")
+      case "available":
+        return t("networkProbe.packs.status.available")
+      case "unavailable":
+        return t("networkProbe.packs.status.unavailable")
+      default:
+        return t("networkProbe.packs.status.unknown")
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -78,7 +90,7 @@ export function PackInstallDialog({
                     {t("networkProbe.packs.meta", {
                       version: pack.version,
                       sizeMb: (pack.sizeBytes / 1_000_000).toFixed(1),
-                      status: pack.status,
+                      status: packStatusLabel(pack.status),
                     })}
                     {pack.artifactReady ? "" : ` · ${t("networkProbe.packs.markerOnly")}`}
                   </div>
