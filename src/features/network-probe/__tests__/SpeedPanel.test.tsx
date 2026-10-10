@@ -100,21 +100,33 @@ describe("SpeedPanel result feedback", () => {
   })
 
   it("keeps raw backend failure details collapsed by default", () => {
-    renderPanel({
-      result: {
-        ...completeResult,
-        pingMs: undefined,
-        jitterMs: undefined,
-        downloadMbps: undefined,
-        uploadMbps: undefined,
-        ok: false,
-        message: "Speed source unreachable or returned no usable samples.",
-      },
-    })
+    const result: SpeedTestResult = {
+      ...completeResult,
+      pingMs: undefined,
+      jitterMs: undefined,
+      downloadMbps: undefined,
+      uploadMbps: undefined,
+      ok: false,
+      message: "Speed source unreachable or returned no usable samples.",
+      commandHint: "startSpeedTest('test-source') // sessionId=session-1",
+    }
+    renderPanel({ result })
 
     const details = screen.getByText("networkProbe.speed.technicalDetails").closest("details")
     expect(details?.open).toBe(false)
     expect(screen.getByText("networkProbe.speed.sourceUnavailable")).toBeTruthy()
+    expect(screen.getByText(result.message!).closest("details")).toBe(details)
+    expect(screen.getByText(result.commandHint).closest("details")).toBe(details)
+    fireEvent.click(screen.getByText("networkProbe.speed.technicalDetails"))
+    expect(details?.open).toBe(true)
+  })
+
+  it("keeps the command hint available in collapsed technical details for successful results", () => {
+    renderPanel({ result: completeResult })
+
+    const details = screen.getByText("networkProbe.speed.technicalDetails").closest("details")
+    expect(details?.open).toBe(false)
+    expect(screen.getByText(completeResult.commandHint).closest("details")).toBe(details)
   })
 
   it("localizes streaming phase failures instead of displaying raw network errors", () => {

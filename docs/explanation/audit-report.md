@@ -58,3 +58,4 @@
 审计前先读本文件；修复后更新或删除对应风险，不追加无追踪价值的流水账。
 
 - [§3/§5] `src/features/network-probe/components/FixPanel.tsx` - **Low**：一键修复结果卡原样显示 `flushDns` 等后端动作值、系统英文诊断与 `commandHint`；命令已在工具栏预览，造成重复并让中文界面混入英文 - 动作名改为本地化映射；成功/失败状态提供 `status` / `alert` 语义，原始 `message` 和命令收进默认折叠的技术详情；补已知/未知动作回归 - **强制** - 状态：已修复（macOS 27.0.1 arm64 隔离 QA 真机先后在中文/英文复现和复验；刷新 DNS 成功状态本地化，原始诊断与命令默认折叠，展开仍可查看）
+- [§3/§5/§9] `src/features/network-probe/components/SpeedPanel.tsx` — Risk [前端]：测速结果卡在诊断默认折叠、调用已记入命令日志后仍直出含 `sessionId` 的 `commandHint`，重复信息挤占指标卡空间。Severity: Low。Refactor: 诊断与命令统一使用共享 `TechnicalDetails` 默认折叠，按钮预览和带时间戳命令日志保留；增加失败和成功结果回归。Philosophy: 普通用户先看到结果和本地化状态，原始实现信息按需展开，同时保留可追溯性和双语标签。状态：已修复；macOS 27.0.1 arm64 隔离 QA 真机中英文失败路径均确认结果卡隐藏命令、日志保留调用，技术详情默认收起且可展开查看诊断和命令。

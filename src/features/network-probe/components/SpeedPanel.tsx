@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { ScanCancelButton } from "@/features/network-probe/components/ScanCancelButton"
+import { TechnicalDetails } from "@/features/network-probe/components/TechnicalDetails"
 import type {
   SpeedSampleEvent,
   SpeedSource,
@@ -223,14 +224,16 @@ export function SpeedPanel({
               {t("networkProbe.speed.partialResult")}
             </p>
           ) : null}
-          {result.message && !result.cancelled ? (
-            <details className="text-muted-foreground text-xs">
-              <summary className="cursor-pointer">
-                {t("networkProbe.speed.technicalDetails")}
-              </summary>
-              <pre className="mt-1 font-mono whitespace-pre-wrap">{result.message}</pre>
-            </details>
-          ) : null}
+          <TechnicalDetails
+            title={t("networkProbe.speed.technicalDetails")}
+            items={[
+              {
+                label: t("networkProbe.speed.diagnostic"),
+                value: result.message && !result.cancelled ? result.message : undefined,
+              },
+              { label: t("networkProbe.speed.command"), value: result.commandHint },
+            ]}
+          />
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Metric
               label={t("networkProbe.speed.ping")}
@@ -249,7 +252,6 @@ export function SpeedPanel({
               value={result.uploadMbps != null ? `${result.uploadMbps.toFixed(1)} Mbps` : "—"}
             />
           </div>
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}
     </ProbePanelShell>

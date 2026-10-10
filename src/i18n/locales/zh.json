@@ -2283,6 +2283,8 @@
       "phaseFailed": "此阶段请求失败",
       "phaseHttpError": "服务返回 HTTP {{status}}",
       "technicalDetails": "技术详情",
+      "diagnostic": "原始诊断",
+      "command": "命令提示",
       "ping": "延迟",
       "jitter": "抖动",
       "download": "下载",

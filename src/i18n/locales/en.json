@@ -2283,6 +2283,8 @@
       "phaseFailed": "This phase request failed",
       "phaseHttpError": "The service returned HTTP {{status}}",
       "technicalDetails": "Technical details",
+      "diagnostic": "Raw diagnostic",
+      "command": "Command hint",
       "ping": "Ping",
       "jitter": "Jitter",
       "download": "Download",
