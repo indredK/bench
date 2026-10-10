@@ -33,6 +33,7 @@
 - [§3/§5/§9] `src/features/network-probe/components/Ipv6Panel.tsx` - 双栈/NDP 状态及原生摘要、诊断、traceroute 提示和命令直接显示，摘要漏本地化且普通用户默认暴露技术细节 - 双栈结论与 NDP 状态改为按结构化 DTO 本地化；原始信息与结果命令移入默认折叠的技术详情，运行按钮保留 IPC 命令悬浮预览；补组件回归 - **强制** - 状态：已修复（macOS arm64 QA 包以合成 DTO 验证中英结果、折叠和展开，不执行 IPv6 探测）
 - [§3/§4/§5/§9] `src/features/network-probe/components/OfflinePanel.tsx` - 上不了网概览摘要直接显示 Captive/代理诊断、命令及 IPv6/MTU 原生错误细节，部分未知状态也会把后端标识原样暴露给用户 - 状态本地化并增加未知值回退；Captive/代理原始诊断与命令移入默认折叠的技术详情，IPv6/MTU 摘要精简为本地化状态与路径 MTU，完整细节保留在各自面板；补合成 DTO 回归 - **强制** - 状态：已修复（macOS arm64 隔离 QA 验证中英文摘要及展开/收起，未执行 IPv6/MTU/一键网络探测）
 - [§3/§5/§9] `src/features/network-probe/components/PcapDiagPanel.tsx` - PCAP 结果卡直接显示内部模式名、原始英文诊断和含 session ID 的命令；不可用结果仍显示零计数，容易被理解为成功的空采样 - 按 locale 本地化状态与模式；只在计数采样模式展示统计；不可用时明确显示无采样且隐藏重复模式标签；诊断和命令收进默认折叠的共享技术详情组件；补中英文、未知模式、不可用及取消回归 - **强制** - 状态：已修复（macOS arm64 合成 DTO 真机验证中英文成功/不可用状态和详情展开/收起；未授权、未抓包）
+- [§3/§5/§9] `src/features/network-probe/components/PortScanPanel.tsx`、`src/features/network-probe/page.tsx`、`src/features/network-probe/utils/capability-presentation.ts` - 端口扫描结果没有标明原目标，表单可编辑导致旧结果被误认；零样本取消无结果说明；原始命令直出；能力禁用提示与平台/权限摘要泄漏 `portScan`、`unsupported`、`macos`、`none` 内部标识 - 结果显示 DTO 原目标，零样本增加本地化状态，诊断与命令默认折叠，能力摘要映射为中性本地化平台/权限文案 - **强制** - 状态：已修复（macOS arm64 隔离 QA 用合成 DTO 验证中英文目标关联、禁用提示、平台摘要和详情展示；SecurityAuthGate 未授权、未扫描）
 
 未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
 

@@ -2411,6 +2411,11 @@
         "unknown": "扫描方式未知。"
       },
       "cancelled": "扫描已取消，以下为取消前收到的结果。",
+      "noSamples": "尚未收到端口扫描结果。",
+      "resultTarget": "本次扫描目标：{{target}}",
+      "technicalDetails": "技术详情",
+      "technicalReason": "扫描说明",
+      "command": "命令",
       "confirmTitle": "确认端口扫描范围",
       "confirmDesc": "目标 {{target}} · 约 {{count}} 个端口。公网主机或较大范围需二次确认。",
       "confirmConsequence": "仅扫描自有或已授权资产。扫描器可能使用 SYN 或 TCP connect，不会运行漏洞利用或服务版本检测脚本。",
@@ -2659,8 +2664,20 @@
       }
     },
     "caps": {
-      "banner": "platform={{platform}} · privilege={{privilege}}（工具状态来自能力矩阵）",
-      "toolDisabled": "{{tool}} status={{status}} — 已按能力矩阵禁用"
+      "banner": "平台：{{platform}} · 权限：{{privilege}}",
+      "platform": {
+        "macos": "macOS",
+        "windows": "Windows",
+        "linux": "Linux",
+        "unknown": "未知平台"
+      },
+      "privilege": {
+        "none": "未提权",
+        "user": "普通用户",
+        "elevated": "管理员权限",
+        "unknown": "权限未知"
+      },
+      "toolDisabled": "此功能在当前环境暂不可用。"
     },
     "badge": {
       "post": "Post",

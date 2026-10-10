@@ -37,6 +37,10 @@ import { ScanOpinionPanel } from "@/features/network-probe/components/ScanOpinio
 import { SecurityAuthGate } from "@/features/network-probe/components/SecurityAuthGate"
 import { SitesProbePanel } from "@/features/network-probe/components/SitesProbePanel"
 import { selectSiteProbePanelResults } from "@/features/network-probe/utils/site-probe-results"
+import {
+  capabilityPlatformLabelKey,
+  capabilityPrivilegeLabelKey,
+} from "@/features/network-probe/utils/capability-presentation"
 import { SpeedPanel } from "@/features/network-probe/components/SpeedPanel"
 import { TcpConnectPanel } from "@/features/network-probe/components/TcpConnectPanel"
 import { TraceroutePanel } from "@/features/network-probe/components/TraceroutePanel"
@@ -335,8 +339,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                       <span className="mx-1 opacity-50">·</span>
                       <span className="font-mono">
                         {t("networkProbe.caps.banner", {
-                          platform: c.capabilities.platform,
-                          privilege: c.capabilities.privilegeLevel,
+                          platform: t(capabilityPlatformLabelKey(c.capabilities.platform)),
+                          privilege: t(capabilityPrivilegeLabelKey(c.capabilities.privilegeLevel)),
                         })}
                       </span>
                     </>

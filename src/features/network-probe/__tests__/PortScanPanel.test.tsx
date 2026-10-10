@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { PortScanPanel } from "@/features/network-probe/components/PortScanPanel"
 import type { PortScanResult } from "@/lib/tauri/types/network-probe"
@@ -23,6 +23,12 @@ const { setLanguage, translate } = vi.hoisted(() => {
       "networkProbe.ports.mode.tcpConnect": "使用 TCP connect 扫描。",
       "networkProbe.ports.mode.unknown": "扫描方式未知。",
       "networkProbe.ports.cancelled": "扫描已取消，以下为取消前收到的结果。",
+      "networkProbe.ports.noSamples": "尚未收到端口扫描结果。",
+      "networkProbe.ports.resultTarget": "本次扫描目标：{{target}}",
+      "networkProbe.ports.technicalDetails": "技术详情",
+      "networkProbe.ports.technicalReason": "扫描说明",
+      "networkProbe.ports.command": "命令",
+      "networkProbe.caps.toolDisabled": "此功能在当前环境暂不可用。",
       "networkProbe.ports.degradedHint": "降级扫描",
     },
     en: {
@@ -43,6 +49,13 @@ const { setLanguage, translate } = vi.hoisted(() => {
       "networkProbe.ports.mode.unknown": "Unknown scan method.",
       "networkProbe.ports.cancelled":
         "Scan cancelled; the results below were received before cancellation.",
+      "networkProbe.ports.noSamples": "No port scan results were received.",
+      "networkProbe.ports.resultTarget": "Scan result for: {{target}}",
+      "networkProbe.ports.technicalDetails": "Technical details",
+      "networkProbe.ports.technicalReason": "Scan details",
+      "networkProbe.ports.command": "Command",
+      "networkProbe.caps.toolDisabled":
+        "This feature is currently unavailable in this environment.",
       "networkProbe.ports.degradedHint": "Degraded scan",
     },
   }
@@ -124,12 +137,16 @@ describe("PortScanPanel localized results", () => {
     renderPanel()
 
     expect(screen.getByText("7000: 开放")).toBeTruthy()
+    expect(screen.getByText("本次扫描目标：127.0.0.1")).toBeTruthy()
     expect(screen.getByText("65534: 关闭")).toBeTruthy()
     expect(screen.getByText("65533: 已过滤 / 无响应")).toBeTruthy()
     expect(screen.getByText("65532: 错误")).toBeTruthy()
     expect(screen.getByText("65531: 未知")).toBeTruthy()
     expect(screen.getByText("使用 Nmap；按权限使用 SYN 或 TCP connect。")).toBeTruthy()
-    expect(screen.queryByText(result.message!)).toBeNull()
+    const details = screen.getByText("技术详情").closest("details")
+    expect(details?.open).toBe(false)
+    expect(details?.textContent).toContain(result.message)
+    expect(details?.textContent).toContain(result.commandHint)
     expect(screen.queryByText("networkProbe.ports.degradedHint")).toBeNull()
   })
 
@@ -138,6 +155,7 @@ describe("PortScanPanel localized results", () => {
     renderPanel()
 
     expect(screen.getByText("7000: Open")).toBeTruthy()
+    expect(screen.getByText("Scan result for: 127.0.0.1")).toBeTruthy()
     expect(screen.getByText("65534: Closed")).toBeTruthy()
     expect(screen.getByText("65533: Filtered / no response")).toBeTruthy()
     expect(
@@ -145,6 +163,9 @@ describe("PortScanPanel localized results", () => {
         "Scanned with Nmap; SYN or TCP connect is selected by available privileges.",
       ),
     ).toBeTruthy()
+    const details = screen.getByText("Technical details").closest("details")
+    expect(details?.open).toBe(false)
+    expect(details?.textContent).toContain(result.commandHint)
   })
 
   it("localizes TCP-connect mode and cancellation feedback", () => {
@@ -153,5 +174,43 @@ describe("PortScanPanel localized results", () => {
 
     expect(screen.getByText("使用 TCP connect 扫描。")).toBeTruthy()
     expect(screen.getByText("扫描已取消，以下为取消前收到的结果。")).toBeTruthy()
+  })
+
+  it("explains when cancellation completes before any samples arrive", () => {
+    setLanguage("zh")
+    renderPanel({ ...result, samples: [], openPorts: [], cancelled: true })
+
+    expect(screen.getByText("扫描已取消，以下为取消前收到的结果。")).toBeTruthy()
+    expect(screen.getByRole("status").textContent).toBe("尚未收到端口扫描结果。")
+  })
+
+  it("keeps the result target clear when the editable form target changes", () => {
+    setLanguage("zh")
+    renderPanel()
+
+    fireEvent.change(screen.getByLabelText("目标"), { target: { value: "192.0.2.25" } })
+
+    expect(screen.getByLabelText("目标").getAttribute("value")).toBe("192.0.2.25")
+    expect(screen.getByText("本次扫描目标：127.0.0.1")).toBeTruthy()
+  })
+
+  it("localizes capability-disabled feedback without exposing internal identifiers", () => {
+    setLanguage("zh")
+    render(
+      <PortScanPanel
+        loading={false}
+        canCancel={false}
+        cancelRequested={false}
+        result={null}
+        streaming={[]}
+        toolEnabled={false}
+        toolStatus="unsupported"
+        onRun={() => undefined}
+        onCancel={() => undefined}
+      />,
+    )
+
+    expect(screen.getByText("此功能在当前环境暂不可用。")).toBeTruthy()
+    expect(screen.queryByText(/portScan|unsupported/)).toBeNull()
   })
 })

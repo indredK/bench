@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { ScanCancelButton } from "@/features/network-probe/components/ScanCancelButton"
+import { TechnicalDetails } from "@/features/network-probe/components/TechnicalDetails"
 import type { PortSampleEvent, PortScanResult } from "@/lib/tauri/types/network-probe"
 
 interface PortScanPanelProps {
@@ -187,6 +188,9 @@ export function PortScanPanel({
       ) : null}
       {result ? (
         <div className="text-muted-foreground space-y-1 text-xs">
+          <p className="font-medium">
+            {t("networkProbe.ports.resultTarget", { target: result.target || "—" })}
+          </p>
           <p>{t(`networkProbe.ports.mode.${getPortModeKey(result.mode)}`)}</p>
           {result.cancelled ? <p>{t("networkProbe.ports.cancelled")}</p> : null}
         </div>
@@ -202,8 +206,19 @@ export function PortScanPanel({
           ))}
         </ul>
       ) : null}
-      {result?.commandHint ? (
-        <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+      {result && samples.length === 0 ? (
+        <p role="status" className="text-muted-foreground text-sm">
+          {t("networkProbe.ports.noSamples")}
+        </p>
+      ) : null}
+      {result ? (
+        <TechnicalDetails
+          title={t("networkProbe.ports.technicalDetails")}
+          items={[
+            { label: t("networkProbe.ports.technicalReason"), value: result.message },
+            { label: t("networkProbe.ports.command"), value: result.commandHint },
+          ]}
+        />
       ) : null}
 
       <DestructiveConfirmDialog

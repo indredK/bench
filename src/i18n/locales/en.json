@@ -2411,6 +2411,11 @@
         "unknown": "Unknown scan method."
       },
       "cancelled": "Scan cancelled; the results below were received before cancellation.",
+      "noSamples": "No port scan results were received.",
+      "resultTarget": "Scan result for: {{target}}",
+      "technicalDetails": "Technical details",
+      "technicalReason": "Scan details",
+      "command": "Command",
       "confirmTitle": "Confirm port scan scope",
       "confirmDesc": "Target {{target}} · about {{count}} ports. Public hosts or large ranges need an extra confirm.",
       "confirmConsequence": "Only scan assets you own or are authorized to test. The scanner may use SYN or TCP connect; Nmap scripts and service-version detection are disabled.",
@@ -2659,8 +2664,20 @@
       }
     },
     "caps": {
-      "banner": "platform={{platform}} · privilege={{privilege}} (tools from capabilities matrix)",
-      "toolDisabled": "{{tool}} status={{status}} — action disabled by capabilities matrix"
+      "banner": "Platform: {{platform}} · Privilege: {{privilege}}",
+      "platform": {
+        "macos": "macOS",
+        "windows": "Windows",
+        "linux": "Linux",
+        "unknown": "Unknown platform"
+      },
+      "privilege": {
+        "none": "Not elevated",
+        "user": "Standard user",
+        "elevated": "Administrator privileges",
+        "unknown": "Unknown privilege level"
+      },
+      "toolDisabled": "This feature is currently unavailable in this environment."
     },
     "badge": {
       "post": "Post",
