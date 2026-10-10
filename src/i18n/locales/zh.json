@@ -2425,6 +2425,9 @@
       "running": "扫描中…",
       "cancel": "取消",
       "openList": "开放：{{ports}}",
+      "openListCount": "开放端口：{{count}} 个",
+      "openPortsList": "开放端口列表",
+      "samplesList": "端口扫描结果",
       "state": {
         "open": "开放",
         "closed": "关闭",
@@ -2460,6 +2463,7 @@
       "openSettings": "打开系统网络设置",
       "cidr": "扫描网段：{{cidr}}",
       "meta": "{{count}} 个邻居 · {{mode}} · {{ms}} ms",
+      "neighborsList": "ARP 邻居列表",
       "modeCache": "ARP 缓存",
       "modeCacheTcpSweep": "缓存 + TCP 探测",
       "modeUnknown": "发现方式未知",
@@ -2630,6 +2634,8 @@
       "cancel": "取消",
       "cancelled": "已取消",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
+      "tableRegion": "Traceroute 跳点结果",
+      "tableCaption": "Traceroute 跳点表",
       "empty": "尚无跳点。运行追踪以填充表格。",
       "message": {
         "unprivileged": "特权 ICMP 不可用，已使用无特权 UDP 完成追踪。",

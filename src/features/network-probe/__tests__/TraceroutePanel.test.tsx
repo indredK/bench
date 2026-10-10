@@ -6,6 +6,24 @@ import type { TracerouteResult } from "@/lib/tauri/types/network-probe"
 
 type OnRun = (target: string, maxTtl: number, rounds: number) => void
 
+vi.mock("@tanstack/react-virtual", () => ({
+  useVirtualizer: (options: {
+    count: number
+    estimateSize: () => number
+    getItemKey: (index: number) => string | number
+  }) => ({
+    getTotalSize: () => options.count * options.estimateSize(),
+    getVirtualItems: () =>
+      Array.from({ length: Math.min(options.count, 8) }, (_, index) => ({
+        index,
+        start: index * options.estimateSize(),
+        size: options.estimateSize(),
+        key: options.getItemKey(index),
+      })),
+    measureElement: () => undefined,
+  }),
+}))
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, options?: Record<string, string | number>) =>
@@ -151,5 +169,27 @@ describe("TraceroutePanel", () => {
     const details = screen.getByText("networkProbe.traceroute.technicalDetails").closest("details")
     expect(details?.open).toBe(false)
     expect(details?.textContent).toContain("permission denied by the operating system")
+  })
+
+  it("virtualizes the hop table while preserving row indexes and table headers", () => {
+    const hops = Array.from({ length: 32 }, (_, index) => ({
+      ttl: index + 1,
+      addrs: [`192.0.2.${index + 1}`],
+      lossPercent: 0,
+      sent: 3,
+      recv: 3,
+    }))
+    renderPanel({ result: { ...unprivilegedResult, hops } })
+
+    const region = screen.getByRole("region", { name: "networkProbe.traceroute.tableRegion" })
+    const table = region.querySelector("table")
+    const dataRows = table?.querySelectorAll("tr[aria-rowindex]")
+
+    expect(table?.getAttribute("aria-rowcount")).toBe("33")
+    expect(screen.getByText("networkProbe.traceroute.tableCaption")).toBeTruthy()
+    expect(table?.querySelectorAll("th[scope='col']")).toHaveLength(7)
+    expect(dataRows).toHaveLength(8)
+    expect(dataRows?.[0]?.getAttribute("aria-rowindex")).toBe("2")
+    expect(region.getAttribute("tabindex")).toBe("0")
   })
 })

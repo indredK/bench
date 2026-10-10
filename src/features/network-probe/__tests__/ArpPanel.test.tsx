@@ -4,6 +4,24 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { ArpPanel } from "@/features/network-probe/components/ArpPanel"
 import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
 
+vi.mock("@tanstack/react-virtual", () => ({
+  useVirtualizer: (options: {
+    count: number
+    estimateSize: () => number
+    getItemKey: (index: number) => string | number
+  }) => ({
+    getTotalSize: () => options.count * options.estimateSize(),
+    getVirtualItems: () =>
+      Array.from({ length: Math.min(options.count, 8) }, (_, index) => ({
+        index,
+        start: index * options.estimateSize(),
+        size: options.estimateSize(),
+        key: options.getItemKey(index),
+      })),
+    measureElement: () => undefined,
+  }),
+}))
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, options?: { count?: number; mode?: string; ms?: string }) =>
@@ -11,7 +29,9 @@ vi.mock("react-i18next", () => ({
         ? `${key} ${options?.count ?? 0}`
         : key === "networkProbe.arp.meta"
           ? `${options?.count ?? 0} ${options?.mode ?? ""} ${options?.ms ?? ""}`
-          : key,
+          : key === "networkProbe.arp.neighborsList"
+            ? "networkProbe.arp.neighborsList"
+            : key,
   }),
 }))
 
@@ -121,5 +141,29 @@ describe("ArpPanel result feedback", () => {
 
     expect(screen.getByRole("status").textContent).toContain("networkProbe.arp.cancelledEmpty")
     expect(screen.queryByText("networkProbe.arp.empty")).toBeNull()
+  })
+
+  it("virtualizes large neighbor results and exposes their positions", () => {
+    const neighbors = Array.from({ length: 256 }, (_, index) => ({
+      ip: `192.168.31.${index + 1}`,
+      source: "tcp-sweep",
+    }))
+    const { container } = render(
+      <ArpPanel
+        loading={false}
+        result={{ ...result, neighbors }}
+        toolEnabled
+        onRun={() => undefined}
+      />,
+    )
+
+    const region = screen.getByRole("region", { name: "networkProbe.arp.neighborsList" })
+    const rows = region.querySelectorAll("[role='listitem']")
+
+    expect(rows).toHaveLength(8)
+    expect(rows[0]?.getAttribute("aria-posinset")).toBe("1")
+    expect(rows[0]?.getAttribute("aria-setsize")).toBe("256")
+    expect(region.getAttribute("tabindex")).toBe("0")
+    expect(container.querySelector("[data-virtualized-result-list]")).toBe(region)
   })
 })

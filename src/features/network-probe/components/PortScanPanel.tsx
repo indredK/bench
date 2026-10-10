@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { ScanCancelButton } from "@/features/network-probe/components/ScanCancelButton"
 import { TechnicalDetails } from "@/features/network-probe/components/TechnicalDetails"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { PortSampleEvent, PortScanResult } from "@/lib/tauri/types/network-probe"
 
 interface PortScanPanelProps {
@@ -182,9 +183,24 @@ export function PortScanPanel({
       }
     >
       {open.length > 0 ? (
-        <p className="text-sm font-medium">
-          {t("networkProbe.ports.openList", { ports: open.join(", ") })}
-        </p>
+        open.length > 50 ? (
+          <details className="text-sm">
+            <summary className="w-fit cursor-pointer font-medium select-none">
+              {t("networkProbe.ports.openListCount", { count: open.length })}
+            </summary>
+            <VirtualizedResultList
+              ariaLabel={t("networkProbe.ports.openPortsList")}
+              items={open}
+              getItemKey={(port) => port}
+              estimateSize={28}
+              renderItem={(port) => port}
+            />
+          </details>
+        ) : (
+          <p className="text-sm font-medium">
+            {t("networkProbe.ports.openList", { ports: open.join(", ") })}
+          </p>
+        )
       ) : null}
       {result ? (
         <div className="text-muted-foreground space-y-1 text-xs">
@@ -196,15 +212,20 @@ export function PortScanPanel({
         </div>
       ) : null}
       {samples.length > 0 ? (
-        <ul className="text-muted-foreground space-y-0.5 font-mono text-xs">
-          {samples.map((s) => (
-            <li key={`${s.port}-${s.state}`}>
+        <VirtualizedResultList
+          ariaLabel={t("networkProbe.ports.samplesList")}
+          items={samples}
+          getItemKey={(sample) => `${sample.port}-${sample.state}`}
+          estimateSize={28}
+          listClassName="text-muted-foreground space-y-0.5 font-mono text-xs"
+          renderItem={(s) => (
+            <span className="text-muted-foreground">
               {s.port}: {t(`networkProbe.ports.state.${getPortStateKey(s.state)}`)}
               {s.serviceHint ? ` (${s.serviceHint})` : ""}
               {s.rttMs != null ? ` · ${s.rttMs.toFixed(0)} ms` : ""}
-            </li>
-          ))}
-        </ul>
+            </span>
+          )}
+        />
       ) : null}
       {result && samples.length === 0 ? (
         <p role="status" className="text-muted-foreground text-sm">

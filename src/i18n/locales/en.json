@@ -2425,6 +2425,9 @@
       "running": "Scanning…",
       "cancel": "Cancel",
       "openList": "Open: {{ports}}",
+      "openListCount": "Open ports: {{count}}",
+      "openPortsList": "Open ports list",
+      "samplesList": "Port scan results",
       "state": {
         "open": "Open",
         "closed": "Closed",
@@ -2460,6 +2463,7 @@
       "openSettings": "Open system network settings",
       "cidr": "Sweep CIDR: {{cidr}}",
       "meta": "{{count}} neighbors · {{mode}} · {{ms}} ms",
+      "neighborsList": "ARP neighbor list",
       "modeCache": "ARP cache",
       "modeCacheTcpSweep": "Cache + TCP probes",
       "modeUnknown": "Unknown discovery method",
@@ -2630,6 +2634,8 @@
       "cancel": "Cancel",
       "cancelled": "cancelled",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
+      "tableRegion": "Traceroute hop results",
+      "tableCaption": "Traceroute hop table",
       "empty": "No hops yet. Run a trace to populate the table.",
       "message": {
         "unprivileged": "Privileged ICMP is unavailable; the trace completed using unprivileged UDP.",

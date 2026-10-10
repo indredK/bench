@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { OpenSystemNetworkSettingsButton } from "@/features/network-probe/components/OpenSystemNetworkSettingsButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { ScanCancelButton } from "@/features/network-probe/components/ScanCancelButton"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
 
 function arpSourceKey(source: string) {
@@ -148,9 +149,15 @@ export function ArpPanel({
               </div>
             )
           ) : (
-            <ul className="space-y-1 font-mono text-xs">
-              {result.neighbors.map((n) => (
-                <li key={n.ip}>
+            <VirtualizedResultList
+              ariaLabel={t("networkProbe.arp.neighborsList")}
+              items={result.neighbors}
+              getItemKey={(neighbor) =>
+                `${neighbor.ip}-${neighbor.mac ?? ""}-${neighbor.iface ?? ""}-${neighbor.source}`
+              }
+              estimateSize={28}
+              renderItem={(n) => (
+                <span>
                   {n.ip}
                   {n.mac
                     ? ` · ${n.mac}`
@@ -159,9 +166,9 @@ export function ArpPanel({
                       : ""}
                   {n.iface ? ` · ${n.iface}` : ""}
                   {` · ${t(arpSourceKey(n.source))}`}
-                </li>
-              ))}
-            </ul>
+                </span>
+              )}
+            />
           )}
           {result.mode || result.commandHint ? (
             <details className="text-muted-foreground rounded-lg border px-3 py-2 text-xs">

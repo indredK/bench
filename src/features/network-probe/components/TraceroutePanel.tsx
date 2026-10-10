@@ -1,7 +1,8 @@
 /**
  * Feature UI / 功能界面: traceroute / MTR hop table.
  */
-import { useState } from "react"
+import { useRef, useState } from "react"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,8 @@ const TRACEROUTE_MODE_LABEL_KEYS: Record<string, string> = {
   unavailable: "networkProbe.traceroute.mode.unavailable",
   cancelled: "networkProbe.traceroute.mode.cancelled",
 }
+
+const TRACEROUTE_VIRTUALIZATION_THRESHOLD = 16
 
 interface TraceroutePanelProps {
   loading: boolean
@@ -45,6 +48,7 @@ export function TraceroutePanel({
   const [target, setTarget] = useState("1.1.1.1")
   const [maxTtl, setMaxTtl] = useState("20")
   const [rounds, setRounds] = useState("3")
+  const hopsScrollRef = useRef<HTMLDivElement>(null)
   const maxTtlValue = Number(maxTtl)
   const roundsValue = Number(rounds)
   const maxTtlIsValid = Number.isInteger(maxTtlValue) && maxTtlValue >= 1 && maxTtlValue <= 32
@@ -54,6 +58,25 @@ export function TraceroutePanel({
 
   // 跑动中只渲染本轮 streaming 跳数: 旧 result 优先会遮蔽新一轮逐跳进度。
   const hops = loading ? streamingHops : result?.hops?.length ? result.hops : streamingHops
+  const shouldVirtualizeHops = hops.length > TRACEROUTE_VIRTUALIZATION_THRESHOLD
+  const hopsVirtualizer = useVirtualizer({
+    count: shouldVirtualizeHops ? hops.length : 0,
+    getScrollElement: () => hopsScrollRef.current,
+    getItemKey: (index) => hops[index]?.ttl ?? index,
+    estimateSize: () => 36,
+    overscan: 6,
+    initialRect: { width: 960, height: 288 },
+  })
+  const virtualHops = shouldVirtualizeHops
+    ? hopsVirtualizer.getVirtualItems()
+    : hops.map((hop, index) => ({ index, key: hop.ttl, start: 0, size: 36 }))
+  const totalHopSize = hopsVirtualizer.getTotalSize()
+  const firstVirtualHop = virtualHops[0]
+  const lastVirtualHop = virtualHops.at(-1)
+  const topPadding = firstVirtualHop?.start ?? 0
+  const bottomPadding = lastVirtualHop
+    ? Math.max(totalHopSize - lastVirtualHop.start - lastVirtualHop.size, 0)
+    : 0
   const modeKey =
     result && Object.hasOwn(TRACEROUTE_MODE_LABEL_KEYS, result.privilegeMode)
       ? TRACEROUTE_MODE_LABEL_KEYS[result.privilegeMode]
@@ -213,65 +236,118 @@ export function TraceroutePanel({
       ) : null}
 
       {hops.length > 0 ? (
-        <div className="overflow-auto rounded-lg border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted/50 text-muted-foreground text-xs">
+        <div
+          ref={hopsScrollRef}
+          role="region"
+          aria-label={t("networkProbe.traceroute.tableRegion")}
+          tabIndex={shouldVirtualizeHops ? 0 : undefined}
+          className={
+            shouldVirtualizeHops
+              ? "max-h-72 overflow-auto rounded-lg border"
+              : "overflow-x-auto rounded-lg border"
+          }
+          style={shouldVirtualizeHops ? { height: `${Math.min(totalHopSize, 288)}px` } : undefined}
+          data-traceroute-scroll
+        >
+          <table
+            className="w-full text-left text-sm"
+            aria-rowcount={hops.length + 1}
+            data-traceroute-table
+          >
+            <caption className="sr-only">{t("networkProbe.traceroute.tableCaption")}</caption>
+            <thead className="bg-muted text-muted-foreground sticky top-0 z-10 text-xs">
               <tr>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.ttl")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.addr")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.asn")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.loss")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.avg")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.best")}</th>
-                <th className="px-2 py-1.5 font-medium">
+                <th scope="col" className="px-2 py-1.5 font-medium">
+                  {t("networkProbe.traceroute.col.ttl")}
+                </th>
+                <th scope="col" className="px-2 py-1.5 font-medium">
+                  {t("networkProbe.traceroute.col.addr")}
+                </th>
+                <th scope="col" className="px-2 py-1.5 font-medium">
+                  {t("networkProbe.traceroute.col.asn")}
+                </th>
+                <th scope="col" className="px-2 py-1.5 font-medium">
+                  {t("networkProbe.traceroute.col.loss")}
+                </th>
+                <th scope="col" className="px-2 py-1.5 font-medium">
+                  {t("networkProbe.traceroute.col.avg")}
+                </th>
+                <th scope="col" className="px-2 py-1.5 font-medium">
+                  {t("networkProbe.traceroute.col.best")}
+                </th>
+                <th scope="col" className="px-2 py-1.5 font-medium">
                   {t("networkProbe.traceroute.col.worst")}
                 </th>
               </tr>
             </thead>
             <tbody>
-              {hops.map((hop) => (
-                <tr key={hop.ttl} className="border-t">
-                  <td className="px-2 py-1.5 font-mono text-xs">{hop.ttl}</td>
-                  <td className="max-w-[12rem] truncate px-2 py-1.5 font-mono text-xs">
-                    {hop.addrs.length > 0 ? hop.addrs.join(", ") : "*"}
-                  </td>
-                  <td
-                    className="max-w-[10rem] truncate px-2 py-1.5 text-xs"
-                    title={hop.asName ?? hop.asn}
-                  >
-                    {hop.asn ? (
-                      <span>
-                        <span className="font-mono">{hop.asn}</span>
-                        {hop.asName ? (
-                          <span className="text-muted-foreground"> {hop.asName}</span>
-                        ) : null}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td
-                    className={cn(
-                      "px-2 py-1.5 font-mono text-xs",
-                      hop.lossPercent >= 50 && "text-destructive",
-                      hop.lossPercent > 0 &&
-                        hop.lossPercent < 50 &&
-                        "text-amber-700 dark:text-amber-400",
-                    )}
-                  >
-                    {hop.lossPercent.toFixed(0)}%
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs">
-                    {hop.avgRttMs != null ? hop.avgRttMs.toFixed(1) : "—"}
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs">
-                    {hop.bestRttMs != null ? hop.bestRttMs.toFixed(1) : "—"}
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs">
-                    {hop.worstRttMs != null ? hop.worstRttMs.toFixed(1) : "—"}
-                  </td>
+              {shouldVirtualizeHops && topPadding > 0 ? (
+                <tr aria-hidden="true" className="border-0">
+                  <td colSpan={7} className="border-0 p-0" style={{ height: `${topPadding}px` }} />
                 </tr>
-              ))}
+              ) : null}
+              {virtualHops.map((virtualHop) => {
+                const hop = hops[virtualHop.index]
+                if (!hop) return null
+                return (
+                  <tr
+                    key={virtualHop.key}
+                    ref={shouldVirtualizeHops ? hopsVirtualizer.measureElement : undefined}
+                    data-index={shouldVirtualizeHops ? virtualHop.index : undefined}
+                    aria-rowindex={virtualHop.index + 2}
+                    className="border-t"
+                  >
+                    <td className="px-2 py-1.5 font-mono text-xs">{hop.ttl}</td>
+                    <td className="max-w-[12rem] truncate px-2 py-1.5 font-mono text-xs">
+                      {hop.addrs.length > 0 ? hop.addrs.join(", ") : "*"}
+                    </td>
+                    <td
+                      className="max-w-[10rem] truncate px-2 py-1.5 text-xs"
+                      title={hop.asName ?? hop.asn}
+                    >
+                      {hop.asn ? (
+                        <span>
+                          <span className="font-mono">{hop.asn}</span>
+                          {hop.asName ? (
+                            <span className="text-muted-foreground"> {hop.asName}</span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td
+                      className={cn(
+                        "px-2 py-1.5 font-mono text-xs",
+                        hop.lossPercent >= 50 && "text-destructive",
+                        hop.lossPercent > 0 &&
+                          hop.lossPercent < 50 &&
+                          "text-amber-700 dark:text-amber-400",
+                      )}
+                    >
+                      {hop.lossPercent.toFixed(0)}%
+                    </td>
+                    <td className="px-2 py-1.5 font-mono text-xs">
+                      {hop.avgRttMs != null ? hop.avgRttMs.toFixed(1) : "—"}
+                    </td>
+                    <td className="px-2 py-1.5 font-mono text-xs">
+                      {hop.bestRttMs != null ? hop.bestRttMs.toFixed(1) : "—"}
+                    </td>
+                    <td className="px-2 py-1.5 font-mono text-xs">
+                      {hop.worstRttMs != null ? hop.worstRttMs.toFixed(1) : "—"}
+                    </td>
+                  </tr>
+                )
+              })}
+              {shouldVirtualizeHops && bottomPadding > 0 ? (
+                <tr aria-hidden="true" className="border-0">
+                  <td
+                    colSpan={7}
+                    className="border-0 p-0"
+                    style={{ height: `${bottomPadding}px` }}
+                  />
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

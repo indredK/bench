@@ -4,6 +4,24 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { PortScanPanel } from "@/features/network-probe/components/PortScanPanel"
 import type { PortScanResult } from "@/lib/tauri/types/network-probe"
 
+vi.mock("@tanstack/react-virtual", () => ({
+  useVirtualizer: (options: {
+    count: number
+    estimateSize: () => number
+    getItemKey: (index: number) => string | number
+  }) => ({
+    getTotalSize: () => options.count * options.estimateSize(),
+    getVirtualItems: () =>
+      Array.from({ length: Math.min(options.count, 8) }, (_, index) => ({
+        index,
+        start: index * options.estimateSize(),
+        size: options.estimateSize(),
+        key: options.getItemKey(index),
+      })),
+    measureElement: () => undefined,
+  }),
+}))
+
 const { setLanguage, translate } = vi.hoisted(() => {
   let language: "zh" | "en" = "zh"
   const messages = {
@@ -14,6 +32,9 @@ const { setLanguage, translate } = vi.hoisted(() => {
       "networkProbe.ports.range": "端口",
       "networkProbe.ports.run": "扫描端口",
       "networkProbe.ports.openList": "开放：{{ports}}",
+      "networkProbe.ports.openListCount": "开放端口：{{count}} 个",
+      "networkProbe.ports.openPortsList": "开放端口列表",
+      "networkProbe.ports.samplesList": "端口扫描结果",
       "networkProbe.ports.state.open": "开放",
       "networkProbe.ports.state.closed": "关闭",
       "networkProbe.ports.state.filtered": "已过滤 / 无响应",
@@ -38,6 +59,9 @@ const { setLanguage, translate } = vi.hoisted(() => {
       "networkProbe.ports.range": "Ports",
       "networkProbe.ports.run": "Scan ports",
       "networkProbe.ports.openList": "Open: {{ports}}",
+      "networkProbe.ports.openListCount": "Open ports: {{count}}",
+      "networkProbe.ports.openPortsList": "Open ports list",
+      "networkProbe.ports.samplesList": "Port scan results",
       "networkProbe.ports.state.open": "Open",
       "networkProbe.ports.state.closed": "Closed",
       "networkProbe.ports.state.filtered": "Filtered / no response",
@@ -137,6 +161,7 @@ describe("PortScanPanel localized results", () => {
     renderPanel()
 
     expect(screen.getByText("7000: 开放")).toBeTruthy()
+    expect(screen.getByText("开放：7000")).toBeTruthy()
     expect(screen.getByText("本次扫描目标：127.0.0.1")).toBeTruthy()
     expect(screen.getByText("65534: 关闭")).toBeTruthy()
     expect(screen.getByText("65533: 已过滤 / 无响应")).toBeTruthy()
@@ -168,6 +193,15 @@ describe("PortScanPanel localized results", () => {
     expect(details?.textContent).toContain(result.commandHint)
   })
 
+  it("keeps short port results in natural list and summary content", () => {
+    setLanguage("zh")
+    const { container } = renderPanel()
+
+    expect(container.querySelector("[data-virtualized-result-list]")).toBeNull()
+    expect(screen.getByText("开放：7000")).toBeTruthy()
+    expect(container.querySelectorAll("ul li")).toHaveLength(result.samples.length)
+  })
+
   it("localizes TCP-connect mode and cancellation feedback", () => {
     setLanguage("zh")
     renderPanel({ ...result, mode: "tcp-connect", cancelled: true })
@@ -192,6 +226,32 @@ describe("PortScanPanel localized results", () => {
 
     expect(screen.getByLabelText("目标").getAttribute("value")).toBe("192.0.2.25")
     expect(screen.getByText("本次扫描目标：127.0.0.1")).toBeTruthy()
+  })
+
+  it("virtualizes large sample and open-port lists with accessible positions", () => {
+    setLanguage("zh")
+    const samples = Array.from({ length: 256 }, (_, index) => ({
+      port: index + 1,
+      state: "closed",
+    }))
+    const { container } = renderPanel({
+      ...result,
+      samples,
+      openPorts: samples.map((sample) => sample.port),
+    })
+
+    const lists = container.querySelectorAll("[data-virtualized-result-list]")
+    expect(lists).toHaveLength(2)
+    for (const list of lists) {
+      const rows = list.querySelectorAll("[role='listitem']")
+      expect(rows).toHaveLength(8)
+      expect(rows[0]?.getAttribute("aria-posinset")).toBe("1")
+      expect(rows[0]?.getAttribute("aria-setsize")).toBe("256")
+    }
+    expect(screen.getByRole("region", { name: "端口扫描结果" })).toBeTruthy()
+    expect(screen.getByText("开放端口：256 个")).toBeTruthy()
+    expect(container.querySelector("details")?.open).toBe(false)
+    expect(container.querySelector("[aria-label='开放端口列表']")).toBeTruthy()
   })
 
   it("localizes capability-disabled feedback without exposing internal identifiers", () => {

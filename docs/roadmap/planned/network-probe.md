@@ -23,7 +23,6 @@
 
 ### Wave 5 · Polish 增强（产品化）
 
-- [ ] **P5-1** 长列表虚拟化（端口 / 跳点 / ARP 主机列表；局域网服务列表已完成，UX-STANDARDS）。
 - [ ] **P5-2** 持续监控 / 阈值告警。
 - [ ] **P5-3** 健康报告历史快照 + 跨时间对比（部分完成，◐——报告历史已有，对比 UI 待做）。
 - [ ] **P5-4** 一体化 BasicView 视觉合并。
@@ -135,3 +134,4 @@
 - 2026-10-11：P0-1 全面修复 Network Probe 对未知 DTO 字符串的普通对象索引及动态 i18next 路径原型穿透；覆盖 Health/TCP/Traceroute/MTU/IPv6/Fix/Sites 及 IPv6、Offline、Overview、Speed、WHOIS、意见、官网、Agent 地区等动态标签。未知值改用本地化安全回退，未知站点包/地区保留可识别原文；加入逐段 locale 自有键校验与原型键组件回归。Network Probe 全量 44 文件 / 232 项测试和 `lint:fe` 通过。macOS arm64 隔离 Bench QA 实机基线确认 IPv6 DTO `status: constructor` 显示空白；修复版同一合成 DTO 中文显示“未知”、英文显示 “unknown”，NDP 两种语言均显示 unknown/未知；未发起网络探测。Windows 真机回归依用户安排延期；其他 P0-1 面板仍待审查。
 - 2026-10-11：P0-1 修复能力包通用「安装」按钮隐藏 marker-only 语义的问题：无 sidecar 制品时动作明确为「仅安装标记」，安装前说明本地标记不会启用相关工具；安装后仍显示 marker-only 与降级状态，保留卸载操作；不可用/未知状态不可安装。PackInstallDialog 定向 6 项、`test:critical` 244 项、`lint:fe`（i18n 2455 项、88 份 Markdown 链接）、Prettier 与隔离 debug `.app` 构建通过。macOS 27.0.1 arm64 真机验证中文安装前/安装后及英文安装后状态；命令日志确认 `mode=marker`，未安装或运行 sidecar，无安全扫描/网络探测。为了显示 QA 主窗口，debug 构建时临时绕过隐藏到菜单栏的激活策略，验证后立即还原，未进入提交。QA app、两个 bundle、专属 Application Support/cache/WebKit/preferences、`dist`、扩展 staging 和临时配置约 326 MiB 已移入系统废纸篓 `/Users/apple/.Trash/Bench-pack-marker-qa-cleanup-20261011`；共享 Rust target 与正式 `bench-host` PID 1040 保留。Windows 真机回归按用户安排延期，P0-1 其他面板仍待审查。
 - 2026-10-11：P0-1 修复本机与 Globalping Ping 结果未标明目标、编辑输入后旧结果易错配的问题。结果卡现在从各自 DTO 显示“本次探测目标”，本机和远端结果都关联原请求；目标长文本可换行。本机 macOS 27.0.1 arm64 隔离 QA 基线用 `127.0.0.1` 成功 Ping 后改输入为 `127.0.0.2`，结果卡仍只显示解析 IP `127.0.0.1`；修复版实机中英文复验均显示原目标 `127.0.0.1`，仅探测回环地址。定向 PingPanel 17 项、前端全量 104 文件 / 596 项测试、`lint:fe`（i18n 2455 项、Markdown 链接 88 文件）、Prettier 通过；Globalping UI 由组件回归覆盖，未请求远端测量。Windows 真机回归依用户安排延期。
+- 2026-10-11：完成 P5-1 长列表虚拟化：端口样本/开放端口、Traceroute 跳点与 ARP 邻居复用 `@tanstack/react-virtual`；列表行暴露位置/总数，跳点表保留列头和行号语义，开放端口详情默认折叠以避免重复撑长结果卡。macOS arm64 本机浏览器加载真实面板与合成 DTO 实机复验：256 个端口样本滚至第 256 项、64 个开放端口摘要滚至第 64 项、32 跳表格滚至第 32 跳、254 个 ARP 邻居滚至第 254 项；中文/英文切换正常，全程无扫描或网络请求。滚动复验发现固定表头背景半透明造成行文字重影，改为不透明主题背景并再次实机确认无重影。定向面板测试 28 项、`test:critical` 244 项、全量前端 104 文件 / 600 项、`lint:fe`（静态 i18n 1582 键、动态族 59、locale 2461 键、Markdown 88 文件）、`build:fe` 均通过。临时 QA 页、harness 与 `dist` 已移入系统废纸篓；共享 Rust target、正式 `bench-host` PID 1040 和预先存在的 Vite 缓存保留。Windows 真机回归按用户安排延期。
