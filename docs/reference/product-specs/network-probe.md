@@ -93,7 +93,7 @@ L1 → L2 映射：
 
 - 操作对象：网络服务下拉（自动优先 Wi-Fi → 有线 → 首个） + DNS 预设下拉（来自 defaults）。
 - 操作按钮：**刷新 DNS**（DestructiveConfirm 一次确认）、**切换 DNS**（两步确认，第 2 步展示服务与目标 DNS 服务器）、**续租 DHCP**（两步确认）、**重置网络栈**（**TripleDestructiveConfirm 三步确认 + 手输 `RESET`**，最高危）、打开系统网络设置。
-- 切换 DNS、续租 DHCP 和重置网络栈依赖已加载的网络服务；刷新 DNS 不依赖服务列表。完成后展示结果（action / ok / message / commandHint）。
+- 切换 DNS、续租 DHCP 和重置网络栈依赖已加载的网络服务；刷新 DNS 不依赖服务列表。完成后以本地化动作名与成功/失败状态展示结果；后端原始 `message` 与 `commandHint` 默认折叠在「技术详情」中，命令仍可从工具栏预览查看。
 
 **交互细节**：
 
@@ -102,7 +102,7 @@ L1 → L2 映射：
 - 所有修复按钮共用 `loadingFix` 全局禁用（防重入）；刷新 DNS / 切换 DNS / 续租 DHCP / 重置网络栈任一执行中，其余全部按钮禁用。
 - 两步确认（切换 DNS / 续租 DHCP）：第 1 步「下一步」→ 延迟 320ms 弹第 2 步（确认服务与目标 DNS 服务器），任一步取消即中止；确认按钮在 `loadingFix` 时显示 loading。
 - 三步确认（重置网络栈）：step1 后果说明 → step2 核对参数 → step3 勾选风险确认框 + 手输 `RESET` 才能点「立即重置」；后端忽略前端任何「已确认」标志，每次调用重新校验服务白名单（幂等）。
-- 结果卡：`lastResult.action + ok/failed` + message + commandHint；失败不弹 toast，直接在结果卡呈现（修复动作有确定性结果语义）。
+- 结果卡：`lastResult.action` 映射为本地化动作名并标示成功/失败；原始 `message` 与 `commandHint` 默认折叠在「技术详情」中，避免将系统英文诊断和重复命令直接放在卡片里。失败不弹 toast，以 `alert` 语义在结果卡呈现；成功以 `status` 语义呈现。
 
 ### 3.6 报告 report
 

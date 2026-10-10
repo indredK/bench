@@ -26,3 +26,5 @@ Port Scan 结果卡明确显示本次扫描目标，防止修改表单后误认�
 **硬性红线**（不实现 · 法律/合规约束，详见 design.md §12.3.2）：主动攻击能力——ARP 欺骗**攻击** / MITM 流量**注入** / **DoS** / 密码**爆破**，违法绝不构建；仅提供对应检测/防御版本（`detectArpSpoofing` / `checkSsl.mitmSuspected` / 暴露面评估）。
 
 **验证命令**：`pnpm run lint:fe` + `pnpm run test:critical` + `cargo clippy -- -D warnings`。
+
+**2026-10-10 补充**：一键修复结果现使用本地化动作名和状态；系统原始诊断与命令默认折叠，工具栏命令预览保留。macOS 27.0.1 arm64 隔离 QA 已在中英文真机确认修复效果，并验证技术详情可展开查看原文。

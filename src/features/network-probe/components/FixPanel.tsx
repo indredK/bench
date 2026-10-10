@@ -8,6 +8,7 @@ import { TripleDestructiveConfirm } from "@/components/common/TripleDestructiveC
 import { Button } from "@/components/ui/button"
 import { OpenSystemNetworkSettingsButton } from "@/features/network-probe/components/OpenSystemNetworkSettingsButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { TechnicalDetails } from "@/features/network-probe/components/TechnicalDetails"
 import type { NetworkServicesLoadState } from "@/features/network-probe/store"
 import type { DnsPreset, FixResult } from "@/lib/tauri/types/network-probe"
 
@@ -36,6 +37,13 @@ type PendingAction =
   | null
 
 const RESET_PHRASE = "RESET"
+
+const FIX_ACTION_LABELS: Record<string, string> = {
+  flushDns: "networkProbe.fix.flush",
+  switchDns: "networkProbe.fix.switchDns",
+  renewDhcp: "networkProbe.fix.renewDhcp",
+  resetNetworkStack: "networkProbe.fix.resetStack",
+}
 
 export function FixPanel({
   loading,
@@ -200,15 +208,23 @@ export function FixPanel({
       }
     >
       {lastResult ? (
-        <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
+        <div
+          role={lastResult.ok ? "status" : "alert"}
+          className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm"
+        >
           <div>
-            {lastResult.action}:{" "}
+            {t(FIX_ACTION_LABELS[lastResult.action] ?? "networkProbe.fix.unknownAction")}:{" "}
             <span className="font-medium">
               {lastResult.ok ? t("networkProbe.fix.ok") : t("networkProbe.fix.failed")}
             </span>
           </div>
-          <div className="text-muted-foreground text-xs">{lastResult.message}</div>
-          <div className="text-muted-foreground font-mono text-xs">{lastResult.commandHint}</div>
+          <TechnicalDetails
+            title={t("networkProbe.fix.technicalDetails")}
+            items={[
+              { label: t("networkProbe.fix.resultMessage"), value: lastResult.message },
+              { label: t("networkProbe.fix.resultCommand"), value: lastResult.commandHint },
+            ]}
+          />
         </div>
       ) : null}
 

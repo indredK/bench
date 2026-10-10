@@ -2073,6 +2073,10 @@
       "openSettings": "打开系统网络设置",
       "ok": "成功",
       "failed": "失败",
+      "unknownAction": "未知操作",
+      "technicalDetails": "技术详情",
+      "resultMessage": "诊断信息",
+      "resultCommand": "命令提示",
       "confirm": {
         "cancel": "取消",
         "confirm": "确认",

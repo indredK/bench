@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { FixPanel } from "@/features/network-probe/components/FixPanel"
+import type { FixResult } from "@/lib/tauri/types/network-probe"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -29,6 +30,7 @@ function renderPanel(
     servicesLoadState?: "idle" | "loading" | "loaded" | "failed"
     openingSettings?: boolean
     services?: string[]
+    lastResult?: FixResult | null
   } = {},
 ) {
   const onLoadServices = vi.fn()
@@ -38,7 +40,7 @@ function renderPanel(
     openingSettings: options.openingSettings ?? false,
     services: options.services ?? [],
     dnsPresets: [],
-    lastResult: null,
+    lastResult: options.lastResult ?? null,
     onLoadServices,
     onFlushDns: vi.fn(),
     onSwitchDns: vi.fn(),
@@ -72,6 +74,44 @@ describe("FixPanel service loading and recovery", () => {
       screen.getByRole("button", { name: "networkProbe.fix.resetStack" }).hasAttribute("disabled"),
     ).toBe(true)
     expect(screen.getByRole("status").textContent).toBe("networkProbe.fix.loadingServices")
+  })
+
+  it("localizes known actions and keeps raw result details collapsed", () => {
+    const result: FixResult = {
+      action: "flushDns",
+      ok: true,
+      message: "dscacheutil -flushcache: ok; killall: No matching processes",
+      commandHint: "flushDns()",
+    }
+
+    renderPanel({ lastResult: result, services: ["Wi-Fi"] })
+
+    const card = screen.getByRole("status")
+    expect(card.textContent).toContain("networkProbe.fix.flush")
+    expect(card.textContent).toContain("networkProbe.fix.ok")
+    expect(card.textContent).not.toContain("flushDns:")
+
+    const details = screen.getByText("networkProbe.fix.technicalDetails").closest("details")
+    expect(details?.hasAttribute("open")).toBe(false)
+    expect(details?.textContent).toContain(result.message)
+    expect(details?.textContent).toContain(result.commandHint)
+  })
+
+  it("uses a localized fallback for unknown action values", () => {
+    renderPanel({
+      lastResult: {
+        action: "futureAction",
+        ok: false,
+        message: "backend detail",
+        commandHint: "futureAction()",
+      },
+      services: ["Wi-Fi"],
+    })
+
+    const card = screen.getByRole("alert")
+    expect(card.textContent).toContain("networkProbe.fix.unknownAction")
+    expect(card.textContent).toContain("networkProbe.fix.failed")
+    expect(card.textContent).not.toContain("futureAction:")
   })
 
   it("shows an empty state and allows an explicit retry", () => {
