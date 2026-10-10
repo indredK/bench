@@ -134,40 +134,50 @@ export function MultiNodePanel({
             </div>
             <ul className="space-y-1 font-mono text-xs">
               {nodes.map((n) => (
-                <li key={n.id} className="flex flex-wrap items-center gap-2">
-                  <span>
-                    {getProbeNodeDisplayLabel(n.kind, n.label, t("networkProbe.nodeSelect.local"))}
-                    {n.kind === "local"
-                      ? ""
-                      : ` · ${t(`networkProbe.nodes.kind.${getNodeKindKey(n.kind)}`)}`}
-                    {n.kind === "remote-agent" && n.endpoint ? ` · ${n.endpoint}` : ""}
-                  </span>
-                  {n.kind === "remote-agent" ? (
-                    <span
-                      role="status"
-                      className={
-                        n.reachable
-                          ? "text-emerald-700 dark:text-emerald-400"
-                          : "text-muted-foreground"
-                      }
-                    >
-                      {n.reachable
-                        ? t("networkProbe.nodes.agentReachable")
-                        : t("networkProbe.nodes.agentUnreachable")}
+                <li key={n.id} className="min-w-0 space-y-1">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="min-w-0 break-words">
+                      {getProbeNodeDisplayLabel(
+                        n.kind,
+                        n.label,
+                        t("networkProbe.nodeSelect.local"),
+                      )}
+                      {n.kind === "local"
+                        ? ""
+                        : ` · ${t(`networkProbe.nodes.kind.${getNodeKindKey(n.kind)}`)}`}
                     </span>
-                  ) : null}
-                  {n.kind === "remote-agent" ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={loadingNodes || agentAction !== null}
-                      onClick={() => onRemoveAgent(n.id)}
-                    >
-                      {agentAction?.kind === "remove" && agentAction.agentId === n.id
-                        ? t("networkProbe.nodes.removingAgent")
-                        : t("networkProbe.nodes.removeAgent")}
-                    </Button>
+                    {n.kind === "remote-agent" ? (
+                      <span
+                        role="status"
+                        className={
+                          n.reachable
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : "text-muted-foreground"
+                        }
+                      >
+                        {n.reachable
+                          ? t("networkProbe.nodes.agentReachable")
+                          : t("networkProbe.nodes.agentUnreachable")}
+                      </span>
+                    ) : null}
+                    {n.kind === "remote-agent" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={loadingNodes || agentAction !== null}
+                        onClick={() => onRemoveAgent(n.id)}
+                      >
+                        {agentAction?.kind === "remove" && agentAction.agentId === n.id
+                          ? t("networkProbe.nodes.removingAgent")
+                          : t("networkProbe.nodes.removeAgent")}
+                      </Button>
+                    ) : null}
+                  </div>
+                  {n.kind === "remote-agent" && n.endpoint ? (
+                    <p className="text-muted-foreground max-w-md truncate" title={n.endpoint}>
+                      {n.endpoint}
+                    </p>
                   ) : null}
                 </li>
               ))}

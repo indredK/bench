@@ -214,4 +214,27 @@ describe("MultiNodePanel node loading", () => {
     expect(screen.getByRole("button", { name: "networkProbe.nodes.addAgent" })).toBeEnabled()
     expect(screen.getByText("networkProbe.nodes.agentReachable")).toBeInTheDocument()
   })
+
+  it("truncates long agent endpoints without losing the full endpoint value", () => {
+    const endpoint = `https://agent.example.test/${"a".repeat(1900)}`
+    const props = {
+      ...createProps(false),
+      nodes: [
+        ...nodes,
+        {
+          id: "agent-long-endpoint",
+          kind: "remote-agent" as const,
+          label: "Office Agent",
+          endpoint,
+          reachable: true,
+        },
+      ],
+    }
+
+    render(<MultiNodePanel {...props} />)
+
+    const endpointText = screen.getByTitle(endpoint)
+    expect(endpointText).toHaveTextContent(endpoint)
+    expect(endpointText).toHaveClass("max-w-md", "truncate")
+  })
 })
