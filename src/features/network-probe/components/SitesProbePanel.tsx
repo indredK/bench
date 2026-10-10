@@ -298,9 +298,6 @@ export function SitesProbePanel({
               </li>
             ))}
           </ul>
-          {result?.commandHint ? (
-            <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
-          ) : null}
         </div>
       ) : null}
     </ProbePanelShell>

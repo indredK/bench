@@ -121,7 +121,7 @@ L1 → L2 映射：
 
 - 区域包下拉（global / cn-friendly / dev / official，取自 defaults.sitePacks 除 official 外全部），运行整包。
 - **自定义站点**：输入目标（多个，最多 24 个，去重）→「添加」→「运行自定义」；列表 chip 可逐个移除；持久化于 sessionStorage（`network-probe:custom-sites`）。
-- 结果表：每行 id、target · channel（degraded 标记）、按 target 归档的 Sparkline 迷你趋势线（近 20 次延迟）、ICMP/HTTP/吞吐或本地化失败摘要；原始错误诊断默认折叠在「技术详情」中；流式刷新。官网单卡样本不会混入区域/自定义站点结果表或趋势线。
+- 结果表：每行 id、target · channel（degraded 标记）、按 target 归档的 Sparkline 迷你趋势线（近 20 次延迟）、ICMP/HTTP/吞吐或本地化失败摘要；原始错误诊断默认折叠在「技术详情」中；结果卡不重复展示 `commandHint`，调用仍可由工具栏命令预览和命令日志追溯；流式刷新。官网单卡样本不会混入区域/自定义站点结果表或趋势线。
 
 ## 5. 测试（test）L1
 

@@ -35,6 +35,8 @@
 - [§3/§5/§9] `src/features/network-probe/components/PcapDiagPanel.tsx` - PCAP 结果卡直接显示内部模式名、原始英文诊断和含 session ID 的命令；不可用结果仍显示零计数，容易被理解为成功的空采样 - 按 locale 本地化状态与模式；只在计数采样模式展示统计；不可用时明确显示无采样且隐藏重复模式标签；诊断和命令收进默认折叠的共享技术详情组件；补中英文、未知模式、不可用及取消回归 - **强制** - 状态：已修复（macOS arm64 合成 DTO 真机验证中英文成功/不可用状态和详情展开/收起；未授权、未抓包）
 - [§3/§5/§9] `src/features/network-probe/components/PortScanPanel.tsx`、`src/features/network-probe/page.tsx`、`src/features/network-probe/utils/capability-presentation.ts` - 端口扫描结果没有标明原目标，表单可编辑导致旧结果被误认；零样本取消无结果说明；原始命令直出；能力禁用提示与平台/权限摘要泄漏 `portScan`、`unsupported`、`macos`、`none` 内部标识 - 结果显示 DTO 原目标，零样本增加本地化状态，诊断与命令默认折叠，能力摘要映射为中性本地化平台/权限文案 - **强制** - 状态：已修复（macOS arm64 隔离 QA 用合成 DTO 验证中英文目标关联、禁用提示、平台摘要和详情展示；SecurityAuthGate 未授权、未扫描）
 
+- [§3/§5/§9] `src/features/network-probe/components/SitesProbePanel.tsx:301` - 区域/自定义站点探测完成后，结果卡直接展示原始 `commandHint`（含内部 IPC 调用与 session ID），且右侧命令日志已记录同一次调用；macOS arm64 QA 对 `https://example.com` 两次复现 HTTP 200 后均可见 - 移除结果卡中的重复命令文本，保留工具栏命令预览与命令日志，并补中英文成功/失败回归 - **强制** - 状态：已修复（Medium；macOS 27.0.1 arm64 隔离 QA 在中英界面两次探测均返回 HTTP 200，结果卡隐藏 commandHint、命令日志保留调用；前后截图见 `/tmp/bench-dogfood-20261010/sites-command/screenshots/`）
+
 未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
 
 ## 记录格式

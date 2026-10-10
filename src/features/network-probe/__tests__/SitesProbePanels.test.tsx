@@ -33,6 +33,14 @@ const failedSample: SiteSampleResult = {
   ok: false,
   error: rawError,
 }
+const successfulSample: SiteSampleResult = {
+  id: "custom-0",
+  target: "https://example.com",
+  channel: "http",
+  ok: true,
+  httpStatus: 200,
+  httpTtfbMs: 120,
+}
 
 function makeResult(results: SiteSampleResult[]): SitesProbeResult {
   return {
@@ -75,6 +83,31 @@ describe("site probe failure details", () => {
 
     fireEvent.click(screen.getByText("networkProbe.sites.failureDetails"))
     expect(details?.open).toBe(true)
+  })
+
+  it.each([
+    { status: "successful", results: [successfulSample] },
+    { status: "failed", results: [failedSample] },
+  ])("does not duplicate the raw command in $status custom-site results", ({ results }) => {
+    const result = makeResult(results)
+
+    render(
+      <SitesProbePanel
+        loading={false}
+        canCancel={false}
+        cancelRequested={false}
+        result={result}
+        streaming={[]}
+        sparklines={{}}
+        packIds={["global"]}
+        toolEnabled
+        onRunPack={vi.fn()}
+        onRunCustom={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText(result.commandHint)).toBeNull()
   })
 
   it("keeps official-site diagnostics outside the test button", async () => {
