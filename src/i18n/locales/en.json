@@ -1781,6 +1781,12 @@
       "run": "Probe",
       "running": "Probing…",
       "kind": "Input kind",
+      "kindValues": {
+        "host": "Host",
+        "url": "URL",
+        "unknown": "Unknown"
+      },
+      "resultFor": "Probed target: {{target}}",
       "icmp": "ICMP",
       "icmpOk": "ok · {{ms}} ms · {{ip}}",
       "icmpFail": "fail — {{error}}",

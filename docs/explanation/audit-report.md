@@ -39,6 +39,8 @@
 
 - [§3/§5/§9] `src/features/network-probe/components/TcpConnectPanel.tsx` - TCP 结果卡在系统错误已默认折叠、调用已写入带时间戳命令日志的情况下，仍在卡片正文重复展示原始 `commandHint`；macOS 27.0.1 arm64 对 `127.0.0.1:1` 实测“连接被拒绝”后复现 - 移除结果卡重复命令，保留按钮悬浮预览、折叠技术详情及命令日志；补成功/失败回归 - **强制** - 状态：已修复（Medium；macOS 27.0.1 arm64 隔离 QA 中英文拒绝路径和本机监听成功路径均验证结果卡无 raw command，调用仍保留在带时间戳日志；组件 9 项、`lint:fe`、文档链接检查通过）
 
+- [§3/§5/§9] `src/features/network-probe/components/ProbeTargetPanel.tsx` - 自定义目标结果卡重复展示已记入命令日志的原始 `commandHint`，直接暴露后端 `host/url` 标识，且未标明结果所属输入，改表单后容易将旧结果误认为新目标的结果 - 结果卡展示脱敏后的 DTO 输入，按 locale 映射输入类型并移除重复命令；保留按钮命令预览与时间戳日志；覆盖本地/Globalping 命令去重、脱敏、未知类型与编辑输入后的关联回归 - **强制** - 状态：已修复（Medium；macOS 27.0.1 arm64 隔离 QA 对 `https://example.com` 实测 HTTP 200，中英文卡片显示“本次探测目标 / Probed target”与本地化 URL、无命令重复；改输入为 `https://iana.org` 后旧结果仍标明原目标，带时间戳命令日志保留；组件 3 项、Network Probe 42 个文件/198 项、`lint:fe`、88 份文档链接检查及 debug QA `.app` 构建通过；Globalping UI 状态由组件测试覆盖，未调用远端测量）
+
 未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
 
 ## 记录格式

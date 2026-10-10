@@ -136,6 +136,7 @@ L1 → L2 映射：
 | egress     | —                                                                                           | 公网出口：成功时优先显示 IP、可选 ASN/org；失败状态本地化。API 来源、原始响应与命令提示默认折叠在「技术详情」中；测试与上不了网双入口共用同一结果组件。                                                                                                                                                                                                                           |
 | speed      | 测速源下拉（LibreSpeed 公共源；加载中 / 加载失败可重试 / 成功空列表分别反馈，支持手动刷新） | **带宽测速**：流式 `speed-sample` 阶段（ping/jitter/download/upload）；结果卡：ping / jitter / download / upload Mbps；**失败/源不可用进入 30s 冷却**（倒计时禁用）；可取消                                                                                                                                                                                                       |
 
+- **自定义目标结果**：结果卡标出脱敏后的本次目标并按界面语言显示输入类型；表单可编辑时仍显示生成该结果的原目标。结果卡不重复展示 `commandHint`，按钮预览和带时间戳日志保留；Globalping 结果目标由前端再次脱敏。
 - 所有探测按钮带 CommandHint（真实命令预览）；`toolEnabled=false` 时显示 toolDisabled 提示。
 
 **交互细节**：

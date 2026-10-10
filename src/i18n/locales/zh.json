@@ -1781,6 +1781,12 @@
       "run": "探测",
       "running": "探测中…",
       "kind": "输入类型",
+      "kindValues": {
+        "host": "主机",
+        "url": "URL",
+        "unknown": "未知"
+      },
+      "resultFor": "本次探测目标：{{target}}",
       "icmp": "ICMP",
       "icmpOk": "成功 · {{ms}} ms · {{ip}}",
       "icmpFail": "失败 — {{error}}",

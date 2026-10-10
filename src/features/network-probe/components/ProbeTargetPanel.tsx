@@ -80,7 +80,21 @@ export function ProbeTargetPanel({
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div>
-            {t("networkProbe.probe.kind")}: <span className="font-medium">{result.kind}</span>
+            {t("networkProbe.probe.resultFor", {
+              target: redactProbeTargetForDisplay(result.input),
+            })}
+          </div>
+          <div>
+            {t("networkProbe.probe.kind")}:{" "}
+            <span className="font-medium">
+              {t(
+                result.kind === "host"
+                  ? "networkProbe.probe.kindValues.host"
+                  : result.kind === "url"
+                    ? "networkProbe.probe.kindValues.url"
+                    : "networkProbe.probe.kindValues.unknown",
+              )}
+            </span>
           </div>
           {result.icmp ? (
             <div>
@@ -124,7 +138,6 @@ export function ProbeTargetPanel({
                 : t("networkProbe.probe.tlsFail")}
             </div>
           ) : null}
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}
       {remoteResult ? (
@@ -165,8 +178,11 @@ export function ProbeTargetPanel({
               <span className="font-mono">{remoteResult.resolvedAddress}</span>
             </div>
           ) : null}
-          <div className="text-muted-foreground font-mono text-xs">{remoteResult.target}</div>
-          <div className="text-muted-foreground font-mono text-xs">{remoteResult.commandHint}</div>
+          <div className="text-muted-foreground font-mono text-xs">
+            {t("networkProbe.probe.resultFor", {
+              target: redactProbeTargetForDisplay(remoteResult.target),
+            })}
+          </div>
         </div>
       ) : null}
     </ProbePanelShell>
