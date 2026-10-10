@@ -69,6 +69,34 @@ describe("HealthTreePanel localized check presentation", () => {
     expect(screen.getByText(item.commandHint!).closest("details")).toBe(technicalDetails)
   })
 
+  it("does not repeat the session-specific scan command below the results", () => {
+    const item: HealthCheckItem = {
+      key: "link.iface",
+      layer: "L0",
+      status: "pass",
+      detail: "2 active interface(s)",
+    }
+    const result = {
+      ...makeResult(item),
+      commandHint: "startHealthScan(local) // sessionId=health-1",
+    }
+
+    render(
+      <HealthTreePanel
+        loading={false}
+        result={result}
+        streamingItems={[]}
+        canCancel={false}
+        cancelRequested={false}
+        onRun={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText(result.commandHint)).toBeNull()
+    expect(screen.getByText("networkProbe.cmd.healthScan")).toBeTruthy()
+  })
+
   it("uses a localized warning fallback for an unfamiliar backend diagnostic", () => {
     const item: HealthCheckItem = {
       key: "future.check",

@@ -88,9 +88,6 @@ export function HealthTreePanel({
           )
         })}
       </div>
-      {result?.commandHint ? (
-        <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
-      ) : null}
     </ProbePanelShell>
   )
 }
