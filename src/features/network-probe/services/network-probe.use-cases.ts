@@ -1071,7 +1071,7 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingLanServices) return
     store.setLoadingLanServices(true)
-    store.clearError("networkProbe.errors.lanServicesFailed")
+    store.clearError("networkProbe.errors.lanSvcFailed")
     store.setLanServicesResult(null)
     store.appendCommandLog("browseLanServices(local)")
     try {

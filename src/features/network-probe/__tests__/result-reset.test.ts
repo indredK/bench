@@ -178,6 +178,21 @@ describe("network-probe result reset before rerun", () => {
     expect(useNetworkProbeStore.getState().error).not.toBeNull()
   })
 
+  it("clears the LAN service failure notice before retrying successfully", async () => {
+    repository.browseLanServices.mockRejectedValueOnce(new Error("simulated browse failure"))
+    await networkProbeUseCases.browseLanServices()
+
+    expect(useNetworkProbeStore.getState().errors.map((error) => error.key)).toContain(
+      "networkProbe.errors.lanSvcFailed",
+    )
+
+    repository.browseLanServices.mockResolvedValueOnce({ items: [], issues: [], elapsedMs: 3 })
+    await networkProbeUseCases.browseLanServices()
+
+    expect(useNetworkProbeStore.getState().errors).toEqual([])
+    expect(useNetworkProbeStore.getState().error).toBeNull()
+  })
+
   it("streams only the active Ping session and keeps a cancelled partial result", async () => {
     let resolvePing!: (value: unknown) => void
     repository.pingHost.mockReturnValueOnce(
