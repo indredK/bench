@@ -69,4 +69,11 @@ describe("NatPanel mapping observations", () => {
 
     expect(screen.getByText("networkProbe.nat.blockedOrTimeout")).toBeTruthy()
   })
+
+  it("uses a neutral localized label for unknown and prototype-key observations", () => {
+    renderPanel({ ...baseResult, natType: "constructor" })
+
+    expect(screen.getByText("networkProbe.nat.unknown")).toBeTruthy()
+    expect(screen.queryByText("constructor")).toBeNull()
+  })
 })

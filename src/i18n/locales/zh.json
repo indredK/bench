@@ -2557,6 +2557,7 @@
       "consistent": "响应服务器返回的映射一致",
       "varied": "不同服务器返回的映射不同",
       "blockedOrTimeout": "无有效响应（可能被阻断或超时）",
+      "unknown": "未知观测状态",
       "mapped": "映射地址",
       "details": "服务器详情",
       "technicalDetails": "技术详情"

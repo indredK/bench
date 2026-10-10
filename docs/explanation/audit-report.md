@@ -51,6 +51,7 @@
 
 - [§3/§5/§9] [前端] `src/features/network-probe/components/SitesProbePanel.tsx` - **Low**：自定义站点达到 24 项上限后仍可输入并点击“添加”，`.slice(0, 24)` 会静默丢弃新目标并清空输入；超限的既有列表再添加时还可能覆盖末尾旧目标 - 显示中英文计数与上限提示，达到上限后禁用添加、保留输入，并在状态更新时保护已有列表；补满额、草稿保留和 sessionStorage 不变回归 - 设计理念：约束在操作前明确可见，用户输入与持久化目标不会因容量限制被静默丢失 - **强制** - 状态：已修复（macOS 27.0.1 arm64 隔离 QA 真机先复现第 25 项输入被清空但列表未增加；修复版中英文均显示 24/24 和移除提示、禁用添加，并保留待添加输入及原 24 项；Network Probe 回归通过，QA 应用/专属数据与构建 staging 已移入系统废纸篓）
 - [§4.4/UX §4] [前端] `src/features/network-probe/components/MultiNodePanel.tsx` - **Low**：Agent 端点允许最长 2048 字符，未断行的长路径在节点列表中横向覆盖命令日志 - 将名称/状态/移除操作与端点分行，端点限宽省略并保留完整值；补长端点组件回归 - 设计理念：长内容不挤占相邻面板，仍可通过悬停和无障碍树读取完整端点 - **强制** - 状态：已修复（macOS 27.0.1 arm64 隔离 Bench QA 基线真机复现；修复版中文/英文界面确认端点均限宽且命令日志可见；MultiNodePanel 定向测试 10 项通过）
+- [§3/§5] [前端] `src/features/network-probe/components/NatPanel.tsx` - **Low**：未知 `natType` 通过普通对象索引命中继承属性（如 `constructor`），观测状态在结果卡中消失 - 使用 `Object.hasOwn` 校验已知映射，其他值显示本地化中性标签；补原型键回归 - 设计理念：协议/后端新增值不会被 JavaScript 原型污染误判，界面始终提供有效、可理解的状态 - **强制** - 状态：已修复（NatPanel 原型键测试与 Network Probe 216 项测试通过；macOS 27.0.1 arm64 隔离 Bench QA 对 `constructor` 合成 DTO 真机复现，修复版中文显示“未知观测状态”、英文显示 “Unknown observation state”；未发起 STUN 请求）
 
 未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
 

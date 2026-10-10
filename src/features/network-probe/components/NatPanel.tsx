@@ -50,7 +50,9 @@ export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: Na
           <div>
             {t("networkProbe.nat.type")}:{" "}
             <span className="font-medium">
-              {resultLabels[result.natType] ? t(resultLabels[result.natType]) : result.natType}
+              {Object.hasOwn(resultLabels, result.natType)
+                ? t(resultLabels[result.natType])
+                : t("networkProbe.nat.unknown")}
             </span>
           </div>
           {result.mappedAddress ? (

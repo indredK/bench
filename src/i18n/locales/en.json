@@ -2557,6 +2557,7 @@
       "consistent": "Same mapping across responding servers",
       "varied": "Different mappings across servers",
       "blockedOrTimeout": "No valid response (blocked or timed out)",
+      "unknown": "Unknown observation state",
       "mapped": "Mapped address",
       "details": "Server details",
       "technicalDetails": "Technical details"
