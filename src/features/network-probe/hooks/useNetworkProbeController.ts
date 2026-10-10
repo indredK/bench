@@ -282,8 +282,8 @@ export function useNetworkProbeController() {
   }, [clearError, setSecurityAuthorized])
   const revokeSecurity = useCallback(() => {
     clearError("networkProbe.errors.securityAuthRequired")
-    setSecurityAuthorized(false)
-  }, [clearError, setSecurityAuthorized])
+    void networkProbeUseCases.revokeSecurityAuthorization()
+  }, [clearError])
   const resetDefaults = useCallback(() => networkProbeUseCases.resetDefaults(), [])
 
   const l2Id = nav.l2ByL1[nav.l1Id]

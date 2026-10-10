@@ -167,7 +167,7 @@ L1 → L2 映射：
 
 **交互细节**：
 
-- **SecurityAuthGate**：未授权时 L1=security 显示琥珀色提示 + 「我确认 — 启用安全工具」按钮；点击后 `authorizeSecurity` 置位并持久化 localStorage；已授权显示「本机已授权使用安全工具。」+「撤销」；授权/撤销即时生效。未授权点击任何安全工具，use-case 直接 `setError(securityAuthRequired)` 且不发起 IPC。
+- **SecurityAuthGate**：未授权时 L1=security 显示琥珀色提示 + 「我确认 — 启用安全工具」按钮；点击后 `authorizeSecurity` 置位并持久化 localStorage；已授权显示「本机已授权使用安全工具。」+「撤销」。撤销会立即移除授权、清空安全结果并向活动端口扫描/抓包发送取消；撤权前启动的一次性查询即使在重新授权后才返回，也不会写回结果或错误。未授权点击任何安全工具，use-case 直接 `setError(securityAuthRequired)` 且不发起 IPC。
 - **端口扫描确认**：目标非内网（非私有/回环）或展开端口数 >64 时，点击「扫描端口」先弹 `DestructiveConfirmDialog`（展示目标 + 约 N 个端口 + 仅扫描授权资产的声明；扫描方式可能为 SYN 或 TCP connect），确认「仍然扫描」才执行；勾选范围内可免确认。端口范围解析失败（如超 256、非法语法）由后端返回 `INVALID_INPUT`。结果卡始终标明 DTO 中的原始扫描目标，避免编辑表单后旧结果被误认为新目标；零样本结果显示本地化状态；扫描模式、取消状态本地化，原始诊断和命令默认折叠在技术详情中。
 - **污染检测结果**：按 locale 映射 `kind` 与 `severity`，前端显示审慎摘要；HTTPS 请求失败属于不确定结果，不能单凭 DNS、连接或证书校验失败断定 MITM。原始 `evidence` 和 `commandHint` 默认折叠在「技术详情」中，未知类型或严重度显示安全回退文案。
 - **空态与结果来源（arp）**：按 `emptyReason` 区分无 IPv4、客户端隔离和安静网络；ARP 缓存与 TCP 探测来源、发现模式摘要使用本地化标签。内部模式名与原始 `commandHint` 默认折叠在技术详情中。TCP 探测发现的主机没有 MAC 时不标成 ARP 未完成项；取消时提示是否保留了已发现邻居。

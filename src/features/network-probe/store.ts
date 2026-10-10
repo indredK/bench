@@ -165,6 +165,8 @@ interface NetworkProbeState {
   probeNodes: ProbeNode[]
   reportHistory: HealthScanResult[]
   securityAuthorized: boolean
+  /** 撤销授权时递增，防止旧授权下的异步结果在重新授权后写回。 */
+  securityAuthorizationRevision: number
   /** 按探测种类分槽的活动会话; 多类探测并发时取消目标各自独立, 不会互相抢占。 */
   activeSessionIdByKind: Record<NetworkProbeKind, string | null>
   /** 各探测种类已发出 cancel 请求的会话; 用于保证取消幂等 (A4-4)。 */
@@ -419,6 +421,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   probeNodes: [],
   reportHistory: loadReportHistory(),
   securityAuthorized: loadSecurityAuthorized(),
+  securityAuthorizationRevision: 0,
   activeSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
   cancelRequestedSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
   commandLog: [],
@@ -593,7 +596,13 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   },
   setSecurityAuthorized: (securityAuthorized) => {
     persistSecurityAuthorized(securityAuthorized)
-    set({ securityAuthorized })
+    set((state) => ({
+      securityAuthorized,
+      securityAuthorizationRevision:
+        state.securityAuthorized && !securityAuthorized
+          ? state.securityAuthorizationRevision + 1
+          : state.securityAuthorizationRevision,
+    }))
   },
   setActiveSessionId: (kind, sessionId) =>
     set((state) => {
