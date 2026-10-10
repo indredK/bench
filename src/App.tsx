@@ -7,6 +7,7 @@ import { Router, Route, Switch, useLocation } from "wouter"
 import { useHashLocation } from "wouter/use-hash-location"
 import { useTranslation } from "react-i18next"
 import NavigationShell from "./components/layout/NavigationShell"
+import type { NavigationShellProps } from "./components/layout/NavigationShell"
 import { CustomTitlebar } from "./components/layout/CustomTitlebar"
 import { GlobalContextMenu } from "@/shared/context-menu/GlobalContextMenu"
 import { useDefaultContextMenu } from "@/shared/context-menu/useContextMenuRegistration"
@@ -74,7 +75,7 @@ function AuthProxyNavigationListener() {
   return null
 }
 
-function AnimatedRoutes() {
+function RoutedNavigationShell(props: Omit<NavigationShellProps, "activePath" | "children">) {
   const [location, navigate] = useLocation()
   useEffect(() => {
     const defaultFeature = appFeatures.find((feature) => canUseFeature(feature))
@@ -82,8 +83,15 @@ function AnimatedRoutes() {
       navigate(defaultFeature.path, { replace: true })
     }
   }, [location, navigate])
-  if (location === "" || location === "/") return null
-  return <FeaturePanel key={location} location={location} />
+
+  const content =
+    location === "" || location === "/" ? null : <FeaturePanel key={location} location={location} />
+
+  return (
+    <NavigationShell {...props} activePath={location}>
+      {content}
+    </NavigationShell>
+  )
 }
 
 function FeaturePanel({ location }: { location: string }) {
@@ -232,14 +240,12 @@ function App() {
           <div className="flex flex-1 flex-col overflow-hidden">
             <CustomTitlebar />
             <div className="flex flex-1 overflow-hidden">
-              <NavigationShell
+              <RoutedNavigationShell
                 layout={navLayout.layoutId}
                 items={sidebarItems}
                 configItems={configItems}
                 onPrefs={handleOpenPrefs}
-              >
-                <AnimatedRoutes />
-              </NavigationShell>
+              />
             </div>
           </div>
         </GlobalContextMenu>

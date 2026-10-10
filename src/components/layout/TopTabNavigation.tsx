@@ -5,7 +5,7 @@
  * data comes from `createNavigationItems` / `createConfigItems` and is unchanged.
  */
 import { useMemo } from "react"
-import { useLocation, Link } from "wouter"
+import { Link } from "wouter"
 import { useTranslation } from "react-i18next"
 import type { NavigationItem } from "@/features/types"
 import { QuickControls } from "./QuickControls"
@@ -13,15 +13,20 @@ import { useScrambleText } from "@/hooks/useScrambleText"
 import { cn } from "@/lib/utils"
 
 interface TopTabNavigationProps {
+  activePath: string
   items: NavigationItem[]
   /** Tool/config items shown after a separator (e.g. System Settings). */
   configItems?: NavigationItem[]
   onPrefs?: () => void
 }
 
-export function TopTabNavigation({ items, configItems, onPrefs }: TopTabNavigationProps) {
+export function TopTabNavigation({
+  activePath,
+  items,
+  configItems,
+  onPrefs,
+}: TopTabNavigationProps) {
   const { t } = useTranslation()
-  const [location] = useLocation()
   const { text: titleText, start: scrambleTitle } = useScrambleText({
     target: t("sidebar.title"),
     duration: 700,
@@ -50,12 +55,13 @@ export function TopTabNavigation({ items, configItems, onPrefs }: TopTabNavigati
 
       <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
         {allItems.map((item) => {
-          const isActive = location === item.path
+          const isActive = activePath === item.path
           const isConfig = configPaths.has(item.path)
           return (
             <Link
               key={item.path}
               href={item.path}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex shrink-0 cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition",
                 isConfig && "border-border ml-2 border-l pl-4",

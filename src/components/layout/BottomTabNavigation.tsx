@@ -5,7 +5,7 @@
  * the end. The feature data is unchanged — only the rendering position differs.
  */
 import { useMemo } from "react"
-import { useLocation, Link } from "wouter"
+import { Link } from "wouter"
 import { useTranslation } from "react-i18next"
 import { Settings } from "lucide-react"
 import type { NavigationItem } from "@/features/types"
@@ -14,14 +14,19 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface BottomTabNavigationProps {
+  activePath: string
   items: NavigationItem[]
   configItems?: NavigationItem[]
   onPrefs?: () => void
 }
 
-export function BottomTabNavigation({ items, configItems, onPrefs }: BottomTabNavigationProps) {
+export function BottomTabNavigation({
+  activePath,
+  items,
+  configItems,
+  onPrefs,
+}: BottomTabNavigationProps) {
   const { t } = useTranslation()
-  const [location] = useLocation()
 
   const allItems = useMemo<NavigationItem[]>(
     () => [...items, ...(configItems ?? [])],
@@ -31,11 +36,12 @@ export function BottomTabNavigation({ items, configItems, onPrefs }: BottomTabNa
   return (
     <div className="border-border bg-background flex shrink-0 items-center justify-center gap-1.5 border-t px-4 py-2 select-none">
       {allItems.map((item) => {
-        const isActive = location === item.path
+        const isActive = activePath === item.path
         return (
           <Link
             key={item.path}
             href={item.path}
+            aria-current={isActive ? "page" : undefined}
             className={cn(
               "flex min-w-[64px] flex-col items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] transition",
               isActive
