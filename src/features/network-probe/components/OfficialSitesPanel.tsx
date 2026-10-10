@@ -143,7 +143,14 @@ export function OfficialSitesPanel({
   }
 
   const handleTestOne = (target: string) => {
-    setPendingTarget(targetKey(target))
+    const key = targetKey(target)
+    setPendingTarget(key)
+    setSamplesByTarget((previous) => {
+      if (!Object.hasOwn(previous, key)) return previous
+      const next = { ...previous }
+      delete next[key]
+      return next
+    })
     onTestOne(target)
   }
 

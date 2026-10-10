@@ -237,6 +237,48 @@ describe("site probe failure details", () => {
     expect(details?.open).toBe(true)
   })
 
+  it("does not restore a stale success after a single-site retry fails", async () => {
+    const onTestOne = vi.fn()
+    const retainedSample: SiteSampleResult = {
+      ...successfulSample,
+      id: "cloudflare",
+      target: "https://cloudflare.example",
+      httpTtfbMs: 80,
+    }
+    const props = {
+      canCancel: false,
+      cancelRequested: false,
+      presets: [
+        { id: "google", target: "https://example.com", channel: "http" },
+        { id: "cloudflare", target: "https://cloudflare.example", channel: "http" },
+      ],
+      result: makeResult([successfulSample, retainedSample]),
+      streaming: [],
+      toolEnabled: true,
+      onTestAll: vi.fn(),
+      onTestOne,
+      onCancel: vi.fn(),
+    }
+    const view = render(<OfficialSitesPanel loading={false} {...props} />)
+
+    await waitFor(() =>
+      expect(screen.getAllByText("networkProbe.official.statusOk")).toHaveLength(2),
+    )
+    fireEvent.click(screen.getByRole("button", { name: /networkProbe\.official\.sites\.google/ }))
+    view.rerender(<OfficialSitesPanel {...props} loading result={null} />)
+    expect(screen.getByText("networkProbe.official.statusRunning")).toBeTruthy()
+
+    view.rerender(<OfficialSitesPanel {...props} loading={false} result={null} />)
+
+    expect(onTestOne).toHaveBeenCalledWith("https://example.com")
+    const googleCard = screen.getByRole("button", {
+      name: /networkProbe\.official\.sites\.google/,
+    })
+    expect(googleCard.textContent).toContain("networkProbe.official.statusIdle")
+    expect(googleCard.textContent).not.toContain("networkProbe.official.httpMs")
+    expect(screen.getAllByText("networkProbe.official.statusOk")).toHaveLength(1)
+  })
+
   it("keeps pack controls disabled while an official-site request owns the shared scan slot", () => {
     render(
       <SitesProbePanel
