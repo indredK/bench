@@ -7,6 +7,7 @@ import { PublicIpResult } from "@/features/network-probe/components/PublicIpResu
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { TechnicalDetails } from "@/features/network-probe/components/TechnicalDetails"
 import type { NetworkProbeOfflineSub } from "@/features/network-probe/store"
+import { safeTranslationKey } from "@/features/network-probe/utils/translation-key"
 import type {
   CaptivePortalResult,
   Ipv6StackResult,
@@ -72,9 +73,12 @@ export function OfflinePanel({
               <div>
                 {t("networkProbe.offline.status")}:{" "}
                 <span className="font-medium">
-                  {t(`networkProbe.offline.captiveStatus.${captive.status}`, {
-                    defaultValue: t("networkProbe.offline.captiveStatus.unknown"),
-                  })}
+                  {t(
+                    safeTranslationKey(
+                      `networkProbe.offline.captiveStatus.${captive.status}`,
+                      "networkProbe.offline.captiveStatus.unknown",
+                    ),
+                  )}
                 </span>
               </div>
               <TechnicalDetails
@@ -152,9 +156,12 @@ export function OfflinePanel({
               <div>
                 {t("networkProbe.ipv6.status")}:{" "}
                 <span className="font-medium">
-                  {t(`networkProbe.ipv6.statusValue.${ipv6.status}`, {
-                    defaultValue: t("networkProbe.ipv6.statusValue.unknown"),
-                  })}
+                  {t(
+                    safeTranslationKey(
+                      `networkProbe.ipv6.statusValue.${ipv6.status}`,
+                      "networkProbe.ipv6.statusValue.unknown",
+                    ),
+                  )}
                 </span>
               </div>
             </>
@@ -179,9 +186,12 @@ export function OfflinePanel({
               <div>
                 {t("networkProbe.mtu.status")}:{" "}
                 <span className="font-medium">
-                  {t(`networkProbe.mtu.statusValue.${mtu.status}`, {
-                    defaultValue: t("networkProbe.mtu.statusValue.unknown"),
-                  })}
+                  {t(
+                    safeTranslationKey(
+                      `networkProbe.mtu.statusValue.${mtu.status}`,
+                      "networkProbe.mtu.statusValue.unknown",
+                    ),
+                  )}
                 </span>
                 {mtu.pathMtu != null ? <span className="font-mono"> · {mtu.pathMtu}</span> : null}
               </div>

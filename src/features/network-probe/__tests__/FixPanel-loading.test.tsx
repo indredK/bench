@@ -97,22 +97,25 @@ describe("FixPanel service loading and recovery", () => {
     expect(details?.textContent).toContain(result.commandHint)
   })
 
-  it("uses a localized fallback for unknown action values", () => {
-    renderPanel({
-      lastResult: {
-        action: "futureAction",
-        ok: false,
-        message: "backend detail",
-        commandHint: "futureAction()",
-      },
-      services: ["Wi-Fi"],
-    })
+  it.each(["futureAction", "constructor"])(
+    "uses a localized fallback for unknown action %s",
+    (action) => {
+      renderPanel({
+        lastResult: {
+          action,
+          ok: false,
+          message: "backend detail",
+          commandHint: `${action}()`,
+        },
+        services: ["Wi-Fi"],
+      })
 
-    const card = screen.getByRole("alert")
-    expect(card.textContent).toContain("networkProbe.fix.unknownAction")
-    expect(card.textContent).toContain("networkProbe.fix.failed")
-    expect(card.textContent).not.toContain("futureAction:")
-  })
+      const card = screen.getByRole("alert")
+      expect(card.textContent).toContain("networkProbe.fix.unknownAction")
+      expect(card.textContent).toContain("networkProbe.fix.failed")
+      expect(card.textContent).not.toContain(`${action}:`)
+    },
+  )
 
   it("shows an empty state and allows an explicit retry", () => {
     const { onLoadServices } = renderPanel()

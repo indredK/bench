@@ -155,7 +155,7 @@ export function SitesProbePanel({
               >
                 {packs.map((id) => (
                   <option key={id} value={id}>
-                    {PACK_LABEL_KEYS[id] ? t(PACK_LABEL_KEYS[id]) : id}
+                    {Object.hasOwn(PACK_LABEL_KEYS, id) ? t(PACK_LABEL_KEYS[id]) : id}
                   </option>
                 ))}
               </select>

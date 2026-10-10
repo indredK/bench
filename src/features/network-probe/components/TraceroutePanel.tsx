@@ -54,7 +54,10 @@ export function TraceroutePanel({
 
   // 跑动中只渲染本轮 streaming 跳数: 旧 result 优先会遮蔽新一轮逐跳进度。
   const hops = loading ? streamingHops : result?.hops?.length ? result.hops : streamingHops
-  const modeKey = result ? TRACEROUTE_MODE_LABEL_KEYS[result.privilegeMode] : null
+  const modeKey =
+    result && Object.hasOwn(TRACEROUTE_MODE_LABEL_KEYS, result.privilegeMode)
+      ? TRACEROUTE_MODE_LABEL_KEYS[result.privilegeMode]
+      : null
   const messageKey = result?.cancelled
     ? null
     : result?.privilegeMode === "unprivileged"

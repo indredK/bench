@@ -96,4 +96,18 @@ describe("WhoisPanel result visibility", () => {
     expect(screen.getByText("successful RDAP response").closest("details")).toBeNull()
     expect(screen.getByText("whois('example.invalid')").closest("details")).toBeNull()
   })
+
+  it("uses a localized fallback for prototype-key error codes", () => {
+    render(
+      <WhoisPanel
+        loading={false}
+        result={{ ...result, errorCode: "constructor" as unknown as WhoisInfo["errorCode"] }}
+        toolEnabled
+        onRun={() => undefined}
+      />,
+    )
+
+    expect(screen.getByText("networkProbe.whois.errors.unknown")).toBeTruthy()
+    expect(screen.queryByText("constructor")).toBeNull()
+  })
 })

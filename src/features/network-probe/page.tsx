@@ -11,6 +11,7 @@ import { DnsSecPanel } from "@/features/network-probe/components/DnsSecPanel"
 import { EgressPanel } from "@/features/network-probe/components/EgressPanel"
 import { FixPanel } from "@/features/network-probe/components/FixPanel"
 import { GlobalpingTokenDialog } from "@/features/network-probe/components/GlobalpingTokenDialog"
+import { hasOwnTranslationKey } from "@/features/network-probe/utils/translation-key"
 import { HealthTreePanel } from "@/features/network-probe/components/HealthTreePanel"
 import { Ipv6Panel } from "@/features/network-probe/components/Ipv6Panel"
 import { LanServicesPanel } from "@/features/network-probe/components/LanServicesPanel"
@@ -151,10 +152,11 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   }, [localNode, probeNodes, remoteOriginEnabled, selectedProbeNodeId])
   const globalpingActive = activeNode?.kind === "remote-proxy"
   const globalpingLocation = activeNode?.region ?? "world"
+  const globalpingLocationKey = `networkProbe.globalping.locations.${globalpingLocation}`
   const globalpingLocationLabel = globalpingActive
-    ? t(`networkProbe.globalping.locations.${globalpingLocation}`, {
-        defaultValue: activeNode?.label ?? t("networkProbe.globalping.locations.world"),
-      })
+    ? hasOwnTranslationKey(globalpingLocationKey)
+      ? t(globalpingLocationKey, { defaultValue: activeNode?.label })
+      : (activeNode?.label ?? t("networkProbe.globalping.locations.world"))
     : undefined
 
   useEffect(() => {

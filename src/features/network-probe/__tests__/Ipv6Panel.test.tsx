@@ -80,15 +80,22 @@ describe("Ipv6Panel", () => {
     }
   })
 
-  it("falls back safely for unknown NDP statuses", () => {
+  it("uses a localized fallback for prototype-key stack statuses", () => {
     render(
-      <Ipv6Panel
-        loading={false}
-        result={{ ...result, ndpStatus: "future-status" }}
-        onRun={vi.fn()}
-      />,
+      <Ipv6Panel loading={false} result={{ ...result, status: "constructor" }} onRun={vi.fn()} />,
     )
 
-    expect(screen.getByText("networkProbe.ipv6.ndpStatus.unknown", { exact: false })).toBeTruthy()
+    expect(screen.getByText("networkProbe.ipv6.statusValue.unknown")).toBeTruthy()
+    expect(screen.queryByText("constructor")).toBeNull()
   })
+
+  it.each(["future-status", "constructor"])(
+    "falls back safely for unknown NDP status %s",
+    (ndpStatus) => {
+      render(<Ipv6Panel loading={false} result={{ ...result, ndpStatus }} onRun={vi.fn()} />)
+
+      expect(screen.getByText("networkProbe.ipv6.ndpStatus.unknown", { exact: false })).toBeTruthy()
+      expect(screen.queryByText(ndpStatus)).toBeNull()
+    },
+  )
 })

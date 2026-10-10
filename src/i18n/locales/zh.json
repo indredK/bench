@@ -1711,7 +1711,8 @@
     "firewall": {
       "on": "开启",
       "off": "关闭",
-      "unsupported": "不支持"
+      "unsupported": "不支持",
+      "unknown": "未知"
     },
     "tcp": {
       "hint": "探测 host:port 的 TCP 连通性（开发者刚需）。",
@@ -1995,8 +1996,11 @@
       "severity": {
         "info": "信息",
         "warn": "警告",
-        "critical": "严重"
-      }
+        "critical": "严重",
+        "unknown": "未知状态"
+      },
+      "unknownTitle": "无法识别的建议",
+      "unknownBody": "当前版本无法显示此建议。"
     },
     "advisor": {
       "linkDown": {
@@ -2295,7 +2299,8 @@
       "phase": {
         "ping": "测量延迟",
         "download": "下载中",
-        "upload": "上传中"
+        "upload": "上传中",
+        "unknown": "未知测试阶段"
       }
     },
     "security": {
@@ -2351,7 +2356,8 @@
         "requestFailed": "RDAP 服务连接失败，请检查网络后重试。",
         "httpError": "RDAP 服务返回 HTTP {{status}}。",
         "bodyReadFailed": "读取 RDAP 响应失败。",
-        "responseTruncated": "RDAP 响应过大，已截断显示。"
+        "responseTruncated": "RDAP 响应过大，已截断显示。",
+        "unknown": "RDAP 查询未能完成。"
       }
     },
     "dnssec": {

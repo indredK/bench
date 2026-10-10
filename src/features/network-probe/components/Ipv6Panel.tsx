@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { safeTranslationKey } from "@/features/network-probe/utils/translation-key"
 import type { Ipv6StackResult } from "@/lib/tauri/types/network-probe"
 
 const NDP_STATUS_LABEL_KEYS: Record<string, string> = {
@@ -56,9 +57,12 @@ export function Ipv6Panel({ loading, result, onRun, dualFrom }: Ipv6PanelProps) 
           <div>
             {t("networkProbe.ipv6.status")}:{" "}
             <span className="font-medium">
-              {t(`networkProbe.ipv6.statusValue.${result.status}`, {
-                defaultValue: t("networkProbe.ipv6.statusValue.unknown"),
-              })}
+              {t(
+                safeTranslationKey(
+                  `networkProbe.ipv6.statusValue.${result.status}`,
+                  "networkProbe.ipv6.statusValue.unknown",
+                ),
+              )}
             </span>
             <span className="text-muted-foreground">
               {" "}
@@ -104,7 +108,11 @@ export function Ipv6Panel({ loading, result, onRun, dualFrom }: Ipv6PanelProps) 
           </div>
           <div className="text-muted-foreground text-xs">
             {t("networkProbe.ipv6.ndp")}:{" "}
-            {t(NDP_STATUS_LABEL_KEYS[result.ndpStatus] ?? "networkProbe.ipv6.ndpStatus.unknown")}
+            {t(
+              Object.hasOwn(NDP_STATUS_LABEL_KEYS, result.ndpStatus)
+                ? NDP_STATUS_LABEL_KEYS[result.ndpStatus]
+                : "networkProbe.ipv6.ndpStatus.unknown",
+            )}
           </div>
           {result.message ||
           result.dualStack.detail ||

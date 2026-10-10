@@ -58,6 +58,26 @@ afterEach(() => {
 })
 
 describe("site probe failure details", () => {
+  it("keeps unknown pack IDs readable when they collide with object prototype keys", () => {
+    render(
+      <SitesProbePanel
+        loading={false}
+        canCancel={false}
+        cancelRequested={false}
+        result={null}
+        streaming={[]}
+        sparklines={{}}
+        packIds={["constructor"]}
+        toolEnabled
+        onRunPack={vi.fn()}
+        onRunCustom={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole("option", { name: "constructor" })).toHaveValue("constructor")
+  })
+
   it("keeps the draft and existing sites when the custom-site limit is reached", async () => {
     const savedSites = Array.from(
       { length: 24 },

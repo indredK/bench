@@ -60,14 +60,17 @@ describe("MtuPanel", () => {
     expect(screen.queryByText("ping-df-binary")).toBeNull()
   })
 
-  it("uses localized fallbacks for unknown backend states and methods", () => {
+  it.each([
+    ["future-status", "future-method"],
+    ["constructor", "constructor"],
+  ])("uses localized fallbacks for unknown backend state %s and method %s", (status, method) => {
     render(
       <MtuPanel
         loading={false}
         result={{
           ...successfulResult,
-          status: "future-status",
-          method: "future-method",
+          status,
+          method,
           message: "Raw future diagnostic",
         }}
         onRun={vi.fn()}
@@ -78,7 +81,7 @@ describe("MtuPanel", () => {
     expect(screen.getByText("127.0.0.1 · networkProbe.mtu.method.unknown · 30 ms")).toBeTruthy()
     expect(screen.getByText("networkProbe.mtu.message.unknown")).toBeTruthy()
     expect(screen.getByText("Raw future diagnostic").closest("details")?.open).toBe(false)
-    expect(screen.queryByText("future-status")).toBeNull()
-    expect(screen.queryByText("future-method")).toBeNull()
+    expect(screen.queryByText(status)).toBeNull()
+    expect(screen.queryByText(method)).toBeNull()
   })
 })

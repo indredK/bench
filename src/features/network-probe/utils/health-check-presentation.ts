@@ -225,8 +225,13 @@ export function presentHealthCheckItem(item: HealthCheckItem): HealthCheckPresen
     }
   }
 
-  const labelKey = CHECK_LABEL_KEYS[item.key] ?? "networkProbe.health.checks.unknown"
-  const detailKey = localized?.detailKey ?? FALLBACK_DETAIL_KEYS[item.status]
+  const labelKey = Object.hasOwn(CHECK_LABEL_KEYS, item.key)
+    ? CHECK_LABEL_KEYS[item.key]
+    : "networkProbe.health.checks.unknown"
+  const fallbackDetailKey = Object.hasOwn(FALLBACK_DETAIL_KEYS, item.status)
+    ? FALLBACK_DETAIL_KEYS[item.status]
+    : undefined
+  const detailKey = localized?.detailKey ?? fallbackDetailKey
 
   return {
     labelKey,

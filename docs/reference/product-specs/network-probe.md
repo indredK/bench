@@ -210,6 +210,7 @@ NTP 结果按来源展示本地化偏移或失败原因；后端原始 `detail` 
 - **IPC 契约**：`src/lib/tauri/contracts.ts` + `src-tauri/src/net_probe/commands.rs` 双边集中维护；全部命令返回 `AppResult<T>`。
 - **长任务**：events 流式（`network-probe:health-item` / `traceroute-hop` / `site-sample` / `ping-sample` / `speed-sample` / `port-sample` / `pack-progress` / `scan-session`）；会话取消统一 `network-probe-cancel-scan(sessionId)`，**同一会话只允许发一次取消（幂等）**，新会话重置取消标记（有单测 `cancel-idempotency.test.ts`）。
 - **capabilities 能力声明**：后端 `build_capabilities` 返回 platform / privilegeLevel / tools 状态（supported/partial/degraded/unsupported/missing_pack）/ externalTools（如 nmap）；前端 `toolEnabled` 依此控制按钮可用性与降级提示。
+- **DTO 映射与未知值**：面向用户的状态、类别、模式和动作字符串必须经双语映射显示；普通映射表查找需验证自有键，动态 i18next 路径需逐段验证 locale 资源的自有键并确认叶子是字符串，避免 `constructor`、`toString` 等原型属性命中。未知状态/类别/动作回退到本地化中性文案，未知 Traceroute 模式显示中性占位符；无法映射的站点包 ID 保留原字符串，确保新包仍可识别。
 - **defaults 目录**：`get_network_probe_defaults` 返回 DNS 预设、站点包、探测目标、强制门户、公网 IP API、MTU 目标等默认资源；支持用户覆盖（`saveDefaultsOverride`）与重置（`resetDefaults`）。
 - **面板复用**：offline 内的 ipv6/mtu/egress 复用同一 `Ipv6Panel`/`MtuPanel`/`EgressPanel`（`dualFrom` 区分来源），避免双入口冲突。
 - **测速护栏**：LibreSpeed 硬上限 32/8 MB、失败 30s 冷却。

@@ -1711,7 +1711,8 @@
     "firewall": {
       "on": "On",
       "off": "Off",
-      "unsupported": "Unsupported"
+      "unsupported": "Unsupported",
+      "unknown": "Unknown"
     },
     "tcp": {
       "hint": "Probe TCP reachability to a host:port (developer essential).",
@@ -1995,8 +1996,11 @@
       "severity": {
         "info": "info",
         "warn": "warn",
-        "critical": "critical"
-      }
+        "critical": "critical",
+        "unknown": "Unknown status"
+      },
+      "unknownTitle": "Unrecognized recommendation",
+      "unknownBody": "This recommendation is not supported by this version."
     },
     "advisor": {
       "linkDown": {
@@ -2295,7 +2299,8 @@
       "phase": {
         "ping": "Measuring ping",
         "download": "Downloading",
-        "upload": "Uploading"
+        "upload": "Uploading",
+        "unknown": "Unknown test phase"
       }
     },
     "security": {
@@ -2351,7 +2356,8 @@
         "requestFailed": "Could not connect to the RDAP service. Check your connection and retry.",
         "httpError": "The RDAP service returned HTTP {{status}}.",
         "bodyReadFailed": "Could not read the RDAP response.",
-        "responseTruncated": "The RDAP response was too large and has been truncated."
+        "responseTruncated": "The RDAP response was too large and has been truncated.",
+        "unknown": "The RDAP lookup could not be completed."
       }
     },
     "dnssec": {

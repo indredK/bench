@@ -163,6 +163,33 @@ describe("HealthTreePanel localized check presentation", () => {
     expect(screen.getByText(item.detail!).closest("details")?.open).toBe(false)
   })
 
+  it("uses safe localized fallbacks for prototype keys in DTO key and status", () => {
+    const item: HealthCheckItem = {
+      key: "constructor",
+      layer: "L1",
+      status: "constructor",
+      detail: "Synthetic prototype-key diagnostic",
+    }
+
+    render(
+      <HealthTreePanel
+        loading={false}
+        result={makeResult(item)}
+        streamingItems={[]}
+        canCancel={false}
+        cancelRequested={false}
+        onRun={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("networkProbe.health.checks.unknown")).toBeTruthy()
+    const badge = screen.getByText("networkProbe.health.status.unknown")
+    expect(badge.className).toContain("bg-muted")
+    expect(screen.queryByText("constructor")).toBeNull()
+    expect(screen.getByText(item.detail!).closest("details")?.open).toBe(false)
+  })
+
   it.each(["future_status", "toString", "constructor"])(
     "uses a neutral localized badge for unfamiliar backend status %s",
     (status) => {

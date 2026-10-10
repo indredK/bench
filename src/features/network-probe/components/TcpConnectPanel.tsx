@@ -94,7 +94,11 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
           <div>
             {t("networkProbe.tcp.status")}:{" "}
             <span className="font-medium">
-              {t(TCP_STATUS_LABELS[result.status] ?? "networkProbe.tcp.statusValue.unknown")}
+              {t(
+                Object.hasOwn(TCP_STATUS_LABELS, result.status)
+                  ? TCP_STATUS_LABELS[result.status]
+                  : "networkProbe.tcp.statusValue.unknown",
+              )}
             </span>
           </div>
           {result.rttMs != null ? (

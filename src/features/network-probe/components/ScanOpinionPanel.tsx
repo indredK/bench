@@ -2,6 +2,7 @@
  * Feature UI / 功能界面: advisor opinions from health scan.
  */
 import { useTranslation } from "react-i18next"
+import { safeTranslationKey } from "@/features/network-probe/utils/translation-key"
 import type { HealthOpinion, HealthScanResult } from "@/lib/tauri/types/network-probe"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { cn } from "@/lib/utils"
@@ -61,11 +62,20 @@ function OpinionCard({ opinion }: { opinion: HealthOpinion }) {
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[10px] font-medium tracking-wide uppercase">
-          {t(`networkProbe.opinion.severity.${opinion.severity}`)}
+          {t(
+            safeTranslationKey(
+              `networkProbe.opinion.severity.${opinion.severity}`,
+              "networkProbe.opinion.severity.unknown",
+            ),
+          )}
         </span>
-        <span className="font-medium">{t(opinion.titleKey)}</span>
+        <span className="font-medium">
+          {t(safeTranslationKey(opinion.titleKey, "networkProbe.opinion.unknownTitle"))}
+        </span>
       </div>
-      <p className="text-muted-foreground mt-1 text-xs">{t(opinion.bodyKey)}</p>
+      <p className="text-muted-foreground mt-1 text-xs">
+        {t(safeTranslationKey(opinion.bodyKey, "networkProbe.opinion.unknownBody"))}
+      </p>
       {opinion.relatedKeys.length > 0 ? (
         <p className="text-muted-foreground mt-1 font-mono text-[10px]">
           {opinion.relatedKeys.join(", ")}

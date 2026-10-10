@@ -15,6 +15,7 @@ import {
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { ScanCancelButton } from "@/features/network-probe/components/ScanCancelButton"
 import { TechnicalDetails } from "@/features/network-probe/components/TechnicalDetails"
+import { safeTranslationKey } from "@/features/network-probe/utils/translation-key"
 import type {
   SpeedSampleEvent,
   SpeedSource,
@@ -84,9 +85,12 @@ export function SpeedPanel({
 
   const phaseLabel =
     sample?.phase != null
-      ? t(`networkProbe.speed.phase.${sample.phase}`, {
-          defaultValue: sample.phase,
-        })
+      ? t(
+          safeTranslationKey(
+            `networkProbe.speed.phase.${sample.phase}`,
+            "networkProbe.speed.phase.unknown",
+          ),
+        )
       : null
 
   const unavailable =

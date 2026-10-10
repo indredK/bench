@@ -10,6 +10,9 @@ const { setLanguage, translate } = vi.hoisted(() => {
     zh: {
       "networkProbe.opinion.hint": "基于最近一次体检的可操作建议。",
       "networkProbe.opinion.severity.warn": "警告",
+      "networkProbe.opinion.severity.unknown": "未知状态",
+      "networkProbe.opinion.unknownTitle": "无法识别的建议",
+      "networkProbe.opinion.unknownBody": "当前版本无法显示此建议。",
       "networkProbe.advisor.captiveUnconfirmed.title": "门户检测响应异常",
       "networkProbe.advisor.captiveUnconfirmed.body":
         "当前响应与预期不同，暂不能确认是否需要登录。可检查是否有网络认证页，并在登录后重试。",
@@ -17,6 +20,9 @@ const { setLanguage, translate } = vi.hoisted(() => {
     en: {
       "networkProbe.opinion.hint": "Actionable advice from the latest health scan.",
       "networkProbe.opinion.severity.warn": "Warning",
+      "networkProbe.opinion.severity.unknown": "Unknown status",
+      "networkProbe.opinion.unknownTitle": "Unrecognized recommendation",
+      "networkProbe.opinion.unknownBody": "This recommendation is not supported by this version.",
       "networkProbe.advisor.captiveUnconfirmed.title": "Unexpected captive portal response",
       "networkProbe.advisor.captiveUnconfirmed.body":
         "The connectivity check returned an unusual response, so a portal cannot be confirmed. Check for a sign-in page and retry after signing in.",
@@ -92,4 +98,28 @@ describe("ScanOpinionPanel captive portal warning", () => {
       expect(screen.getByText("reach.captive")).toBeTruthy()
     },
   )
+
+  it("uses localized fallbacks for prototype-key opinion values", () => {
+    setLanguage("en")
+    render(
+      <ScanOpinionPanel
+        result={{
+          ...result,
+          opinions: [
+            {
+              ...result.opinions[0],
+              severity: "constructor",
+              titleKey: "constructor",
+              bodyKey: "toString",
+            },
+          ],
+        }}
+        onGoTree={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("Unknown status")).toBeTruthy()
+    expect(screen.getByText("Unrecognized recommendation")).toBeTruthy()
+    expect(screen.getByText("This recommendation is not supported by this version.")).toBeTruthy()
+  })
 })

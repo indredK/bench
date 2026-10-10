@@ -51,7 +51,7 @@ function summaryLabelKey(result: PathMtuResult) {
   if (result.status === "ok" && result.message?.toLowerCase().includes("below ethernet")) {
     return "networkProbe.mtu.message.belowEthernet"
   }
-  if (MTU_STATUS_LABEL_KEYS[result.status]) return null
+  if (Object.hasOwn(MTU_STATUS_LABEL_KEYS, result.status)) return null
   return "networkProbe.mtu.message.unknown"
 }
 
@@ -65,8 +65,14 @@ interface MtuPanelProps {
 export function MtuPanel({ loading, result, onRun, dualFrom }: MtuPanelProps) {
   const { t } = useTranslation()
   const [target, setTarget] = useState("1.1.1.1")
-  const statusKey = result ? MTU_STATUS_LABEL_KEYS[result.status] : null
-  const methodKey = result ? MTU_METHOD_LABEL_KEYS[result.method] : null
+  const statusKey =
+    result && Object.hasOwn(MTU_STATUS_LABEL_KEYS, result.status)
+      ? MTU_STATUS_LABEL_KEYS[result.status]
+      : null
+  const methodKey =
+    result && Object.hasOwn(MTU_METHOD_LABEL_KEYS, result.method)
+      ? MTU_METHOD_LABEL_KEYS[result.method]
+      : null
   const summaryKey = result ? summaryLabelKey(result) : null
 
   return (

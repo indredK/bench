@@ -54,6 +54,13 @@ describe("TcpConnectPanel", () => {
     expect(screen.getByText(refusedResult.message!)).toBeTruthy()
   })
 
+  it("uses a localized fallback for prototype-key statuses", () => {
+    renderPanel({ ...refusedResult, status: "constructor" } as unknown as TcpConnectResult)
+
+    expect(screen.getByText("networkProbe.tcp.statusValue.unknown")).toBeTruthy()
+    expect(screen.queryByText("constructor")).toBeNull()
+  })
+
   it.each([refusedResult, successfulResult])(
     "does not duplicate the raw command for $status results",
     (result) => {

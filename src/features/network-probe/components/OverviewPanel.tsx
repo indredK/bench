@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { OpenSystemNetworkSettingsButton } from "@/features/network-probe/components/OpenSystemNetworkSettingsButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { hasOwnTranslationKey } from "@/features/network-probe/utils/translation-key"
 import { cn } from "@/lib/utils"
 
 interface OverviewPanelProps {
@@ -93,9 +94,9 @@ export function OverviewPanel({
             label={t("networkProbe.overview.firewall")}
             value={
               firewall
-                ? t(`networkProbe.firewall.${firewall.status}`, {
-                    defaultValue: firewall.status,
-                  })
+                ? hasOwnTranslationKey(`networkProbe.firewall.${firewall.status}`)
+                  ? t(`networkProbe.firewall.${firewall.status}`)
+                  : t("networkProbe.firewall.unknown")
                 : "—"
             }
           />

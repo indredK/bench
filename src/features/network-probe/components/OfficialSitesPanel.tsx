@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { ScanCancelButton } from "@/features/network-probe/components/ScanCancelButton"
 import { SiteProbeFailure } from "@/features/network-probe/components/SiteProbeFailure"
+import { hasOwnTranslationKey } from "@/features/network-probe/utils/translation-key"
 import type {
   SitePreset,
   SiteSampleResult,
@@ -194,9 +195,8 @@ export function OfficialSitesPanel({
           {presets.map((site) => {
             const key = targetKey(site.target)
             const sample = samplesByTarget[key]
-            const label = t(`networkProbe.official.sites.${site.id}`, {
-              defaultValue: site.id,
-            })
+            const siteLabelKey = `networkProbe.official.sites.${site.id}`
+            const label = hasOwnTranslationKey(siteLabelKey) ? t(siteLabelKey) : site.id
             const host = hostOf(site.target)
             const isPending = loading && pendingTarget === key
             const latency =

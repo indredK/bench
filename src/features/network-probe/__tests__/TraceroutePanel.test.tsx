@@ -115,21 +115,26 @@ describe("TraceroutePanel", () => {
     expect(details?.textContent).toContain(unprivilegedResult.commandHint)
   })
 
-  it("localizes unavailable status and keeps an unknown mode from leaking raw text", () => {
-    renderPanel({
-      result: {
-        ...unprivilegedResult,
-        privilegeMode: "future-mode",
-        message: "Raw future-mode diagnostic",
-      },
-    })
+  it.each(["future-mode", "constructor"])(
+    "localizes unavailable status and keeps unknown mode %s from leaking raw text",
+    (privilegeMode) => {
+      renderPanel({
+        result: {
+          ...unprivilegedResult,
+          privilegeMode,
+          message: "Raw future-mode diagnostic",
+        },
+      })
 
-    expect(screen.getByText("127.0.0.1 · — · 1004 ms")).toBeTruthy()
-    expect(screen.queryByText("networkProbe.traceroute.message.unavailable")).toBeNull()
-    const details = screen.getByText("networkProbe.traceroute.technicalDetails").closest("details")
-    expect(details?.open).toBe(false)
-    expect(screen.getByText("Raw future-mode diagnostic").closest("details")).toBe(details)
-  })
+      expect(screen.getByText("127.0.0.1 · — · 1004 ms")).toBeTruthy()
+      expect(screen.queryByText("networkProbe.traceroute.message.unavailable")).toBeNull()
+      const details = screen
+        .getByText("networkProbe.traceroute.technicalDetails")
+        .closest("details")
+      expect(details?.open).toBe(false)
+      expect(screen.getByText("Raw future-mode diagnostic").closest("details")).toBe(details)
+    },
+  )
 
   it("shows a localized unavailable summary with raw cause inside collapsed details", () => {
     renderPanel({

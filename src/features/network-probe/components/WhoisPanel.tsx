@@ -7,6 +7,7 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { safeTranslationKey } from "@/features/network-probe/utils/translation-key"
 import type { WhoisInfo } from "@/lib/tauri/types/network-probe"
 
 interface WhoisPanelProps {
@@ -77,9 +78,15 @@ export function WhoisPanel({ loading, result, toolEnabled, toolStatus, onRun }: 
           </div>
           {result.errorCode ? (
             <p className="text-xs text-amber-700 dark:text-amber-400">
-              {t(`networkProbe.whois.errors.${result.errorCode}`, {
-                status: result.httpStatus ?? "—",
-              })}
+              {t(
+                safeTranslationKey(
+                  `networkProbe.whois.errors.${result.errorCode}`,
+                  "networkProbe.whois.errors.unknown",
+                ),
+                {
+                  status: result.httpStatus ?? "—",
+                },
+              )}
             </p>
           ) : result.message ? (
             <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>

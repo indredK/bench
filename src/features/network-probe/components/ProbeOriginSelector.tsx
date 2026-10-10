@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { getProbeNodeDisplayLabel } from "@/features/network-probe/utils/probe-node-label"
+import { hasOwnTranslationKey } from "@/features/network-probe/utils/translation-key"
 
 interface ProbeOriginSelectorProps {
   nodes: ProbeNode[]
@@ -61,9 +62,13 @@ export function ProbeOriginSelector({
                 node.label,
                 t("networkProbe.nodeSelect.local"),
                 isGlobalping
-                  ? t(`networkProbe.globalping.locations.${node.region ?? "world"}`, {
-                      defaultValue: node.label,
-                    })
+                  ? hasOwnTranslationKey(
+                      `networkProbe.globalping.locations.${node.region ?? "world"}`,
+                    )
+                    ? t(`networkProbe.globalping.locations.${node.region ?? "world"}`, {
+                        defaultValue: node.label,
+                      })
+                    : node.label
                   : undefined,
               )}
               {isAgent ? (

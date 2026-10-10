@@ -213,7 +213,12 @@ export function FixPanel({
           className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm"
         >
           <div>
-            {t(FIX_ACTION_LABELS[lastResult.action] ?? "networkProbe.fix.unknownAction")}:{" "}
+            {t(
+              Object.hasOwn(FIX_ACTION_LABELS, lastResult.action)
+                ? FIX_ACTION_LABELS[lastResult.action]
+                : "networkProbe.fix.unknownAction",
+            )}
+            :{" "}
             <span className="font-medium">
               {lastResult.ok ? t("networkProbe.fix.ok") : t("networkProbe.fix.failed")}
             </span>
