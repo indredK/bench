@@ -337,6 +337,10 @@ export const networkProbeUseCases = {
     store.setProbeResult(null)
     store.setGlobalpingHttpResult(null)
     store.resetPingStreaming()
+    // Switching between local and remote origins invalidates both result families and their notices.
+    store.clearError("networkProbe.errors.pingFailed")
+    store.clearError("networkProbe.errors.probeFailed")
+    clearGlobalpingErrors()
   },
 
   getGlobalpingTokenStatus() {

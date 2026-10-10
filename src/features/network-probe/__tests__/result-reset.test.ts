@@ -313,6 +313,27 @@ describe("network-probe result reset before rerun", () => {
     )
   })
 
+  it("clears origin-scoped probe errors when switching sources and preserves unrelated errors", () => {
+    useNetworkProbeStore.setState({
+      errors: [
+        { key: "networkProbe.errors.pingFailed", fallback: "local ping failed" },
+        { key: "networkProbe.errors.probeFailed", fallback: "local probe failed" },
+        { key: "networkProbe.errors.globalpingFailed", fallback: "remote probe failed" },
+        { key: "errors.INVALID_INPUT", fallback: "remote input invalid" },
+        { key: "errors.GP_TIMEOUT", fallback: "remote request timed out" },
+        { key: "networkProbe.errors.dnsFailed", fallback: "DNS lookup failed" },
+      ],
+      error: { key: "networkProbe.errors.pingFailed", fallback: "local ping failed" },
+    } as never)
+
+    networkProbeUseCases.clearProbeOriginResults()
+
+    expect(useNetworkProbeStore.getState().errors.map((error) => error.key)).toEqual([
+      "networkProbe.errors.dnsFailed",
+    ])
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.dnsFailed")
+  })
+
   it("keeps the offline diagnostic all-or-nothing when a refresh fails", async () => {
     useNetworkProbeStore.setState({
       captiveResult: stale,

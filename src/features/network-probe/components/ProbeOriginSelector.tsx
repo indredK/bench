@@ -15,6 +15,7 @@ interface ProbeOriginSelectorProps {
   nodes: ProbeNode[]
   activeNode: ProbeNode | undefined
   remoteEnabled?: boolean
+  disabled?: boolean
   onChange?: (nodeId: string) => void
 }
 
@@ -22,12 +23,13 @@ export function ProbeOriginSelector({
   nodes,
   activeNode,
   remoteEnabled = false,
+  disabled = false,
   onChange,
 }: ProbeOriginSelectorProps) {
   const { t } = useTranslation()
 
   return (
-    <Select value={activeNode?.id ?? "local"} onValueChange={onChange}>
+    <Select value={activeNode?.id ?? "local"} onValueChange={onChange} disabled={disabled}>
       <TooltipProvider delay={280}>
         <Tooltip>
           <TooltipTrigger asChild>

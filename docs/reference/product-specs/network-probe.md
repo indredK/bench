@@ -53,7 +53,7 @@ L1 → L2 映射：
 - **能力降级**：`toolEnabled=false`（status 为 `unsupported`/`missing_pack`）时按钮禁用并显示 toolDisabled 提示（`{{tool}} status={{status}} — 已按能力矩阵禁用`）；缺 pack 的工具给出「管理能力包」入口跳转 PackInstallDialog。
 - **命令日志侧栏**：每个探测命令追加一行时间戳日志（`appendCommandLog`），运行中/成功/失败/取消均有摘要；可折叠（sessionStorage 记忆）、清空需二次确认。
 - **键盘**：各面板均为表单 + 按钮触发（Enter 提交表单）；无全局快捷键（见 §9）。
-- **远端原点**：切换探测原点时清除本轮面板的旧结果；Globalping 运行结果明确显示所选区域及实际探针城市/国家。未选 Globalping 时仍使用原本机能力矩阵。
+- **远端原点**：切换探测原点时清除本轮面板的旧结果及对应来源失败通知，并保留其他探测的独立错误；Ping / 自定义目标探测期间锁定原点选择器，完成后恢复切换；Globalping 运行结果明确显示所选区域及实际探针城市/国家。未选 Globalping 时仍使用原本机能力矩阵。
 - **Globalping 隐私与配额**：面向公网目标；拦截已知私有/保留 IP literal 和常见内网后缀，但不在本机解析其余主机名，不能据此保证它们不会解析到内网。测量参数与结果可能公开，提示勿提交敏感目标。每次 Ping 最多 16 包；HTTP 输入不得含 URL 凭据或片段，完整路径和查询参数会发送给 Globalping，界面、提示和命令日志只显示脱敏 URL。匿名调用可不配置令牌；可选令牌仅存系统凭证库，已认证测量可能按 Globalping 规则消耗账户点数。每项测量最多选 1 个探针，429、凭证库、无可用探针与超时分别反馈。
 
 ## 3. 基础（basic）L1
@@ -144,7 +144,7 @@ L1 → L2 映射：
 **交互细节**：
 
 - **输入护栏（后端 clamp/校验）**：本机 ping 次数 clamp `[1,20]`（默认 4）、间隔 clamp `[100,5000]ms`；Globalping Ping 限制 `[1,16]`；远端 Ping/HTTP 拒绝私有/保留 IP、localhost 与常见内网后缀，HTTP URL 拒绝凭据和片段；traceroute `maxTtl` 默认 20、`rounds` 默认 3；端口扫描最多 256 端口（去重后超限返回 `INVALID_INPUT`）；自定义站点最多 24 个且去重；非法 host / 空端口列表返回 `INVALID_INPUT` 并走错误横幅。
-- **单工具防重入**：ping / dns / tcp / custom / traceroute / mtu / egress / speed 各自独立 loading，运行中按钮禁用 + 运行中文案，不可重复触发；所有支持取消的扫描面板在取消请求期间显示「正在取消」并禁用重复请求，同一会话最多发起一次取消；Globalping Ping 是远端测量，本期不提供取消。
+- **单工具防重入**：ping / dns / tcp / custom / traceroute / mtu / egress / speed 各自独立 loading，运行中按钮禁用 + 运行中文案，不可重复触发；Ping / 自定义目标运行中同时禁用探测原点选择，避免旧来源结果被切换隐藏；所有支持取消的扫描面板在取消请求期间显示「正在取消」并禁用重复请求，同一会话最多发起一次取消；Globalping Ping 是远端测量，本期不提供取消。
 - **本机 Ping 实时与取消**：DNS 解析和 ICMP 初始化完成后开始显示逐包表格与取消入口；取消保留已完成样本，收发/丢包汇总仅统计完成的尝试，不把尚未执行的包计为丢包。
 - **ping 全丢包提示**：`packetsReceived === 0` 时命令日志追加「可能需 Local Network 权限」提示（不静默）。
 - **测速冷却**：测速源失败/不可达时 `speedCooldownUntil = now + 30s`，期间「开始测速」禁用并倒计时提示（`测速源失败 — {{seconds}} 秒后可重试`），冷却结束自动恢复；取消成功不计入冷却。

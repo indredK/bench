@@ -164,6 +164,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   }, [remoteOriginEnabled])
 
   function handleProbeNodeChange(nodeId: string) {
+    if (c.loadingPing || c.loadingProbe) return
     const nextNode = probeNodes.find((node) => node.id === nodeId)
     if (
       !nextNode ||
@@ -279,6 +280,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
             nodes={probeNodes}
             activeNode={activeNode}
             remoteEnabled={remoteOriginEnabled}
+            disabled={c.loadingPing || c.loadingProbe}
             onChange={handleProbeNodeChange}
           />
           {remoteOriginEnabled && canUseTauriCommands() ? (

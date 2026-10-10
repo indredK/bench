@@ -74,4 +74,24 @@ describe("ProbeOriginSelector", () => {
 
     expect(onChange).toHaveBeenCalledWith("gp-world")
   })
+
+  it("disables source changes while the active probe is running", () => {
+    const onChange = vi.fn()
+    render(
+      <ProbeOriginSelector
+        nodes={nodes}
+        activeNode={nodes[0]}
+        remoteEnabled
+        disabled
+        onChange={onChange}
+      />,
+    )
+
+    const trigger = screen.getByRole("combobox", { name: "networkProbe.nodeSelect.label" })
+    expect(trigger).toBeDisabled()
+    fireEvent.click(trigger)
+
+    expect(screen.queryByRole("option", { name: "Globalping · world" })).not.toBeInTheDocument()
+    expect(onChange).not.toHaveBeenCalled()
+  })
 })

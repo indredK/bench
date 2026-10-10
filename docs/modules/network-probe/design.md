@@ -259,7 +259,7 @@ type ProbeNode = {
 | `remote-proxy` | Globalping REST；DNS 多节点、Ping、HTTP 已接通，选择器只在支持面板启用 | Post-MVP-C（C2-2 已交付） |
 | `remote-agent` | 自有 agent（§4.4）；HTTPS/WSS 注册与健康检查已接通，远程执行仍待       | Post-MVP-C（C2-3）        |
 
-Globalping 之外的工具继续固定本机执行并禁用远端选项；Agent 远程执行完成前也保持禁用。切换原点时清除该面板旧结果，界面明确展示实际执行区域。
+Globalping 之外的工具继续固定本机执行并禁用远端选项；Agent 远程执行完成前也保持禁用。切换原点时清除该面板旧结果及对应来源的失败通知，保留无关探测错误；Ping / HTTP 请求期间锁定原点选择器，避免结果提交后因原点变化而隐藏；界面明确展示实际执行区域。
 
 ### 4.3 DNS 多节点对比（部分交付）
 
