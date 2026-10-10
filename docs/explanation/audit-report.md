@@ -37,6 +37,8 @@
 
 - [§3/§5/§9] `src/features/network-probe/components/SitesProbePanel.tsx:301` - 区域/自定义站点探测完成后，结果卡直接展示原始 `commandHint`（含内部 IPC 调用与 session ID），且右侧命令日志已记录同一次调用；macOS arm64 QA 对 `https://example.com` 两次复现 HTTP 200 后均可见 - 移除结果卡中的重复命令文本，保留工具栏命令预览与命令日志，并补中英文成功/失败回归 - **强制** - 状态：已修复（Medium；macOS 27.0.1 arm64 隔离 QA 在中英界面两次探测均返回 HTTP 200，结果卡隐藏 commandHint、命令日志保留调用；前后截图见 `/tmp/bench-dogfood-20261010/sites-command/screenshots/`）
 
+- [§3/§5/§9] `src/features/network-probe/components/TcpConnectPanel.tsx` - TCP 结果卡在系统错误已默认折叠、调用已写入带时间戳命令日志的情况下，仍在卡片正文重复展示原始 `commandHint`；macOS 27.0.1 arm64 对 `127.0.0.1:1` 实测“连接被拒绝”后复现 - 移除结果卡重复命令，保留按钮悬浮预览、折叠技术详情及命令日志；补成功/失败回归 - **强制** - 状态：已修复（Medium；macOS 27.0.1 arm64 隔离 QA 中英文拒绝路径和本机监听成功路径均验证结果卡无 raw command，调用仍保留在带时间戳日志；组件 9 项、`lint:fe`、文档链接检查通过）
+
 未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
 
 ## 记录格式

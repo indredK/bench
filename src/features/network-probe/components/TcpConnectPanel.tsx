@@ -108,7 +108,6 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
               <p className="mt-1 break-words">{result.message}</p>
             </details>
           ) : null}
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}
     </ProbePanelShell>

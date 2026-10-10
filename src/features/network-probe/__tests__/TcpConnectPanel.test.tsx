@@ -28,6 +28,13 @@ const refusedResult: TcpConnectResult = {
   message: "Connection refused (os error 61)",
   commandHint: 'tcpConnect(local, "127.0.0.1", 1, 3000)',
 }
+const successfulResult: TcpConnectResult = {
+  host: "example.com",
+  port: 443,
+  status: "ok",
+  rttMs: 20,
+  commandHint: 'tcpConnect(local, "example.com", 443, 3000)',
+}
 
 function renderPanel(result: TcpConnectResult | null = null, onRun = vi.fn()) {
   return render(<TcpConnectPanel loading={false} result={result} onRun={onRun} />)
@@ -46,6 +53,15 @@ describe("TcpConnectPanel", () => {
     expect(details?.open).toBe(false)
     expect(screen.getByText(refusedResult.message!)).toBeTruthy()
   })
+
+  it.each([refusedResult, successfulResult])(
+    "does not duplicate the raw command for $status results",
+    (result) => {
+      renderPanel(result)
+
+      expect(screen.queryByText(result.commandHint)).toBeNull()
+    },
+  )
 
   it.each(["0", "65536", "1.5", "abc"])("blocks an invalid port value: %s", (value) => {
     renderPanel()
