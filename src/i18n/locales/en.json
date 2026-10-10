@@ -1819,6 +1819,7 @@
       "customPlaceholder": "https://registry.npmjs.org",
       "customAdd": "Add",
       "customLimit": "You can add up to {{max}} sites. Remove one before adding another.",
+      "customLimitExceeded": "Your saved list has {{count}} sites, above the {{max}}-site limit. Remove {{excess}} before running or adding sites.",
       "customRun": "Run custom",
       "customRemove": "Remove",
       "customEmpty": "No custom sites yet.",

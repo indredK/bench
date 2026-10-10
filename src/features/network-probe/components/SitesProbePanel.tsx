@@ -44,9 +44,15 @@ function loadCustomSites(): string[] {
     const raw = sessionStorage.getItem(CUSTOM_SITES_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw) as unknown
-    return Array.isArray(parsed)
-      ? parsed.filter((x): x is string => typeof x === "string" && x.trim().length > 0)
-      : []
+    if (!Array.isArray(parsed)) return []
+    const seen = new Set<string>()
+    return parsed.flatMap((value) => {
+      if (typeof value !== "string") return []
+      const target = value.trim()
+      if (!target || seen.has(target)) return []
+      seen.add(target)
+      return [target]
+    })
   } catch {
     return []
   }
@@ -125,6 +131,7 @@ export function SitesProbePanel({
     setDraft("")
   }
 
+  const customSiteOverflow = customSites.length > MAX_CUSTOM_SITES
   const customSiteLimitReached = customSites.length >= MAX_CUSTOM_SITES
 
   return (
@@ -213,14 +220,22 @@ export function SitesProbePanel({
               <CommandHint hint={t("networkProbe.cmd.sitesProbeCustom", { n: customSites.length })}>
                 <Button
                   type="button"
-                  disabled={busy || customSites.length === 0 || !toolEnabled}
+                  disabled={busy || customSites.length === 0 || customSiteOverflow || !toolEnabled}
                   onClick={() => onRunCustom(customSites)}
                 >
                   {t("networkProbe.sites.customRun")}
                 </Button>
               </CommandHint>
             </div>
-            {customSiteLimitReached ? (
+            {customSiteOverflow ? (
+              <p className="text-destructive text-xs" role="alert">
+                {t("networkProbe.sites.customLimitExceeded", {
+                  count: customSites.length,
+                  max: MAX_CUSTOM_SITES,
+                  excess: customSites.length - MAX_CUSTOM_SITES,
+                })}
+              </p>
+            ) : customSiteLimitReached ? (
               <p className="text-muted-foreground text-xs" role="status">
                 {t("networkProbe.sites.customLimit", { max: MAX_CUSTOM_SITES })}
               </p>

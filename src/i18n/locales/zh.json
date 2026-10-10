@@ -1819,6 +1819,7 @@
       "customPlaceholder": "https://registry.npmjs.org",
       "customAdd": "添加",
       "customLimit": "最多可添加 {{max}} 个站点，请移除一个后再添加。",
+      "customLimitExceeded": "已保存 {{count}} 个站点，超过 {{max}} 项上限。请先移除 {{excess}} 项，再运行或添加站点。",
       "customRun": "探测自定义",
       "customRemove": "移除",
       "customEmpty": "尚无自定义站点。",

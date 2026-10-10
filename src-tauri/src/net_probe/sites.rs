@@ -2,12 +2,14 @@ use super::defaults::get_defaults;
 use super::probe::{probe_http_target_with_throughput, probe_icmp_once};
 use super::types::{ScanSessionEvent, SiteSampleResult, SitesProbeResult};
 use crate::error::{AppError, AppResult};
+use std::collections::HashSet;
 use tauri::{AppHandle, Emitter, Runtime};
 
 pub const SITE_SAMPLE_EVENT: &str = "network-probe:site-sample";
 pub const SCAN_SESSION_EVENT: &str = "network-probe:scan-session";
 
 const MAX_SITES: usize = 32;
+const MAX_CUSTOM_SITES: usize = 24;
 
 pub async fn sites_probe<R: Runtime>(
     app: Option<&AppHandle<R>>,
@@ -61,23 +63,7 @@ pub async fn sites_probe_custom<R: Runtime>(
     app: Option<&AppHandle<R>>,
     targets: Vec<String>,
 ) -> AppResult<SitesProbeResult> {
-    let mut cleaned = Vec::new();
-    for raw in targets {
-        let t = raw.trim().to_string();
-        if t.is_empty() {
-            continue;
-        }
-        validate_custom_target(&t)?;
-        cleaned.push(t);
-        if cleaned.len() > MAX_SITES {
-            return Err(AppError::invalid_input(format!(
-                "Too many custom targets (max {MAX_SITES})"
-            )));
-        }
-    }
-    if cleaned.is_empty() {
-        return Err(AppError::invalid_input("No custom targets"));
-    }
+    let cleaned = clean_custom_targets(targets)?;
 
     let session_id = super::session::new_session_id();
     let _session_guard = super::session::SessionGuard::new(session_id.clone());
@@ -114,6 +100,28 @@ pub async fn sites_probe_custom<R: Runtime>(
     })
 }
 
+fn clean_custom_targets(targets: Vec<String>) -> AppResult<Vec<String>> {
+    let mut cleaned = Vec::new();
+    let mut seen = HashSet::new();
+    for raw in targets {
+        let t = raw.trim().to_string();
+        if t.is_empty() || !seen.insert(t.clone()) {
+            continue;
+        }
+        validate_custom_target(&t)?;
+        cleaned.push(t);
+        if cleaned.len() > MAX_CUSTOM_SITES {
+            return Err(AppError::invalid_input(format!(
+                "Too many custom targets (max {MAX_CUSTOM_SITES})"
+            )));
+        }
+    }
+    if cleaned.is_empty() {
+        return Err(AppError::invalid_input("No custom targets"));
+    }
+    Ok(cleaned)
+}
+
 fn emit_session<R: Runtime>(app: Option<&AppHandle<R>>, session_id: &str) {
     if let Some(app) = app {
         let _ = app.emit(
@@ -123,6 +131,37 @@ fn emit_session<R: Runtime>(app: Option<&AppHandle<R>>, session_id: &str) {
                 kind: "sites".into(),
             },
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{clean_custom_targets, MAX_CUSTOM_SITES};
+
+    #[test]
+    fn custom_probe_rejects_more_than_the_product_limit_before_network_access() {
+        let targets = (0..=MAX_CUSTOM_SITES)
+            .map(|index| format!("https://example.com/target-{index}"))
+            .collect();
+
+        let error =
+            clean_custom_targets(targets).expect_err("over-limit custom targets must be rejected");
+
+        assert!(error
+            .to_string()
+            .contains("Too many custom targets (max 24)"));
+    }
+
+    #[test]
+    fn custom_probe_trims_and_deduplicates_targets_before_counting() {
+        let cleaned = clean_custom_targets(vec![
+            " https://example.com/a ".into(),
+            "https://example.com/a".into(),
+            "https://example.com/b".into(),
+        ])
+        .expect("valid targets should be accepted");
+
+        assert_eq!(cleaned, ["https://example.com/a", "https://example.com/b"]);
     }
 }
 

@@ -158,6 +158,81 @@ describe("site probe failure details", () => {
     })
   })
 
+  it("blocks an over-limit saved list until the user removes enough targets", async () => {
+    const savedSites = Array.from(
+      { length: 25 },
+      (_, index) => `https://example.com/legacy-${index + 1}`,
+    )
+    const onRunCustom = vi.fn()
+    sessionStorage.setItem("network-probe:custom-sites", JSON.stringify(savedSites))
+
+    render(
+      <SitesProbePanel
+        loading={false}
+        canCancel={false}
+        cancelRequested={false}
+        result={null}
+        streaming={[]}
+        sparklines={{}}
+        packIds={["global"]}
+        toolEnabled
+        onRunPack={vi.fn()}
+        onRunCustom={onRunCustom}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    const runButton = screen.getByRole("button", { name: "networkProbe.sites.customRun" })
+    expect(screen.getByText("networkProbe.sites.customLimitExceeded")).toBeTruthy()
+    expect(runButton.hasAttribute("disabled")).toBe(true)
+
+    fireEvent.click(screen.getAllByRole("button", { name: "networkProbe.sites.customRemove" })[0]!)
+
+    await waitFor(() => expect(runButton.hasAttribute("disabled")).toBe(false))
+    expect(screen.queryByText("networkProbe.sites.customLimitExceeded")).toBeNull()
+    fireEvent.click(runButton)
+
+    expect(onRunCustom).toHaveBeenCalledWith(savedSites.slice(1))
+    await waitFor(() => {
+      expect(JSON.parse(sessionStorage.getItem("network-probe:custom-sites") ?? "[]")).toEqual(
+        savedSites.slice(1),
+      )
+    })
+  })
+
+  it("trims and removes duplicate targets from persisted session data", async () => {
+    sessionStorage.setItem(
+      "network-probe:custom-sites",
+      JSON.stringify([" https://example.com/a ", "https://example.com/a", "https://example.com/b"]),
+    )
+
+    render(
+      <SitesProbePanel
+        loading={false}
+        canCancel={false}
+        cancelRequested={false}
+        result={null}
+        streaming={[]}
+        sparklines={{}}
+        packIds={["global"]}
+        toolEnabled
+        onRunPack={vi.fn()}
+        onRunCustom={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(JSON.parse(sessionStorage.getItem("network-probe:custom-sites") ?? "[]")).toEqual([
+        "https://example.com/a",
+        "https://example.com/b",
+      ])
+    })
+    expect(screen.getAllByRole("button", { name: "networkProbe.sites.customRemove" })).toHaveLength(
+      2,
+    )
+  })
+
   it("shows a localized custom-site failure and keeps the raw request error collapsed", () => {
     render(
       <SitesProbePanel
