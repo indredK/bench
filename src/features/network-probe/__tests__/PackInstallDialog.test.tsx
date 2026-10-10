@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { PackInstallDialog } from "@/features/network-probe/components/PackInstallDialog"
 import type { CapabilityPackInfo } from "@/lib/tauri/types/network-probe"
@@ -11,8 +11,18 @@ vi.mock("react-i18next", () => ({
       const translations: Record<string, string> = {
         "networkProbe.packs.status.installed": "已安装",
         "networkProbe.packs.status.available": "可用",
+        "networkProbe.packs.status.markerOnly": "仅标记安装",
         "networkProbe.packs.status.unavailable": "不可用",
         "networkProbe.packs.status.unknown": "状态未知",
+        "networkProbe.packs.markerInstallHint": "仅写入本地标记，相关工具仍保持降级",
+        "networkProbe.packs.markerInstalledHint": "当前只记录了本地标记，相关工具仍保持降级",
+        "networkProbe.packs.installMarkerOnly": "仅安装标记",
+        "networkProbe.packs.install": "安装",
+        "networkProbe.packs.uninstall": "卸载",
+        "networkProbe.packs.notAvailableYet": "当前不可安装",
+        "networkProbe.packs.artifactPending": "sidecar 尚未发布",
+        "networkProbe.packs.installing": "安装中…",
+        "networkProbe.packs.refreshing": "刷新中…",
       }
       return translations[key] ?? key
     },
@@ -84,13 +94,96 @@ describe("PackInstallDialog refresh state", () => {
       />,
     )
 
-    expect(screen.getByRole("button", { name: /adv-scanner.*可用/ })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /adv-scanner.*仅标记安装/ })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /pcap-diag.*已安装/ })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /priv-helper.*不可用/ })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /future-pack.*状态未知/ })).toBeInTheDocument()
     expect(screen.queryByText("available", { exact: false })).not.toBeInTheDocument()
     expect(screen.queryByText("installed", { exact: false })).not.toBeInTheDocument()
     expect(screen.queryByText("unavailable", { exact: false })).not.toBeInTheDocument()
+  })
+
+  it("explains marker-only installs and keeps their degraded capability visible", () => {
+    const onInstall = vi.fn()
+    render(
+      <PackInstallDialog
+        open
+        packs={packs}
+        busy={false}
+        refreshing={false}
+        onOpenChange={vi.fn()}
+        onInstall={onInstall}
+        onUninstall={vi.fn()}
+        onRefresh={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("仅写入本地标记，相关工具仍保持降级")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "仅安装标记" }))
+    expect(onInstall).toHaveBeenCalledWith("adv-scanner")
+    expect(screen.queryByRole("button", { name: "安装" })).not.toBeInTheDocument()
+  })
+
+  it("keeps installed marker packs labeled and explains that tools remain degraded", () => {
+    render(
+      <PackInstallDialog
+        open
+        packs={[{ ...packs[0], status: "installed", installMode: "marker" }]}
+        busy={false}
+        refreshing={false}
+        onOpenChange={vi.fn()}
+        onInstall={vi.fn()}
+        onUninstall={vi.fn()}
+        onRefresh={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole("button", { name: /adv-scanner.*仅标记安装/ })).toBeInTheDocument()
+    expect(screen.getByText("当前只记录了本地标记，相关工具仍保持降级")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "卸载" })).toBeEnabled()
+  })
+
+  it("keeps unavailable and unknown packs non-installable", () => {
+    render(
+      <PackInstallDialog
+        open
+        packs={packs.map((pack) =>
+          pack.id === "future-pack" ? { ...pack, artifactReady: true } : pack,
+        )}
+        busy={false}
+        refreshing={false}
+        focusPackId="priv-helper"
+        onOpenChange={vi.fn()}
+        onInstall={vi.fn()}
+        onUninstall={vi.fn()}
+        onRefresh={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole("button", { name: "当前不可安装" })).toBeDisabled()
+    expect(screen.queryByRole("button", { name: "安装" })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: /future-pack/ }))
+    expect(screen.getByRole("button", { name: "当前不可安装" })).toBeDisabled()
+    expect(screen.queryByRole("button", { name: "安装" })).not.toBeInTheDocument()
+  })
+
+  it("keeps published artifacts on the regular install action", () => {
+    render(
+      <PackInstallDialog
+        open
+        packs={[{ ...packs[0], artifactReady: true }]}
+        busy={false}
+        refreshing={false}
+        onOpenChange={vi.fn()}
+        onInstall={vi.fn()}
+        onUninstall={vi.fn()}
+        onRefresh={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole("button", { name: "安装" })).toBeEnabled()
+    expect(screen.queryByText("仅写入本地标记，相关工具仍保持降级")).not.toBeInTheDocument()
   })
 
   it("shows progress and disables actions while the capability snapshot refreshes", () => {
@@ -107,7 +200,7 @@ describe("PackInstallDialog refresh state", () => {
       />,
     )
 
-    expect(screen.getByRole("button", { name: "networkProbe.packs.refreshing" })).toBeDisabled()
-    expect(screen.getByRole("button", { name: "networkProbe.packs.install" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "刷新中…" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "仅安装标记" })).toBeDisabled()
   })
 })

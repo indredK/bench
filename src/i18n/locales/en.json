@@ -2689,11 +2689,14 @@
     "packs": {
       "dialogTitle": "Optional capability packs",
       "dialogHint": "Advanced scanners and helpers install from a backend manifest only — the UI never supplies download URLs (D-017).",
-      "markerOnly": "marker install (artifact pending)",
+      "artifactPending": "sidecar artifact not published",
+      "markerInstallHint": "This records a local marker only; related tools stay degraded until the sidecar artifact is published.",
+      "markerInstalledHint": "Only a local marker is recorded; related tools remain degraded.",
       "meta": "v{{version}} · {{sizeMb}} MB · {{status}}",
       "status": {
         "installed": "Installed",
         "available": "Available",
+        "markerOnly": "Marker only",
         "unavailable": "Unavailable",
         "unknown": "Unknown status"
       },
@@ -2702,6 +2705,8 @@
       "refresh": "Refresh",
       "refreshing": "Refreshing…",
       "install": "Install",
+      "installMarkerOnly": "Install marker only",
+      "notAvailableYet": "Not available yet",
       "installing": "Installing…",
       "uninstall": "Uninstall",
       "verifyFail": "Test hash fail",
