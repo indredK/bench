@@ -1886,7 +1886,8 @@
         "L0": "L0 · Link",
         "L1": "L1 · Address / DNS / Policy",
         "L2": "L2 · Services",
-        "L3": "L3 · Reachability"
+        "L3": "L3 · Reachability",
+        "other": "Other checks"
       },
       "status": {
         "pass": "pass",

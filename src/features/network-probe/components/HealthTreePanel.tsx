@@ -11,6 +11,7 @@ import type { HealthCheckItem, HealthScanResult } from "@/lib/tauri/types/networ
 import { cn } from "@/lib/utils"
 
 const LAYERS = ["L0", "L1", "L2", "L3"] as const
+const KNOWN_LAYERS = new Set<string>(LAYERS)
 
 const HEALTH_STATUS_LABEL_KEYS = new Map<string, string>([
   ["pass", "networkProbe.health.status.pass"],
@@ -42,6 +43,7 @@ export function HealthTreePanel({
   const { t } = useTranslation()
   // 跑动中只渲染本轮 streaming: 旧 result 优先会把上一轮结论当成新一轮进度。
   const items = loading ? streamingItems : result?.items?.length ? result.items : streamingItems
+  const otherItems = items.filter((item) => !KNOWN_LAYERS.has(item.layer))
 
   return (
     <ProbePanelShell
@@ -95,6 +97,18 @@ export function HealthTreePanel({
             </section>
           )
         })}
+        {otherItems.length > 0 ? (
+          <section className="space-y-1">
+            <h3 className="text-xs font-semibold tracking-wide uppercase">
+              {t("networkProbe.health.layers.other")}
+            </h3>
+            <ul className="divide-border divide-y rounded-lg border text-sm">
+              {otherItems.map((row) => (
+                <HealthCheckRow key={row.key} row={row} />
+              ))}
+            </ul>
+          </section>
+        ) : null}
       </div>
     </ProbePanelShell>
   )

@@ -38,6 +38,37 @@ function makeResult(item: HealthCheckItem): HealthScanResult {
 }
 
 describe("HealthTreePanel localized check presentation", () => {
+  it("keeps checks from an unfamiliar backend layer visible in a localized fallback section", () => {
+    const knownItem: HealthCheckItem = {
+      key: "link.iface",
+      layer: "L0",
+      status: "pass",
+    }
+    const unfamiliarItem: HealthCheckItem = {
+      key: "future.check",
+      layer: "L4",
+      status: "warn",
+      detail: "Synthetic future-layer check",
+    }
+
+    render(
+      <HealthTreePanel
+        loading={false}
+        result={{ ...makeResult(knownItem), items: [knownItem, unfamiliarItem] }}
+        streamingItems={[]}
+        canCancel={false}
+        cancelRequested={false}
+        onRun={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("networkProbe.health.layers.L0")).toBeTruthy()
+    expect(screen.getByText("networkProbe.health.layers.other")).toBeTruthy()
+    expect(screen.getByText("Synthetic future-layer check")).toBeTruthy()
+    expect(screen.queryByText("L4")).toBeNull()
+  })
+
   it.each([
     [
       "DNS resolution failed while the public IP probe passed",
