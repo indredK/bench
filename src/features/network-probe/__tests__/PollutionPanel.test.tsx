@@ -178,4 +178,23 @@ describe("PollutionPanel localized findings", () => {
     ).toBeTruthy()
     expect(screen.getByText("Future backend evidence").closest("details")?.open).toBe(false)
   })
+
+  it("uses the unknown-kind label for prototype keys", () => {
+    setLanguage("en")
+    renderPanel({
+      ...result,
+      findings: [
+        {
+          kind: "constructor",
+          severity: "warn",
+          evidence: "Synthetic prototype-key finding",
+          commandHint: "syntheticFinding()",
+        },
+      ],
+    })
+
+    expect(screen.getByText("Other check")).toBeTruthy()
+    expect(screen.queryByText("constructor")).toBeNull()
+    expect(screen.getByText("Review needed")).toBeTruthy()
+  })
 })

@@ -101,6 +101,9 @@ export function PollutionPanel({
           </p>
           <ul className="space-y-2">
             {result.findings.map((f, i) => {
+              const kindLabelKey = Object.hasOwn(KIND_LABELS, f.kind)
+                ? KIND_LABELS[f.kind]
+                : "networkProbe.pollution.kind.unknown"
               const severity = SEVERITIES[f.severity]
               const summaryKey =
                 f.kind === "tls" && f.severity === "warn"
@@ -117,7 +120,7 @@ export function PollutionPanel({
                   )}
                 >
                   <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
-                    <span>{t(KIND_LABELS[f.kind] ?? "networkProbe.pollution.kind.unknown")}</span>
+                    <span>{t(kindLabelKey)}</span>
                     <span className="text-muted-foreground">
                       {t(severity?.label ?? "networkProbe.pollution.severity.unknown")}
                     </span>
