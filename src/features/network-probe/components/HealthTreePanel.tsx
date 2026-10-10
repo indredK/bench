@@ -12,6 +12,14 @@ import { cn } from "@/lib/utils"
 
 const LAYERS = ["L0", "L1", "L2", "L3"] as const
 
+const HEALTH_STATUS_LABEL_KEYS = new Map<string, string>([
+  ["pass", "networkProbe.health.status.pass"],
+  ["warn", "networkProbe.health.status.warn"],
+  ["fail", "networkProbe.health.status.fail"],
+  ["skip", "networkProbe.health.status.skip"],
+  ["error", "networkProbe.health.status.error"],
+])
+
 interface HealthTreePanelProps {
   loading: boolean
   result: HealthScanResult | null
@@ -133,10 +141,15 @@ function HealthCheckRow({ row }: { row: HealthCheckItem }) {
 
 function StatusBadge({ status }: { status: string }) {
   const { t } = useTranslation()
+  const statusLabelKey =
+    HEALTH_STATUS_LABEL_KEYS.get(status) ?? "networkProbe.health.status.unknown"
+  const isKnownStatus = HEALTH_STATUS_LABEL_KEYS.has(status)
+
   return (
     <span
       className={cn(
         "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase",
+        !isKnownStatus && "bg-muted text-muted-foreground",
         status === "pass" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
         status === "warn" && "bg-amber-500/15 text-amber-800 dark:text-amber-300",
         status === "fail" && "bg-destructive/15 text-destructive",
@@ -144,7 +157,7 @@ function StatusBadge({ status }: { status: string }) {
         status === "skip" && "bg-muted text-muted-foreground",
       )}
     >
-      {t(`networkProbe.health.status.${status}`, { defaultValue: status })}
+      {t(statusLabelKey)}
     </span>
   )
 }

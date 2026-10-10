@@ -1890,7 +1890,8 @@
         "warn": "警告",
         "fail": "失败",
         "skip": "跳过",
-        "error": "错误"
+        "error": "错误",
+        "unknown": "未知状态"
       },
       "technicalDetails": "技术详情",
       "checkKey": "检查标识：{{key}}",

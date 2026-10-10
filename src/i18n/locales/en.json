@@ -1890,7 +1890,8 @@
         "warn": "warn",
         "fail": "fail",
         "skip": "skip",
-        "error": "error"
+        "error": "error",
+        "unknown": "Unknown status"
       },
       "technicalDetails": "Technical details",
       "checkKey": "Check key: {{key}}",

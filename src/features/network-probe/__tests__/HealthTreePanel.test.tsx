@@ -163,6 +163,33 @@ describe("HealthTreePanel localized check presentation", () => {
     expect(screen.getByText(item.detail!).closest("details")?.open).toBe(false)
   })
 
+  it.each(["future_status", "toString", "constructor"])(
+    "uses a neutral localized badge for unfamiliar backend status %s",
+    (status) => {
+      const item: HealthCheckItem = {
+        key: "link.iface",
+        layer: "L0",
+        status,
+      }
+
+      render(
+        <HealthTreePanel
+          loading={false}
+          result={makeResult(item)}
+          streamingItems={[]}
+          canCancel={false}
+          cancelRequested={false}
+          onRun={vi.fn()}
+          onCancel={vi.fn()}
+        />,
+      )
+
+      const badge = screen.getByText("networkProbe.health.status.unknown")
+      expect(badge.className).toContain("bg-muted")
+      expect(screen.queryByText(status)).toBeNull()
+    },
+  )
+
   it.each(["addr.ipv4", "addr.ipv6"])("localizes a missing network summary for %s", (key) => {
     const item: HealthCheckItem = {
       key,
