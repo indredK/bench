@@ -1228,7 +1228,22 @@
     "DEFAULT_BROWSER_CHANGE_REQUIRES_USER_ACTION": "Finish changing the default browser in macOS settings.",
     "SCAN_IN_PROGRESS": "A scan is already in progress, please wait",
     "SCAN_CANCELED": "Scan cancelled",
-    "NO_SESSION": "Please pick a photo folder first"
+    "NO_SESSION": "Please pick a photo folder first",
+    "GP_CREDENTIAL_STORE": "The system credential store is unavailable.",
+    "GP_TOKEN_INVALID": "The Globalping token format is invalid.",
+    "GP_TARGET_INVALID": "The remote target is invalid. Use a public host or IP; private/reserved addresses, URL credentials, and fragments are blocked.",
+    "GP_PACKET_COUNT_INVALID": "Ping packet count must be between 1 and 16.",
+    "GP_RATE_LIMITED": "Globalping rate limit reached. Try again later or configure a token.",
+    "GP_AUTH_FAILED": "Globalping rejected the configured token. Check it or remove it.",
+    "GP_REQUEST_FAILED": "The Globalping request could not be completed.",
+    "GP_TIMEOUT": "The Globalping measurement timed out.",
+    "GP_NO_PROBES": "No Globalping probe is currently available in this region.",
+    "GP_PROBE_FAILED": "The Globalping probe could not finish the measurement.",
+    "GP_PARSE": "The Globalping response could not be understood.",
+    "GP_READ": "The Globalping response could not be read.",
+    "GP_CLIENT": "The Globalping connection could not be initialized.",
+    "GP_URL": "The Globalping request URL is invalid.",
+    "GP_RESPONSE_TOO_LARGE": "The Globalping response exceeded the safety limit."
   },
   "common": {
     "yes": "Yes",
@@ -1581,7 +1596,52 @@
     "nodeSelect": {
       "label": "Probe origin",
       "local": "This Mac",
-      "localOnlyHint": "Remote probe execution isn't implemented yet — every probe still runs on this Mac."
+      "localOnlyHint": "This tool doesn't support remote execution yet, so the probe runs on this Mac.",
+      "remoteHint": "Ping/HTTP targets are sent to Globalping and run from the selected region.",
+      "localSelectedHint": "This probe runs on this Mac. Choose Globalping to measure from a remote probe.",
+      "remoteScope": "Ping / HTTP only"
+    },
+    "globalping": {
+      "manageToken": "Configure Globalping token",
+      "tokenTitle": "Globalping access token",
+      "tokenDescription": "The token is stored in the system credential store and is excluded from command logs. Leave it blank to use the anonymous quota. Authenticated measurements may use account credits under Globalping's limits.",
+      "tokenChecking": "Checking the system credential store…",
+      "tokenConfigured": "A token is configured and will be used for the next measurement.",
+      "tokenNotConfigured": "No token is configured; measurements use Globalping's anonymous quota.",
+      "tokenLabel": "Access token",
+      "tokenSaved": "The token was saved securely.",
+      "tokenSaveFailed": "The token could not be saved.",
+      "tokenRemove": "Remove token",
+      "tokenRemoved": "The token was removed from the system credential store.",
+      "tokenRemoveFailed": "The token could not be removed.",
+      "tokenStatusFailed": "The system credential store status could not be read.",
+      "tokenStatusUnknown": "Token status is unknown. Check again to retry.",
+      "tokenSave": "Save token",
+      "tokenWorking": "Working…",
+      "pingHint": "Send an ICMP ping to a public probe in the selected Globalping region.",
+      "publicTargetHint": "Globalping measurement details and results may be public; don't use sensitive targets. Known private/reserved IPs and common local suffixes are blocked, but other hostnames are still sent to Globalping.",
+      "remotePingCommandHint": "Globalping Ping · {{location}}",
+      "remoteHttpCommandHint": "Globalping HTTP · {{location}}",
+      "packetLimit": "Globalping supports up to 16 ping packets per measurement.",
+      "resultFrom": "Probe origin: {{location}}",
+      "actualProbeLocation": "Actual probe: {{city}} / {{country}}",
+      "packetLost": "Timed out or packet lost",
+      "locations": {
+        "world": "Worldwide",
+        "US": "United States",
+        "Europe": "Europe",
+        "Asia": "Asia"
+      },
+      "httpHint": "Check an HTTP(S) response and time to first byte from the selected Globalping region.",
+      "httpPrivacyHint": "The full URL, including path and query, is sent to Globalping; measurement details and results may be public. Don't enter signed URLs, credentials, or internal addresses.",
+      "httpStatus": "HTTP status: {{status}}",
+      "httpTtfb": "Time to first byte: {{ms}} ms",
+      "resolvedAddress": "Resolved IP",
+      "measurementStatus": {
+        "failed": "Measurement failed",
+        "offline": "Probe offline",
+        "unknown": "Measurement did not finish"
+      }
     },
     "sideLog": {
       "title": "Command log",
@@ -1591,6 +1651,10 @@
       "expand": "Expand command log",
       "clearConfirmTitle": "Clear command log?",
       "clearConfirmDescription": "This removes every IPC hint recorded in this session. This cannot be undone."
+    },
+    "actions": {
+      "openingSettings": "Opening system settings…",
+      "dismissError": "Dismiss error"
     },
     "l1": {
       "basic": "Basics",
@@ -1625,7 +1689,7 @@
       "whois": "WHOIS",
       "arp": "ARP discovery",
       "lan-svc": "LAN services",
-      "nat": "NAT type",
+      "nat": "STUN mapping",
       "ntp": "NTP",
       "nodes": "Multi-node"
     },
@@ -1647,17 +1711,30 @@
     "firewall": {
       "on": "On",
       "off": "Off",
-      "unsupported": "Unsupported"
+      "unsupported": "Unsupported",
+      "unknown": "Unknown"
     },
     "tcp": {
       "hint": "Probe TCP reachability to a host:port (developer essential).",
       "host": "Host",
       "port": "Port",
+      "portHint": "Enter an integer port from 1 to 65535.",
+      "portInvalid": "Port must be an integer from 1 to 65535.",
       "run": "Connect",
       "running": "Connecting…",
       "status": "Status",
+      "statusValue": {
+        "ok": "Connected",
+        "timeout": "Connection timed out",
+        "refused": "Connection refused",
+        "unreachable": "Network unreachable",
+        "dnsFailed": "DNS resolution failed",
+        "error": "Connection failed",
+        "unknown": "Unknown status"
+      },
       "rtt": "RTT",
-      "rttValue": "RTT: {{ms}} ms"
+      "rttValue": "RTT: {{ms}} ms",
+      "technicalDetails": "Technical details"
     },
     "ping": {
       "hint": "ICMP echo probe with latency, jitter, and loss (requires Local Network permission on macOS).",
@@ -1665,11 +1742,24 @@
       "count": "Count",
       "run": "Ping",
       "running": "Pinging…",
+      "cancel": "Cancel",
+      "cancelling": "Cancelling…",
+      "cancelled": "Cancelled; showing replies completed before stopping.",
       "resolved": "Resolved IP",
       "summary": "Sent {{sent}} · received {{received}} · loss {{loss}}%",
       "rttSummary": "RTT min/avg/max/jitter: {{min}} / {{avg}} / {{max}} / {{jitter}} ms",
+      "liveResults": "Live Ping results",
+      "sequence": "Seq",
+      "status": "Status",
+      "reply": "Reply received",
+      "rtt": "RTT",
       "sampleOk": "#{{seq}} {{ms}} ms",
-      "sampleFail": "#{{seq}} fail — {{error}}"
+      "sampleFail": "#{{seq}} fail — {{error}}",
+      "noResponse": "No response received",
+      "technicalDetails": "Technical details",
+      "countInvalid": "Count must be an integer from {{min}} to {{max}}.",
+      "noRepliesHint": "No probes received a reply. A firewall, target policy, or unreachable network may be responsible; confirm with another probe.",
+      "noRepliesMacHint": "No probes received a reply. Local Network permission, a firewall, target policy, or an unreachable network may be responsible; confirm with another probe."
     },
     "dns": {
       "hint": "Query DNS records via system resolver or a custom resolver IP.",
@@ -1679,7 +1769,10 @@
       "resolverPlaceholder": "system (default)",
       "run": "Lookup",
       "running": "Looking up…",
+      "resultFor": "Result for {{domain}}",
       "meta": "{{rrType}} via {{resolver}} · {{ms}} ms",
+      "systemResolver": "System DNS",
+      "technicalDetails": "Technical details",
       "ttl": "TTL={{ttl}}",
       "empty": "No records returned."
     },
@@ -1689,15 +1782,22 @@
       "run": "Probe",
       "running": "Probing…",
       "kind": "Input kind",
+      "kindValues": {
+        "host": "Host",
+        "url": "URL",
+        "unknown": "Unknown"
+      },
+      "resultFor": "Probed target: {{target}}",
       "icmp": "ICMP",
       "icmpOk": "ok · {{ms}} ms · {{ip}}",
       "icmpFail": "fail — {{error}}",
       "http": "HTTP",
       "httpOk": "{{status}} · TTFB {{ms}} ms",
-      "httpFail": "fail — {{error}}",
+      "httpStatusFail": "Server returned HTTP {{status}} · TTFB {{ms}} ms",
+      "httpRequestFail": "No HTTP response. Check the URL, service port, and network, then retry.",
       "tls": "TLS",
       "tlsOk": "handshake ok",
-      "tlsFail": "fail — {{detail}}"
+      "tlsFail": "Handshake failed. Check the certificate and server configuration."
     },
     "sites": {
       "hint": "Probe a built-in site pack with ICMP/HTTP latency and bounded download throughput. Custom hosts stream in with sparklines; cancel stops mid-run.",
@@ -1711,11 +1811,15 @@
       "icmpMs": "ICMP {{ms}} ms",
       "httpMs": "HTTP {{status}} · {{ms}} ms",
       "mbps": "{{mbps}} Mbps",
-      "fail": "fail — {{error}}",
+      "failed": "Probe failed",
+      "failureDetails": "Technical details",
       "customTitle": "Custom sites",
+      "customCount": "{{count}} / {{max}}",
       "customInput": "URL or host",
       "customPlaceholder": "https://registry.npmjs.org",
       "customAdd": "Add",
+      "customLimit": "You can add up to {{max}} sites. Remove one before adding another.",
+      "customLimitExceeded": "Your saved list has {{count}} sites, above the {{max}}-site limit. Remove {{excess}} before running or adding sites.",
       "customRun": "Run custom",
       "customRemove": "Remove",
       "customEmpty": "No custom sites yet.",
@@ -1742,7 +1846,6 @@
       "icmpMs": "ICMP {{ms}} ms",
       "mbps": "{{mbps}} Mbps",
       "sampleSmall": "Sample small",
-      "fail": "{{error}}",
       "testedAt": "at {{time}}",
       "cancelled": "Batch cancelled — finished cards keep their results.",
       "sites": {
@@ -1784,14 +1887,107 @@
         "L0": "L0 · Link",
         "L1": "L1 · Address / DNS / Policy",
         "L2": "L2 · Services",
-        "L3": "L3 · Reachability"
+        "L3": "L3 · Reachability",
+        "other": "Other checks"
       },
       "status": {
         "pass": "pass",
         "warn": "warn",
         "fail": "fail",
         "skip": "skip",
-        "error": "error"
+        "error": "error",
+        "unknown": "Unknown status"
+      },
+      "technicalDetails": "Technical details",
+      "checkKey": "Check key: {{key}}",
+      "checks": {
+        "activeInterfaces": "Active network interfaces",
+        "linkType": "Network link type",
+        "ipv4Address": "IPv4 address",
+        "ipv6Address": "IPv6 address",
+        "addressAssignment": "Address assignment",
+        "defaultRoute": "Default route",
+        "dnsServers": "DNS servers",
+        "dnsResolution": "DNS resolution",
+        "hostsOverrides": "Hosts overrides",
+        "systemProxy": "System proxy",
+        "fakeIp": "Fake-IP detection",
+        "vpnTunnel": "VPN tunnel",
+        "firewall": "Firewall",
+        "networkService": "Network service",
+        "gatewayReachability": "Gateway reachability",
+        "publicIpReachability": "Public IP reachability",
+        "domainReachability": "Domain reachability",
+        "connectionDiagnosis": "Connection diagnosis",
+        "captivePortal": "Captive portal",
+        "publicEgress": "Public egress",
+        "pathMtu": "Path MTU",
+        "unknown": "Other check"
+      },
+      "details": {
+        "activeInterfaceCount": "{{count}} active network interface(s)",
+        "noActiveInterfaces": "No active network interface was found.",
+        "interfacesUnavailable": "Network interfaces could not be read.",
+        "wifiConnected": "Connected to Wi-Fi network {{ssid}}.",
+        "wifiConnectedWithSignal": "Connected to Wi-Fi network {{ssid}} ({{signalDbm}} dBm).",
+        "linkDetected": "A wired or wireless link was detected.",
+        "linkTypeUnknown": "The link type could not be identified.",
+        "ipv4Unavailable": "No IPv4 address is available.",
+        "ipv6Unavailable": "No global IPv6 address is available.",
+        "addressValue": "{{address}}",
+        "apipaOnly": "Only an automatic private IPv4 address is available: {{address}}.",
+        "dhcpStaticUnknown": "DHCP or static assignment could not be determined without selecting an interface.",
+        "notImplementedPlatform": "This check is not implemented on this platform.",
+        "defaultRoutePresent": "A default route is available.",
+        "defaultRouteViaTunnel": "The default route uses a VPN or tunnel interface.",
+        "noDefaultRoute": "No default route was found.",
+        "dnsServersEmpty": "No DNS servers are configured.",
+        "summaryUnavailable": "Network summary is unavailable.",
+        "dnsServersValue": "Configured DNS servers: {{servers}}",
+        "dnsResolved": "{{count}} DNS record(s) resolved in {{ms}} ms.",
+        "dnsEmptyAnswer": "The DNS query returned no records.",
+        "hostsClean": "{{count}} hosts entries; none were flagged as suspicious.",
+        "hostsSuspicious": "{{count}} hosts entries were flagged as suspicious.",
+        "hostsUnavailable": "The hosts file could not be read.",
+        "proxyDisabled": "No system proxy is enabled.",
+        "proxyEnabled": "A system proxy is enabled; website checks may use it.",
+        "fakeIpNotDetected": "No Fake-IP DNS response was detected.",
+        "fakeIpDetected": "Fake-IP or enhanced DNS handling was detected.",
+        "vpnNotDetected": "No VPN-like tunnel was detected.",
+        "vpnDefaultRoute": "The default route uses a VPN-like tunnel.",
+        "vpnInterfacesPresent": "VPN-like network interfaces are present.",
+        "firewallOn": "The firewall is on.",
+        "firewallOff": "The firewall is off.",
+        "firewallStateUnknown": "The firewall returned an unrecognized state.",
+        "firewallUnavailable": "Firewall status is unavailable.",
+        "networkServiceNotProbed": "Network service health is not checked in this version.",
+        "gatewayRtt": "Gateway response time: {{ms}} ms.",
+        "gatewayTunnel": "The default route uses a tunnel without an IPv4 gateway to ping.",
+        "gatewayUnavailable": "No gateway is available to test.",
+        "packetLoss": "Packet loss: {{percent}}%.",
+        "publicIpRtt": "Public IP response time: {{ms}} ms.",
+        "domainIcmpRtt": "Domain ICMP response time: {{ms}} ms.",
+        "domainHttp": "Domain responded over HTTP ({{status}}); response time: {{ms}} ms.",
+        "diagnosisGateway": "The gateway could not be reached. Check the local link or gateway.",
+        "diagnosisPublicIp": "The public IP could not be reached. Check the uplink, ISP, or firewall.",
+        "diagnosisDns": "The IP is reachable, but DNS resolution or DNS server configuration also failed. Check DNS.",
+        "diagnosisHosts": "The IP is reachable and a suspicious hosts override was found. It may affect the domain probe; review the hosts file.",
+        "diagnosisNameProbe": "The domain probe failed, but DNS and hosts checks did not establish the cause. Check the proxy, TLS, firewall, or target service.",
+        "diagnosisPublicPath": "The public network path is available; gateway ICMP was skipped for the tunnel route.",
+        "diagnosisReachabilityOk": "Basic gateway, IP, and domain reachability checks passed.",
+        "diagnosisMixed": "The checks returned mixed results. Expand technical details for the per-check states.",
+        "captiveNotDetected": "No captive portal was detected.",
+        "captiveRedirect": "The captive portal check redirected to another page.",
+        "captivePossible": "A captive portal may be present (HTTP {{status}}).",
+        "captiveUnexpectedStatus": "The captive portal check returned an unexpected status ({{status}}).",
+        "captiveUnavailable": "The captive portal check could not run.",
+        "publicEgressReachable": "The public egress service responded (HTTP {{status}}); response time: {{ms}} ms.",
+        "publicEgressUnavailable": "The public egress check could not run.",
+        "pathMtuValue": "Detected path MTU: {{mtu}} bytes.",
+        "genericWarning": "The check found something to review. Expand technical details for the evidence.",
+        "genericFailure": "The check did not pass. Expand technical details for the reason.",
+        "genericSkipped": "This check was skipped. Expand technical details for the reason.",
+        "genericError": "The check could not complete. Expand technical details for the error."
       }
     },
     "opinion": {
@@ -1802,8 +1998,11 @@
       "severity": {
         "info": "info",
         "warn": "warn",
-        "critical": "critical"
-      }
+        "critical": "critical",
+        "unknown": "Unknown status"
+      },
+      "unknownTitle": "Unrecognized recommendation",
+      "unknownBody": "This recommendation is not supported by this version."
     },
     "advisor": {
       "linkDown": {
@@ -1830,6 +2029,10 @@
         "title": "DNS / hosts issue (IP ok, name fail)",
         "body": "Gateway and public IP work, but name reachability failed. Prefer DNS or hosts fixes first."
       },
+      "nameProbeInconclusive": {
+        "title": "Domain probe cause is unclear",
+        "body": "The public IP is reachable, but the domain probe failed without a confirmed DNS or hosts issue. Check the proxy, TLS, firewall, or target service."
+      },
       "dnsVsIpUplink": {
         "title": "Uplink / firewall issue",
         "body": "Gateway works but public IP does not. Check ISP uplink, firewall, or captive restrictions."
@@ -1854,6 +2057,10 @@
         "title": "Possible captive portal",
         "body": "Open the portal login page (hotel/café Wi‑Fi) before diagnosing DNS."
       },
+      "captiveUnconfirmed": {
+        "title": "Unexpected captive portal response",
+        "body": "The connectivity check returned an unusual response, so a portal cannot be confirmed. Check for a sign-in page and retry after signing in."
+      },
       "allClear": {
         "title": "Basic reachability looks healthy",
         "body": "If a specific site still fails, check that site, SNI/proxy, or run site latency probes."
@@ -1862,14 +2069,23 @@
     "fix": {
       "hint": "Privilege-free self-heal actions. Backend re-validates services and DNS against a whitelist.",
       "service": "Network service",
+      "selectService": "Select a network service",
+      "loadingServices": "Loading network services…",
+      "refreshServices": "Refresh services",
+      "servicesLoadFailed": "Network services could not be loaded. Retry or open system network settings.",
+      "noServices": "No network services are available. Check system network settings.",
       "dnsPreset": "DNS preset",
       "flush": "Flush DNS",
       "switchDns": "Switch DNS",
       "renewDhcp": "Renew DHCP",
       "resetStack": "Reset network stack",
       "openSettings": "Open system network settings",
-      "ok": "ok",
-      "failed": "failed",
+      "ok": "Succeeded",
+      "failed": "Failed",
+      "unknownAction": "Unknown action",
+      "technicalDetails": "Technical details",
+      "resultMessage": "Diagnostic message",
+      "resultCommand": "Command hint",
       "confirm": {
         "cancel": "Cancel",
         "confirm": "Confirm",
@@ -1908,6 +2124,7 @@
       "hint": "Run captive portal, public egress IP, and proxy/VPN checks for “can't connect” triage.",
       "run": "Run offline diagnostics",
       "running": "Running…",
+      "waiting": "Waiting for the current probe to finish…",
       "pending": "Not run yet.",
       "status": "Status",
       "subNav": "Can't-connect subpages",
@@ -1931,6 +2148,10 @@
       "vpn": "VPN-like interfaces",
       "vpnNone": "none",
       "viaTunnel": "Default route appears to go through a tunnel.",
+      "technicalDetails": "Technical details",
+      "diagnostic": "Diagnostic",
+      "proxyDiagnostic": "Proxy diagnostic",
+      "command": "Command",
       "ipv6Title": "IPv6",
       "mtuTitle": "MTU / PMTUD",
       "openMtu": "Open MTU panel",
@@ -1957,9 +2178,28 @@
         "ok": "ok",
         "partial": "partial",
         "unavailable": "unavailable",
-        "fail": "fail"
+        "fail": "fail",
+        "unknown": "unknown"
       },
+      "dualValue": {
+        "both": "IPv4 and IPv6 reachable",
+        "ipv4Only": "IPv4 reachable; IPv6 not confirmed reachable",
+        "ipv6Only": "IPv6 reachable; IPv4 not confirmed reachable",
+        "neither": "Neither ICMP target responded"
+      },
+      "ndpStatus": {
+        "ok": "available",
+        "partial": "partial",
+        "skip": "not checked",
+        "unknown": "unknown"
+      },
+      "technicalDetails": "Technical details",
+      "reason": "Native summary",
+      "dualDetail": "Dual-stack diagnostic",
+      "ndpDetail": "NDP diagnostic",
+      "tracerouteNote": "Traceroute note",
       "linkLocal": "Link-local",
+      "uniqueLocal": "Unique local (ULA)",
       "global": "Global",
       "aaaa": "AAAA",
       "icmpv6": "ICMPv6",
@@ -1984,10 +2224,35 @@
         "blackhole": "blackhole",
         "fail": "fail",
         "unsupported": "unsupported",
-        "degraded": "degraded"
+        "degraded": "degraded",
+        "unknown": "unknown"
+      },
+      "method": {
+        "binary": "DF binary search",
+        "ladder": "quick size ladder",
+        "none": "no available method",
+        "unknown": "unknown method"
       },
       "meta": "{{ip}} · {{method}} · {{ms}} ms",
       "pathMtu": "Path MTU ≈ {{value}}",
+      "message": {
+        "blackhole": "Large DF packets timed out; a PMTUD blackhole may be present.",
+        "unsupported": "Path MTU probing is not supported on this platform.",
+        "failed": "The path MTU could not be confirmed. Expand technical details for the cause.",
+        "degraded": "The probe completed in degraded mode.",
+        "belowEthernet": "The path MTU was estimated below the standard Ethernet MTU.",
+        "unknown": "The probe returned an unknown status. Expand technical details for the raw result."
+      },
+      "stepDetail": {
+        "received": "Response received",
+        "packetTooLarge": "Packet exceeded the path limit",
+        "timeout": "Response timed out",
+        "permission": "System permission is insufficient",
+        "failed": "No response was received"
+      },
+      "technicalDetails": "Technical details",
+      "technicalReason": "Raw message",
+      "technicalStep": "{{payload}}-byte payload: {{detail}}",
       "ok": "ok",
       "fail": "fail",
       "col": {
@@ -2001,12 +2266,21 @@
       "run": "Lookup public IP",
       "running": "Looking up…",
       "empty": "No egress lookup yet.",
-      "asn": "ASN: {{asn}}{{org}}"
+      "asn": "ASN: {{asn}}{{org}}",
+      "failed": "Couldn't obtain a public egress IP from the available services.",
+      "technicalDetails": "Technical details",
+      "source": "API source",
+      "response": "Raw response",
+      "command": "Command hint"
     },
     "speed": {
       "hint": "LibreSpeed-compatible bandwidth probe (ping / download / upload). Cancel stops mid-run.",
       "source": "Speed source",
       "sourcePlaceholder": "Select a source",
+      "loadingSources": "Loading speed sources…",
+      "refreshSources": "Reload sources",
+      "sourcesLoadFailed": "Couldn't load speed sources. Check your connection and retry.",
+      "sourcesRefreshFailed": "Couldn't refresh speed sources. The previous list is still available.",
       "emptySources": "No speed sources available.",
       "run": "Start speed test",
       "running": "Testing…",
@@ -2014,6 +2288,12 @@
       "cancelled": "cancelled",
       "cooldown": "Source failed — retry in {{seconds}}s",
       "sourceUnavailable": "This speed source looks unreachable. Try another source after the cooldown.",
+      "partialResult": "Some test phases did not complete; the results are incomplete.",
+      "phaseFailed": "This phase request failed",
+      "phaseHttpError": "The service returned HTTP {{status}}",
+      "technicalDetails": "Technical details",
+      "diagnostic": "Raw diagnostic",
+      "command": "Command hint",
       "ping": "Ping",
       "jitter": "Jitter",
       "download": "Download",
@@ -2021,7 +2301,8 @@
       "phase": {
         "ping": "Measuring ping",
         "download": "Downloading",
-        "upload": "Uploading"
+        "upload": "Uploading",
+        "unknown": "Unknown test phase"
       }
     },
     "security": {
@@ -2038,44 +2319,143 @@
       "domain": "Domain",
       "run": "Run pollution check",
       "running": "Checking…",
-      "meta": "{{domain}} · {{count}} findings · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} findings · {{ms}} ms",
+      "kind": {
+        "arp": "Gateway ARP",
+        "dns": "DNS answers",
+        "hosts": "Hosts file",
+        "route": "Route / proxy",
+        "tls": "HTTPS / certificate",
+        "unknown": "Other check"
+      },
+      "severity": {
+        "info": "Information",
+        "warn": "Review needed",
+        "high": "High risk",
+        "unknown": "Unknown status"
+      },
+      "summary": {
+        "info": "This check did not report a high-risk anomaly.",
+        "warn": "Review this result; the available information does not establish a specific cause.",
+        "high": "This check found a high-confidence risk signal. Review the details to confirm.",
+        "unknown": "The result status is unknown. Expand technical details to inspect the raw information.",
+        "tlsWarning": "The HTTPS check could not complete. DNS or network connection failures alone do not prove interception."
+      },
+      "technicalDetails": "Technical details",
+      "evidence": "Raw evidence",
+      "command": "Check command"
     },
     "whois": {
-      "hint": "RDAP lookup via rdap.org (WHOIS fallback not required for this build). Output may be truncated.",
+      "hint": "Look up registration data for a domain or IP through rdap.org. Response size is limited and oversized results are truncated.",
       "query": "Domain or IP",
       "run": "Lookup",
       "running": "Looking up…",
       "partial": "partial",
-      "empty": "No RDAP body returned."
+      "empty": "No RDAP body returned.",
+      "resultFor": "Result · {{query}}",
+      "technicalDetails": "Technical details",
+      "errors": {
+        "requestFailed": "Could not connect to the RDAP service. Check your connection and retry.",
+        "httpError": "The RDAP service returned HTTP {{status}}.",
+        "bodyReadFailed": "Could not read the RDAP response.",
+        "responseTruncated": "The RDAP response was too large and has been truncated.",
+        "unknown": "The RDAP lookup could not be completed."
+      }
     },
     "dnssec": {
-      "hint": "DNSSEC hints plus DoH/DoT reachability. Full AD-bit chain validation is not asserted in this build.",
+      "hint": "Validate DNSSEC with Hickory and check Cloudflare DoH and DoT with TLS certificate validation.",
       "domain": "Domain",
       "run": "Check DNSSEC / DoH",
       "running": "Checking…",
+      "resultFor": "Result for {{domain}}",
       "status": "DNSSEC status",
+      "statusValue": {
+        "secure": "Secure (validated locally)",
+        "insecure": "Unsigned (insecure)",
+        "bogus": "Validation failed",
+        "unknown": "Unknown",
+        "unsupported": "Unsupported"
+      },
       "doh": "DoH",
       "dot": "DoT",
-      "okMs": "ok · {{ms}} ms",
-      "fail": "unreachable / failed"
+      "dohOkMs": "DoH response received · {{ms}} ms",
+      "dotOkMs": "TLS verified · DNS response received · {{ms}} ms",
+      "fail": "unreachable / failed",
+      "technicalDetails": "Technical details",
+      "command": "Command",
+      "dnssecDetail": "DNSSEC",
+      "dohDetail": "DoH",
+      "dotDetail": "DoT",
+      "details": {
+        "localValidationSecure": "Hickory validated the DNSSEC signature chain using its root trust anchors.",
+        "localValidationInsecure": "The local validator confirmed the answer has no verifiable signed chain (usually an unsigned zone).",
+        "localValidationBogus": "The local validator found an invalid DNSSEC signature or proof.",
+        "localValidationIndeterminate": "The resolver responded, but there was not enough data to determine DNSSEC status.",
+        "resolverServfail": "The resolver returned SERVFAIL; this alone does not establish that DNSSEC is bogus.",
+        "resolverFailure": "The resolver returned an error, so DNSSEC status could not be determined.",
+        "noAnswer": "No answer or negative proof was available to determine DNSSEC status.",
+        "requestTimedOut": "The DoT DNS query timed out.",
+        "resolverConfigurationFailed": "The local DNSSEC validator could not be configured.",
+        "unknown": "DNSSEC status is unknown."
+      },
+      "dohDetails": {
+        "authenticatedData": "Cloudflare DoH returned AD=true; this is the remote resolver's validation signal.",
+        "notAuthenticated": "Cloudflare DoH returned AD=false; the local validation result is shown separately.",
+        "missingAdSignal": "The response did not include an AD bit.",
+        "resolverServfail": "Cloudflare DoH returned SERVFAIL; this alone does not prove DNSSEC failure.",
+        "resolverFailure": "Cloudflare DoH returned a DNS error status.",
+        "httpError": "Cloudflare DoH returned an HTTP error.",
+        "requestFailed": "Could not reach Cloudflare DoH.",
+        "invalidResponse": "Cloudflare DoH returned an invalid response.",
+        "responseTooLarge": "The Cloudflare DoH response exceeded the size limit.",
+        "unknown": "DoH status is unknown."
+      },
+      "dotDetails": {
+        "tlsVerifiedQuerySucceeded": "The Cloudflare DoT TLS certificate was verified and the DNS query completed.",
+        "tlsVerifiedDnsResponse": "The Cloudflare DoT TLS certificate was verified and a DNS response was received.",
+        "tlsOrQueryFailed": "DoT TLS certificate verification or the DNS query failed.",
+        "timedOut": "The DoT TLS handshake or DNS query timed out.",
+        "unknown": "DoT status is unknown."
+      }
     },
     "ports": {
-      "hint": "TCP connect scan of a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",
-      "degradedHint": "Degraded mode: TCP connect only. Install adv-scanner / nmap for SYN stealth.",
+      "hint": "Port scan of a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",
+      "scanModeHint": "SYN mode needs a scanner with the required privileges; otherwise Bench uses TCP connect.",
       "target": "Target",
       "range": "Ports",
       "run": "Scan ports",
       "running": "Scanning…",
       "cancel": "Cancel",
       "openList": "Open: {{ports}}",
+      "openListCount": "Open ports: {{count}}",
+      "openPortsList": "Open ports list",
+      "samplesList": "Port scan results",
+      "state": {
+        "open": "Open",
+        "closed": "Closed",
+        "filtered": "Filtered / no response",
+        "error": "Error",
+        "unknown": "Unknown"
+      },
+      "mode": {
+        "nmap": "Scanned with Nmap; SYN is used when permitted, otherwise it falls back to TCP connect.",
+        "tcpConnect": "Scanned with TCP connect.",
+        "unknown": "Unknown scan method."
+      },
+      "cancelled": "Scan cancelled; the results below were received before cancellation.",
+      "noSamples": "No port scan results were received.",
+      "resultTarget": "Scan result for: {{target}}",
+      "technicalDetails": "Technical details",
+      "technicalReason": "Scan details",
+      "command": "Command",
       "confirmTitle": "Confirm port scan scope",
       "confirmDesc": "Target {{target}} · about {{count}} ports. Public hosts or large ranges need an extra confirm.",
-      "confirmConsequence": "Only scan assets you own or are authorized to test. TCP connect only (no SYN).",
+      "confirmConsequence": "Only scan assets you own or are authorized to test. The scanner may use SYN or TCP connect; Nmap scripts and service-version detection are disabled.",
       "confirmRun": "Scan anyway"
     },
     "arp": {
-      "hint": "List neighbors from the OS ARP/neighbor cache (degraded discovery).",
-      "degradedHint": "Degraded: cache only. Privileged ARP sweep needs adv-scanner.",
+      "hint": "Read the ARP cache and check TCP reachability on this Mac's IPv4 /24 at ports 80/443/22.",
+      "degradedHint": "Using cache and TCP probes. Privileged ARP requests need adv-scanner.",
       "run": "Refresh ARP cache",
       "running": "Reading…",
       "empty": "No neighbors in the ARP cache.",
@@ -2084,15 +2464,38 @@
       "emptyPermission": "No usable IPv4 — check Local Network permission in System Settings.",
       "openSettings": "Open system network settings",
       "cidr": "Sweep CIDR: {{cidr}}",
-      "meta": "{{count}} neighbors · mode={{mode}} · {{ms}} ms",
-      "cancelled": "LAN discovery was cancelled mid-sweep."
+      "meta": "{{count}} neighbors · {{mode}} · {{ms}} ms",
+      "neighborsList": "ARP neighbor list",
+      "modeCache": "ARP cache",
+      "modeCacheTcpSweep": "Cache + TCP probes",
+      "modeUnknown": "Unknown discovery method",
+      "technicalDetails": "Technical details",
+      "rawMode": "Internal mode",
+      "cancelled": "LAN discovery was cancelled.",
+      "cancelledPartial": "Kept {{count}} neighbor(s) already found.",
+      "cancelledEmpty": "No neighbors were found before cancellation.",
+      "macUnresolved": "MAC unresolved",
+      "sourceCache": "ARP cache",
+      "sourceTcpSweep": "TCP reachability probe",
+      "sourceUnknown": "other source"
     },
     "lanSvc": {
       "hint": "Browse mDNS/DNS-SD and SSDP/UPnP announcements on the local network (read-only).",
-      "readOnlyHint": "Read-only discovery. No UPnP Write / AddPortMapping actions are exposed.",
+      "readOnlyHint": "Read-only discovery only. Device descriptions are not fetched and UPnP actions are never called.",
       "run": "Browse LAN services",
       "running": "Browsing…",
       "empty": "No mDNS/SSDP responses in the listen window.",
+      "emptyPartial": "No responses from the available discovery protocol(s).",
+      "protocolMdns": "mDNS",
+      "protocolSsdp": "SSDP",
+      "protocolFailed": "{{protocol}} discovery could not complete.",
+      "technicalDetails": "Technical details",
+      "issueCode": "error code",
+      "unknownDevice": "Unknown device",
+      "deviceId": "ID",
+      "txtProperties": "TXT",
+      "location": "LOCATION",
+      "locationUnavailable": "Unavailable or invalid",
       "meta": "{{count}} services · {{ms}} ms"
     },
     "pcap": {
@@ -2101,13 +2504,29 @@
       "run": "Sample packet counters",
       "running": "Capturing…",
       "mode": "Mode",
-      "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
+      "status": "Status",
+      "statusValue": {
+        "complete": "complete",
+        "cancelled": "cancelled",
+        "unavailable": "unavailable",
+        "unknown": "unknown"
+      },
+      "modeValue": {
+        "counters": "counter-only sample"
+      },
+      "technicalDetails": "Technical details",
+      "diagnostic": "Diagnostic",
+      "command": "Command",
+      "noSample": "No packet sample is available.",
+      "stats": "Packets={{packets}} · RST={{rst}} · retransmit hints≈{{retrans}} · out-of-order hints≈{{ooo}}"
     },
     "nodes": {
-      "hint": "Compare DNS answers from this Mac and Globalping locations. Register HTTPS agents for self-hosted probes.",
+      "hint": "Compare DNS answers from this Mac and Globalping locations. Register HTTPS/WSS agents for self-hosted probes.",
       "run": "Compare DNS (multi-node)",
       "running": "Comparing…",
       "refresh": "Refresh nodes",
+      "refreshing": "Refreshing nodes…",
+      "loading": "Loading probe nodes…",
       "listTitle": "Probe nodes",
       "addTitle": "Add agent",
       "addHint": "Endpoint must be https:// or wss://. Arbitrary shell actions are rejected.",
@@ -2115,22 +2534,72 @@
       "domainPlaceholder": "example.com",
       "endpointPlaceholder": "https://agent.example:8443",
       "addAgent": "Add agent",
+      "addingAgent": "Adding…",
       "removeAgent": "Remove",
-      "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
+      "removingAgent": "Removing…",
+      "agentReachable": "Reachable",
+      "agentUnreachable": "Unreachable",
+      "endpointError": {
+        "invalid": "Enter a valid HTTPS or WSS URL.",
+        "scheme": "Use HTTPS or WSS. Plaintext connections are not supported.",
+        "credentials": "Credentials, query parameters, and fragments are not supported in endpoint URLs yet."
+      },
+      "kind": {
+        "remoteProxy": "Public probe",
+        "remoteAgent": "Self-hosted agent",
+        "unknown": "Other node"
+      },
+      "status": {
+        "success": "Query succeeded",
+        "failed": "Query failed"
+      },
+      "noAnswers": "This node returned no A records.",
+      "noResults": "No node results are available.",
+      "technicalDetails": "Technical details",
+      "diagnostic": "Raw diagnostic",
+      "command": "Command",
+      "meta": "{{domain}} · {{count}} node results · {{ms}} ms"
     },
     "nat": {
-      "hint": "STUN Binding against a public server to learn your mapped address / NAT exposure.",
+      "hint": "Compare the public mapping reported by several STUN servers.",
+      "scopeNote": "Mapping consistency alone cannot identify a specific NAT type such as cone or symmetric NAT.",
       "run": "Probe NAT",
       "running": "Probing…",
-      "type": "Result",
-      "mapped": "Mapped address"
+      "type": "Observation",
+      "consistent": "Same mapping across responding servers",
+      "varied": "Different mappings across servers",
+      "blockedOrTimeout": "No valid response (blocked or timed out)",
+      "unknown": "Unknown observation state",
+      "mapped": "Mapped address",
+      "details": "Server details",
+      "technicalDetails": "Technical details"
     },
     "ntp": {
-      "hint": "Query pool.ntp.org for clock offset. Large skew can break TLS and auth.",
+      "hint": "Compare Cloudflare, Google, and pool.ntp.org concurrently. Large clock skew can affect TLS and auth.",
       "run": "Probe NTP",
       "running": "Probing…",
       "offset": "Offset {{seconds}} s ({{severity}})",
-      "fail": "NTP probe failed"
+      "fail": "No usable response from any NTP source.",
+      "sourceResults": "NTP source results",
+      "sourceOffset": "{{server}}: offset {{seconds}} s",
+      "sourceFailed": "{{server}}: {{reason}}",
+      "technicalDetails": "Technical details",
+      "severity": {
+        "ok": "within range",
+        "info": "minor skew",
+        "warn": "large skew",
+        "unknown": "unknown"
+      },
+      "errors": {
+        "bind": "could not open a local UDP socket",
+        "dns": "server address could not be resolved",
+        "network": "UDP exchange failed",
+        "timeout": "request timed out",
+        "source": "response came from an unexpected address",
+        "serverRefused": "server temporarily refused the request",
+        "response": "server response did not pass NTP validation",
+        "unknown": "request failed"
+      }
     },
     "report": {
       "hint": "Export the latest health scan and browse the session command log.",
@@ -2149,20 +2618,35 @@
       "historyTitle": "Recent health snapshots",
       "historyEmpty": "No saved health scans yet. Run a health scan to keep history.",
       "clearHistory": "Clear history",
+      "clearHistoryConfirmTitle": "Clear saved health history?",
+      "clearHistoryConfirmDescription": "This permanently removes the saved health snapshots on this device. The current report remains available.",
       "historyItem": "{{session}}… · {{count}} checks · {{ms}} ms · {{opinions}} opinions",
       "privacyHint": "Exports may include public IP, Wi‑Fi SSID, hosts overrides, and local addresses. Share only with people you trust."
+    },
+    "scan": {
+      "cancelling": "Cancelling…"
     },
     "traceroute": {
       "hint": "Path hop table via trippy (privileged ICMP, falls back to unprivileged UDP). Loss % is color-coded. ASN via Team Cymru DNS (may be empty).",
       "target": "Target",
       "maxTtl": "Max TTL",
+      "maxTtlInvalid": "Enter a whole number from 1 to 32.",
       "rounds": "Rounds",
+      "roundsInvalid": "Enter a whole number from 1 to 10.",
       "run": "Trace",
       "running": "Tracing…",
       "cancel": "Cancel",
       "cancelled": "cancelled",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
+      "tableRegion": "Traceroute hop results",
+      "tableCaption": "Traceroute hop table",
       "empty": "No hops yet. Run a trace to populate the table.",
+      "message": {
+        "unprivileged": "Privileged ICMP is unavailable; the trace completed using unprivileged UDP.",
+        "unavailable": "Traceroute is unavailable. Expand technical details to see why."
+      },
+      "technicalDetails": "Technical details",
+      "technicalReason": "Raw message",
       "mode": {
         "privileged": "privileged ICMP",
         "unprivileged": "unprivileged UDP",
@@ -2181,7 +2665,6 @@
     },
     "cmd": {
       "summary": "getLocalNetworkSummary()",
-      "tcpConnect": "tcpConnect(local, '{{host}}', {{port}})",
       "pingHost": "pingHost(local, '{{target}}', {count:{{count}}})",
       "dnsLookup": "dnsLookup(local, '{{domain}}', {rrType:'{{rrType}}',resolver:'{{resolver}}'})",
       "probeTarget": "probeTarget(local, '{{input}}')",
@@ -2207,7 +2690,7 @@
       "lanSvc": "browseLanServices(local) // mDNS+SSDP",
       "pcap": "startPacketCapture(local) // tcpdump counters",
       "compareDns": "dnsLookup(multi, domain)",
-      "addAgent": "addAgent(label, https://…)",
+      "addAgent": "addAgent(label, https://… or wss://…)",
       "nat": "probeNat(local)",
       "ntp": "probeNtp(local)",
       "installPack": "installCapabilityPack('{{packId}}')",
@@ -2216,12 +2699,24 @@
     "packs": {
       "dialogTitle": "Optional capability packs",
       "dialogHint": "Advanced scanners and helpers install from a backend manifest only — the UI never supplies download URLs (D-017).",
-      "markerOnly": "marker install (artifact pending)",
+      "artifactPending": "sidecar artifact not published",
+      "markerInstallHint": "This records a local marker only; related tools stay degraded until the sidecar artifact is published.",
+      "markerInstalledHint": "Only a local marker is recorded; related tools remain degraded.",
       "meta": "v{{version}} · {{sizeMb}} MB · {{status}}",
+      "status": {
+        "installed": "Installed",
+        "available": "Available",
+        "markerOnly": "Marker only",
+        "unavailable": "Unavailable",
+        "unknown": "Unknown status"
+      },
       "gatekeeperNote": "Ad-hoc / unsigned builds cannot claim Gatekeeper trust for sidecars (D-010).",
       "empty": "No packs available on this platform.",
       "refresh": "Refresh",
+      "refreshing": "Refreshing…",
       "install": "Install",
+      "installMarkerOnly": "Install marker only",
+      "notAvailableYet": "Not available yet",
       "installing": "Installing…",
       "uninstall": "Uninstall",
       "verifyFail": "Test hash fail",
@@ -2234,9 +2729,20 @@
       }
     },
     "caps": {
-      "banner": "platform={{platform}} · privilege={{privilege}} (tools from capabilities matrix)",
-      "toolDisabled": "{{tool}} status={{status}} — action disabled by capabilities matrix",
-      "localNetworkHint": "All probes lost. This may be Local Network permission (macOS Privacy), a firewall, or a real outage — not a single conclusion."
+      "banner": "Platform: {{platform}} · Privilege: {{privilege}}",
+      "platform": {
+        "macos": "macOS",
+        "windows": "Windows",
+        "linux": "Linux",
+        "unknown": "Unknown platform"
+      },
+      "privilege": {
+        "none": "Not elevated",
+        "user": "Standard user",
+        "elevated": "Administrator privileges",
+        "unknown": "Unknown privilege level"
+      },
+      "toolDisabled": "This feature is currently unavailable in this environment."
     },
     "badge": {
       "post": "Post",
@@ -2266,6 +2772,7 @@
       "openSettingsFailed": "Could not open system network settings.",
       "packsFailed": "Capability pack operation failed.",
       "defaultsFailed": "Defaults override / reset failed.",
+      "speedSourcesFailed": "Failed to load speed sources.",
       "speedFailed": "Speed test failed.",
       "securityAuthRequired": "Authorize the Security tab before running these tools.",
       "pollutionFailed": "Pollution check failed.",
@@ -2279,7 +2786,9 @@
       "pcapFailed": "Packet diagnostics failed.",
       "nodesFailed": "Failed to list probe nodes.",
       "multiNodeFailed": "Multi-node DNS compare failed.",
-      "agentFailed": "Agent registry operation failed."
+      "globalpingFailed": "The Globalping remote measurement failed.",
+      "agentFailed": "Agent registry operation failed.",
+      "agentInvalidInput": "The agent details are invalid or the endpoint was rejected by a network security rule."
     }
   },
   "extensionCenter": {
@@ -2319,6 +2828,39 @@
     "tabInstalled": "Installed",
     "tabMarket": "Market",
     "tabDiagnostics": "Diagnostics",
+    "details": {
+      "open": "Details",
+      "title": "Extension details",
+      "close": "Close",
+      "publisher": "Publisher",
+      "publisherSourceNote": "This is a registry claim, not an independently verified identity.",
+      "engines": "Bench version requirement",
+      "compatible": "Compatible with this host version",
+      "incompatible": "This host version does not meet the requirement",
+      "trust": "Source verification at installation",
+      "trustUnknown": "No installation verification record was saved for this version, so its trust method cannot be confirmed.",
+      "bundledTrust": "Distributed with the Bench app package; this does not claim an independent extension signature.",
+      "permissionsTitle": "Host commands requested by the manifest",
+      "permissionsHint": "Each command is compared with the host's current capability list. Command IDs remain visible for review; descriptions summarize their command family.",
+      "capabilityHint": "Status comes from the host's current capability list. “Unavailable” means the host currently blocks that command for extensions.",
+      "capabilityLoading": "Reading the host capability list…",
+      "capabilityUnknownHint": "The current capability list could not be read, so command status is unknown.",
+      "capabilityAvailable": "Available now",
+      "capabilityUnavailable": "Unavailable now",
+      "capabilityUnknown": "Unknown",
+      "permissionFamily": {
+        "photoFiles": "Photo and local file operations",
+        "terminology": "Read and modify terminology data",
+        "developerCleanup": "Scan and clean developer projects",
+        "storageCleanup": "Storage scans and cleanup",
+        "pricingStandards": "Read and maintain model pricing standards",
+        "mediaAssets": "Read, import, and delete local media assets",
+        "privateData": "Access the extension's private data directory",
+        "extensionManagement": "Query and manage extension lifecycle",
+        "installedApps": "Query and manage installed apps (including install, upgrade, uninstall, or authorization)",
+        "hostCommand": "Host command"
+      }
+    },
     "market": {
       "loadFailed": "Failed to load the market",
       "empty": "No extensions available in the market",
@@ -2331,22 +2873,53 @@
       "revokedBanner": "The following extensions have been revoked and force-disabled",
       "revokedNote": "This extension was revoked: {reason}. Uninstalling is recommended.",
       "trustTitle": "Trust this extension?",
-      "trustDescription": "\"{name}\" v{version} ({publisher}) passed integrity and signature verification. Review the host commands it requests before installing.",
+      "trustDescription": "\"{name}\" v{version} (publisher declared by the registry: {publisher}). Review the verification method below and the host commands it requests.",
+      "verification": {
+        "officialRegistryHashes": "Verified against the official registry's HTTPS package SHA-256/size and per-file manifest. The official source does not use extension-level signatures.",
+        "minisign": "Verified with the third-party registry's minisign key and per-file integrity checks.",
+        "developmentUnsigned": "Developer mode skipped extension signature verification. The source is unverified; install only code you trust."
+      },
       "unknownPublisher": "Unknown publisher",
       "requestedPermissions": "Requested host commands (deny-by-default)",
       "noPermissions": "This extension requests no host commands",
-      "trustNote": "Unregistered commands are rejected by the host gateway; the capability surface is vetted via the registry review process.",
+      "trustNote": "The host blocks commands outside this permission list.",
       "trustAndInstall": "Trust & Install",
       "installing": "Installing…",
       "prepareFailed": "Install verification failed",
       "commitFailed": "Install failed",
+      "cancelFailed": "Could not clean the install cache",
       "toastInstalled": "Extension installed"
     },
     "diagnostics": {
-      "hint": "Extension audit log and runtime errors (last 200 entries)",
+      "hint": "Recent 200 extension audit and runtime records. Data stays on this device.",
       "audit": "Audit log ext-audit.log",
       "runtime": "Runtime diagnostics ext-diagnostics.jsonl",
-      "empty": "No records"
+      "empty": "No records",
+      "searchLabel": "Search diagnostic records",
+      "searchPlaceholder": "Search extensions, versions, errors, or text",
+      "filterLabel": "Filter by type",
+      "filterAll": "All types",
+      "noMatches": "No matching records. Try another search or type.",
+      "unknown": "Unknown record",
+      "timeUnavailable": "Time unavailable",
+      "rawDetails": "View raw record",
+      "count": "Showing {{visible}} of {{total}} records",
+      "refreshing": "Refreshing…",
+      "event": {
+        "install": "Installed",
+        "enable": "Enabled",
+        "disable": "Disabled",
+        "uninstall": "Uninstalled",
+        "verifyFail": "Verification failed",
+        "aclDeny": "Permission denied",
+        "revokeHit": "Revocation matched"
+      },
+      "kind": {
+        "windowError": "Window error",
+        "unhandledRejection": "Unhandled promise rejection",
+        "consoleError": "Console error",
+        "boot": "Extension startup"
+      }
     },
     "tabBridge": "Cross-platform",
     "bridgeTitle": "Browser Extension & MCP",
@@ -2363,6 +2936,7 @@
     "bridgeExtId": "Extension ID",
     "bridgeCopy": "Copy",
     "bridgeCopied": "Copied",
+    "bridgeCopyFailed": "Could not copy to the clipboard. Check clipboard permission and try again.",
     "bridgeNmTitle": "Native Messaging registrations",
     "bridgeBrowsers": "Browsers on this machine",
     "bridgeOpenExtensionsPage": "Open extensions page",

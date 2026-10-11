@@ -4,7 +4,7 @@
  * v2 - 重设计: 删底部 ⚙ Settings 齿轮按钮、删底部 🔄 重启按钮。
  * 只保留语言/主题快捷键。系统设置导航项用分隔线和功能列表分开。
  */
-import { useLocation, Link } from "wouter"
+import { Link } from "wouter"
 import { motion } from "motion/react"
 import type { NavigationItem } from "@/features/types"
 import QuickControls from "./QuickControls"
@@ -15,19 +15,19 @@ import { cn } from "@/lib/utils"
 import { useReducedMotionProps } from "@/lib/motion-utils"
 
 interface SidebarProps {
+  activePath: string
   items: NavigationItem[]
   /** Tool/config items shown below separator */
   configItems?: NavigationItem[]
   onPrefs?: () => void
 }
 
-function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
+function Sidebar({ activePath, items, configItems, onPrefs }: SidebarProps) {
   const { t } = useTranslation()
   const { text: titleText, start: scrambleTitle } = useScrambleText({
     target: t("sidebar.title"),
     duration: 700,
   })
-  const [location] = useLocation()
   const { reduce } = useReducedMotionProps()
 
   return (
@@ -53,11 +53,12 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
       {/* Feature navigation */}
       <ScrollableArea as="nav" className="flex-1 py-2" wrapperClassName="flex flex-1 min-h-0">
         {items.map((item) => {
-          const isActive = location === item.path
+          const isActive = activePath === item.path
           return (
             <Link
               key={item.path}
               href={item.path}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "mr-2 ml-6 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm leading-relaxed transition",
                 isActive
@@ -78,11 +79,12 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
 
         {/* Config items (e.g. System Settings) */}
         {configItems?.map((item) => {
-          const isActive = location === item.path
+          const isActive = activePath === item.path
           return (
             <Link
               key={item.path}
               href={item.path}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "mr-2 ml-6 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm leading-relaxed transition",
                 isActive

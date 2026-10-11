@@ -9,6 +9,52 @@ import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelS
 import type { PathMtuResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
+const MTU_METHOD_LABEL_KEYS: Record<string, string> = {
+  "ping-df-binary": "networkProbe.mtu.method.binary",
+  "ping-df-ladder": "networkProbe.mtu.method.ladder",
+  none: "networkProbe.mtu.method.none",
+}
+
+const MTU_STATUS_LABEL_KEYS: Record<string, string> = {
+  ok: "networkProbe.mtu.statusValue.ok",
+  blackhole: "networkProbe.mtu.statusValue.blackhole",
+  fail: "networkProbe.mtu.statusValue.fail",
+  unsupported: "networkProbe.mtu.statusValue.unsupported",
+  degraded: "networkProbe.mtu.statusValue.degraded",
+}
+
+function stepDetailLabelKey(detail: string | undefined, ok: boolean) {
+  if (ok) return "networkProbe.mtu.stepDetail.received"
+
+  const normalized = detail?.toLowerCase() ?? ""
+  if (normalized.includes("too long") || normalized.includes("packet too big")) {
+    return "networkProbe.mtu.stepDetail.packetTooLarge"
+  }
+  if (normalized.includes("timeout") || normalized.includes("no answer")) {
+    return "networkProbe.mtu.stepDetail.timeout"
+  }
+  if (
+    normalized.includes("permission") ||
+    normalized.includes("not permitted") ||
+    normalized.includes("privilege")
+  ) {
+    return "networkProbe.mtu.stepDetail.permission"
+  }
+  return "networkProbe.mtu.stepDetail.failed"
+}
+
+function summaryLabelKey(result: PathMtuResult) {
+  if (result.status === "blackhole") return "networkProbe.mtu.message.blackhole"
+  if (result.status === "unsupported") return "networkProbe.mtu.message.unsupported"
+  if (result.status === "fail") return "networkProbe.mtu.message.failed"
+  if (result.status === "degraded") return "networkProbe.mtu.message.degraded"
+  if (result.status === "ok" && result.message?.toLowerCase().includes("below ethernet")) {
+    return "networkProbe.mtu.message.belowEthernet"
+  }
+  if (Object.hasOwn(MTU_STATUS_LABEL_KEYS, result.status)) return null
+  return "networkProbe.mtu.message.unknown"
+}
+
 interface MtuPanelProps {
   loading: boolean
   result: PathMtuResult | null
@@ -19,6 +65,15 @@ interface MtuPanelProps {
 export function MtuPanel({ loading, result, onRun, dualFrom }: MtuPanelProps) {
   const { t } = useTranslation()
   const [target, setTarget] = useState("1.1.1.1")
+  const statusKey =
+    result && Object.hasOwn(MTU_STATUS_LABEL_KEYS, result.status)
+      ? MTU_STATUS_LABEL_KEYS[result.status]
+      : null
+  const methodKey =
+    result && Object.hasOwn(MTU_METHOD_LABEL_KEYS, result.method)
+      ? MTU_METHOD_LABEL_KEYS[result.method]
+      : null
+  const summaryKey = result ? summaryLabelKey(result) : null
 
   return (
     <ProbePanelShell
@@ -52,9 +107,6 @@ export function MtuPanel({ loading, result, onRun, dualFrom }: MtuPanelProps) {
               {loading ? t("networkProbe.mtu.running") : t("networkProbe.mtu.run")}
             </Button>
           </div>
-          <p className="text-muted-foreground font-mono text-xs">
-            {t("networkProbe.cmd.mtu", { target: target.trim() || "…" })}
-          </p>
         </>
       }
     >
@@ -70,15 +122,13 @@ export function MtuPanel({ loading, result, onRun, dualFrom }: MtuPanelProps) {
                   result.status === "ok" && "text-emerald-700 dark:text-emerald-400",
                 )}
               >
-                {t(`networkProbe.mtu.statusValue.${result.status}`, {
-                  defaultValue: result.status,
-                })}
+                {statusKey ? t(statusKey) : t("networkProbe.mtu.statusValue.unknown")}
               </span>
             </div>
             <div className="text-muted-foreground text-xs">
               {t("networkProbe.mtu.meta", {
                 ip: result.resolvedIp,
-                method: result.method,
+                method: methodKey ? t(methodKey) : t("networkProbe.mtu.method.unknown"),
                 ms: result.elapsedMs.toFixed(0),
               })}
             </div>
@@ -87,10 +137,9 @@ export function MtuPanel({ loading, result, onRun, dualFrom }: MtuPanelProps) {
                 {t("networkProbe.mtu.pathMtu", { value: result.pathMtu })}
               </div>
             ) : null}
-            {result.message ? (
-              <p className="text-muted-foreground mt-1 text-xs">{result.message}</p>
+            {summaryKey ? (
+              <p className="text-muted-foreground mt-1 text-xs">{t(summaryKey)}</p>
             ) : null}
-            <p className="text-muted-foreground font-mono text-[10px]">{result.commandHint}</p>
           </div>
 
           {result.steps.length > 0 ? (
@@ -115,14 +164,48 @@ export function MtuPanel({ loading, result, onRun, dualFrom }: MtuPanelProps) {
                       >
                         {step.ok ? t("networkProbe.mtu.ok") : t("networkProbe.mtu.fail")}
                       </td>
-                      <td className="text-muted-foreground max-w-[16rem] truncate px-2 py-1.5 text-xs">
-                        {step.detail ?? "—"}
+                      <td className="text-muted-foreground max-w-[16rem] px-2 py-1.5 text-xs">
+                        {t(stepDetailLabelKey(step.detail, step.ok))}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          ) : null}
+          {result.message || result.commandHint || result.steps.some((step) => step.detail) ? (
+            <details className="text-muted-foreground rounded-lg border px-3 py-2 text-xs">
+              <summary className="w-fit cursor-pointer select-none">
+                {t("networkProbe.mtu.technicalDetails")}
+              </summary>
+              <div className="mt-2 space-y-2">
+                {result.message ? (
+                  <p className="break-words">
+                    <span className="font-medium">{t("networkProbe.mtu.technicalReason")}:</span>{" "}
+                    {result.message}
+                  </p>
+                ) : null}
+                {result.steps.some((step) => step.detail) ? (
+                  <ul className="space-y-1">
+                    {result.steps.map((step) =>
+                      step.detail ? (
+                        <li key={step.payloadBytes} className="break-words">
+                          {t("networkProbe.mtu.technicalStep", {
+                            payload: step.payloadBytes,
+                            detail: step.detail,
+                          })}
+                        </li>
+                      ) : null,
+                    )}
+                  </ul>
+                ) : null}
+                {result.commandHint ? (
+                  <pre className="font-mono break-all whitespace-pre-wrap">
+                    {result.commandHint}
+                  </pre>
+                ) : null}
+              </div>
+            </details>
           ) : null}
         </div>
       ) : (

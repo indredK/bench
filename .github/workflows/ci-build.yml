@@ -708,11 +708,11 @@ jobs:
 
   # T27.1：关键浏览器 E2E 上 CI —— 单元测试证明状态函数，浏览器测试证明
   # i18n 切换、焦点副作用、响应式布局与用户可见错误在组合后仍成立。
-  # 只跑 viewport-1280 单 project 的 17 项关键流（Ubuntu + Chromium，成本可控）；
+  # 只跑 viewport-1280 单 project 的关键流（macOS + Chromium，成本可控）；
   # 完整 5-project 矩阵留给本地/定时任务。失败即 ci-ok 红，并有 artifact 可查。
   e2e-critical:
-    name: E2E (critical, ubuntu chromium)
-    runs-on: ubuntu-latest
+    name: E2E (critical, macOS chromium)
+    runs-on: macos-latest
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -733,8 +733,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright Chromium (with deps)
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install chromium
 
       - name: Run critical E2E (viewport-1280)
         run: pnpm exec playwright test --project=viewport-1280

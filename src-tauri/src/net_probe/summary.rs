@@ -1,3 +1,4 @@
+use super::address::{classify_ipv6_address, Ipv6AddressScope};
 use super::types::{DefaultRouteInfo, LocalNetworkSummary, NetworkInterfaceInfo};
 use crate::error::{AppError, AppResult};
 #[cfg(target_os = "macos")]
@@ -30,7 +31,11 @@ pub fn collect_local_summary() -> AppResult<LocalNetworkSummary> {
                 if_addrs::IfAddr::V4(_) if primary_ipv4.is_none() => {
                     primary_ipv4 = Some(addr);
                 }
-                if_addrs::IfAddr::V6(_) if primary_ipv6.is_none() && !addr.starts_with("fe80:") => {
+                if_addrs::IfAddr::V6(v6)
+                    if primary_ipv6.is_none()
+                        && classify_ipv6_address(v6.ip)
+                            == Some(Ipv6AddressScope::GlobalUnicast) =>
+                {
                     primary_ipv6 = Some(addr);
                 }
                 _ => {}

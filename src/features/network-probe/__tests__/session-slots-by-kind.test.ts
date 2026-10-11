@@ -6,11 +6,23 @@
 import { act } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { runHealthScan, scanPorts, sitesProbe, runTraceroute, cancelScan } = vi.hoisted(() => ({
+const {
+  runHealthScan,
+  scanPorts,
+  sitesProbe,
+  sitesProbeCustom,
+  runTraceroute,
+  discoverLan,
+  runPcapDiag,
+  cancelScan,
+} = vi.hoisted(() => ({
   runHealthScan: vi.fn(),
   scanPorts: vi.fn(),
   sitesProbe: vi.fn(),
+  sitesProbeCustom: vi.fn(),
   runTraceroute: vi.fn(),
+  discoverLan: vi.fn(),
+  runPcapDiag: vi.fn(),
   cancelScan: vi.fn(),
 }))
 
@@ -19,7 +31,10 @@ vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
     runHealthScan,
     scanPorts,
     sitesProbe,
+    sitesProbeCustom,
     runTraceroute,
+    discoverLan,
+    runPcapDiag,
     cancelScan,
   },
 }))
@@ -78,7 +93,10 @@ beforeEach(() => {
   runHealthScan.mockReset()
   scanPorts.mockReset()
   sitesProbe.mockReset()
+  sitesProbeCustom.mockReset()
   runTraceroute.mockReset()
+  discoverLan.mockReset()
+  runPcapDiag.mockReset()
   cancelScan.mockReset()
   useNetworkProbeStore.setState({
     securityAuthorized: true,
@@ -86,13 +104,19 @@ beforeEach(() => {
     loadingPorts: false,
     loadingSites: false,
     loadingTraceroute: false,
+    loadingLan: false,
+    loadingPcap: false,
     healthResult: null,
     portScanResult: null,
     sitesResult: null,
+    sitesResultOwner: "packs",
     tracerouteResult: null,
+    lanResult: null,
+    pcapResult: null,
     activeSessionIdByKind: {
       health: null,
       sites: null,
+      ping: null,
       traceroute: null,
       speed: null,
       ports: null,
@@ -102,6 +126,7 @@ beforeEach(() => {
     cancelRequestedSessionIdByKind: {
       health: null,
       sites: null,
+      ping: null,
       traceroute: null,
       speed: null,
       ports: null,
@@ -111,6 +136,7 @@ beforeEach(() => {
     reportHistory: [],
     commandLog: [],
     error: null,
+    errors: [],
   })
 })
 
@@ -198,6 +224,7 @@ describe("network-probe rerun clears previous results", () => {
     const state = useNetworkProbeStore.getState()
     expect(state.healthResult).toBeNull()
     expect(state.sitesResult).toBeNull()
+    expect(state.sitesResultOwner).toBe("official")
     expect(state.tracerouteResult).toBeNull()
 
     health.resolve({
@@ -230,6 +257,120 @@ describe("network-probe rerun clears previous results", () => {
     const done = useNetworkProbeStore.getState()
     expect(done.healthResult?.sessionId).toBe("health-2")
     expect(done.sitesResult?.sessionId).toBe("sites-2")
+    expect(done.sitesResultOwner).toBe("official")
     expect(done.tracerouteResult?.sessionId).toBe("tr-2")
+  })
+
+  it("clears stale LAN and packet diagnostics results before a rerun", async () => {
+    useNetworkProbeStore.setState({
+      lanResult: {
+        mode: "tcp-connect",
+        neighbors: [],
+        cancelled: false,
+        sessionId: "old-lan",
+        elapsedMs: 1,
+        commandHint: "old LAN scan",
+      },
+      pcapResult: {
+        mode: "tcpdump-count",
+        packets: 42,
+        tcpRst: 0,
+        retransHint: 0,
+        outOfOrderHint: 0,
+        cancelled: false,
+        sessionId: "old-pcap",
+        elapsedMs: 1,
+        commandHint: "old packet capture",
+      },
+    })
+    const lan = deferred<Record<string, unknown>>()
+    const pcap = deferred<Record<string, unknown>>()
+    discoverLan.mockReturnValue(lan.promise)
+    runPcapDiag.mockReturnValue(pcap.promise)
+
+    const lanPromise = networkProbeUseCases.discoverLan()
+    const pcapPromise = networkProbeUseCases.runPcapDiag(5)
+    expect(useNetworkProbeStore.getState().lanResult).toBeNull()
+    expect(useNetworkProbeStore.getState().pcapResult).toBeNull()
+    await flushMicrotasks()
+
+    lan.resolve({
+      mode: "tcp-connect",
+      neighbors: [],
+      cancelled: false,
+      sessionId: "new-lan",
+      elapsedMs: 1,
+      commandHint: "new LAN scan",
+    })
+    pcap.resolve({
+      mode: "tcpdump-count",
+      packets: 0,
+      tcpRst: 0,
+      retransHint: 0,
+      outOfOrderHint: 0,
+      cancelled: false,
+      sessionId: "new-pcap",
+      elapsedMs: 1,
+      commandHint: "new packet capture",
+    })
+    await Promise.all([lanPromise, pcapPromise])
+
+    expect(useNetworkProbeStore.getState().lanResult?.sessionId).toBe("new-lan")
+    expect(useNetworkProbeStore.getState().pcapResult?.sessionId).toBe("new-pcap")
+  })
+
+  it("keeps stale packet diagnostics cleared when the rerun fails", async () => {
+    useNetworkProbeStore.setState({
+      securityAuthorized: true,
+      pcapResult: {
+        mode: "tcpdump-count",
+        packets: 42,
+        tcpRst: 0,
+        retransHint: 0,
+        outOfOrderHint: 0,
+        cancelled: false,
+        sessionId: "old-pcap",
+        elapsedMs: 1,
+        commandHint: "old packet capture",
+      },
+    })
+    runPcapDiag.mockRejectedValue(new Error("capture failed"))
+
+    await networkProbeUseCases.runPcapDiag(5)
+
+    expect(useNetworkProbeStore.getState().pcapResult).toBeNull()
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.pcapFailed")
+  })
+})
+
+describe("site probe result ownership", () => {
+  it("keeps a single official-site custom probe owned by the official panel", async () => {
+    const sites = deferred<Record<string, unknown>>()
+    sitesProbeCustom.mockReturnValue(sites.promise)
+
+    const sitesPromise = networkProbeUseCases.runSitesProbeCustom(
+      ["https://www.baidu.com"],
+      "official",
+    )
+    await flushMicrotasks()
+
+    expect(sitesProbeCustom).toHaveBeenCalledWith(["https://www.baidu.com"])
+    expect(useNetworkProbeStore.getState().loadingSites).toBe(true)
+    expect(useNetworkProbeStore.getState().sitesResultOwner).toBe("official")
+
+    sites.resolve({
+      sessionId: "official-site-1",
+      packId: "custom",
+      results: [],
+      cancelled: false,
+      elapsedMs: 1,
+      commandHint: "",
+    })
+    await sitesPromise
+
+    const state = useNetworkProbeStore.getState()
+    expect(state.sitesResult?.sessionId).toBe("official-site-1")
+    expect(state.sitesResultOwner).toBe("official")
+    expect(state.loadingSites).toBe(false)
   })
 })

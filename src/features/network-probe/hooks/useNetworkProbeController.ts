@@ -7,6 +7,7 @@ import {
   type NetworkProbeKind,
   type NetworkProbeL1,
   type NetworkProbeOfflineSub,
+  type SiteProbeResultOwner,
   useNetworkProbeStore,
 } from "@/features/network-probe/store"
 import { canUseTauriCommands } from "@/platform/capabilities"
@@ -24,6 +25,7 @@ export function useNetworkProbeController() {
   const nav = useNetworkProbeStore((s) => s.nav)
   const capabilities = useNetworkProbeStore((s) => s.capabilities)
   const capabilityPacks = useNetworkProbeStore((s) => s.capabilityPacks)
+  const loadingCapabilityPacks = useNetworkProbeStore((s) => s.loadingCapabilityPacks)
   const packProgressText = useNetworkProbeStore((s) => s.packProgressText)
   const defaults = useNetworkProbeStore((s) => s.defaults)
   const summary = useNetworkProbeStore((s) => s.summary)
@@ -31,11 +33,17 @@ export function useNetworkProbeController() {
   const hosts = useNetworkProbeStore((s) => s.hosts)
   const tcpResult = useNetworkProbeStore((s) => s.tcpResult)
   const pingResult = useNetworkProbeStore((s) => s.pingResult)
+  const globalpingPingResult = useNetworkProbeStore((s) => s.globalpingPingResult)
+  const pingStreamingSamples = useNetworkProbeStore((s) => s.pingStreamingSamples)
   const dnsResult = useNetworkProbeStore((s) => s.dnsResult)
   const probeResult = useNetworkProbeStore((s) => s.probeResult)
+  const globalpingHttpResult = useNetworkProbeStore((s) => s.globalpingHttpResult)
   const sitesResult = useNetworkProbeStore((s) => s.sitesResult)
+  const sitesResultOwner = useNetworkProbeStore((s) => s.sitesResultOwner)
   const sitesStreaming = useNetworkProbeStore((s) => s.sitesStreaming)
-  const siteSparklineById = useNetworkProbeStore((s) => s.siteSparklineById)
+  const officialSiteSamplesByTarget = useNetworkProbeStore((s) => s.officialSiteSamplesByTarget)
+  const officialSitePendingTargets = useNetworkProbeStore((s) => s.officialSitePendingTargets)
+  const siteSparklineByTarget = useNetworkProbeStore((s) => s.siteSparklineByTarget)
   const healthResult = useNetworkProbeStore((s) => s.healthResult)
   const healthStreamingItems = useNetworkProbeStore((s) => s.healthStreamingItems)
   const networkServices = useNetworkProbeStore((s) => s.networkServices)
@@ -48,6 +56,7 @@ export function useNetworkProbeController() {
   const ipv6Result = useNetworkProbeStore((s) => s.ipv6Result)
   const mtuResult = useNetworkProbeStore((s) => s.mtuResult)
   const speedSources = useNetworkProbeStore((s) => s.speedSources)
+  const speedSourcesLoadState = useNetworkProbeStore((s) => s.speedSourcesLoadState)
   const speedResult = useNetworkProbeStore((s) => s.speedResult)
   const speedSample = useNetworkProbeStore((s) => s.speedSample)
   const speedCooldownUntil = useNetworkProbeStore((s) => s.speedCooldownUntil)
@@ -67,8 +76,13 @@ export function useNetworkProbeController() {
   const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
   // 会话按探测种类分槽: 面板只读自己那一槽, 决定 Cancel 目标与按钮可见性。
   const activeSessionIdByKind = useNetworkProbeStore((s) => s.activeSessionIdByKind)
+  const cancelRequestedSessionIdByKind = useNetworkProbeStore(
+    (s) => s.cancelRequestedSessionIdByKind,
+  )
   const commandLog = useNetworkProbeStore((s) => s.commandLog)
   const loadingSummary = useNetworkProbeStore((s) => s.loadingSummary)
+  const networkServicesLoadState = useNetworkProbeStore((s) => s.networkServicesLoadState)
+  const openingSystemNetworkSettings = useNetworkProbeStore((s) => s.openingSystemNetworkSettings)
   const loadingTcp = useNetworkProbeStore((s) => s.loadingTcp)
   const loadingPing = useNetworkProbeStore((s) => s.loadingPing)
   const loadingDns = useNetworkProbeStore((s) => s.loadingDns)
@@ -92,7 +106,10 @@ export function useNetworkProbeController() {
   const loadingPcap = useNetworkProbeStore((s) => s.loadingPcap)
   const loadingMultiNode = useNetworkProbeStore((s) => s.loadingMultiNode)
   const loadingNodes = useNetworkProbeStore((s) => s.loadingNodes)
+  const agentAction = useNetworkProbeStore((s) => s.agentAction)
+  const errors = useNetworkProbeStore((s) => s.errors)
   const error = useNetworkProbeStore((s) => s.error)
+  const clearError = useNetworkProbeStore((s) => s.clearError)
   const setL1 = useNetworkProbeStore((s) => s.setL1)
   const setL2 = useNetworkProbeStore((s) => s.setL2)
   const setOfflineSub = useNetworkProbeStore((s) => s.setOfflineSub)
@@ -134,6 +151,11 @@ export function useNetworkProbeController() {
     (target: string, count: number) => networkProbeUseCases.runPing(target, count),
     [],
   )
+  const runGlobalpingPing = useCallback(
+    (target: string, packets: number, location: string) =>
+      networkProbeUseCases.runGlobalpingPing(target, packets, location),
+    [],
+  )
   const runDnsLookup = useCallback(
     (domain: string, rrType: string, resolver?: string) =>
       networkProbeUseCases.runDnsLookup(domain, rrType, resolver),
@@ -143,12 +165,30 @@ export function useNetworkProbeController() {
     (input: string) => networkProbeUseCases.runProbeTarget(input),
     [],
   )
+  const runGlobalpingHttp = useCallback(
+    (input: string, location: string) => networkProbeUseCases.runGlobalpingHttp(input, location),
+    [],
+  )
+  const clearProbeOriginResults = useCallback(
+    () => networkProbeUseCases.clearProbeOriginResults(),
+    [],
+  )
+  const getGlobalpingTokenStatus = useCallback(
+    () => networkProbeUseCases.getGlobalpingTokenStatus(),
+    [],
+  )
+  const saveGlobalpingToken = useCallback(
+    (token: string) => networkProbeUseCases.saveGlobalpingToken(token),
+    [],
+  )
+  const deleteGlobalpingToken = useCallback(() => networkProbeUseCases.deleteGlobalpingToken(), [])
   const runSitesProbe = useCallback(
     (packId: string) => networkProbeUseCases.runSitesProbe(packId),
     [],
   )
   const runSitesProbeCustom = useCallback(
-    (targets: string[]) => networkProbeUseCases.runSitesProbeCustom(targets),
+    (targets: string[], resultOwner?: SiteProbeResultOwner) =>
+      networkProbeUseCases.runSitesProbeCustom(targets, resultOwner),
     [],
   )
   const runHealthScan = useCallback(() => networkProbeUseCases.runHealthScan(), [])
@@ -238,8 +278,14 @@ export function useNetworkProbeController() {
     (packId: string) => networkProbeUseCases.installCapabilityPackVerifyFail(packId),
     [],
   )
-  const authorizeSecurity = useCallback(() => setSecurityAuthorized(true), [setSecurityAuthorized])
-  const revokeSecurity = useCallback(() => setSecurityAuthorized(false), [setSecurityAuthorized])
+  const authorizeSecurity = useCallback(() => {
+    clearError("networkProbe.errors.securityAuthRequired")
+    setSecurityAuthorized(true)
+  }, [clearError, setSecurityAuthorized])
+  const revokeSecurity = useCallback(() => {
+    clearError("networkProbe.errors.securityAuthRequired")
+    void networkProbeUseCases.revokeSecurityAuthorization()
+  }, [clearError])
   const resetDefaults = useCallback(() => networkProbeUseCases.resetDefaults(), [])
 
   const l2Id = nav.l2ByL1[nav.l1Id]
@@ -251,6 +297,7 @@ export function useNetworkProbeController() {
     offlineSub: nav.offlineSub,
     capabilities,
     capabilityPacks,
+    loadingCapabilityPacks,
     packProgressText,
     toolEnabled: {
       ping: toolEnabled(tools, "ping"),
@@ -290,11 +337,17 @@ export function useNetworkProbeController() {
     hosts,
     tcpResult,
     pingResult,
+    globalpingPingResult,
+    pingStreamingSamples,
     dnsResult,
     probeResult,
+    globalpingHttpResult,
     sitesResult,
+    sitesResultOwner,
     sitesStreaming,
-    siteSparklineById,
+    officialSiteSamplesByTarget,
+    officialSitePendingTargets,
+    siteSparklineByTarget,
     healthResult,
     healthStreamingItems,
     networkServices,
@@ -307,6 +360,7 @@ export function useNetworkProbeController() {
     ipv6Result,
     mtuResult,
     speedSources,
+    speedSourcesLoadState,
     speedResult,
     speedSample,
     speedCooldownUntil,
@@ -325,8 +379,11 @@ export function useNetworkProbeController() {
     reportHistory,
     securityAuthorized,
     activeSessionIdByKind,
+    cancelRequestedSessionIdByKind,
     commandLog,
     loadingSummary,
+    networkServicesLoadState,
+    openingSystemNetworkSettings,
     loadingTcp,
     loadingPing,
     loadingDns,
@@ -350,15 +407,24 @@ export function useNetworkProbeController() {
     loadingPcap,
     loadingMultiNode,
     loadingNodes,
+    agentAction,
+    errors,
     error,
+    clearError,
     selectL1,
     selectL2,
     selectOfflineSub,
     refreshOverview,
     runTcpConnect,
     runPing,
+    runGlobalpingPing,
     runDnsLookup,
     runProbeTarget,
+    runGlobalpingHttp,
+    clearProbeOriginResults,
+    getGlobalpingTokenStatus,
+    saveGlobalpingToken,
+    deleteGlobalpingToken,
     runSitesProbe,
     runSitesProbeCustom,
     runHealthScan,

@@ -1,10 +1,13 @@
 /**
  * Feature UI / 功能界面: overview panel for basic L1.
  */
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
+import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { OpenSystemNetworkSettingsButton } from "@/features/network-probe/components/OpenSystemNetworkSettingsButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { hasOwnTranslationKey } from "@/features/network-probe/utils/translation-key"
 import { cn } from "@/lib/utils"
 
 interface OverviewPanelProps {
@@ -20,6 +23,7 @@ interface OverviewPanelProps {
   } | null
   firewall: { status: string; detail?: string } | null
   hostsSuspiciousCount: number
+  openingSettings: boolean
   onRefresh: () => void
   onOpenSettings: () => void
 }
@@ -29,31 +33,40 @@ export function OverviewPanel({
   summary,
   firewall,
   hostsSuspiciousCount,
+  openingSettings,
   onRefresh,
   onOpenSettings,
 }: OverviewPanelProps) {
   const { t } = useTranslation()
+  const initialRefreshAttempted = useRef(false)
 
   useEffect(() => {
-    if (!summary && !loading) onRefresh()
+    if (!summary && !loading && !initialRefreshAttempted.current) {
+      initialRefreshAttempted.current = true
+      onRefresh()
+    }
   }, [summary, loading, onRefresh])
 
   return (
     <ProbePanelShell
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" onClick={onRefresh} disabled={loading}>
-            {loading ? t("networkProbe.overview.refreshing") : t("networkProbe.overview.refresh")}
-          </Button>
-          <Button type="button" size="sm" variant="outline" onClick={onOpenSettings}>
-            {t("networkProbe.overview.openSettings")}
-          </Button>
-          <span className="text-muted-foreground font-mono text-xs">
-            {t("networkProbe.cmd.summary")}
-          </span>
+          <CommandHint hint={t("networkProbe.cmd.summary")}>
+            <Button type="button" size="sm" onClick={onRefresh} disabled={loading}>
+              {loading ? t("networkProbe.overview.refreshing") : t("networkProbe.overview.refresh")}
+            </Button>
+          </CommandHint>
+          <OpenSystemNetworkSettingsButton
+            opening={openingSettings}
+            label={t("networkProbe.overview.openSettings")}
+            onOpen={onOpenSettings}
+            size="sm"
+          />
         </div>
       }
     >
+      {!summary && loading ? <OverviewSkeleton /> : null}
+
       {!summary && !loading ? (
         <p className="text-muted-foreground text-sm">{t("networkProbe.overview.empty")}</p>
       ) : null}
@@ -81,9 +94,9 @@ export function OverviewPanel({
             label={t("networkProbe.overview.firewall")}
             value={
               firewall
-                ? t(`networkProbe.firewall.${firewall.status}`, {
-                    defaultValue: firewall.status,
-                  })
+                ? hasOwnTranslationKey(`networkProbe.firewall.${firewall.status}`)
+                  ? t(`networkProbe.firewall.${firewall.status}`)
+                  : t("networkProbe.firewall.unknown")
                 : "—"
             }
           />
@@ -98,6 +111,31 @@ export function OverviewPanel({
         </div>
       ) : null}
     </ProbePanelShell>
+  )
+}
+
+function OverviewSkeleton() {
+  const { t } = useTranslation()
+
+  return (
+    <div
+      role="status"
+      aria-label={t("networkProbe.overview.refreshing")}
+      aria-busy="true"
+      className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
+    >
+      {Array.from({ length: 8 }, (_, index) => (
+        <div
+          key={index}
+          data-testid="overview-loading-skeleton"
+          aria-hidden="true"
+          className="bg-muted/30 rounded-md border px-2.5 py-2"
+        >
+          <div className="bg-muted h-3 w-14 animate-pulse rounded" />
+          <div className="bg-muted mt-2 h-4 w-4/5 animate-pulse rounded" />
+        </div>
+      ))}
+    </div>
   )
 }
 

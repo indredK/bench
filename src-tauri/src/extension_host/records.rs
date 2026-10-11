@@ -18,6 +18,7 @@
 
 use std::{
     fs,
+    io::Write,
     path::{Path, PathBuf},
 };
 
@@ -29,6 +30,25 @@ use super::manifest::{is_valid_extension_id, is_valid_semver, semver_at_least};
 
 /// 宿主侧插件记录根目录名（`$APPDATA/extension-records`）。
 pub const EXT_RECORDS_DIR_NAME: &str = "extension-records";
+
+/// How the successful installation was authenticated. This is host-owned metadata and is kept
+/// outside the plugin's integrity-checked artifact directory.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum VerificationMethod {
+    OfficialRegistryHashes,
+    Minisign,
+    DevelopmentUnsigned,
+}
+
+/// Provenance captured after the host revalidates an install at commit time.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceRecord {
+    pub version: String,
+    pub publisher_name: Option<String>,
+    pub verification_method: VerificationMethod,
+}
 
 /// `$APPDATA/extension-records`（经 `AppHandle`）。
 fn records_root<R: Runtime>(app: &AppHandle<R>) -> AppResult<PathBuf> {
@@ -47,6 +67,51 @@ fn record_path(root: &Path, extension_id: &str) -> AppResult<PathBuf> {
         )));
     }
     Ok(root.join(extension_id).join("version"))
+}
+
+fn source_record_path(root: &Path, extension_id: &str) -> AppResult<PathBuf> {
+    if !is_valid_extension_id(extension_id) {
+        return Err(AppError::invalid_input(format!(
+            "invalid extension id `{extension_id}`"
+        )));
+    }
+    Ok(root.join(extension_id).join("source.json"))
+}
+
+fn read_source_record_at(root: &Path, extension_id: &str) -> AppResult<Option<SourceRecord>> {
+    let path = source_record_path(root, extension_id)?;
+    match fs::read(&path) {
+        Ok(bytes) => serde_json::from_slice(&bytes)
+            .map(Some)
+            .map_err(|error| AppError::io(format!("parse extension source record: {error}"))),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(AppError::io(format!(
+            "read extension source record {}: {error}",
+            path.display()
+        ))),
+    }
+}
+
+fn write_source_record_at(root: &Path, extension_id: &str, record: &SourceRecord) -> AppResult<()> {
+    if !is_valid_semver(&record.version) {
+        return Err(AppError::invalid_input(format!(
+            "invalid extension version `{}`",
+            record.version
+        )));
+    }
+    let path = source_record_path(root, extension_id)?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| AppError::internal("resolve extension record directory failed"))?;
+    fs::create_dir_all(parent)
+        .map_err(|error| AppError::io(format!("create extension records dir: {error}")))?;
+    let bytes = serde_json::to_vec(record).map_err(|error| {
+        AppError::internal(format!("serialize extension source record: {error}"))
+    })?;
+    let mut file = fs::File::create(&path)
+        .map_err(|error| AppError::io(format!("create extension source record: {error}")))?;
+    file.write_all(&bytes)
+        .map_err(|error| AppError::io(format!("write extension source record: {error}")))
 }
 
 /// 读取已记录版本水位（纯文件系统核心，便于测试）。
@@ -110,11 +175,22 @@ fn check_monotonic_at(root: &Path, extension_id: &str, version: &str) -> AppResu
 fn clear_record_at(root: &Path, extension_id: &str) -> AppResult<()> {
     let path = record_path(root, extension_id)?;
     match fs::remove_file(&path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(AppError::io(format!(
+                "remove extension version record {}: {error}",
+                path.display()
+            )));
+        }
+    }
+    let source_path = source_record_path(root, extension_id)?;
+    match fs::remove_file(&source_path) {
         Ok(()) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(AppError::io(format!(
-            "remove extension version record {}: {e}",
-            path.display()
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(AppError::io(format!(
+            "remove extension source record {}: {error}",
+            source_path.display()
         ))),
     }
 }
@@ -126,6 +202,23 @@ pub fn record_verified_version<R: Runtime>(
     version: &str,
 ) -> AppResult<()> {
     record_at(&records_root(app)?, extension_id, version)
+}
+
+/// Read the host-owned provenance record for an installed market extension.
+pub fn read_source_record<R: Runtime>(
+    app: &AppHandle<R>,
+    extension_id: &str,
+) -> AppResult<Option<SourceRecord>> {
+    read_source_record_at(&records_root(app)?, extension_id)
+}
+
+/// Persist provenance only after the commit path has revalidated the original package.
+pub fn write_source_record<R: Runtime>(
+    app: &AppHandle<R>,
+    extension_id: &str,
+    record: &SourceRecord,
+) -> AppResult<()> {
+    write_source_record_at(&records_root(app)?, extension_id, record)
 }
 
 /// 版本单调性检查（P4 market 安装/更新路径调用；spec §6.1 步骤 7）。
@@ -210,9 +303,39 @@ mod tests {
     fn clear_record_allows_reinstall_of_older_version() {
         let root = temp_root("clear");
         record_at(&root, "fake-ext", "2.0.0").expect("record");
+        write_source_record_at(
+            &root,
+            "fake-ext",
+            &SourceRecord {
+                version: "2.0.0".into(),
+                publisher_name: Some("Example Publisher".into()),
+                verification_method: VerificationMethod::Minisign,
+            },
+        )
+        .expect("source record");
         clear_record_at(&root, "fake-ext").expect("clear");
         assert_eq!(read_record_at(&root, "fake-ext").expect("empty"), None);
+        assert_eq!(
+            read_source_record_at(&root, "fake-ext").expect("source removed"),
+            None
+        );
         check_monotonic_at(&root, "fake-ext", "1.0.0").expect("older install now allowed");
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn source_record_round_trips_with_camel_case_verification_method() {
+        let root = temp_root("source-record");
+        let record = SourceRecord {
+            version: "1.2.3".into(),
+            publisher_name: Some("Example Publisher".into()),
+            verification_method: VerificationMethod::OfficialRegistryHashes,
+        };
+        write_source_record_at(&root, "fake-ext", &record).expect("write source record");
+        assert_eq!(
+            read_source_record_at(&root, "fake-ext").expect("read source record"),
+            Some(record)
+        );
         fs::remove_dir_all(&root).ok();
     }
 

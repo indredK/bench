@@ -19,6 +19,7 @@ interface PackInstallDialogProps {
   open: boolean
   packs: CapabilityPackInfo[]
   busy: boolean
+  refreshing: boolean
   progressText?: string | null
   focusPackId?: string | null
   onOpenChange: (open: boolean) => void
@@ -32,6 +33,7 @@ export function PackInstallDialog({
   open,
   packs,
   busy,
+  refreshing,
   progressText,
   focusPackId,
   onOpenChange,
@@ -48,6 +50,22 @@ export function PackInstallDialog({
   }, [focusPackId])
 
   const current = packs.find((p) => p.id === selected) ?? packs[0] ?? null
+  const actionBusy = busy || refreshing
+  const packStatusLabel = (pack: CapabilityPackInfo) => {
+    if (pack.installMode === "marker" || (pack.status === "available" && !pack.artifactReady)) {
+      return t("networkProbe.packs.status.markerOnly")
+    }
+    switch (pack.status) {
+      case "installed":
+        return t("networkProbe.packs.status.installed")
+      case "available":
+        return t("networkProbe.packs.status.available")
+      case "unavailable":
+        return t("networkProbe.packs.status.unavailable")
+      default:
+        return t("networkProbe.packs.status.unknown")
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -75,9 +93,9 @@ export function PackInstallDialog({
                     {t("networkProbe.packs.meta", {
                       version: pack.version,
                       sizeMb: (pack.sizeBytes / 1_000_000).toFixed(1),
-                      status: pack.status,
+                      status: packStatusLabel(pack),
                     })}
-                    {pack.artifactReady ? "" : ` · ${t("networkProbe.packs.markerOnly")}`}
+                    {pack.artifactReady ? "" : ` · ${t("networkProbe.packs.artifactPending")}`}
                   </div>
                 </button>
               </li>
@@ -90,6 +108,15 @@ export function PackInstallDialog({
               <p className="text-muted-foreground text-xs">
                 {t("networkProbe.packs.gatekeeperNote")}
               </p>
+              {current.installMode === "marker" ? (
+                <p className="text-muted-foreground text-xs" role="status">
+                  {t("networkProbe.packs.markerInstalledHint")}
+                </p>
+              ) : current.status === "available" && !current.artifactReady ? (
+                <p className="text-muted-foreground text-xs" role="status">
+                  {t("networkProbe.packs.markerInstallHint")}
+                </p>
+              ) : null}
               {progressText ? <p className="font-mono text-xs">{progressText}</p> : null}
             </div>
           ) : (
@@ -98,32 +125,44 @@ export function PackInstallDialog({
         </div>
 
         <DialogFooter className="flex-wrap gap-2">
-          <Button type="button" variant="outline" disabled={busy} onClick={onRefresh}>
-            {t("networkProbe.packs.refresh")}
+          <Button type="button" variant="outline" disabled={actionBusy} onClick={onRefresh}>
+            {refreshing ? t("networkProbe.packs.refreshing") : t("networkProbe.packs.refresh")}
           </Button>
           {current?.status === "installed" ? (
             <CommandHint hint={t("networkProbe.cmd.uninstallPack", { packId: current.id })}>
               <Button
                 type="button"
                 variant="destructive"
-                disabled={busy}
+                disabled={actionBusy}
                 onClick={() => onUninstall(current.id)}
               >
                 {t("networkProbe.packs.uninstall")}
               </Button>
             </CommandHint>
-          ) : current ? (
+          ) : current?.status === "available" && !current.artifactReady ? (
             <CommandHint hint={t("networkProbe.cmd.installPack", { packId: current.id })}>
-              <Button type="button" disabled={busy} onClick={() => onInstall(current.id)}>
+              <Button type="button" disabled={actionBusy} onClick={() => onInstall(current.id)}>
+                {busy
+                  ? t("networkProbe.packs.installing")
+                  : t("networkProbe.packs.installMarkerOnly")}
+              </Button>
+            </CommandHint>
+          ) : current?.status === "available" && current.artifactReady ? (
+            <CommandHint hint={t("networkProbe.cmd.installPack", { packId: current.id })}>
+              <Button type="button" disabled={actionBusy} onClick={() => onInstall(current.id)}>
                 {busy ? t("networkProbe.packs.installing") : t("networkProbe.packs.install")}
               </Button>
             </CommandHint>
+          ) : current ? (
+            <Button type="button" disabled>
+              {t("networkProbe.packs.notAvailableYet")}
+            </Button>
           ) : null}
           {current && onVerifyFail ? (
             <Button
               type="button"
               variant="outline"
-              disabled={busy}
+              disabled={actionBusy}
               onClick={() => onVerifyFail(current.id)}
             >
               {t("networkProbe.packs.verifyFail")}

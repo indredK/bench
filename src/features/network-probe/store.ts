@@ -36,6 +36,8 @@ import type {
   LanServicesResult,
   PcapDiagResult,
   MultiNodeDnsResult,
+  GlobalpingPingResult,
+  GlobalpingHttpResult,
   ProbeNode,
   TcpConnectResult,
   TracerouteHop,
@@ -46,6 +48,10 @@ import type {
 
 const SECURITY_AUTH_KEY = "network-probe:security-authorized"
 const REPORT_HISTORY_KEY = "network-probe:report-history"
+
+export type NetworkServicesLoadState = "idle" | "loading" | "loaded" | "failed"
+export type SpeedSourcesLoadState = "idle" | "loading" | "loaded" | "failed"
+export type SiteProbeResultOwner = "official" | "packs"
 
 function loadSecurityAuthorized(): boolean {
   if (typeof localStorage === "undefined") return false
@@ -94,12 +100,19 @@ export type NetworkProbeL1 = "basic" | "sites" | "test" | "security" | "discover
  * 注意与 `ProbeNode.kind`（local / remote-proxy / remote-agent）不是一回事——那是「探测原点」。
  */
 export type NetworkProbeKind =
-  "health" | "sites" | "traceroute" | "speed" | "ports" | "pcap" | "lan"
+  "health" | "sites" | "ping" | "traceroute" | "speed" | "ports" | "pcap" | "lan"
 
 export type NetworkProbeOfflineSub =
   "all" | "captive" | "proxy" | "ipv6" | "mtu" | "egress" | "diff"
 
+export type NetworkProbeAgentAction = { kind: "add" } | { kind: "remove"; agentId: string }
+
 export type NetworkProbeL2ByL1 = Record<NetworkProbeL1, string>
+
+export interface OfficialSiteSampleSnapshot {
+  sample: SiteSampleResult
+  testedAt: number
+}
 
 interface NetworkProbeState {
   nav: {
@@ -109,6 +122,7 @@ interface NetworkProbeState {
   }
   capabilities: NetworkProbeCapabilities | null
   capabilityPacks: CapabilityPackInfo[]
+  loadingCapabilityPacks: boolean
   packProgressText: string | null
   defaults: NetworkProbeDefaultsCatalog | null
   summary: LocalNetworkSummary | null
@@ -116,15 +130,21 @@ interface NetworkProbeState {
   hosts: HostsOverride[] | null
   tcpResult: TcpConnectResult | null
   pingResult: PingProbeResult | null
+  globalpingPingResult: GlobalpingPingResult | null
   pingStreamingSamples: PingSample[]
   dnsResult: DnsLookupResult | null
   probeResult: ProbeTargetResult | null
+  globalpingHttpResult: GlobalpingHttpResult | null
   sitesResult: SitesProbeResult | null
+  sitesResultOwner: SiteProbeResultOwner
   sitesStreaming: SiteSampleResult[]
-  siteSparklineById: Record<string, number[]>
+  officialSiteSamplesByTarget: Record<string, OfficialSiteSampleSnapshot>
+  officialSitePendingTargets: string[]
+  siteSparklineByTarget: Record<string, number[]>
   healthResult: HealthScanResult | null
   healthStreamingItems: HealthCheckItem[]
   networkServices: string[]
+  networkServicesLoadState: NetworkServicesLoadState
   fixResult: FixResult | null
   captiveResult: CaptivePortalResult | null
   publicIpInfo: PublicIpInfo | null
@@ -134,6 +154,7 @@ interface NetworkProbeState {
   ipv6Result: Ipv6StackResult | null
   mtuResult: PathMtuResult | null
   speedSources: SpeedSource[]
+  speedSourcesLoadState: SpeedSourcesLoadState
   speedResult: SpeedTestResult | null
   speedSample: SpeedSampleEvent | null
   speedCooldownUntil: number | null
@@ -151,11 +172,14 @@ interface NetworkProbeState {
   probeNodes: ProbeNode[]
   reportHistory: HealthScanResult[]
   securityAuthorized: boolean
+  /** 撤销授权时递增，防止旧授权下的异步结果在重新授权后写回。 */
+  securityAuthorizationRevision: number
   /** 按探测种类分槽的活动会话; 多类探测并发时取消目标各自独立, 不会互相抢占。 */
   activeSessionIdByKind: Record<NetworkProbeKind, string | null>
   /** 各探测种类已发出 cancel 请求的会话; 用于保证取消幂等 (A4-4)。 */
   cancelRequestedSessionIdByKind: Record<NetworkProbeKind, string | null>
   commandLog: string[]
+  openingSystemNetworkSettings: boolean
   loadingSummary: boolean
   loadingTcp: boolean
   loadingPing: boolean
@@ -180,6 +204,10 @@ interface NetworkProbeState {
   loadingPcap: boolean
   loadingMultiNode: boolean
   loadingNodes: boolean
+  agentAction: NetworkProbeAgentAction | null
+  /** 独立错误按 key 保留, 避免并行探测互相清空或覆盖提示。 */
+  errors: LocalizedError[]
+  /** 兼容读取入口: 当前最新错误; 新界面应消费 errors。 */
   error: LocalizedError | null
 
   setL1: (l1Id: NetworkProbeL1) => void
@@ -187,6 +215,11 @@ interface NetworkProbeState {
   setOfflineSub: (offlineSub: NetworkProbeOfflineSub) => void
   setCapabilities: (capabilities: NetworkProbeCapabilities | null) => void
   setCapabilityPacks: (capabilityPacks: CapabilityPackInfo[]) => void
+  setCapabilityPackSnapshot: (
+    capabilityPacks: CapabilityPackInfo[],
+    capabilities: NetworkProbeCapabilities,
+  ) => void
+  setLoadingCapabilityPacks: (loading: boolean) => void
   setPackProgressText: (packProgressText: string | null) => void
   setDefaults: (defaults: NetworkProbeDefaultsCatalog | null) => void
   setSummary: (summary: LocalNetworkSummary | null) => void
@@ -194,13 +227,20 @@ interface NetworkProbeState {
   setHosts: (hosts: HostsOverride[] | null) => void
   setTcpResult: (tcpResult: TcpConnectResult | null) => void
   setPingResult: (pingResult: PingProbeResult | null) => void
+  setGlobalpingPingResult: (result: GlobalpingPingResult | null) => void
   resetPingStreaming: () => void
   appendPingSample: (sample: PingSample) => void
   setDnsResult: (dnsResult: DnsLookupResult | null) => void
   setProbeResult: (probeResult: ProbeTargetResult | null) => void
+  setGlobalpingHttpResult: (result: GlobalpingHttpResult | null) => void
   setSitesResult: (sitesResult: SitesProbeResult | null) => void
+  setSitesResultOwner: (owner: SiteProbeResultOwner) => void
   resetSitesStreaming: () => void
   upsertSiteSample: (sample: SiteSampleResult) => void
+  resetOfficialSiteSamples: () => void
+  removeOfficialSiteSamples: (targets: string[]) => void
+  setOfficialSitePendingTargets: (targets: string[]) => void
+  upsertOfficialSiteSample: (sample: SiteSampleResult) => void
   setHealthResult: (healthResult: HealthScanResult | null) => void
   resetHealthStreaming: () => void
   upsertHealthStreamingItem: (item: HealthCheckItem) => void
@@ -215,6 +255,7 @@ interface NetworkProbeState {
   setIpv6Result: (ipv6Result: Ipv6StackResult | null) => void
   setMtuResult: (mtuResult: PathMtuResult | null) => void
   setSpeedSources: (speedSources: SpeedSource[]) => void
+  setSpeedSourcesLoadState: (state: SpeedSourcesLoadState) => void
   setSpeedResult: (speedResult: SpeedTestResult | null) => void
   setSpeedSample: (speedSample: SpeedSampleEvent | null) => void
   setSpeedCooldownUntil: (speedCooldownUntil: number | null) => void
@@ -240,6 +281,8 @@ interface NetworkProbeState {
   appendCommandLog: (line: string) => void
   clearCommandLog: () => void
   setLoadingSummary: (loading: boolean) => void
+  setNetworkServicesLoadState: (state: NetworkServicesLoadState) => void
+  setOpeningSystemNetworkSettings: (opening: boolean) => void
   setLoadingTcp: (loading: boolean) => void
   setLoadingPing: (loading: boolean) => void
   setLoadingDns: (loading: boolean) => void
@@ -263,6 +306,8 @@ interface NetworkProbeState {
   setLoadingPcap: (loading: boolean) => void
   setLoadingMultiNode: (loading: boolean) => void
   setLoadingNodes: (loading: boolean) => void
+  setAgentAction: (action: NetworkProbeAgentAction | null) => void
+  clearError: (key: string) => void
   setError: (error: LocalizedError | null) => void
 }
 
@@ -288,6 +333,7 @@ const OFFLINE_SUBS: NetworkProbeOfflineSub[] = [
 const EMPTY_SESSION_ID_SLOTS: Record<NetworkProbeKind, string | null> = {
   health: null,
   sites: null,
+  ping: null,
   traceroute: null,
   speed: null,
   ports: null,
@@ -332,10 +378,13 @@ function sparkMs(sample: SiteSampleResult): number | null {
   return null
 }
 
+const MAX_SITE_SPARKLINE_TARGETS = 128
+
 export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   nav: loadNav(),
   capabilities: null,
   capabilityPacks: [],
+  loadingCapabilityPacks: false,
   packProgressText: null,
   defaults: null,
   summary: null,
@@ -343,15 +392,21 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   hosts: null,
   tcpResult: null,
   pingResult: null,
+  globalpingPingResult: null,
   pingStreamingSamples: [],
   dnsResult: null,
   probeResult: null,
+  globalpingHttpResult: null,
   sitesResult: null,
+  sitesResultOwner: "packs",
   sitesStreaming: [],
-  siteSparklineById: {},
+  officialSiteSamplesByTarget: {},
+  officialSitePendingTargets: [],
+  siteSparklineByTarget: {},
   healthResult: null,
   healthStreamingItems: [],
   networkServices: [],
+  networkServicesLoadState: "idle",
   fixResult: null,
   captiveResult: null,
   publicIpInfo: null,
@@ -361,6 +416,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   ipv6Result: null,
   mtuResult: null,
   speedSources: [],
+  speedSourcesLoadState: "idle",
   speedResult: null,
   speedSample: null,
   speedCooldownUntil: null,
@@ -378,9 +434,11 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   probeNodes: [],
   reportHistory: loadReportHistory(),
   securityAuthorized: loadSecurityAuthorized(),
+  securityAuthorizationRevision: 0,
   activeSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
   cancelRequestedSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
   commandLog: [],
+  openingSystemNetworkSettings: false,
   loadingSummary: false,
   loadingTcp: false,
   loadingPing: false,
@@ -405,6 +463,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   loadingPcap: false,
   loadingMultiNode: false,
   loadingNodes: false,
+  agentAction: null,
+  errors: [],
   error: null,
 
   setL1: (l1Id) => {
@@ -428,6 +488,9 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   },
   setCapabilities: (capabilities) => set({ capabilities }),
   setCapabilityPacks: (capabilityPacks) => set({ capabilityPacks }),
+  setCapabilityPackSnapshot: (capabilityPacks, capabilities) =>
+    set({ capabilityPacks, capabilities }),
+  setLoadingCapabilityPacks: (loadingCapabilityPacks) => set({ loadingCapabilityPacks }),
   setPackProgressText: (packProgressText) => set({ packProgressText }),
   setDefaults: (defaults) => set({ defaults }),
   setSummary: (summary) => set({ summary }),
@@ -435,6 +498,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setHosts: (hosts) => set({ hosts }),
   setTcpResult: (tcpResult) => set({ tcpResult }),
   setPingResult: (pingResult) => set({ pingResult }),
+  setGlobalpingPingResult: (globalpingPingResult) => set({ globalpingPingResult }),
   resetPingStreaming: () => set({ pingStreamingSamples: [] }),
   appendPingSample: (sample) =>
     set((state) => ({
@@ -445,8 +509,37 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     })),
   setDnsResult: (dnsResult) => set({ dnsResult }),
   setProbeResult: (probeResult) => set({ probeResult }),
+  setGlobalpingHttpResult: (globalpingHttpResult) => set({ globalpingHttpResult }),
   setSitesResult: (sitesResult) => set({ sitesResult }),
+  setSitesResultOwner: (sitesResultOwner) => set({ sitesResultOwner }),
   resetSitesStreaming: () => set({ sitesStreaming: [] }),
+  resetOfficialSiteSamples: () =>
+    set({ officialSiteSamplesByTarget: {}, officialSitePendingTargets: [] }),
+  removeOfficialSiteSamples: (targets) =>
+    set((state) => {
+      const next = { ...state.officialSiteSamplesByTarget }
+      for (const target of targets) delete next[target.trim()]
+      return { officialSiteSamplesByTarget: next }
+    }),
+  setOfficialSitePendingTargets: (targets) =>
+    set({
+      officialSitePendingTargets: [
+        ...new Set(targets.map((target) => target.trim()).filter(Boolean)),
+      ],
+    }),
+  upsertOfficialSiteSample: (sample) => {
+    const target = sample.target.trim()
+    if (!target) return
+    set((state) => ({
+      officialSiteSamplesByTarget: {
+        ...state.officialSiteSamplesByTarget,
+        [target]: { sample, testedAt: Date.now() },
+      },
+      officialSitePendingTargets: state.officialSitePendingTargets.filter(
+        (pending) => pending !== target,
+      ),
+    }))
+  },
   upsertSiteSample: (sample) =>
     set((state) => {
       const idx = state.sitesStreaming.findIndex((s) => s.id === sample.id)
@@ -455,15 +548,18 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
           ? [...state.sitesStreaming, sample]
           : state.sitesStreaming.map((s, i) => (i === idx ? sample : s))
       const ms = sparkMs(sample)
-      const prev = state.siteSparklineById[sample.id] ?? []
-      const siteSparklineById =
-        ms == null
-          ? state.siteSparklineById
-          : {
-              ...state.siteSparklineById,
-              [sample.id]: [...prev.slice(-19), ms],
-            }
-      return { sitesStreaming, siteSparklineById }
+      const targetKey = sample.target.trim() || sample.id
+      const prev = state.siteSparklineByTarget[targetKey] ?? []
+      let siteSparklineByTarget = state.siteSparklineByTarget
+      if (ms != null) {
+        const next = { ...siteSparklineByTarget }
+        delete next[targetKey]
+        next[targetKey] = [...prev.slice(-19), ms]
+        const oldestTargets = Object.keys(next).slice(0, -MAX_SITE_SPARKLINE_TARGETS)
+        for (const oldTarget of oldestTargets) delete next[oldTarget]
+        siteSparklineByTarget = next
+      }
+      return { sitesStreaming, siteSparklineByTarget }
     }),
   setHealthResult: (healthResult) => set({ healthResult }),
   resetHealthStreaming: () => set({ healthStreamingItems: [] }),
@@ -477,7 +573,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
       next[idx] = item
       return { healthStreamingItems: next }
     }),
-  setNetworkServices: (networkServices) => set({ networkServices }),
+  setNetworkServices: (networkServices) =>
+    set({ networkServices, networkServicesLoadState: "loaded" }),
   setFixResult: (fixResult) => set({ fixResult }),
   setCaptiveResult: (captiveResult) => set({ captiveResult }),
   setPublicIpInfo: (publicIpInfo) => set({ publicIpInfo }),
@@ -500,7 +597,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     }),
   setIpv6Result: (ipv6Result) => set({ ipv6Result }),
   setMtuResult: (mtuResult) => set({ mtuResult }),
-  setSpeedSources: (speedSources) => set({ speedSources }),
+  setSpeedSources: (speedSources) => set({ speedSources, speedSourcesLoadState: "loaded" }),
+  setSpeedSourcesLoadState: (speedSourcesLoadState) => set({ speedSourcesLoadState }),
   setSpeedResult: (speedResult) => set({ speedResult }),
   setSpeedSample: (speedSample) => set({ speedSample }),
   setSpeedCooldownUntil: (speedCooldownUntil) => set({ speedCooldownUntil }),
@@ -538,7 +636,13 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   },
   setSecurityAuthorized: (securityAuthorized) => {
     persistSecurityAuthorized(securityAuthorized)
-    set({ securityAuthorized })
+    set((state) => ({
+      securityAuthorized,
+      securityAuthorizationRevision:
+        state.securityAuthorized && !securityAuthorized
+          ? state.securityAuthorizationRevision + 1
+          : state.securityAuthorizationRevision,
+    }))
   },
   setActiveSessionId: (kind, sessionId) =>
     set((state) => {
@@ -572,6 +676,9 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
       commandLog: [...state.commandLog.slice(-199), `${new Date().toISOString()} ${line}`],
     })),
   clearCommandLog: () => set({ commandLog: [] }),
+  setNetworkServicesLoadState: (networkServicesLoadState) => set({ networkServicesLoadState }),
+  setOpeningSystemNetworkSettings: (openingSystemNetworkSettings) =>
+    set({ openingSystemNetworkSettings }),
   setLoadingSummary: (loadingSummary) => set({ loadingSummary }),
   setLoadingTcp: (loadingTcp) => set({ loadingTcp }),
   setLoadingPing: (loadingPing) => set({ loadingPing }),
@@ -596,7 +703,22 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLoadingPcap: (loadingPcap) => set({ loadingPcap }),
   setLoadingMultiNode: (loadingMultiNode) => set({ loadingMultiNode }),
   setLoadingNodes: (loadingNodes) => set({ loadingNodes }),
-  setError: (error) => set({ error }),
+  setAgentAction: (agentAction) => set({ agentAction }),
+  clearError: (key) =>
+    set((state) => {
+      const errors = state.errors.filter((error) => error.key !== key)
+      if (errors.length === state.errors.length) return state
+      return {
+        errors,
+        error: state.error?.key === key ? (errors[0] ?? null) : state.error,
+      }
+    }),
+  setError: (error) =>
+    set((state) => {
+      if (!error) return { errors: [], error: null }
+      const errors = [error, ...state.errors.filter((item) => item.key !== error.key)]
+      return { errors, error }
+    }),
 }))
 
 export { OFFLINE_SUBS }

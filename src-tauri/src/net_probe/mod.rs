@@ -1,8 +1,10 @@
 //! Network Probe / 网络探测领域模块（MVP + Post Wave 0–5）.
 
+mod address;
 mod advisor;
 mod agent;
 mod asn;
+pub(crate) mod bounded_http;
 pub(crate) mod commands;
 mod defaults;
 mod discovery;

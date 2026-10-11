@@ -1,17 +1,52 @@
 /**
  * Feature UI / 功能界面: multi-node DNS compare + agent registry.
  */
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { TechnicalDetails } from "@/features/network-probe/components/TechnicalDetails"
+import type { NetworkProbeAgentAction } from "@/features/network-probe/store"
+import { getProbeNodeDisplayLabel } from "@/features/network-probe/utils/probe-node-label"
 import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
+
+type AgentEndpointError = "invalid" | "scheme" | "credentials" | null
+
+function getNodeKindKey(kind: string): "remoteProxy" | "remoteAgent" | "unknown" {
+  switch (kind) {
+    case "remote-proxy":
+      return "remoteProxy"
+    case "remote-agent":
+      return "remoteAgent"
+    default:
+      return "unknown"
+  }
+}
+
+function getAgentEndpointError(endpoint: string): AgentEndpointError {
+  const value = endpoint.trim()
+  if (!value) return null
+
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return "invalid"
+  }
+
+  if (url.protocol !== "https:" && url.protocol !== "wss:") return "scheme"
+  if (url.username || url.password || value.includes("?") || value.includes("#")) {
+    return "credentials"
+  }
+  return null
+}
 
 interface MultiNodePanelProps {
   loading: boolean
   loadingNodes: boolean
+  agentAction: NetworkProbeAgentAction | null
   result: MultiNodeDnsResult | null
   nodes: ProbeNode[]
   toolEnabled: boolean
@@ -25,6 +60,7 @@ interface MultiNodePanelProps {
 export function MultiNodePanel({
   loading,
   loadingNodes,
+  agentAction,
   result,
   nodes,
   toolEnabled,
@@ -38,6 +74,10 @@ export function MultiNodePanel({
   const [domain, setDomain] = useState("example.com")
   const [label, setLabel] = useState("")
   const [endpoint, setEndpoint] = useState("https://")
+  const [endpointTouched, setEndpointTouched] = useState(false)
+  const endpointError = getAgentEndpointError(endpoint)
+  const showEndpointError = endpointTouched && endpointError !== null
+  const nodeKindsById = useMemo(() => new Map(nodes.map((node) => [node.id, node.kind])), [nodes])
 
   return (
     <ProbePanelShell
@@ -59,11 +99,15 @@ export function MultiNodePanel({
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
               placeholder={t("networkProbe.nodes.domainPlaceholder")}
+              aria-label={t("networkProbe.nodes.domainPlaceholder")}
+              disabled={loading}
             />
             <CommandHint hint={t("networkProbe.cmd.compareDns")}>
               <Button
                 type="button"
-                disabled={loading || !toolEnabled || !domain.trim()}
+                disabled={
+                  loading || loadingNodes || agentAction !== null || !toolEnabled || !domain.trim()
+                }
                 onClick={() => onCompare(domain.trim())}
               >
                 {loading ? t("networkProbe.nodes.running") : t("networkProbe.nodes.run")}
@@ -72,31 +116,68 @@ export function MultiNodePanel({
             <Button
               type="button"
               variant="outline"
-              disabled={loadingNodes}
+              disabled={loadingNodes || agentAction !== null}
               onClick={onRefreshNodes}
             >
-              {t("networkProbe.nodes.refresh")}
+              {loadingNodes ? t("networkProbe.nodes.refreshing") : t("networkProbe.nodes.refresh")}
             </Button>
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium">{t("networkProbe.nodes.listTitle")}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium">{t("networkProbe.nodes.listTitle")}</p>
+              {loadingNodes ? (
+                <p role="status" className="text-muted-foreground text-xs">
+                  {t("networkProbe.nodes.loading")}
+                </p>
+              ) : null}
+            </div>
             <ul className="space-y-1 font-mono text-xs">
               {nodes.map((n) => (
-                <li key={n.id} className="flex flex-wrap items-center gap-2">
-                  <span>
-                    {n.label} · {n.kind}
-                    {n.endpoint ? ` · ${n.endpoint}` : ""}
-                  </span>
-                  {n.kind === "remote-agent" ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onRemoveAgent(n.id)}
-                    >
-                      {t("networkProbe.nodes.removeAgent")}
-                    </Button>
+                <li key={n.id} className="min-w-0 space-y-1">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="min-w-0 break-words">
+                      {getProbeNodeDisplayLabel(
+                        n.kind,
+                        n.label,
+                        t("networkProbe.nodeSelect.local"),
+                      )}
+                      {n.kind === "local"
+                        ? ""
+                        : ` · ${t(`networkProbe.nodes.kind.${getNodeKindKey(n.kind)}`)}`}
+                    </span>
+                    {n.kind === "remote-agent" ? (
+                      <span
+                        role="status"
+                        className={
+                          n.reachable
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : "text-muted-foreground"
+                        }
+                      >
+                        {n.reachable
+                          ? t("networkProbe.nodes.agentReachable")
+                          : t("networkProbe.nodes.agentUnreachable")}
+                      </span>
+                    ) : null}
+                    {n.kind === "remote-agent" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={loadingNodes || agentAction !== null}
+                        onClick={() => onRemoveAgent(n.id)}
+                      >
+                        {agentAction?.kind === "remove" && agentAction.agentId === n.id
+                          ? t("networkProbe.nodes.removingAgent")
+                          : t("networkProbe.nodes.removeAgent")}
+                      </Button>
+                    ) : null}
+                  </div>
+                  {n.kind === "remote-agent" && n.endpoint ? (
+                    <p className="text-muted-foreground max-w-md truncate" title={n.endpoint}>
+                      {n.endpoint}
+                    </p>
                   ) : null}
                 </li>
               ))}
@@ -112,23 +193,51 @@ export function MultiNodePanel({
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder={t("networkProbe.nodes.labelPlaceholder")}
+                aria-label={t("networkProbe.nodes.labelPlaceholder")}
+                maxLength={80}
               />
               <Input
                 className="min-w-[16rem] flex-1"
                 value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
+                onChange={(e) => {
+                  setEndpointTouched(true)
+                  setEndpoint(e.target.value)
+                }}
                 placeholder={t("networkProbe.nodes.endpointPlaceholder")}
+                aria-label={t("networkProbe.nodes.endpointPlaceholder")}
+                aria-invalid={showEndpointError}
+                aria-describedby={
+                  showEndpointError ? "network-probe-agent-endpoint-error" : undefined
+                }
+                maxLength={2048}
               />
               <CommandHint hint={t("networkProbe.cmd.addAgent")}>
                 <Button
                   type="button"
-                  disabled={!label.trim() || !endpoint.trim()}
+                  disabled={
+                    loadingNodes ||
+                    agentAction !== null ||
+                    !label.trim() ||
+                    !endpoint.trim() ||
+                    endpointError !== null
+                  }
                   onClick={() => onAddAgent(label.trim(), endpoint.trim())}
                 >
-                  {t("networkProbe.nodes.addAgent")}
+                  {agentAction?.kind === "add"
+                    ? t("networkProbe.nodes.addingAgent")
+                    : t("networkProbe.nodes.addAgent")}
                 </Button>
               </CommandHint>
             </div>
+            {showEndpointError ? (
+              <p
+                id="network-probe-agent-endpoint-error"
+                role="alert"
+                className="text-destructive text-xs"
+              >
+                {t(`networkProbe.nodes.endpointError.${endpointError}`)}
+              </p>
+            ) : null}
           </div>
         </>
       }
@@ -142,22 +251,51 @@ export function MultiNodePanel({
               ms: result.elapsedMs.toFixed(0),
             })}
           </p>
-          <ul className="space-y-2 text-sm">
-            {result.answers.map((a) => (
-              <li key={a.nodeId} className="rounded-md border px-3 py-2">
-                <div className="font-medium">
-                  {a.nodeLabel} <span className="font-mono text-xs">{a.ok ? "OK" : "FAIL"}</span>
-                </div>
-                {a.answers.length > 0 ? (
-                  <pre className="text-muted-foreground mt-1 overflow-auto font-mono text-xs">
-                    {a.answers.join("\n")}
-                  </pre>
-                ) : null}
-                {a.detail ? <p className="text-muted-foreground mt-1 text-xs">{a.detail}</p> : null}
-              </li>
-            ))}
-          </ul>
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+          {result.answers.length > 0 ? (
+            <ul className="space-y-2 text-sm">
+              {result.answers.map((a) => (
+                <li key={a.nodeId} className="rounded-md border px-3 py-2">
+                  <div className="font-medium">
+                    {getProbeNodeDisplayLabel(
+                      nodeKindsById.get(a.nodeId) ?? (a.nodeId === "local" ? "local" : undefined),
+                      a.nodeLabel,
+                      t("networkProbe.nodeSelect.local"),
+                    )}{" "}
+                    <span
+                      className={
+                        a.ok
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-amber-700 dark:text-amber-400"
+                      }
+                    >
+                      {t(`networkProbe.nodes.status.${a.ok ? "success" : "failed"}`)}
+                    </span>
+                  </div>
+                  {a.answers.length > 0 ? (
+                    <pre className="text-muted-foreground mt-1 overflow-auto font-mono text-xs">
+                      {a.answers.join("\n")}
+                    </pre>
+                  ) : (
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      {t("networkProbe.nodes.noAnswers")}
+                    </p>
+                  )}
+                  <TechnicalDetails
+                    title={t("networkProbe.nodes.technicalDetails")}
+                    items={[{ label: t("networkProbe.nodes.diagnostic"), value: a.detail }]}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p role="status" className="text-muted-foreground text-sm">
+              {t("networkProbe.nodes.noResults")}
+            </p>
+          )}
+          <TechnicalDetails
+            title={t("networkProbe.nodes.technicalDetails")}
+            items={[{ label: t("networkProbe.nodes.command"), value: result.commandHint }]}
+          />
         </div>
       ) : null}
     </ProbePanelShell>

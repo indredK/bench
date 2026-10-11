@@ -5,9 +5,9 @@
  */
 import { Router, Route, Switch, useLocation } from "wouter"
 import { useHashLocation } from "wouter/use-hash-location"
-import { AnimatePresence, motion } from "motion/react"
 import { useTranslation } from "react-i18next"
 import NavigationShell from "./components/layout/NavigationShell"
+import type { NavigationShellProps } from "./components/layout/NavigationShell"
 import { CustomTitlebar } from "./components/layout/CustomTitlebar"
 import { GlobalContextMenu } from "@/shared/context-menu/GlobalContextMenu"
 import { useDefaultContextMenu } from "@/shared/context-menu/useContextMenuRegistration"
@@ -20,7 +20,6 @@ import { SettingsDialog } from "@/components/common/SettingsDialog"
 import { UpdateDialog } from "@/components/common/UpdateDialog"
 import { useNotificationCenterStore } from "@/components/layout/notification-center/store"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { useReducedMotionProps } from "@/lib/motion-utils"
 import { appFeatures, createNavigationItems, createConfigItems } from "@/features/registry"
 import { requestFeatureRefresh } from "@/features/refresh"
 import { useUpdaterController } from "@/features/updater/hooks/useUpdaterController"
@@ -76,7 +75,7 @@ function AuthProxyNavigationListener() {
   return null
 }
 
-function AnimatedRoutes() {
+function RoutedNavigationShell(props: Omit<NavigationShellProps, "activePath" | "children">) {
   const [location, navigate] = useLocation()
   useEffect(() => {
     const defaultFeature = appFeatures.find((feature) => canUseFeature(feature))
@@ -84,27 +83,22 @@ function AnimatedRoutes() {
       navigate(defaultFeature.path, { replace: true })
     }
   }, [location, navigate])
-  if (location === "" || location === "/") return null
+
+  const content =
+    location === "" || location === "/" ? null : <FeaturePanel key={location} location={location} />
+
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <FeaturePanel key={location} location={location} />
-    </AnimatePresence>
+    <NavigationShell {...props} activePath={location}>
+      {content}
+    </NavigationShell>
   )
 }
 
 function FeaturePanel({ location }: { location: string }) {
-  const [frozenLocation] = useState(location)
   const { t } = useTranslation()
-  const { reduce } = useReducedMotionProps()
   return (
-    <motion.div
-      initial={reduce({ opacity: 0, y: 4 })}
-      animate={reduce({ opacity: 1, y: 0 })}
-      exit={reduce({ opacity: 0, y: -4 })}
-      transition={{ duration: 0.12, ease: "easeOut" }}
-      className="h-full"
-    >
-      <Switch location={frozenLocation}>
+    <div className="h-full">
+      <Switch location={location}>
         {appFeatures.map((feature) => (
           <Route key={feature.id} path={feature.path}>
             <RuntimeFeatureGate feature={feature} title={t(feature.labelKey)} icon={feature.icon}>
@@ -113,7 +107,7 @@ function FeaturePanel({ location }: { location: string }) {
           </Route>
         ))}
       </Switch>
-    </motion.div>
+    </div>
   )
 }
 
@@ -246,14 +240,12 @@ function App() {
           <div className="flex flex-1 flex-col overflow-hidden">
             <CustomTitlebar />
             <div className="flex flex-1 overflow-hidden">
-              <NavigationShell
+              <RoutedNavigationShell
                 layout={navLayout.layoutId}
                 items={sidebarItems}
                 configItems={configItems}
                 onPrefs={handleOpenPrefs}
-              >
-                <AnimatedRoutes />
-              </NavigationShell>
+              />
             </div>
           </div>
         </GlobalContextMenu>

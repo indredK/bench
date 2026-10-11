@@ -72,6 +72,15 @@ function walkRsFiles(dir, results = []) {
   return results
 }
 
+function stripRustCommentsAndStrings(source) {
+  // Keep line breaks so reported locations remain stable, while hiding text
+  // such as URLs and IP/CIDR literals that can resemble `crate::path` syntax.
+  return source.replace(
+    /(?:br|r)(#+)?"[\s\S]*?"\1|"(?:\\.|[^"\\])*"|\/\/.*|\/\*[\s\S]*?\*\//g,
+    (match) => match.replace(/[^\n]/g, " "),
+  )
+}
+
 // --- 3. Collect local modules and functions to exclude ---
 
 function collectLocalModules(dir, modules = new Set()) {
@@ -89,7 +98,7 @@ function collectLocalModules(dir, modules = new Set()) {
 function collectLocalFunctions(dir, functions = new Set()) {
   for (const filePath of walkRsFiles(dir)) {
     const content = readFileSync(filePath, "utf8")
-    const cleaned = content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")
+    const cleaned = stripRustCommentsAndStrings(content)
     const fnRegex = /\b(fn)\s+([a-z0-9_]+)\s*(<[^>]*>)?\s*\(/gi
     let fnMatch
     while ((fnMatch = fnRegex.exec(cleaned)) !== null) {
@@ -151,7 +160,7 @@ function collectUseImports(dir, imports = new Set()) {
   for (const filePath of walkRsFiles(dir)) {
     const content = readFileSync(filePath, "utf8")
     // Strip comments to avoid matching inside them
-    const cleaned = content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")
+    const cleaned = stripRustCommentsAndStrings(content)
 
     // Match `use <path>::{<items>};` and `use <path>::<item>;`
     // We only care about the final segment(s) — those are the names in scope.
@@ -202,9 +211,7 @@ function scanFile(filePath, declaredCrates, localModules, localFunctions, useImp
   const rawContent = readFileSync(filePath, "utf8")
   // Strip comments and `use ...;` declarations so we only scan actual usage,
   // not import statements (which legitimately reference crate paths).
-  const content = rawContent
-    .replace(/\/\/.*$/gm, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
+  const content = stripRustCommentsAndStrings(rawContent)
     .replace(/\buse\s+[\s\S]*?;/g, "")
   const issues = []
   const seen = new Set() // dedupe within a file

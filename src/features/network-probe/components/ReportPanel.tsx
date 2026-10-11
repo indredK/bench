@@ -1,8 +1,9 @@
 /**
  * Feature UI / 功能界面: health report export (JSON / Markdown).
  */
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { HealthScanResult } from "@/lib/tauri/types/network-probe"
@@ -66,6 +67,7 @@ export function ReportPanel({
 }: ReportPanelProps) {
   const { t } = useTranslation()
   const stamp = useMemo(() => new Date().toISOString().replace(/[:.]/g, "-"), [health])
+  const [confirmClearHistory, setConfirmClearHistory] = useState(false)
 
   return (
     <ProbePanelShell
@@ -121,7 +123,6 @@ export function ReportPanel({
                   {t("networkProbe.report.exportMd")}
                 </Button>
               </div>
-              <p className="text-muted-foreground font-mono text-xs">{health.commandHint}</p>
             </div>
           )}
         </>
@@ -133,7 +134,12 @@ export function ReportPanel({
             {t("networkProbe.report.historyTitle")}
           </h3>
           {history.length > 0 ? (
-            <Button type="button" variant="ghost" size="sm" onClick={onClearHistory}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirmClearHistory(true)}
+            >
               {t("networkProbe.report.clearHistory")}
             </Button>
           ) : null}
@@ -180,6 +186,16 @@ export function ReportPanel({
           </ul>
         )}
       </section>
+
+      <DestructiveConfirmDialog
+        open={confirmClearHistory}
+        onOpenChange={setConfirmClearHistory}
+        title={t("networkProbe.report.clearHistoryConfirmTitle")}
+        description={t("networkProbe.report.clearHistoryConfirmDescription")}
+        confirmLabel={t("networkProbe.report.clearHistory")}
+        cancelLabel={t("common.cancel")}
+        onConfirm={onClearHistory}
+      />
     </ProbePanelShell>
   )
 }

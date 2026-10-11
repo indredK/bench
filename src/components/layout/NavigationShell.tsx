@@ -14,8 +14,9 @@ import Sidebar from "./Sidebar"
 import TopTabNavigation from "./TopTabNavigation"
 import BottomTabNavigation from "./BottomTabNavigation"
 
-interface NavigationShellProps {
+export interface NavigationShellProps {
   layout: NavigationLayoutId
+  activePath: string
   items: NavigationItem[]
   configItems?: NavigationItem[]
   onPrefs?: () => void
@@ -24,6 +25,7 @@ interface NavigationShellProps {
 
 export function NavigationShell({
   layout,
+  activePath,
   items,
   configItems,
   onPrefs,
@@ -38,7 +40,12 @@ export function NavigationShell({
   if (layout === "top-tab") {
     return (
       <div className="flex flex-1 flex-col overflow-hidden">
-        <TopTabNavigation items={items} configItems={configItems} onPrefs={onPrefs} />
+        <TopTabNavigation
+          activePath={activePath}
+          items={items}
+          configItems={configItems}
+          onPrefs={onPrefs}
+        />
         {content}
       </div>
     )
@@ -48,14 +55,19 @@ export function NavigationShell({
     return (
       <div className="flex flex-1 flex-col overflow-hidden">
         {content}
-        <BottomTabNavigation items={items} configItems={configItems} onPrefs={onPrefs} />
+        <BottomTabNavigation
+          activePath={activePath}
+          items={items}
+          configItems={configItems}
+          onPrefs={onPrefs}
+        />
       </div>
     )
   }
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      <Sidebar items={items} configItems={configItems} onPrefs={onPrefs} />
+      <Sidebar activePath={activePath} items={items} configItems={configItems} onPrefs={onPrefs} />
       {content}
     </div>
   )

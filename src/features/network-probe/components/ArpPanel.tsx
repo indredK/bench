@@ -4,8 +4,33 @@
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { OpenSystemNetworkSettingsButton } from "@/features/network-probe/components/OpenSystemNetworkSettingsButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ScanCancelButton } from "@/features/network-probe/components/ScanCancelButton"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
+
+function arpSourceKey(source: string) {
+  switch (source) {
+    case "arp-cache":
+      return "networkProbe.arp.sourceCache"
+    case "tcp-sweep":
+      return "networkProbe.arp.sourceTcpSweep"
+    default:
+      return "networkProbe.arp.sourceUnknown"
+  }
+}
+
+function arpModeKey(mode: string) {
+  switch (mode) {
+    case "arp-cache":
+      return "networkProbe.arp.modeCache"
+    case "arp-cache+tcp-sweep":
+      return "networkProbe.arp.modeCacheTcpSweep"
+    default:
+      return "networkProbe.arp.modeUnknown"
+  }
+}
 
 interface ArpPanelProps {
   loading: boolean
@@ -13,6 +38,8 @@ interface ArpPanelProps {
   toolEnabled: boolean
   toolStatus?: string
   canCancel?: boolean
+  cancelRequested?: boolean
+  openingSettings?: boolean
   onRun: () => void
   onCancel?: () => void
   onOpenSettings?: () => void
@@ -24,6 +51,8 @@ export function ArpPanel({
   toolEnabled,
   toolStatus,
   canCancel,
+  cancelRequested = false,
+  openingSettings = false,
   onRun,
   onCancel,
   onOpenSettings,
@@ -62,16 +91,18 @@ export function ArpPanel({
               </Button>
             </CommandHint>
             {canCancel && onCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("common.cancel")}
-                </Button>
-              </CommandHint>
+              <ScanCancelButton
+                label={t("common.cancel")}
+                cancelRequested={cancelRequested}
+                onCancel={onCancel}
+              />
             ) : null}
             {onOpenSettings ? (
-              <Button type="button" variant="outline" onClick={onOpenSettings}>
-                {t("networkProbe.arp.openSettings")}
-              </Button>
+              <OpenSystemNetworkSettingsButton
+                opening={openingSettings}
+                label={t("networkProbe.arp.openSettings")}
+                onOpen={onOpenSettings}
+              />
             ) : null}
           </div>
         </>
@@ -84,43 +115,80 @@ export function ArpPanel({
               {t("networkProbe.arp.cidr", { cidr: result.cidr })}
             </p>
           ) : null}
-          {result.message ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
-          ) : null}
           <p className="text-muted-foreground text-xs">
             {t("networkProbe.arp.meta", {
               count: result.neighbors.length,
-              mode: result.mode,
+              mode: t(arpModeKey(result.mode)),
               ms: result.elapsedMs.toFixed(0),
             })}
           </p>
-          {result.neighbors.length === 0 ? (
-            <div className="space-y-2">
-              <p className="text-muted-foreground text-sm">{t(emptyKey)}</p>
-              {result.cancelled ? (
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  {t("networkProbe.arp.cancelled")}
-                </p>
-              ) : null}
-              {result.emptyReason === "permission" && onOpenSettings ? (
-                <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
-                  {t("networkProbe.arp.openSettings")}
-                </Button>
-              ) : null}
+          {result.cancelled ? (
+            <div role="status" className="text-sm text-amber-700 dark:text-amber-400">
+              <p>{t("networkProbe.arp.cancelled")}</p>
+              <p className="text-xs">
+                {result.neighbors.length > 0
+                  ? t("networkProbe.arp.cancelledPartial", {
+                      count: result.neighbors.length,
+                    })
+                  : t("networkProbe.arp.cancelledEmpty")}
+              </p>
             </div>
+          ) : null}
+          {result.neighbors.length === 0 ? (
+            result.cancelled ? null : (
+              <div className="space-y-2">
+                <p className="text-muted-foreground text-sm">{t(emptyKey)}</p>
+                {result.emptyReason === "permission" && onOpenSettings ? (
+                  <OpenSystemNetworkSettingsButton
+                    opening={openingSettings}
+                    label={t("networkProbe.arp.openSettings")}
+                    onOpen={onOpenSettings}
+                    size="sm"
+                  />
+                ) : null}
+              </div>
+            )
           ) : (
-            <ul className="space-y-1 font-mono text-xs">
-              {result.neighbors.map((n) => (
-                <li key={n.ip}>
+            <VirtualizedResultList
+              ariaLabel={t("networkProbe.arp.neighborsList")}
+              items={result.neighbors}
+              getItemKey={(neighbor) =>
+                `${neighbor.ip}-${neighbor.mac ?? ""}-${neighbor.iface ?? ""}-${neighbor.source}`
+              }
+              estimateSize={28}
+              renderItem={(n) => (
+                <span>
                   {n.ip}
-                  {n.mac ? ` · ${n.mac}` : " · (incomplete)"}
+                  {n.mac
+                    ? ` · ${n.mac}`
+                    : n.source === "arp-cache"
+                      ? ` · ${t("networkProbe.arp.macUnresolved")}`
+                      : ""}
                   {n.iface ? ` · ${n.iface}` : ""}
-                  {n.source ? ` · ${n.source}` : ""}
-                </li>
-              ))}
-            </ul>
+                  {` · ${t(arpSourceKey(n.source))}`}
+                </span>
+              )}
+            />
           )}
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+          {result.mode || result.commandHint ? (
+            <details className="text-muted-foreground rounded-lg border px-3 py-2 text-xs">
+              <summary className="w-fit cursor-pointer select-none">
+                {t("networkProbe.arp.technicalDetails")}
+              </summary>
+              <div className="mt-2 space-y-2">
+                {result.mode ? (
+                  <p>
+                    {t("networkProbe.arp.rawMode")}: <code>{result.mode}</code>
+                  </p>
+                ) : null}
+                {result.commandHint ? (
+                  <pre className="font-mono break-all whitespace-pre-wrap">
+                    {result.commandHint}
+                  </pre>
+                ) : null}
+              </div>
+            </details>
+          ) : null}
         </div>
       ) : null}
     </ProbePanelShell>

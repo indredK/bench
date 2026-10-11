@@ -809,6 +809,9 @@ mod tests {
 
     #[test]
     fn move_items_moves_files_and_rewrites_ids() {
+        // `remove_var` mutates process-wide test state just like the tests that
+        // set the override, so it must share their guard as well.
+        let _env_guard = TRASH_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let src = temp_dir();
         let state = setup_state(&src);
         let target = temp_dir();

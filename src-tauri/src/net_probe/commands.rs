@@ -1,11 +1,12 @@
 use super::types::{
     CapabilityPackInfo, CapabilityPackInstallResult, CaptivePortalResult, DefaultRouteInfo,
     DefaultsOverride, DnsLookupResult, DnsSecCheckResult, FirewallStatus, FixResult,
-    HealthScanResult, HostsOverride, Ipv6StackResult, LanDiscoveryResult, LanServicesResult,
-    LocalNetworkSummary, MultiNodeDnsResult, NatProbeResult, NetworkProbeCapabilities,
-    NetworkProbeDefaultsCatalog, NtpProbeResult, PathMtuResult, PcapDiagResult, PingProbeResult,
-    PollutionReport, PortScanResult, ProbeNode, ProbeTargetResult, ProxyVpnStatus, PublicIpInfo,
-    SitesProbeResult, SpeedSource, SpeedTestResult, TcpConnectResult, TracerouteResult, WhoisInfo,
+    GlobalpingHttpResult, GlobalpingPingResult, HealthScanResult, HostsOverride, Ipv6StackResult,
+    LanDiscoveryResult, LanServicesResult, LocalNetworkSummary, MultiNodeDnsResult, NatProbeResult,
+    NetworkProbeCapabilities, NetworkProbeDefaultsCatalog, NtpProbeResult, PathMtuResult,
+    PcapDiagResult, PingProbeResult, PollutionReport, PortScanResult, ProbeNode, ProbeTargetResult,
+    ProxyVpnStatus, PublicIpInfo, SitesProbeResult, SpeedSource, SpeedTestResult, TcpConnectResult,
+    TracerouteResult, WhoisInfo,
 };
 use crate::error::{AppError, AppResult};
 use tauri::AppHandle;
@@ -17,7 +18,7 @@ pub async fn get_network_probe_capabilities(app: AppHandle) -> AppResult<Network
 
 #[tauri::command]
 pub async fn list_probe_nodes(app: AppHandle) -> AppResult<Vec<ProbeNode>> {
-    let agents = super::agent::agents_as_nodes(&app).unwrap_or_default();
+    let agents = super::agent::agents_as_nodes(&app).await?;
     Ok(super::globalping::list_nodes_with_agents(&agents))
 }
 
@@ -144,6 +145,38 @@ pub async fn network_probe_compare_dns_multi(
 }
 
 #[tauri::command]
+pub async fn network_probe_globalping_token_is_configured() -> AppResult<bool> {
+    super::globalping::token_is_configured().await
+}
+
+#[tauri::command]
+pub async fn network_probe_save_globalping_token(token: String) -> AppResult<()> {
+    super::globalping::save_token(token).await
+}
+
+#[tauri::command]
+pub async fn network_probe_delete_globalping_token() -> AppResult<()> {
+    super::globalping::delete_token().await
+}
+
+#[tauri::command]
+pub async fn network_probe_globalping_ping(
+    target: String,
+    packets: u32,
+    location: String,
+) -> AppResult<GlobalpingPingResult> {
+    super::globalping::run_ping(target, packets, location).await
+}
+
+#[tauri::command]
+pub async fn network_probe_globalping_http(
+    input: String,
+    location: String,
+) -> AppResult<GlobalpingHttpResult> {
+    super::globalping::run_http(input, location).await
+}
+
+#[tauri::command]
 pub async fn network_probe_add_agent(
     app: AppHandle,
     label: String,
@@ -154,7 +187,9 @@ pub async fn network_probe_add_agent(
 
 #[tauri::command]
 pub async fn network_probe_remove_agent(app: AppHandle, agent_id: String) -> AppResult<()> {
-    super::agent::remove_agent(&app, agent_id)
+    tauri::async_runtime::spawn_blocking(move || super::agent::remove_agent(&app, agent_id))
+        .await
+        .map_err(|error| AppError::task_failed(format!("remove_agent registry update: {error}")))?
 }
 
 #[tauri::command]

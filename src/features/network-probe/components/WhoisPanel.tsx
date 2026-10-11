@@ -7,6 +7,7 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { safeTranslationKey } from "@/features/network-probe/utils/translation-key"
 import type { WhoisInfo } from "@/lib/tauri/types/network-probe"
 
 interface WhoisPanelProps {
@@ -20,6 +21,8 @@ interface WhoisPanelProps {
 export function WhoisPanel({ loading, result, toolEnabled, toolStatus, onRun }: WhoisPanelProps) {
   const { t } = useTranslation()
   const [query, setQuery] = useState("example.com")
+  const sourceLabel =
+    result?.errorCode && result.source.startsWith("rdap.org") ? "rdap.org" : result?.source
 
   return (
     <ProbePanelShell
@@ -62,21 +65,65 @@ export function WhoisPanel({ loading, result, toolEnabled, toolStatus, onRun }: 
     >
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
-          <div>
-            {result.source}
-            {result.partial ? (
+          <div className="font-medium">
+            {t("networkProbe.whois.resultFor", { query: result.query })}
+          </div>
+          <div className="text-muted-foreground text-xs">
+            {sourceLabel}
+            {result.errorCode === "responseTruncated" && result.partial && result.rawText ? (
               <span className="text-muted-foreground ml-2 text-xs">
                 ({t("networkProbe.whois.partial")})
               </span>
             ) : null}
           </div>
-          {result.message ? (
+          {result.errorCode ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t(
+                safeTranslationKey(
+                  `networkProbe.whois.errors.${result.errorCode}`,
+                  "networkProbe.whois.errors.unknown",
+                ),
+                {
+                  status: result.httpStatus ?? "—",
+                },
+              )}
+            </p>
+          ) : result.message ? (
             <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
           ) : null}
-          <pre className="text-muted-foreground font-mono text-xs whitespace-pre-wrap">
-            {result.rawText || t("networkProbe.whois.empty")}
-          </pre>
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+          {result.errorCode && (result.message || result.rawText || result.commandHint) ? (
+            <details className="text-muted-foreground text-xs">
+              <summary className="cursor-pointer">
+                {t("networkProbe.whois.technicalDetails")}
+              </summary>
+              {result.message ? (
+                <pre className="mt-1 font-mono whitespace-pre-wrap">{result.message}</pre>
+              ) : null}
+              {result.errorCode !== "responseTruncated" && result.rawText ? (
+                <pre className="mt-1 font-mono whitespace-pre-wrap">{result.rawText}</pre>
+              ) : null}
+              {result.commandHint ? (
+                <pre className="mt-1 font-mono whitespace-pre-wrap">{result.commandHint}</pre>
+              ) : null}
+            </details>
+          ) : null}
+          {result.rawText && (!result.errorCode || result.errorCode === "responseTruncated") ? (
+            <pre className="text-muted-foreground font-mono text-xs whitespace-pre-wrap">
+              {result.rawText}
+            </pre>
+          ) : !result.errorCode ? (
+            <pre className="text-muted-foreground font-mono text-xs whitespace-pre-wrap">
+              {t("networkProbe.whois.empty")}
+            </pre>
+          ) : null}
+          {!result.errorCode && result.commandHint ? (
+            <details className="text-muted-foreground text-xs">
+              <summary className="cursor-pointer">
+                {t("networkProbe.whois.technicalDetails")}
+              </summary>
+              <pre className="mt-1 font-mono whitespace-pre-wrap">{result.commandHint}</pre>
+            </details>
+          ) : null}
         </div>
       ) : null}
     </ProbePanelShell>

@@ -294,6 +294,11 @@ macro_rules! app_invoke_handler {
             $crate::net_probe::commands::network_probe_browse_lan_services,
             $crate::net_probe::commands::network_probe_run_pcap_diag,
             $crate::net_probe::commands::network_probe_compare_dns_multi,
+            $crate::net_probe::commands::network_probe_globalping_token_is_configured,
+            $crate::net_probe::commands::network_probe_save_globalping_token,
+            $crate::net_probe::commands::network_probe_delete_globalping_token,
+            $crate::net_probe::commands::network_probe_globalping_ping,
+            $crate::net_probe::commands::network_probe_globalping_http,
             $crate::net_probe::commands::network_probe_add_agent,
             $crate::net_probe::commands::network_probe_remove_agent,
             $crate::net_probe::commands::network_probe_reject_agent_action,
@@ -334,6 +339,7 @@ macro_rules! app_invoke_handler {
             $crate::extension_host::market::ext_market_list,
             $crate::extension_host::market::ext_market_prepare,
             $crate::extension_host::market::ext_market_commit,
+            $crate::extension_host::market::ext_market_cancel,
             $crate::extension_host::market::ext_diagnostics,
         ]
     };

@@ -145,6 +145,8 @@ src-tauri/src/net_probe/
 
 输出统一为 `PollutionFinding[]`：`kind` / `severity` / `evidence` / `commandHint`。
 
+HTTPS 请求失败（包括域名解析、连接、超时或 TLS 校验失败）只能标为 `warn`，并说明当前检查无法判定原因；DNS 或网络连接失败本身不构成拦截证据。只有正向且高可信的风险信号才能标为 `high`。界面按当前语言显示检测类型、严重度和摘要；原始 `evidence` 与 `commandHint` 收在默认折叠的「技术详情」中。
+
 ### 5.3 包级诊断（`startPacketCapture`）
 
 | 项             | 约定                                                                                      |
@@ -159,18 +161,20 @@ src-tauri/src/net_probe/
 
 ### 5.4 DNSSEC / DoH·DoT
 
-| 能力   | 实现要点                                                          |
-| ------ | ----------------------------------------------------------------- |
-| DNSSEC | `hickory-resolver` 开启验证；结果：secure / bogus / insecure      |
-| DoH    | HTTPS POST/GET 到可信 DoH URL（可配）；测延迟与是否被劫持到非 TLS |
-| DoT    | TLS 853；证书校验                                                 |
+| 能力   | 实现要点                                                                                                                                                                  |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DNSSEC | `hickory-resolver` 使用内置根信任锚在 DoT 响应上本机验证；结果：secure / bogus / insecure / unknown。只有 Hickory 明确报告签名验证失败时才标 bogus；SERVFAIL 归 unknown。 |
+| DoH    | 使用固定的 Cloudflare JSON API HTTPS endpoint；校验 HTTPS 证书、限制响应体为 16 KiB，并单独展示 RCODE 与 AD 位远端信号。当前不支持自定义 resolver URL。                   |
+| DoT    | Hickory DoT 查询至 TLS 853；校验证书主机名和系统/WebPKI 根证书，不降级为明文 TCP。DoT 响应同时供本机 DNSSEC 验证使用。                                                    |
 
 系统是否已启用加密 DNS：可读 Network Extension / 配置描述（能读多少算多少；读不到则 `partial`）。
 
 ### 5.5 WHOIS
 
 - 优先 RDAP（HTTPS JSON），WHOIS 文本协议作 fallback。
-- 超时与输出截断；解析失败返回原始截断文本 + `partial`。
+- RDAP 请求失败时查询 IANA WHOIS 引用，再向注册局 WHOIS 服务器回退一次；不继续追踪注册商给出的任意引用。
+- TCP/43 连接与读取有超时、响应上限；只连接解析到的公网地址，输出保留原始文本并在截断时标记 `partial`。
+- 失败摘要本地化，原始诊断和命令默认折叠；成功响应与截断的部分响应保持可见。命令属于技术信息，成功和失败时都默认折叠。
 - 不缓存无限；遵守源站 ToS / 速率。
 
 ---
@@ -203,7 +207,9 @@ uninstallCapabilityPack(packId): void
 
 ## 7. UX
 
-- 所有危险范围扫描：确认对话框展示**精确目标、端口范围、速率、预计时长**。
+- 所有危险范围扫描：确认对话框展示**精确目标、端口范围、速率、预计时长**；端口扫描说明实际可能采用 SYN 或 TCP connect，不把权限降级模式写死。
+- 端口样本状态、扫描方式与取消说明由前端按 locale 显示，不将 Rust 返回的英文诊断原文直接展示。
+- 污染检测类型、严重度和结论摘要由前端按 locale 显示；Rust 原始证据和命令默认折叠在技术详情中。HTTPS 检查失败不能单独推断为 MITM。
 - 命令透明：降级路径必须写明，例如 `scanPorts … // degraded: tcp connect`；缺包写 `// missing_pack: adv-scanner`。
 - 结果风险色：info / warn / high；high 仅用于「高度疑似劫持/暴露」，避免恐吓式全红。
 - Post 标签：L2 与按钮统一 `Post` badge，不进 MVP 验收。

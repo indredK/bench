@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Runtime};
-use trippy_core::{Builder, PrivilegeMode, Protocol};
+use trippy_core::{Builder, Port, PortDirection, PrivilegeMode, Protocol, Tracer};
 
 pub const TRACEROUTE_HOP_EVENT: &str = "network-probe:traceroute-hop";
 pub const SCAN_SESSION_EVENT: &str = "network-probe:scan-session";
@@ -31,6 +31,7 @@ pub async fn run_traceroute<R: Runtime>(
         .clamp(1, MAX_ROUNDS as u32) as usize;
 
     let session_id = super::session::new_session_id();
+    let _session_guard = super::session::SessionGuard::new(session_id.clone());
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -184,14 +185,7 @@ fn trace_once<R: Runtime>(
     let cancelled_flag = Arc::new(AtomicBool::new(false));
     let cancelled_cb = cancelled_flag.clone();
 
-    let tracer = Builder::new(ip)
-        .privilege_mode(mode)
-        .protocol(proto)
-        .max_rounds(Some(rounds))
-        .first_ttl(1)
-        .max_ttl(max_ttl)
-        .build()
-        .map_err(|e| AppError::new("TRACEROUTE_BUILD", e.to_string()))?;
+    let tracer = build_tracer(ip, max_ttl, rounds, mode, proto)?;
 
     let run_result = catch_unwind(AssertUnwindSafe(|| {
         tracer.run_with(|_round| {
@@ -257,6 +251,52 @@ fn trace_once<R: Runtime>(
         return Ok((hops, false));
     }
     Ok((hops, cancelled))
+}
+
+fn build_tracer(
+    ip: IpAddr,
+    max_ttl: u8,
+    rounds: usize,
+    mode: PrivilegeMode,
+    proto: Protocol,
+) -> Result<Tracer, AppError> {
+    let builder = Builder::new(ip)
+        .privilege_mode(mode)
+        .protocol(proto)
+        .max_rounds(Some(rounds))
+        .first_ttl(1)
+        .max_ttl(max_ttl);
+
+    // trippy requires a port strategy for UDP. Use its documented classic UDP
+    // fixed-source-port strategy for the unprivileged fallback path.
+    let builder = match proto {
+        Protocol::Udp => builder.port_direction(PortDirection::FixedSrc(Port(5000))),
+        _ => builder,
+    };
+
+    builder
+        .build()
+        .map_err(|e| AppError::new("TRACEROUTE_BUILD", e.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unprivileged_udp_uses_a_fixed_source_port() {
+        let tracer = build_tracer(
+            "192.0.2.1".parse().unwrap(),
+            16,
+            3,
+            PrivilegeMode::Unprivileged,
+            Protocol::Udp,
+        )
+        .unwrap();
+
+        assert_eq!(tracer.protocol(), Protocol::Udp);
+        assert_eq!(tracer.port_direction(), PortDirection::FixedSrc(Port(5000)));
+    }
 }
 
 fn hop_from_trippy(h: &trippy_core::Hop) -> TracerouteHop {

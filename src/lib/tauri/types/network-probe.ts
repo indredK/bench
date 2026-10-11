@@ -76,10 +76,12 @@ export interface DefaultRouteInfo {
   present: boolean
 }
 
+export type TcpConnectStatus = "ok" | "timeout" | "refused" | "unreachable" | "dns_failed" | "error"
+
 export interface TcpConnectResult {
   host: string
   port: number
-  status: string
+  status: TcpConnectStatus
   rttMs?: number
   message?: string
   commandHint: string
@@ -90,6 +92,11 @@ export interface PingSample {
   ok: boolean
   rttMs?: number
   error?: string
+}
+
+export interface PingSampleEvent {
+  sessionId: string
+  sample: PingSample
 }
 
 export interface PingProbeResult {
@@ -103,6 +110,41 @@ export interface PingProbeResult {
   maxRttMs?: number
   stddevRttMs?: number
   samples: PingSample[]
+  sessionId?: string
+  cancelled: boolean
+  commandHint: string
+}
+
+export interface GlobalpingPingSample {
+  seq: number
+  rttMs?: number
+}
+
+export interface GlobalpingPingResult {
+  target: string
+  location: string
+  probeCity?: string
+  probeCountry?: string
+  resolvedAddress?: string
+  packetsSent: number
+  packetsReceived: number
+  lossPercent: number
+  minRttMs?: number
+  avgRttMs?: number
+  maxRttMs?: number
+  samples: GlobalpingPingSample[]
+  commandHint: string
+}
+
+export interface GlobalpingHttpResult {
+  target: string
+  location: string
+  probeCity?: string
+  probeCountry?: string
+  resolvedAddress?: string
+  statusCode?: number
+  ttfbMs?: number
+  measurementStatus: string
   commandHint: string
 }
 
@@ -302,6 +344,7 @@ export interface Ipv6DualStackCompare {
 export interface Ipv6StackResult {
   status: string
   linkLocal: string[]
+  uniqueLocal: string[]
   global: string[]
   aaaaOk: boolean
   aaaaAddrs: string[]
@@ -412,6 +455,8 @@ export interface WhoisInfo {
   source: string
   rawText: string
   partial: boolean
+  errorCode?: "requestFailed" | "httpError" | "bodyReadFailed" | "responseTruncated"
+  httpStatus?: number
   message?: string
   commandHint: string
 }
@@ -456,6 +501,14 @@ export interface NatProbeResult {
   commandHint: string
 }
 
+export interface NtpSourceResult {
+  server: string
+  ok: boolean
+  offsetSeconds?: number
+  rttSeconds?: number
+  errorCode?: string
+}
+
 export interface NtpProbeResult {
   server: string
   ok: boolean
@@ -463,6 +516,7 @@ export interface NtpProbeResult {
   rttSeconds?: number
   severity: string
   detail?: string
+  sources: NtpSourceResult[]
   elapsedMs: number
   commandHint: string
 }
@@ -477,7 +531,6 @@ export interface ArpNeighbor {
 export interface LanDiscoveryResult {
   mode: string
   neighbors: ArpNeighbor[]
-  message?: string
   emptyReason?: string
   cidr?: string
   cancelled: boolean
@@ -487,19 +540,27 @@ export interface LanDiscoveryResult {
 }
 
 export interface LanServiceItem {
-  protocol: string
+  protocol: LanServiceProtocol
   name: string
   serviceType?: string
   host?: string
   port?: number
-  detail: string
+  uuid?: string
+  location?: string
+  txtProperties?: string[]
+}
+
+export type LanServiceProtocol = "mdns" | "ssdp"
+
+export interface LanServiceIssue {
+  protocol: LanServiceProtocol
+  code: string
 }
 
 export interface LanServicesResult {
   items: LanServiceItem[]
-  message?: string
+  issues: LanServiceIssue[]
   elapsedMs: number
-  commandHint: string
 }
 
 export interface PcapDiagResult {

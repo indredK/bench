@@ -7,6 +7,8 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ScanCancelButton } from "@/features/network-probe/components/ScanCancelButton"
+import { SiteProbeFailure } from "@/features/network-probe/components/SiteProbeFailure"
 import type { SiteSampleResult, SitesProbeResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
@@ -18,10 +20,13 @@ const PACK_LABEL_KEYS: Record<string, string> = {
 }
 
 const CUSTOM_SITES_KEY = "network-probe:custom-sites"
+const MAX_CUSTOM_SITES = 24
 
 interface SitesProbePanelProps {
   loading: boolean
+  busy?: boolean
   canCancel: boolean
+  cancelRequested: boolean
   result: SitesProbeResult | null
   streaming: SiteSampleResult[]
   sparklines: Record<string, number[]>
@@ -39,9 +44,15 @@ function loadCustomSites(): string[] {
     const raw = sessionStorage.getItem(CUSTOM_SITES_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw) as unknown
-    return Array.isArray(parsed)
-      ? parsed.filter((x): x is string => typeof x === "string" && x.trim().length > 0)
-      : []
+    if (!Array.isArray(parsed)) return []
+    const seen = new Set<string>()
+    return parsed.flatMap((value) => {
+      if (typeof value !== "string") return []
+      const target = value.trim()
+      if (!target || seen.has(target)) return []
+      seen.add(target)
+      return [target]
+    })
   } catch {
     return []
   }
@@ -81,7 +92,9 @@ function Sparkline({ values }: { values: number[] }) {
 
 export function SitesProbePanel({
   loading,
+  busy = loading,
   canCancel,
+  cancelRequested,
   result,
   streaming,
   sparklines,
@@ -109,13 +122,17 @@ export function SitesProbePanel({
   const addCustom = () => {
     const value = draft.trim()
     if (!value) return
+    if (customSites.length >= MAX_CUSTOM_SITES) return
     if (customSites.includes(value)) {
       setDraft("")
       return
     }
-    setCustomSites((prev) => [...prev, value].slice(0, 24))
+    setCustomSites((prev) => (prev.length >= MAX_CUSTOM_SITES ? prev : [...prev, value]))
     setDraft("")
   }
+
+  const customSiteOverflow = customSites.length > MAX_CUSTOM_SITES
+  const customSiteLimitReached = customSites.length >= MAX_CUSTOM_SITES
 
   return (
     <ProbePanelShell
@@ -141,11 +158,11 @@ export function SitesProbePanel({
                 className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
                 value={packId}
                 onChange={(e) => setPackId(e.target.value)}
-                disabled={loading}
+                disabled={busy}
               >
                 {packs.map((id) => (
                   <option key={id} value={id}>
-                    {PACK_LABEL_KEYS[id] ? t(PACK_LABEL_KEYS[id]) : id}
+                    {Object.hasOwn(PACK_LABEL_KEYS, id) ? t(PACK_LABEL_KEYS[id]) : id}
                   </option>
                 ))}
               </select>
@@ -153,23 +170,31 @@ export function SitesProbePanel({
             <CommandHint hint={t("networkProbe.cmd.sitesProbe", { packId })}>
               <Button
                 type="button"
-                disabled={loading || !packId || !toolEnabled}
+                disabled={busy || !packId || !toolEnabled}
                 onClick={() => onRunPack(packId)}
               >
                 {loading ? t("networkProbe.sites.running") : t("networkProbe.sites.run")}
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("networkProbe.sites.cancel")}
-                </Button>
-              </CommandHint>
+              <ScanCancelButton
+                label={t("networkProbe.sites.cancel")}
+                cancelRequested={cancelRequested}
+                onCancel={onCancel}
+              />
             ) : null}
           </div>
 
           <div className="space-y-2 rounded-lg border px-3 py-2">
-            <p className="text-xs font-medium">{t("networkProbe.sites.customTitle")}</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium">{t("networkProbe.sites.customTitle")}</p>
+              <span className="text-muted-foreground text-xs tabular-nums" aria-live="polite">
+                {t("networkProbe.sites.customCount", {
+                  count: customSites.length,
+                  max: MAX_CUSTOM_SITES,
+                })}
+              </span>
+            </div>
             <div className="flex flex-wrap items-end gap-2">
               <div className="min-w-[12rem] flex-1 space-y-1">
                 <label className="text-xs font-medium" htmlFor="np-sites-custom">
@@ -181,13 +206,13 @@ export function SitesProbePanel({
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder={t("networkProbe.sites.customPlaceholder")}
                   autoComplete="off"
-                  disabled={loading}
+                  disabled={busy}
                 />
               </div>
               <Button
                 type="button"
                 variant="secondary"
-                disabled={loading || !draft.trim()}
+                disabled={busy || customSiteLimitReached || !draft.trim()}
                 onClick={addCustom}
               >
                 {t("networkProbe.sites.customAdd")}
@@ -195,13 +220,26 @@ export function SitesProbePanel({
               <CommandHint hint={t("networkProbe.cmd.sitesProbeCustom", { n: customSites.length })}>
                 <Button
                   type="button"
-                  disabled={loading || customSites.length === 0 || !toolEnabled}
+                  disabled={busy || customSites.length === 0 || customSiteOverflow || !toolEnabled}
                   onClick={() => onRunCustom(customSites)}
                 >
                   {t("networkProbe.sites.customRun")}
                 </Button>
               </CommandHint>
             </div>
+            {customSiteOverflow ? (
+              <p className="text-destructive text-xs" role="alert">
+                {t("networkProbe.sites.customLimitExceeded", {
+                  count: customSites.length,
+                  max: MAX_CUSTOM_SITES,
+                  excess: customSites.length - MAX_CUSTOM_SITES,
+                })}
+              </p>
+            ) : customSiteLimitReached ? (
+              <p className="text-muted-foreground text-xs" role="status">
+                {t("networkProbe.sites.customLimit", { max: MAX_CUSTOM_SITES })}
+              </p>
+            ) : null}
             {customSites.length > 0 ? (
               <ul className="flex flex-wrap gap-1.5">
                 {customSites.map((site) => (
@@ -213,7 +251,7 @@ export function SitesProbePanel({
                     <button
                       type="button"
                       className="text-muted-foreground hover:text-foreground"
-                      disabled={loading}
+                      disabled={busy}
                       onClick={() => setCustomSites((prev) => prev.filter((s) => s !== site))}
                       aria-label={t("networkProbe.sites.customRemove")}
                     >
@@ -263,7 +301,7 @@ export function SitesProbePanel({
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Sparkline values={sparklines[row.id] ?? []} />
+                  <Sparkline values={sparklines[row.target.trim()] ?? []} />
                   <div className="text-right text-xs">
                     {row.ok ? (
                       <span className="font-medium text-emerald-700 dark:text-emerald-400">
@@ -285,18 +323,13 @@ export function SitesProbePanel({
                           .join(" · ")}
                       </span>
                     ) : (
-                      <span className="text-destructive">
-                        {t("networkProbe.sites.fail", { error: row.error ?? "—" })}
-                      </span>
+                      <SiteProbeFailure error={row.error} className="max-w-[32rem] text-right" />
                     )}
                   </div>
                 </div>
               </li>
             ))}
           </ul>
-          {result?.commandHint ? (
-            <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
-          ) : null}
         </div>
       ) : null}
     </ProbePanelShell>

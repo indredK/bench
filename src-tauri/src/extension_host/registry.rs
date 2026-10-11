@@ -16,7 +16,21 @@
 //! 吊销语义（spec §5.3）：命中 `revoked` → 宿主**强制禁用**（写 `.disabled`）
 //! + UI 显著警示，不静默删除。
 
+use std::{
+    error::Error,
+    io,
+    net::{IpAddr, SocketAddr},
+    sync::LazyLock,
+    time::Duration,
+};
+
+use ipnet::IpNet;
+use reqwest::{
+    dns::{Addrs, Name, Resolve, Resolving},
+    redirect::Policy,
+};
 use serde::{Deserialize, Serialize};
+use url::{Host, Url};
 
 use crate::error::{AppError, AppResult};
 
@@ -33,7 +47,7 @@ pub const OFFICIAL_REGISTRY_URL: &str =
     "https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main";
 
 /// 判断 registry 基址是否为官方源（官方源豁免 minisign 验签：
-/// 完整性由 registry sha256 + 包内 files 清单双通道兜底，spec §13）。
+/// 完整性由 registry sha256 + 包内 files 清单双通道兜底，spec §5.4）。
 pub fn is_official_registry(base_url: &str) -> bool {
     base_url.trim_end_matches('/') == OFFICIAL_REGISTRY_URL.trim_end_matches('/')
 }
@@ -204,10 +218,10 @@ pub fn registry_base_url() -> AppResult<String> {
     } else {
         url
     };
-    if !url.starts_with("https://") {
-        return Err(AppError::internal(format!(
-            "extension registry URL must be https, got `{url}`"
-        )));
+    if validate_download_url(&url).is_err() {
+        return Err(AppError::internal(
+            "extension registry URL must use HTTPS and resolve only to public hosts",
+        ));
     }
     Ok(url)
 }
@@ -218,29 +232,143 @@ pub fn registry_index_url(base: &str) -> String {
     format!("{base}/registry.json")
 }
 
-/// 下载 URL 必须与 registry 基址同源（防止 registry 内容投喂任意下载点）。
-///
-/// registry 允许经 GitHub Pages/jsDelivr 托管，下载文件可在 CDN —— 因此这里
-/// 不做严格同源，而是要求 https 且非 localhost（公网分发语义），完整性由
-/// 整包 sha256 + minisign 签名双通道兜底。
+/// 下载 URL 必须走 HTTPS 并指向公网地址；registry 内容不能诱导宿主访问本机或内网。
+/// 内容完整性仍由整包 sha256 + minisign 签名双通道兜底。
 pub fn validate_download_url(url: &str) -> AppResult<()> {
-    if !url.starts_with("https://") {
-        return Err(AppError::forbidden_path(format!(
-            "download url must be https, got `{url}`"
-        )));
+    let parsed = Url::parse(url).map_err(|_| {
+        AppError::forbidden_path("download URL must be a valid HTTPS URL to a public host")
+    })?;
+    if parsed.scheme() != "https" || !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err(AppError::forbidden_path(
+            "download URL must be HTTPS and must not contain credentials",
+        ));
     }
-    let host_part = url
-        .trim_start_matches("https://")
-        .split('/')
-        .next()
-        .unwrap_or("");
-    let host = host_part.split(':').next().unwrap_or("");
-    if host.is_empty() || host == "localhost" || host == "127.0.0.1" || host == "0.0.0.0" {
-        return Err(AppError::forbidden_path(format!(
-            "download url host `{host}` is not allowed"
-        )));
+    let Some(host) = parsed.host() else {
+        return Err(AppError::forbidden_path(
+            "download URL must include a public host",
+        ));
+    };
+    let public = match host {
+        Host::Domain(domain) => !is_local_domain(domain),
+        Host::Ipv4(address) => is_public_ip(IpAddr::V4(address)),
+        Host::Ipv6(address) => is_public_ip(IpAddr::V6(address)),
+    };
+    if !public {
+        return Err(AppError::forbidden_path(
+            "download URL host must resolve to a public address",
+        ));
     }
     Ok(())
+}
+
+const NON_PUBLIC_NETWORKS: &[&str] = &[
+    "0.0.0.0/8",
+    "10.0.0.0/8",
+    "100.64.0.0/10",
+    "127.0.0.0/8",
+    "169.254.0.0/16",
+    "172.16.0.0/12",
+    "192.0.0.0/24",
+    "192.0.2.0/24",
+    "192.88.99.0/24",
+    "192.168.0.0/16",
+    "198.18.0.0/15",
+    "198.51.100.0/24",
+    "203.0.113.0/24",
+    "224.0.0.0/4",
+    "240.0.0.0/4",
+    "2001::/23",
+    "2001:db8::/32",
+    "2002::/16",
+    "64:ff9b::/96",
+    "64:ff9b:1::/48",
+    "100::/64",
+    "fc00::/7",
+    "fe80::/10",
+    "ff00::/8",
+];
+
+static NON_PUBLIC_NETS: LazyLock<Vec<IpNet>> = LazyLock::new(|| {
+    NON_PUBLIC_NETWORKS
+        .iter()
+        .map(|network| network.parse().expect("valid non-public IP network"))
+        .collect()
+});
+static GLOBAL_IPV6_NET: LazyLock<IpNet> =
+    LazyLock::new(|| "2000::/3".parse().expect("valid global IPv6 network"));
+
+fn is_public_ip(address: IpAddr) -> bool {
+    let address = match address {
+        IpAddr::V6(address) => address
+            .to_ipv4_mapped()
+            .map(IpAddr::V4)
+            .unwrap_or(IpAddr::V6(address)),
+        IpAddr::V4(address) => IpAddr::V4(address),
+    };
+    if matches!(address, IpAddr::V6(_)) && !GLOBAL_IPV6_NET.contains(&address) {
+        return false;
+    }
+    !NON_PUBLIC_NETS
+        .iter()
+        .any(|network| network.contains(&address))
+}
+
+fn is_local_domain(domain: &str) -> bool {
+    let domain = domain.trim_end_matches('.').to_ascii_lowercase();
+    domain == "localhost"
+        || [
+            ".localhost",
+            ".local",
+            ".internal",
+            ".lan",
+            ".home.arpa",
+            ".test",
+            ".invalid",
+        ]
+        .iter()
+        .any(|suffix| domain.ends_with(suffix))
+}
+
+/// Reqwest resolver pins the checked addresses, so a public-looking hostname cannot
+/// resolve to a private address between validation and connect.
+#[derive(Debug, Clone, Copy)]
+struct PublicIpDnsResolver;
+
+impl Resolve for PublicIpDnsResolver {
+    fn resolve(&self, name: Name) -> Resolving {
+        let hostname = name.as_str().to_string();
+        Box::pin(async move {
+            let addresses = tokio::net::lookup_host((hostname.as_str(), 0))
+                .await
+                .map_err(|error| Box::new(error) as Box<dyn Error + Send + Sync>)?
+                .collect::<Vec<SocketAddr>>();
+            if addresses.is_empty() || addresses.iter().any(|address| !is_public_ip(address.ip())) {
+                return Err(Box::new(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "host resolved to a non-public IP address",
+                )) as Box<dyn Error + Send + Sync>);
+            }
+            Ok(Box::new(addresses.into_iter()) as Addrs)
+        })
+    }
+}
+
+/// Shared HTTP policy for registry and package requests. Every redirect target receives
+/// URL checks; DNS results are validated and pinned before the connection is opened.
+pub fn public_https_client(timeout: Duration) -> Result<reqwest::Client, reqwest::Error> {
+    let redirect = Policy::custom(|attempt| {
+        if attempt.previous().len() >= 10 || validate_download_url(attempt.url().as_str()).is_err()
+        {
+            attempt.stop()
+        } else {
+            attempt.follow()
+        }
+    });
+    reqwest::Client::builder()
+        .timeout(timeout)
+        .redirect(redirect)
+        .dns_resolver(PublicIpDnsResolver)
+        .build()
 }
 
 /// 判断某已安装版本是否命中吊销列表；命中返回原因。
@@ -342,24 +470,39 @@ mod tests {
     #[test]
     fn download_url_validation() {
         assert!(validate_download_url("https://cdn.example.com/a.zip").is_ok());
+        for rejected in [
+            "https://localhost/a.zip",
+            "https://LOCALHOST./a.zip",
+            "https://plugin.localhost/a.zip",
+            "https://metadata.internal/a.zip",
+            "https://127.0.0.1/a.zip",
+            "https://2130706433/a.zip",
+            "https://192.168.1.1/a.zip",
+            "https://169.254.169.254/latest/meta-data/",
+            "https://[::1]/a.zip",
+            "https://[fd00::1]/a.zip",
+            "https://[::ffff:127.0.0.1]/a.zip",
+            "https://user:password@cdn.example.com/a.zip",
+        ] {
+            assert_eq!(
+                validate_download_url(rejected).unwrap_err().code,
+                "FORBIDDEN_PATH",
+                "should reject {rejected}",
+            );
+        }
         assert_eq!(
             validate_download_url("http://cdn.example.com/a.zip")
                 .unwrap_err()
                 .code,
             "FORBIDDEN_PATH"
         );
-        assert_eq!(
-            validate_download_url("https://localhost/a.zip")
-                .unwrap_err()
-                .code,
-            "FORBIDDEN_PATH"
-        );
-        assert_eq!(
-            validate_download_url("https://127.0.0.1/a.zip")
-                .unwrap_err()
-                .code,
-            "FORBIDDEN_PATH"
-        );
+    }
+
+    #[tokio::test]
+    async fn public_dns_resolver_rejects_loopback_resolution() {
+        let name = "localhost".parse::<Name>().expect("valid DNS name");
+        let result = PublicIpDnsResolver.resolve(name).await;
+        assert!(result.is_err());
     }
 
     #[test]

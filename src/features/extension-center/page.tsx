@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import type { KeyboardEvent as ReactKeyboardEvent } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -7,6 +8,7 @@ import { useExtensionCenterController } from "@/features/extension-center/hooks/
 import { useMarketController } from "@/features/extension-center/hooks/useMarketController"
 import { selectMetadata, useResolvedLocale } from "@/features/extension-center/lib/metadata"
 import { BridgePanel } from "@/features/extension-center/components/BridgePanel"
+import { ExtensionDetailsDialog } from "@/features/extension-center/components/ExtensionDetailsDialog"
 import { DiagnosticsPanel } from "@/features/extension-center/components/DiagnosticsPanel"
 import { InstallConfirmDialog } from "@/features/extension-center/components/InstallConfirmDialog"
 import { MarketPanel } from "@/features/extension-center/components/MarketPanel"
@@ -50,6 +52,7 @@ function InstalledPanel({
   open,
   toggleEnabled,
   onUninstall,
+  onDetails,
 }: {
   t: (key: string) => string
   locale: string
@@ -61,6 +64,7 @@ function InstalledPanel({
   open: (id: string) => void
   toggleEnabled: (item: ExtensionSummary) => void
   onUninstall: (item: ExtensionSummary) => void
+  onDetails: (item: ExtensionSummary) => void
 }) {
   if (loading && items.length === 0) {
     return (
@@ -133,6 +137,14 @@ function InstalledPanel({
                   <div className="flex justify-end gap-2">
                     <Button
                       size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => onDetails(item)}
+                    >
+                      {t("extensionCenter.details.open")}
+                    </Button>
+                    <Button
+                      size="sm"
                       variant="outline"
                       disabled={busy || !item.enabled}
                       onClick={() => open(item.id)}
@@ -181,7 +193,9 @@ export default function ExtensionCenterPage() {
     cancelInstall,
   } = useMarketController()
   const [uninstallTarget, setUninstallTarget] = useState<ExtensionSummary | null>(null)
+  const [detailsTarget, setDetailsTarget] = useState<ExtensionSummary | null>(null)
   const [tab, setTab] = useState<TabKey>("installed")
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   // 首次进入 market 标签页时拉取目录（切走再切回不重复拉取）。
   const [marketVisited, setMarketVisited] = useState(false)
@@ -198,6 +212,19 @@ export default function ExtensionCenterPage() {
     { key: "diagnostics", label: t("extensionCenter.tabDiagnostics") },
     { key: "bridge", label: t("extensionCenter.tabBridge") },
   ]
+
+  const handleTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
+    let nextIndex: number | null = null
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length
+    if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length
+    if (event.key === "Home") nextIndex = 0
+    if (event.key === "End") nextIndex = tabs.length - 1
+    if (nextIndex === null) return
+
+    event.preventDefault()
+    setTab(tabs[nextIndex].key)
+    tabRefs.current[nextIndex]?.focus()
+  }
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-auto p-6">
@@ -223,11 +250,24 @@ export default function ExtensionCenterPage() {
         )}
       </header>
 
-      <div className="flex gap-1 border-b">
-        {tabs.map((entry) => (
+      <div
+        className="flex flex-wrap gap-1 border-b"
+        role="tablist"
+        aria-label={t("extensionCenter.title")}
+      >
+        {tabs.map((entry, index) => (
           <button
             key={entry.key}
+            id={`extension-center-tab-${entry.key}`}
+            aria-controls={`extension-center-panel-${entry.key}`}
+            aria-selected={tab === entry.key}
+            role="tab"
+            tabIndex={tab === entry.key ? 0 : -1}
             type="button"
+            ref={(element) => {
+              tabRefs.current[index] = element
+            }}
+            onKeyDown={(event) => handleTabKeyDown(event, index)}
             onClick={() => setTab(entry.key)}
             className={`rounded-t px-3 py-2 text-sm ${
               tab === entry.key
@@ -240,23 +280,32 @@ export default function ExtensionCenterPage() {
         ))}
       </div>
 
-      {tab === "installed" && (
-        <InstalledPanel
-          t={t}
-          locale={locale}
-          items={items}
-          loading={loading}
-          error={error}
-          busyIds={busyIds}
-          refresh={() => void refresh()}
-          open={(id) => void open(id)}
-          toggleEnabled={(item) => void toggleEnabled(item)}
-          onUninstall={setUninstallTarget}
-        />
-      )}
-      {tab === "market" && <MarketPanel />}
-      {tab === "bridge" && <BridgePanel />}
-      {tab === "diagnostics" && <DiagnosticsPanel />}
+      <div
+        id={`extension-center-panel-${tab}`}
+        aria-labelledby={`extension-center-tab-${tab}`}
+        role="tabpanel"
+        tabIndex={0}
+        className="outline-none"
+      >
+        {tab === "installed" && (
+          <InstalledPanel
+            t={t}
+            locale={locale}
+            items={items}
+            loading={loading}
+            error={error}
+            busyIds={busyIds}
+            refresh={() => void refresh()}
+            open={(id) => void open(id)}
+            toggleEnabled={(item) => void toggleEnabled(item)}
+            onUninstall={setUninstallTarget}
+            onDetails={setDetailsTarget}
+          />
+        )}
+        {tab === "market" && <MarketPanel />}
+        {tab === "bridge" && <BridgePanel />}
+        {tab === "diagnostics" && <DiagnosticsPanel />}
+      </div>
 
       <InstallConfirmDialog
         preview={pendingPreview}
@@ -264,6 +313,8 @@ export default function ExtensionCenterPage() {
         onConfirm={() => void confirmInstall()}
         onCancel={cancelInstall}
       />
+
+      <ExtensionDetailsDialog extension={detailsTarget} onClose={() => setDetailsTarget(null)} />
 
       <DestructiveConfirmDialog
         open={uninstallTarget !== null}

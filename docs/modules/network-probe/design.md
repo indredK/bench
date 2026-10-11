@@ -56,15 +56,14 @@
 │  hooks/useNetworkProbeController.ts             │
 │  services/network-probe.use-cases.ts (编排/校验) │
 │  services/network-probe.repository.ts (IPC+events) │
-│  services/network-probe.advisor.ts (扫描意见)    │
-│  services/network-probe.sites.ts (站点库)        │
-│  components/{NodeSelector,BasicView/,AdvancedView/,HealthReport} │
+│  utils/site-probe-results.ts (站点结果归档)      │
+│  components/ScanOpinionPanel.tsx (展示后端意见)  │
 └──────────────────────┬──────────────────────────┘
                         │ typed IPC + Tauri events
 ┌─ 后端 src-tauri/src/net_probe/ ─┐
 │  commands.rs  types.rs  state.rs  node.rs       │
 │  ping.rs  dns.rs  traceroute.rs  sites_probe.rs │
-│  health.rs  advisor_rules.rs  fix.rs            │
+│  health.rs  advisor.rs  fix.rs                   │
 │  （Post-MVP）ports / host_discovery / fingerprint │
 │  （Post-MVP）packet_capture / speed / pollution   │
 └─────────────────────────────────────────────────┘
@@ -190,8 +189,9 @@
 
 ### 3.3 Advisor
 
-- `network-probe.advisor.ts`：纯函数 `advise(item): Suggestion[]`，规则表驱动。
-- 后端 `advisor_rules.rs` 供报告导出复用同一语义（避免双源漂移：规则 ID 共享）。
+- `src-tauri/src/net_probe/advisor.rs`：纯函数 `build_opinions(items)`，规则表驱动并生成稳定的意见 ID。
+- 前端只展示后端返回的 `HealthOpinion`，规则不在两端复制；报告导出复用同一结果，避免建议语义漂移。
+- Captive 检测 `fail` 生成严重建议；`warn` 生成不确定警告，`skip` 不生成建议，避免把异常响应误报为已确认门户。
 - 基础视角只展示精简可操作建议；判定依据在展开详情或「安全 / 发现」中呈现〔决策7〕。
 
 ### 3.4 三次确认 UX（决策4 · 规格）
@@ -253,17 +253,17 @@ type ProbeNode = {
 
 ### 4.2 路由（`node.rs`）
 
-| kind           | 行为               | 交付档     |
-| -------------- | ------------------ | ---------- |
-| `local`        | 本机执行           | MVP        |
-| `remote-proxy` | Globalping REST    | Post-MVP-C |
-| `remote-agent` | 自有 agent（§4.4） | Post-MVP-C |
+| kind           | 行为                                                                   | 交付档                    |
+| -------------- | ---------------------------------------------------------------------- | ------------------------- |
+| `local`        | 本机执行                                                               | MVP                       |
+| `remote-proxy` | Globalping REST；DNS 多节点、Ping、HTTP 已接通，选择器只在支持面板启用 | Post-MVP-C（C2-2 已交付） |
+| `remote-agent` | 自有 agent（§4.4）；HTTPS/WSS 注册与健康检查已接通，远程执行仍待       | Post-MVP-C（C2-3）        |
 
-MVP：`listProbeNodes` 至少返回 `local`；选中非 local 时 UI 提示「后续版本」或隐藏（实现前不要假连接）。
+Globalping 之外的工具继续固定本机执行并禁用远端选项；Agent 远程执行完成前也保持禁用。切换原点时清除该面板旧结果及对应来源的失败通知，保留无关探测错误；Ping / HTTP 请求期间锁定原点选择器，避免结果提交后因原点变化而隐藏；界面明确展示实际执行区域。
 
-### 4.3 多节点对比（Post-MVP-C）
+### 4.3 DNS 多节点对比（部分交付）
 
-同一 `(target, tool)` 结果入 `store.byNode`；并排展示（例：本机 DNS 正常、探点 A 污染）。
+本机与最多 3 个 Globalping 区域的 DNS 答案已并排展示；跨自有 Agent 的通用 `(target, tool)` 路由与结果对比仍待 C2-3。
 
 ### 4.4 自有 agent 协议草图（Post-MVP-C）
 
@@ -336,14 +336,14 @@ L0→L3 编排，部分并行；`healthEvent` 流式；`CancellationToken`；结
 
 #### 5.4.2 DNS vs 纯 IP 对照（MVP 强制鉴别）
 
-体检必须产出可机读对照（供 Advisor）：
+体检必须产出可机读对照（供 Advisor）。公网 IP 通而域名探测失败时，只有 `dns.resolve_name` / `dns.servers` 或 `hosts.override` 明确失败，才把结论指向 DNS / Hosts；这些检查通过或无法判断时只给原因未定的警告，并提示排查代理、TLS、防火墙或目标服务：
 
-| 网关 ping | 公共 IP ping | 域名 ping/HTTP | 结论方向                                                            |
-| :-------: | :----------: | :------------: | ------------------------------------------------------------------- |
-|   fail    |      —       |       —        | 局域网/网关/链路                                                    |
-|  skip/ok  |     fail     |      fail      | 上行断或防火墙拦外网（`skip` = 隧道默认无 next-hop，非局域网 fail） |
-|  skip/ok  |      ok      |      fail      | **DNS 或 hosts 劫持**（优先查 `dns.*` / `hosts.override`）          |
-|  skip/ok  |      ok      |       ok       | 基础连通正常；若用户仍打不开站 → Captive/代理/SNI/目标站问题        |
+| 网关 ping | 公共 IP ping | 域名 ping/HTTP | 结论方向                                                                 |
+| :-------: | :----------: | :------------: | ------------------------------------------------------------------------ |
+|   fail    |      —       |       —        | 局域网/网关/链路                                                         |
+|  skip/ok  |     fail     |      fail      | 上行断或防火墙拦外网（`skip` = 隧道默认无 next-hop，非局域网 fail）      |
+|  skip/ok  |      ok      |      fail      | DNS/Hosts 检查明确失败时指向对应问题；否则标记原因未定，不归因 DNS/Hosts |
+|  skip/ok  |      ok      |       ok       | 基础连通正常；若用户仍打不开站 → Captive/代理/SNI/目标站问题             |
 
 ### 5.5「上不了网」专项（MVP-B）
 
@@ -472,14 +472,14 @@ src/features/network-probe/
   services/
     network-probe.use-cases.ts
     network-probe.repository.ts
-    network-probe.advisor.ts
-    network-probe.sites.ts
+  utils/
+    site-probe-results.ts
   components/
-    NodeSelector.tsx
-    BasicView/{NetworkSummaryHeader,SiteLatencyBoard,HealthTree,ScanOpinion,ComprehensiveScan,QuickTools}.tsx
-    AdvancedView/...
-    HealthReport.tsx
-    TripleDestructiveConfirm.tsx   // 或 shared/common
+    ProbeOriginSelector.tsx
+    HealthTreePanel.tsx
+    ScanOpinionPanel.tsx
+    ReportPanel.tsx
+    ...
 ```
 
 占位阶段仅有 `feature.tsx` + `page.tsx`；其余随实现按需添加（避免空 store 形式主义）。
@@ -519,11 +519,11 @@ src/features/network-probe/
 
 ### 9.4 第三方配额
 
-| 服务                | 约束                                                     |
-| ------------------- | -------------------------------------------------------- |
-| Globalping          | 遵守 ToS；匿名额度用尽提示配置 token；失败映射结构化错误 |
-| librespeed 公共实例 | 可配置；禁止打爆单一公共源（并发/间隔上限）；鼓励自建    |
-| 公网 IP / ASN API   | 多源故障转移；缓存短 TTL；不把 API key 写进前端          |
+| 服务                | 约束                                                                                               |
+| ------------------- | -------------------------------------------------------------------------------------------------- |
+| Globalping          | 遵守 ToS；匿名额度与可选 token；认证额度可能消耗账户点数；429/认证失败/超时/无探针均映射结构化错误 |
+| librespeed 公共实例 | 可配置；禁止打爆单一公共源（并发/间隔上限）；鼓励自建                                              |
+| 公网 IP / ASN API   | 多源故障转移；缓存短 TTL；不把 API key 写进前端                                                    |
 
 ### 9.5 隐私与落盘
 
@@ -602,14 +602,16 @@ src/features/network-probe/
 
 ### 11.1 Globalping（Post-MVP-C）
 
-- 免费 REST；五种测量：ping / traceroute / dns / mtr / http。
+- HTTPS REST；官方 API 支持 ping / traceroute / dns / mtr / http。Bench 已接通 DNS 多节点、Ping 与 HTTP；不把未接通的 traceroute / mtr 显示为可执行能力。
 - **不含带宽测速** → 测速走 §11.3。
-- Rust 用 `reqwest` 轮询 status；遵守配额〔§9.4〕。
+- Rust 复用 `reqwest` 创建并轮询 measurement，ETag 缓存轮询结果、间隔不短于 500ms、响应体限制 256 KiB、总时限 45 秒，拒绝重定向。
+- 匿名调用可用；可选 Bearer token 由 `keyring` 存系统凭证库，不进前端 state / 命令日志。认证测量可能消耗 Globalping 账户点数；429 显示配置令牌或稍后重试提示。
+- 每个远端 Ping/HTTP measurement 最多选一个探针；Ping 1–16 包。阻止私有/保留 IP literal 和常见内网 host 后缀；HTTP 拒绝 URL 凭据与片段。HTTP 路径/查询会发送给 Globalping，界面与命令日志将查询脱敏，不读取或展示远端响应正文。
 
 ### 11.2 remote 双路径
 
-- Globalping 代理 + 自有 agent；运行时用户选；对比视图 Post-MVP-C。
-- 多节点对比语义见 §4.3（非 §5.3）。
+- Globalping 代理已用于 DNS 多节点、Ping 与 HTTP；原点选择器只在已接通的 Ping/HTTP 面板启用。匿名配额、可选凭证库令牌和输入隐私边界见 §11.1。
+- 自有 agent 当前支持 HTTPS/WSS 注册与健康检查；凭证鉴权、远程执行和跨 Agent 通用结果对比仍待 C2-3。DNS 多节点对比语义见 §4.3（非 §5.3）。
 
 ### 11.3 带宽测速（Post-MVP-C）
 

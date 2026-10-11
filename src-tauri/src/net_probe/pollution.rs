@@ -202,23 +202,44 @@ async fn check_ssl_light(domain: &str) -> PollutionFinding {
                 command_hint: format!("checkSsl('{domain}')"),
             }
         }
-        Err(e) => {
-            let msg = e.to_string();
-            let corporate = msg.to_ascii_lowercase().contains("certificate")
-                || msg.to_ascii_lowercase().contains("tls")
-                || msg.to_ascii_lowercase().contains("ssl");
-            PollutionFinding {
-                kind: "tls".into(),
-                severity: if corporate { "warn" } else { "high" }.into(),
-                evidence: if corporate {
-                    format!(
-                        "TLS handshake failed for {domain}: {msg}. If on a managed network this may be a corporate TLS middlebox (not necessarily an attacker)."
-                    )
-                } else {
-                    format!("HTTPS probe failed for {domain}: {msg}")
-                },
-                command_hint: format!("checkSsl('{domain}')"),
-            }
-        }
+        Err(e) => tls_probe_failure(domain, &e.to_string()),
+    }
+}
+
+fn tls_probe_failure(domain: &str, error: &str) -> PollutionFinding {
+    PollutionFinding {
+        kind: "tls".into(),
+        // A failed request cannot establish why TLS was unreachable. In particular,
+        // DNS and connectivity errors are not evidence of interception.
+        severity: "warn".into(),
+        evidence: format!(
+            "HTTPS check could not be completed for {domain}: {error}. Connectivity or name-resolution failure alone does not indicate interception."
+        ),
+        command_hint: format!("checkSsl('{domain}')"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tls_probe_failure;
+
+    #[test]
+    fn unreachable_https_target_is_not_reported_as_high_risk() {
+        let finding = tls_probe_failure(
+            "bench-repro.invalid",
+            "error sending request for url (https://bench-repro.invalid/)",
+        );
+
+        assert_eq!(finding.kind, "tls");
+        assert_eq!(finding.severity, "warn");
+        assert!(finding.evidence.contains("does not indicate interception"));
+    }
+
+    #[test]
+    fn certificate_errors_are_warnings_without_proving_mitm() {
+        let finding = tls_probe_failure("example.com", "certificate verify failed");
+
+        assert_eq!(finding.severity, "warn");
+        assert!(finding.evidence.contains("does not indicate interception"));
     }
 }

@@ -145,7 +145,7 @@ IPC：`startSitesProbe`, `probeTarget`（自定义可复用）
 
 - 报告含检查项 key、状态、Advisor 建议 ID、时间戳
 - 不含 Cookie/密码；敏感字段有提示
-- 与后端 `advisor_rules` 语义一致
+- 与后端 `advisor::build_opinions` 规则语义一致
 
 ### 映射
 

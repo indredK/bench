@@ -50,9 +50,14 @@ export function prepareMarketInstall(extensionId: string, version: string) {
   return invokeTauriCommand(TAURI_COMMANDS.extensionHost.marketPrepare, { extensionId, version })
 }
 
-/** 安装第二步（信任确认后）：重校验 → 版本单调 → 原子落位。 */
+/** 安装第二步（信任确认后）：重新校验 registry 与原始 zip，再安全落位。 */
 export function commitMarketInstall(extensionId: string, version: string) {
   return invokeTauriCommand(TAURI_COMMANDS.extensionHost.marketCommit, { extensionId, version })
+}
+
+/** 用户取消预览时，清理宿主缓存中的安装包。 */
+export function cancelMarketInstall(extensionId: string, version: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.extensionHost.marketCancel, { extensionId, version })
 }
 
 /** 读取插件子系统诊断（审计日志 + 运行时错误尾部）。 */

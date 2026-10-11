@@ -34,7 +34,7 @@
 | S-SEC-05 | DNSSEC / DoH 与 WHOIS               | 03     | Post-Adv |
 | S-DIS-01 | 看看局域网有谁                      | 04     | Post-Adv |
 | S-DIS-02 | 浏览 mDNS / SSDP 服务               | 04     | Post-Adv |
-| S-DIS-03 | NAT 类型 + NTP 偏移                 | 04     | Post-Adv |
+| S-DIS-03 | STUN 映射观察 + NTP 偏移            | 04     | Post-Adv |
 | S-DIS-04 | 多地对比同一域名 DNS                | 04     | Post-C   |
 | S-DIS-05 | 添加自有 agent 节点                 | 04     | Post-C   |
 | S-X-01   | L1/L2 导航记忆与结果保留            | 05     | MVP      |

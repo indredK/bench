@@ -3,8 +3,11 @@
  */
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { PublicIpResult } from "@/features/network-probe/components/PublicIpResult"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { TechnicalDetails } from "@/features/network-probe/components/TechnicalDetails"
 import type { NetworkProbeOfflineSub } from "@/features/network-probe/store"
+import { safeTranslationKey } from "@/features/network-probe/utils/translation-key"
 import type {
   CaptivePortalResult,
   Ipv6StackResult,
@@ -16,6 +19,7 @@ import { useTranslation } from "react-i18next"
 
 interface OfflinePanelProps {
   loading: boolean
+  blocked?: boolean
   focus: NetworkProbeOfflineSub
   captive: CaptivePortalResult | null
   publicIp: PublicIpInfo | null
@@ -28,6 +32,7 @@ interface OfflinePanelProps {
 
 export function OfflinePanel({
   loading,
+  blocked = false,
   focus,
   captive,
   publicIp,
@@ -47,8 +52,12 @@ export function OfflinePanel({
         <>
           <p className="text-muted-foreground text-sm">{t("networkProbe.offline.hint")}</p>
           <CommandHint hint={t("networkProbe.cmd.offlineBundle")}>
-            <Button type="button" disabled={loading} onClick={onRunAll}>
-              {loading ? t("networkProbe.offline.running") : t("networkProbe.offline.run")}
+            <Button type="button" disabled={loading || blocked} onClick={onRunAll}>
+              {loading
+                ? t("networkProbe.offline.running")
+                : blocked
+                  ? t("networkProbe.offline.waiting")
+                  : t("networkProbe.offline.run")}
             </Button>
           </CommandHint>
         </>
@@ -64,13 +73,21 @@ export function OfflinePanel({
               <div>
                 {t("networkProbe.offline.status")}:{" "}
                 <span className="font-medium">
-                  {t(`networkProbe.offline.captiveStatus.${captive.status}`)}
+                  {t(
+                    safeTranslationKey(
+                      `networkProbe.offline.captiveStatus.${captive.status}`,
+                      "networkProbe.offline.captiveStatus.unknown",
+                    ),
+                  )}
                 </span>
               </div>
-              {captive.detail ? (
-                <p className="text-muted-foreground text-xs">{captive.detail}</p>
-              ) : null}
-              <p className="text-muted-foreground font-mono text-[10px]">{captive.commandHint}</p>
+              <TechnicalDetails
+                title={t("networkProbe.offline.technicalDetails")}
+                items={[
+                  { label: t("networkProbe.offline.diagnostic"), value: captive.detail },
+                  { label: t("networkProbe.offline.command"), value: captive.commandHint },
+                ]}
+              />
             </>
           ) : (
             <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
@@ -84,27 +101,7 @@ export function OfflinePanel({
             {t("networkProbe.offline.egressTitle")}
           </h3>
           {publicIp ? (
-            <>
-              <div>
-                {t("networkProbe.offline.ip")}:{" "}
-                <span className="font-mono font-medium">{publicIp.ip ?? "—"}</span>
-                {publicIp.source ? (
-                  <span className="text-muted-foreground"> · {publicIp.source}</span>
-                ) : null}
-              </div>
-              {publicIp.asn ? (
-                <div className="text-muted-foreground text-xs">
-                  {t("networkProbe.egress.asn", {
-                    asn: publicIp.asn,
-                    org: publicIp.org ? ` · ${publicIp.org}` : "",
-                  })}
-                </div>
-              ) : null}
-              {publicIp.detail ? (
-                <p className="text-muted-foreground text-xs">{publicIp.detail}</p>
-              ) : null}
-              <p className="text-muted-foreground font-mono text-[10px]">{publicIp.commandHint}</p>
-            </>
+            <PublicIpResult result={publicIp} embedded />
           ) : (
             <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
           )}
@@ -124,9 +121,6 @@ export function OfflinePanel({
                   ? t("networkProbe.offline.proxyOn")
                   : t("networkProbe.offline.proxyOff")}
               </div>
-              {proxyVpn.proxyDetail ? (
-                <p className="text-muted-foreground text-xs">{proxyVpn.proxyDetail}</p>
-              ) : null}
               <div>
                 {t("networkProbe.offline.vpn")}:{" "}
                 {proxyVpn.vpnIfaces.length > 0
@@ -138,7 +132,13 @@ export function OfflinePanel({
                   {t("networkProbe.offline.viaTunnel")}
                 </p>
               ) : null}
-              <p className="text-muted-foreground font-mono text-[10px]">{proxyVpn.commandHint}</p>
+              <TechnicalDetails
+                title={t("networkProbe.offline.technicalDetails")}
+                items={[
+                  { label: t("networkProbe.offline.proxyDiagnostic"), value: proxyVpn.proxyDetail },
+                  { label: t("networkProbe.offline.command"), value: proxyVpn.commandHint },
+                ]}
+              />
             </>
           ) : (
             <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
@@ -156,16 +156,14 @@ export function OfflinePanel({
               <div>
                 {t("networkProbe.ipv6.status")}:{" "}
                 <span className="font-medium">
-                  {t(`networkProbe.ipv6.statusValue.${ipv6.status}`, {
-                    defaultValue: ipv6.status,
-                  })}
+                  {t(
+                    safeTranslationKey(
+                      `networkProbe.ipv6.statusValue.${ipv6.status}`,
+                      "networkProbe.ipv6.statusValue.unknown",
+                    ),
+                  )}
                 </span>
               </div>
-              {ipv6.message ? (
-                <p className="text-muted-foreground text-xs">{ipv6.message}</p>
-              ) : null}
-              <p className="text-muted-foreground text-xs">{ipv6.dualStack.detail}</p>
-              <p className="text-muted-foreground font-mono text-[10px]">{ipv6.commandHint}</p>
             </>
           ) : (
             <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
@@ -188,14 +186,15 @@ export function OfflinePanel({
               <div>
                 {t("networkProbe.mtu.status")}:{" "}
                 <span className="font-medium">
-                  {t(`networkProbe.mtu.statusValue.${mtu.status}`, {
-                    defaultValue: mtu.status,
-                  })}
+                  {t(
+                    safeTranslationKey(
+                      `networkProbe.mtu.statusValue.${mtu.status}`,
+                      "networkProbe.mtu.statusValue.unknown",
+                    ),
+                  )}
                 </span>
                 {mtu.pathMtu != null ? <span className="font-mono"> · {mtu.pathMtu}</span> : null}
               </div>
-              {mtu.message ? <p className="text-muted-foreground text-xs">{mtu.message}</p> : null}
-              <p className="text-muted-foreground font-mono text-[10px]">{mtu.commandHint}</p>
             </>
           ) : (
             <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>

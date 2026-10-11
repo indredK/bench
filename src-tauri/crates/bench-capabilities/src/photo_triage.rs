@@ -363,7 +363,6 @@ impl ManifestSummary {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write as _;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;

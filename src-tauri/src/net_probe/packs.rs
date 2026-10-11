@@ -17,6 +17,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 pub const PACK_PROGRESS_EVENT: &str = "network-probe:pack-progress";
 
 const PACK_IDS: &[&str] = &["adv-scanner", "pcap-diag", "priv-helper"];
+const MAX_PACK_DOWNLOAD_BYTES: u64 = 64 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -446,16 +447,42 @@ async fn download_and_verify<R: Runtime>(
         .user_agent("Bench-NetworkProbe/1.0")
         .build()
         .map_err(|e| AppError::new("PACK_CLIENT", e.to_string()))?;
-    let bytes = client
+    if entry.size_bytes == 0 || entry.size_bytes > MAX_PACK_DOWNLOAD_BYTES {
+        return Err(AppError::new(
+            "PACK_SIZE_INVALID",
+            format!("Pack size must be between 1 and {MAX_PACK_DOWNLOAD_BYTES} bytes."),
+        ));
+    }
+    let response = client
         .get(&entry.download_url)
         .send()
         .await
         .map_err(|e| AppError::new("PACK_DOWNLOAD", format!("Download failed: {e}")))?
         .error_for_status()
-        .map_err(|e| AppError::new("PACK_DOWNLOAD", format!("Download HTTP error: {e}")))?
-        .bytes()
+        .map_err(|e| AppError::new("PACK_DOWNLOAD", format!("Download HTTP error: {e}")))?;
+    if response
+        .content_length()
+        .is_some_and(|length| length > entry.size_bytes)
+    {
+        return Err(AppError::new(
+            "PACK_SIZE_MISMATCH",
+            "Pack response is larger than the manifest entry.",
+        ));
+    }
+    let body = super::bounded_http::read_response_body_limited(response, entry.size_bytes as usize)
         .await
         .map_err(|e| AppError::new("PACK_DOWNLOAD", format!("Read body failed: {e}")))?;
+    if body.truncated || body.bytes.len() as u64 != entry.size_bytes {
+        return Err(AppError::new(
+            "PACK_SIZE_MISMATCH",
+            format!(
+                "Pack size mismatch: expected {} bytes, received at most {} bytes.",
+                entry.size_bytes,
+                body.bytes.len()
+            ),
+        ));
+    }
+    let bytes = body.bytes;
 
     emit_progress(
         app,

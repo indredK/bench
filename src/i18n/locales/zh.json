@@ -1228,7 +1228,22 @@
     "DEFAULT_BROWSER_CHANGE_REQUIRES_USER_ACTION": "请在 macOS 设置中完成默认浏览器更改。",
     "SCAN_IN_PROGRESS": "正在扫描中，请稍候",
     "SCAN_CANCELED": "扫描已取消",
-    "NO_SESSION": "请先选择一个照片目录"
+    "NO_SESSION": "请先选择一个照片目录",
+    "GP_CREDENTIAL_STORE": "无法访问系统凭证库。",
+    "GP_TOKEN_INVALID": "Globalping 令牌格式无效。",
+    "GP_TARGET_INVALID": "远端目标无效。请使用公网主机或 IP；私有/保留地址、URL 凭据和片段不受支持。",
+    "GP_PACKET_COUNT_INVALID": "Ping 包数必须在 1 到 16 之间。",
+    "GP_RATE_LIMITED": "Globalping 请求次数已达上限，请稍后重试或配置令牌。",
+    "GP_AUTH_FAILED": "Globalping 拒绝了已配置的令牌，请检查令牌或移除它。",
+    "GP_REQUEST_FAILED": "无法完成 Globalping 请求。",
+    "GP_TIMEOUT": "Globalping 测量超时。",
+    "GP_NO_PROBES": "所选区域当前没有可用的 Globalping 探针。",
+    "GP_PROBE_FAILED": "Globalping 探针未能完成测量。",
+    "GP_PARSE": "Globalping 返回的数据无法识别。",
+    "GP_READ": "无法读取 Globalping 响应。",
+    "GP_CLIENT": "无法初始化 Globalping 连接。",
+    "GP_URL": "Globalping 请求地址无效。",
+    "GP_RESPONSE_TOO_LARGE": "Globalping 响应超过安全大小限制。"
   },
   "common": {
     "yes": "有",
@@ -1581,7 +1596,52 @@
     "nodeSelect": {
       "label": "探测原点",
       "local": "本机",
-      "localOnlyHint": "远端节点执行尚未实现，当前所有探测都在本机运行。"
+      "localOnlyHint": "当前工具暂不支持远端执行，探测会在本机运行。",
+      "remoteHint": "Ping/HTTP 目标会发送给 Globalping，并从所选区域的探针执行。",
+      "localSelectedHint": "当前选择在本机运行；选择 Globalping 可从远端探针测量。",
+      "remoteScope": "仅 Ping / HTTP"
+    },
+    "globalping": {
+      "manageToken": "配置 Globalping 令牌",
+      "tokenTitle": "Globalping 访问令牌",
+      "tokenDescription": "令牌保存在系统凭证库中，不会写入命令日志。可留空使用匿名额度；已认证测量可能按 Globalping 规则消耗账户点数。",
+      "tokenChecking": "正在检查系统凭证库…",
+      "tokenConfigured": "已配置令牌；下次测量会使用它。",
+      "tokenNotConfigured": "未配置令牌；测量会使用 Globalping 匿名额度。",
+      "tokenLabel": "访问令牌",
+      "tokenSaved": "令牌已安全保存。",
+      "tokenSaveFailed": "无法保存令牌。",
+      "tokenRemove": "移除令牌",
+      "tokenRemoved": "令牌已从系统凭证库移除。",
+      "tokenRemoveFailed": "无法移除令牌。",
+      "tokenStatusFailed": "无法读取系统凭证库状态。",
+      "tokenStatusUnknown": "令牌状态未知，请重试检查。",
+      "tokenSave": "保存令牌",
+      "tokenWorking": "处理中…",
+      "pingHint": "通过 Globalping 在所选区域的公共探针上发送 ICMP Ping。",
+      "publicTargetHint": "Globalping 测量参数和结果可能被公开，请勿输入敏感目标。仅测公网目标；已知私有/保留 IP 和常见内网后缀会拦截，其他主机名仍会发送给 Globalping。",
+      "remotePingCommandHint": "Globalping Ping · {{location}}",
+      "remoteHttpCommandHint": "Globalping HTTP · {{location}}",
+      "packetLimit": "Globalping 每次最多发送 16 个 Ping 包。",
+      "resultFrom": "探测来源：{{location}}",
+      "actualProbeLocation": "实际探针：{{city}} / {{country}}",
+      "packetLost": "超时或丢包",
+      "locations": {
+        "world": "全球",
+        "US": "美国",
+        "Europe": "欧洲",
+        "Asia": "亚洲"
+      },
+      "httpHint": "通过 Globalping 从所选区域检查 HTTP(S) 响应和首字节时间。",
+      "httpPrivacyHint": "完整 URL（包括路径和查询参数）会发送给 Globalping；测量参数和结果可能被公开。不要输入签名链接、凭证或内网地址。",
+      "httpStatus": "HTTP 状态：{{status}}",
+      "httpTtfb": "首字节时间：{{ms}} ms",
+      "resolvedAddress": "解析 IP",
+      "measurementStatus": {
+        "failed": "测量失败",
+        "offline": "探针离线",
+        "unknown": "测量未完成"
+      }
     },
     "sideLog": {
       "title": "命令日志",
@@ -1591,6 +1651,10 @@
       "expand": "展开命令日志",
       "clearConfirmTitle": "清空命令日志？",
       "clearConfirmDescription": "将删除本会话中已记录的全部 IPC 提示，此操作不可撤销。"
+    },
+    "actions": {
+      "openingSettings": "正在打开系统设置…",
+      "dismissError": "关闭错误提示"
     },
     "l1": {
       "basic": "基础视角",
@@ -1625,7 +1689,7 @@
       "whois": "WHOIS",
       "arp": "ARP 发现",
       "lan-svc": "局域网服务",
-      "nat": "NAT 类型",
+      "nat": "STUN 映射观察",
       "ntp": "NTP",
       "nodes": "多节点对比"
     },
@@ -1647,17 +1711,30 @@
     "firewall": {
       "on": "开启",
       "off": "关闭",
-      "unsupported": "不支持"
+      "unsupported": "不支持",
+      "unknown": "未知"
     },
     "tcp": {
       "hint": "探测 host:port 的 TCP 连通性（开发者刚需）。",
       "host": "主机",
       "port": "端口",
+      "portHint": "请输入 1 到 65535 之间的整数端口。",
+      "portInvalid": "端口必须是 1 到 65535 之间的整数。",
       "run": "连接",
       "running": "连接中…",
       "status": "状态",
+      "statusValue": {
+        "ok": "已连接",
+        "timeout": "连接超时",
+        "refused": "连接被拒绝",
+        "unreachable": "网络不可达",
+        "dnsFailed": "DNS 解析失败",
+        "error": "连接失败",
+        "unknown": "未知状态"
+      },
       "rtt": "RTT",
-      "rttValue": "RTT: {{ms}} ms"
+      "rttValue": "RTT: {{ms}} ms",
+      "technicalDetails": "技术详情"
     },
     "ping": {
       "hint": "ICMP Echo 探测延迟、抖动与丢包（macOS 需本地网络权限）。",
@@ -1665,11 +1742,24 @@
       "count": "次数",
       "run": "Ping",
       "running": "探测中…",
+      "cancel": "取消",
+      "cancelling": "正在取消…",
+      "cancelled": "已取消，以下为停止前完成的结果。",
       "resolved": "解析 IP",
       "summary": "发送 {{sent}} · 收到 {{received}} · 丢包 {{loss}}%",
       "rttSummary": "RTT 最小/平均/最大/抖动: {{min}} / {{avg}} / {{max}} / {{jitter}} ms",
+      "liveResults": "实时 Ping 结果",
+      "sequence": "序号",
+      "status": "状态",
+      "reply": "已收到响应",
+      "rtt": "RTT",
       "sampleOk": "#{{seq}} {{ms}} ms",
-      "sampleFail": "#{{seq}} 失败 — {{error}}"
+      "sampleFail": "#{{seq}} 失败 — {{error}}",
+      "noResponse": "未收到响应",
+      "technicalDetails": "技术详情",
+      "countInvalid": "次数必须是 {{min}}–{{max}} 之间的整数。",
+      "noRepliesHint": "所有探测都未收到响应。可能是防火墙、目标端策略或网络不可达；请用其他探测交叉确认。",
+      "noRepliesMacHint": "所有探测都未收到响应。可能是本地网络权限、防火墙、目标端策略或网络不可达；请用其他探测交叉确认。"
     },
     "dns": {
       "hint": "通过系统解析器或指定 DNS IP 查询记录。",
@@ -1679,7 +1769,10 @@
       "resolverPlaceholder": "系统（默认）",
       "run": "查询",
       "running": "查询中…",
-      "meta": "{{rrType}} via {{resolver}} · {{ms}} ms",
+      "resultFor": "查询结果：{{domain}}",
+      "meta": "{{rrType}} · {{resolver}} · {{ms}} 毫秒",
+      "systemResolver": "系统 DNS",
+      "technicalDetails": "技术详情",
       "ttl": "TTL={{ttl}}",
       "empty": "未返回记录。"
     },
@@ -1689,15 +1782,22 @@
       "run": "探测",
       "running": "探测中…",
       "kind": "输入类型",
+      "kindValues": {
+        "host": "主机",
+        "url": "URL",
+        "unknown": "未知"
+      },
+      "resultFor": "本次探测目标：{{target}}",
       "icmp": "ICMP",
       "icmpOk": "成功 · {{ms}} ms · {{ip}}",
       "icmpFail": "失败 — {{error}}",
       "http": "HTTP",
       "httpOk": "{{status}} · TTFB {{ms}} ms",
-      "httpFail": "失败 — {{error}}",
+      "httpStatusFail": "服务器返回 HTTP {{status}} · TTFB {{ms}} ms",
+      "httpRequestFail": "未收到 HTTP 响应。请检查地址、服务端口和网络后重试。",
       "tls": "TLS",
       "tlsOk": "握手成功",
-      "tlsFail": "失败 — {{detail}}"
+      "tlsFail": "握手失败。请检查证书和服务端配置。"
     },
     "sites": {
       "hint": "对内置站点包做 ICMP / HTTP 延迟与有界下载吞吐探测。自定义站流式采样并显示火花线；可中途取消。",
@@ -1711,11 +1811,15 @@
       "icmpMs": "ICMP {{ms}} ms",
       "httpMs": "HTTP {{status}} · {{ms}} ms",
       "mbps": "{{mbps}} Mbps",
-      "fail": "失败 — {{error}}",
+      "failed": "探测失败",
+      "failureDetails": "技术详情",
       "customTitle": "自定义站点",
+      "customCount": "{{count}} / {{max}}",
       "customInput": "URL 或主机",
       "customPlaceholder": "https://registry.npmjs.org",
       "customAdd": "添加",
+      "customLimit": "最多可添加 {{max}} 个站点，请移除一个后再添加。",
+      "customLimitExceeded": "已保存 {{count}} 个站点，超过 {{max}} 项上限。请先移除 {{excess}} 项，再运行或添加站点。",
       "customRun": "探测自定义",
       "customRemove": "移除",
       "customEmpty": "尚无自定义站点。",
@@ -1742,7 +1846,6 @@
       "icmpMs": "ICMP {{ms}} ms",
       "mbps": "{{mbps}} Mbps",
       "sampleSmall": "样本过小",
-      "fail": "{{error}}",
       "testedAt": "测于 {{time}}",
       "cancelled": "批量已取消 — 已完成的卡片结果会保留。",
       "sites": {
@@ -1784,14 +1887,107 @@
         "L0": "L0 · 链路",
         "L1": "L1 · 地址 / DNS / 策略",
         "L2": "L2 · 服务",
-        "L3": "L3 · 可达性"
+        "L3": "L3 · 可达性",
+        "other": "其他检查"
       },
       "status": {
         "pass": "通过",
         "warn": "警告",
         "fail": "失败",
         "skip": "跳过",
-        "error": "错误"
+        "error": "错误",
+        "unknown": "未知状态"
+      },
+      "technicalDetails": "技术详情",
+      "checkKey": "检查标识：{{key}}",
+      "checks": {
+        "activeInterfaces": "活动网络接口",
+        "linkType": "网络连接类型",
+        "ipv4Address": "IPv4 地址",
+        "ipv6Address": "IPv6 地址",
+        "addressAssignment": "地址分配方式",
+        "defaultRoute": "默认路由",
+        "dnsServers": "DNS 服务器",
+        "dnsResolution": "DNS 解析",
+        "hostsOverrides": "Hosts 覆盖项",
+        "systemProxy": "系统代理",
+        "fakeIp": "Fake-IP 检测",
+        "vpnTunnel": "VPN 隧道",
+        "firewall": "防火墙",
+        "networkService": "网络服务",
+        "gatewayReachability": "网关连通性",
+        "publicIpReachability": "公网 IP 连通性",
+        "domainReachability": "域名连通性",
+        "connectionDiagnosis": "连接诊断",
+        "captivePortal": "强制门户",
+        "publicEgress": "公网出口",
+        "pathMtu": "路径 MTU",
+        "unknown": "其他检查项"
+      },
+      "details": {
+        "activeInterfaceCount": "{{count}} 个活动网络接口",
+        "noActiveInterfaces": "没有发现活动网络接口。",
+        "interfacesUnavailable": "无法读取网络接口。",
+        "wifiConnected": "已连接 Wi-Fi：{{ssid}}。",
+        "wifiConnectedWithSignal": "已连接 Wi-Fi：{{ssid}}（信号 {{signalDbm}} dBm）。",
+        "linkDetected": "已检测到有线或无线连接。",
+        "linkTypeUnknown": "无法识别连接类型。",
+        "ipv4Unavailable": "没有可用的 IPv4 地址。",
+        "ipv6Unavailable": "没有可用的全局 IPv6 地址。",
+        "addressValue": "{{address}}",
+        "apipaOnly": "仅检测到自动私有 IPv4 地址：{{address}}。",
+        "dhcpStaticUnknown": "未选择网络接口，无法判断地址由 DHCP 还是静态配置。",
+        "notImplementedPlatform": "当前平台尚未实现此检查。",
+        "defaultRoutePresent": "已检测到默认路由。",
+        "defaultRouteViaTunnel": "默认路由经过 VPN 或隧道接口。",
+        "noDefaultRoute": "没有检测到默认路由。",
+        "dnsServersEmpty": "未配置 DNS 服务器。",
+        "summaryUnavailable": "网络概览不可用。",
+        "dnsServersValue": "已配置 DNS 服务器：{{servers}}",
+        "dnsResolved": "已解析 {{count}} 条 DNS 记录（{{ms}} 毫秒）。",
+        "dnsEmptyAnswer": "DNS 查询没有返回记录。",
+        "hostsClean": "检查了 {{count}} 条 Hosts 记录，未发现可疑项。",
+        "hostsSuspicious": "发现 {{count}} 条可疑 Hosts 记录。",
+        "hostsUnavailable": "无法读取 Hosts 文件。",
+        "proxyDisabled": "未启用系统代理。",
+        "proxyEnabled": "已启用系统代理；网站探测可能会经过该代理。",
+        "fakeIpNotDetected": "未检测到 Fake-IP DNS 响应。",
+        "fakeIpDetected": "检测到 Fake-IP 或增强 DNS 处理。",
+        "vpnNotDetected": "未检测到类似 VPN 的隧道。",
+        "vpnDefaultRoute": "默认路由经过 VPN 类隧道。",
+        "vpnInterfacesPresent": "存在 VPN 类网络接口。",
+        "firewallOn": "防火墙已开启。",
+        "firewallOff": "防火墙已关闭。",
+        "firewallStateUnknown": "防火墙返回了无法识别的状态。",
+        "firewallUnavailable": "无法获取防火墙状态。",
+        "networkServiceNotProbed": "当前版本尚未检查网络服务状态。",
+        "gatewayRtt": "网关响应时间：{{ms}} 毫秒。",
+        "gatewayTunnel": "默认路由经过隧道接口，没有可用于 ICMP 探测的 IPv4 网关。",
+        "gatewayUnavailable": "没有可探测的网关。",
+        "packetLoss": "丢包率：{{percent}}%。",
+        "publicIpRtt": "公网 IP 响应时间：{{ms}} 毫秒。",
+        "domainIcmpRtt": "域名 ICMP 响应时间：{{ms}} 毫秒。",
+        "domainHttp": "域名通过 HTTP 响应（{{status}}），响应时间：{{ms}} 毫秒。",
+        "diagnosisGateway": "网关无法连通，请检查本地链路或网关。",
+        "diagnosisPublicIp": "公网 IP 无法连通，请检查上行链路、运营商或防火墙。",
+        "diagnosisDns": "IP 可达，但 DNS 解析或 DNS 服务器配置也未通过；请检查 DNS。",
+        "diagnosisHosts": "IP 可达，且发现可疑 Hosts 覆盖项；它可能影响域名探测，请检查 Hosts 文件。",
+        "diagnosisNameProbe": "域名探测未通过，但 DNS 与 Hosts 检查没有确认原因；请检查代理、TLS、防火墙或目标服务。",
+        "diagnosisPublicPath": "公网路径可用；由于默认路由经过隧道，已跳过网关 ICMP 检查。",
+        "diagnosisReachabilityOk": "网关、IP 和域名的基础连通性检查均已通过。",
+        "diagnosisMixed": "各项检查结果不一致。展开技术详情可查看各项状态。",
+        "captiveNotDetected": "未检测到强制门户。",
+        "captiveRedirect": "强制门户检查被重定向到其他页面。",
+        "captivePossible": "可能存在强制门户（HTTP {{status}}）。",
+        "captiveUnexpectedStatus": "强制门户检查返回了意外状态（{{status}}）。",
+        "captiveUnavailable": "无法执行强制门户检查。",
+        "publicEgressReachable": "公网出口服务已响应（HTTP {{status}}），响应时间：{{ms}} 毫秒。",
+        "publicEgressUnavailable": "无法执行公网出口检查。",
+        "pathMtuValue": "检测到路径 MTU：{{mtu}} 字节。",
+        "genericWarning": "检查发现需要留意的情况。展开技术详情可查看证据。",
+        "genericFailure": "检查未通过。展开技术详情可查看原因。",
+        "genericSkipped": "此项检查已跳过。展开技术详情可查看原因。",
+        "genericError": "检查未能完成。展开技术详情可查看错误。"
       }
     },
     "opinion": {
@@ -1802,8 +1998,11 @@
       "severity": {
         "info": "信息",
         "warn": "警告",
-        "critical": "严重"
-      }
+        "critical": "严重",
+        "unknown": "未知状态"
+      },
+      "unknownTitle": "无法识别的建议",
+      "unknownBody": "当前版本无法显示此建议。"
     },
     "advisor": {
       "linkDown": {
@@ -1830,6 +2029,10 @@
         "title": "DNS / hosts 问题（IP 通、域名不通）",
         "body": "网关与公网 IP 正常，但域名可达失败。优先排查 DNS 或 hosts。"
       },
+      "nameProbeInconclusive": {
+        "title": "域名探测原因未确定",
+        "body": "公网 IP 可达，但域名探测未通过；DNS 与 Hosts 检查没有确认原因。请检查代理、TLS、防火墙或目标服务。"
+      },
       "dnsVsIpUplink": {
         "title": "上行 / 防火墙问题",
         "body": "网关通但公网 IP 不通。检查运营商上行、防火墙或门户限制。"
@@ -1854,6 +2057,10 @@
         "title": "可能存在 Captive Portal",
         "body": "先打开门户登录页（酒店/咖啡馆 Wi‑Fi），再继续排 DNS。"
       },
+      "captiveUnconfirmed": {
+        "title": "门户检测响应异常",
+        "body": "当前响应与预期不同，暂不能确认是否需要登录。可检查是否有网络认证页，并在登录后重试。"
+      },
       "allClear": {
         "title": "基础连通看起来正常",
         "body": "若个别站点仍失败，检查站点本身、SNI/代理，或跑站点延迟探针。"
@@ -1862,6 +2069,11 @@
     "fix": {
       "hint": "免特权自愈操作。后端会复核网络服务与 DNS 白名单。",
       "service": "网络服务",
+      "selectService": "选择网络服务",
+      "loadingServices": "正在加载网络服务…",
+      "refreshServices": "刷新服务",
+      "servicesLoadFailed": "网络服务列表加载失败，请重试或打开系统网络设置。",
+      "noServices": "没有可用的网络服务，请检查系统网络设置。",
       "dnsPreset": "DNS 预设",
       "flush": "刷新 DNS",
       "switchDns": "切换 DNS",
@@ -1870,6 +2082,10 @@
       "openSettings": "打开系统网络设置",
       "ok": "成功",
       "failed": "失败",
+      "unknownAction": "未知操作",
+      "technicalDetails": "技术详情",
+      "resultMessage": "诊断信息",
+      "resultCommand": "命令提示",
       "confirm": {
         "cancel": "取消",
         "confirm": "确认",
@@ -1908,6 +2124,7 @@
       "hint": "跑 Captive、公网出口 IP、代理/VPN 检查，用于「上不了网」分诊。",
       "run": "运行上不了网诊断",
       "running": "诊断中…",
+      "waiting": "等待当前单项探测完成…",
       "pending": "尚未运行。",
       "status": "状态",
       "subNav": "上不了网子页",
@@ -1931,6 +2148,10 @@
       "vpn": "类 VPN 接口",
       "vpnNone": "无",
       "viaTunnel": "默认路由似乎经过隧道。",
+      "technicalDetails": "技术详情",
+      "diagnostic": "诊断详情",
+      "proxyDiagnostic": "代理诊断",
+      "command": "命令",
       "ipv6Title": "IPv6",
       "mtuTitle": "MTU / PMTUD",
       "openMtu": "打开 MTU 面板",
@@ -1957,9 +2178,28 @@
         "ok": "正常",
         "partial": "部分",
         "unavailable": "不可用",
-        "fail": "失败"
+        "fail": "失败",
+        "unknown": "未知"
       },
+      "dualValue": {
+        "both": "IPv4 与 IPv6 均可达",
+        "ipv4Only": "IPv4 可达；IPv6 尚未确认可达",
+        "ipv6Only": "IPv6 可达；IPv4 尚未确认可达",
+        "neither": "IPv4 与 IPv6 的 ICMP 目标均未响应"
+      },
+      "ndpStatus": {
+        "ok": "可用",
+        "partial": "部分可用",
+        "skip": "未检查",
+        "unknown": "未知"
+      },
+      "technicalDetails": "技术详情",
+      "reason": "原生摘要",
+      "dualDetail": "双栈诊断",
+      "ndpDetail": "NDP 诊断",
+      "tracerouteNote": "Traceroute 提示",
       "linkLocal": "链路本地",
+      "uniqueLocal": "唯一本地地址（ULA）",
       "global": "全球单播",
       "aaaa": "AAAA",
       "icmpv6": "ICMPv6",
@@ -1984,10 +2224,35 @@
         "blackhole": "黑洞",
         "fail": "失败",
         "unsupported": "不支持",
-        "degraded": "降级"
+        "degraded": "降级",
+        "unknown": "未知"
+      },
+      "method": {
+        "binary": "DF 二分探测",
+        "ladder": "快速分档探测",
+        "none": "无可用探测方式",
+        "unknown": "未知探测方式"
       },
       "meta": "{{ip}} · {{method}} · {{ms}} ms",
       "pathMtu": "路径 MTU ≈ {{value}}",
+      "message": {
+        "blackhole": "较大的 DF 数据包超时，可能存在 PMTUD 黑洞。",
+        "unsupported": "当前平台不支持路径 MTU 探测。",
+        "failed": "无法确认路径 MTU；可展开技术详情查看原因。",
+        "degraded": "本次探测以降级方式完成。",
+        "belowEthernet": "已估算路径 MTU，低于标准以太网 MTU。",
+        "unknown": "探测返回了未知状态；可展开技术详情查看原始结果。"
+      },
+      "stepDetail": {
+        "received": "已收到响应",
+        "packetTooLarge": "数据包超过路径限制",
+        "timeout": "等待响应超时",
+        "permission": "系统权限不足",
+        "failed": "未能获得响应"
+      },
+      "technicalDetails": "技术详情",
+      "technicalReason": "原始说明",
+      "technicalStep": "载荷 {{payload}} 字节：{{detail}}",
       "ok": "成功",
       "fail": "失败",
       "col": {
@@ -2001,12 +2266,21 @@
       "run": "查询公网 IP",
       "running": "查询中…",
       "empty": "尚未查询出口。",
-      "asn": "ASN: {{asn}}{{org}}"
+      "asn": "ASN: {{asn}}{{org}}",
+      "failed": "未能从可用服务获取公网出口 IP。",
+      "technicalDetails": "技术详情",
+      "source": "API 来源",
+      "response": "原始响应",
+      "command": "命令提示"
     },
     "speed": {
       "hint": "兼容 LibreSpeed 的带宽测速（ping / 下载 / 上传）。可取消中途停止。",
       "source": "测速源",
       "sourcePlaceholder": "选择测速源",
+      "loadingSources": "正在加载测速源…",
+      "refreshSources": "刷新测速源",
+      "sourcesLoadFailed": "测速源加载失败，请检查网络后重试。",
+      "sourcesRefreshFailed": "测速源刷新失败，仍可使用上次加载的列表。",
       "emptySources": "暂无可用测速源。",
       "run": "开始测速",
       "running": "测速中…",
@@ -2014,6 +2288,12 @@
       "cancelled": "已取消",
       "cooldown": "测速源失败 — {{seconds}} 秒后可重试",
       "sourceUnavailable": "该测速源似乎不可达。冷却结束后可换源再试。",
+      "partialResult": "部分测速阶段未完成，当前结果不完整。",
+      "phaseFailed": "此阶段请求失败",
+      "phaseHttpError": "服务返回 HTTP {{status}}",
+      "technicalDetails": "技术详情",
+      "diagnostic": "原始诊断",
+      "command": "命令提示",
       "ping": "延迟",
       "jitter": "抖动",
       "download": "下载",
@@ -2021,7 +2301,8 @@
       "phase": {
         "ping": "测量延迟",
         "download": "下载中",
-        "upload": "上传中"
+        "upload": "上传中",
+        "unknown": "未知测试阶段"
       }
     },
     "security": {
@@ -2038,44 +2319,143 @@
       "domain": "域名",
       "run": "开始污染检测",
       "running": "检测中…",
-      "meta": "{{domain}} · {{count}} 条发现 · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} 条发现 · {{ms}} ms",
+      "kind": {
+        "arp": "网关 ARP",
+        "dns": "DNS 答案",
+        "hosts": "Hosts 文件",
+        "route": "路由 / 代理",
+        "tls": "HTTPS / 证书",
+        "unknown": "其他检测"
+      },
+      "severity": {
+        "info": "提示",
+        "warn": "需要复核",
+        "high": "高风险",
+        "unknown": "状态未知"
+      },
+      "summary": {
+        "info": "此项检查没有报告高风险异常。",
+        "warn": "此结果需要复核；单凭当前信息无法确定具体原因。",
+        "high": "此项检查发现了高可信风险信号，请结合详情确认。",
+        "unknown": "结果状态未知，请展开技术详情查看原始信息。",
+        "tlsWarning": "HTTPS 检查未能完成。DNS 或网络连接失败本身不能证明存在拦截。"
+      },
+      "technicalDetails": "技术详情",
+      "evidence": "原始证据",
+      "command": "检查命令"
     },
     "whois": {
-      "hint": "经 rdap.org 做 RDAP 查询（本构建不强制 WHOIS 文本协议）。输出可能截断。",
+      "hint": "通过 rdap.org 查询域名或 IP 的注册数据。响应大小有限制，超出时会截断。",
       "query": "域名或 IP",
       "run": "查询",
       "running": "查询中…",
       "partial": "部分",
-      "empty": "未返回 RDAP 正文。"
+      "empty": "未返回 RDAP 正文。",
+      "resultFor": "查询结果 · {{query}}",
+      "technicalDetails": "技术详情",
+      "errors": {
+        "requestFailed": "RDAP 服务连接失败，请检查网络后重试。",
+        "httpError": "RDAP 服务返回 HTTP {{status}}。",
+        "bodyReadFailed": "读取 RDAP 响应失败。",
+        "responseTruncated": "RDAP 响应过大，已截断显示。",
+        "unknown": "RDAP 查询未能完成。"
+      }
     },
     "dnssec": {
-      "hint": "DNSSEC 提示 + DoH/DoT 可达性。本构建不断言完整 AD 位验证链。",
+      "hint": "使用 Hickory 验证 DNSSEC，并检查 Cloudflare DoH 与含 TLS 证书校验的 DoT。",
       "domain": "域名",
       "run": "检查 DNSSEC / DoH",
       "running": "检查中…",
+      "resultFor": "查询结果：{{domain}}",
       "status": "DNSSEC 状态",
+      "statusValue": {
+        "secure": "安全（本机验证通过）",
+        "insecure": "未签名（不安全）",
+        "bogus": "验证失败",
+        "unknown": "无法确定",
+        "unsupported": "不支持"
+      },
       "doh": "DoH",
       "dot": "DoT",
-      "okMs": "可达 · {{ms}} ms",
-      "fail": "不可达 / 失败"
+      "dohOkMs": "已收到 DoH 响应 · {{ms}} ms",
+      "dotOkMs": "TLS 已验证 · 已收到 DNS 响应 · {{ms}} ms",
+      "fail": "不可达 / 失败",
+      "technicalDetails": "技术诊断详情",
+      "command": "命令",
+      "dnssecDetail": "DNSSEC",
+      "dohDetail": "DoH",
+      "dotDetail": "DoT",
+      "details": {
+        "localValidationSecure": "Hickory 使用根信任锚验证了 DNSSEC 签名链。",
+        "localValidationInsecure": "本机验证器确认该答案没有可验证的签名链（通常为未签名区域）。",
+        "localValidationBogus": "本机验证器发现 DNSSEC 签名或证明无效。",
+        "localValidationIndeterminate": "已连接解析器，但缺少足够数据确定 DNSSEC 状态。",
+        "resolverServfail": "解析器返回 SERVFAIL；单凭此错误不能判断 DNSSEC 为 bogus。",
+        "resolverFailure": "解析器返回错误，DNSSEC 状态无法确定。",
+        "noAnswer": "没有可用于判断 DNSSEC 的答案或否定证明。",
+        "requestTimedOut": "DoT DNS 查询超时。",
+        "resolverConfigurationFailed": "无法配置本机 DNSSEC 验证器。",
+        "unknown": "DNSSEC 状态未知。"
+      },
+      "dohDetails": {
+        "authenticatedData": "Cloudflare DoH 返回 AD=true；这是远端解析器的验证信号。",
+        "notAuthenticated": "Cloudflare DoH 返回 AD=false；本机验证结果单独显示。",
+        "missingAdSignal": "响应中没有 AD 位。",
+        "resolverServfail": "Cloudflare DoH 返回 SERVFAIL；这不单独证明 DNSSEC 失败。",
+        "resolverFailure": "Cloudflare DoH 返回 DNS 错误状态。",
+        "httpError": "Cloudflare DoH 返回 HTTP 错误。",
+        "requestFailed": "无法连接 Cloudflare DoH。",
+        "invalidResponse": "Cloudflare DoH 响应格式无效。",
+        "responseTooLarge": "Cloudflare DoH 响应超过大小限制。",
+        "unknown": "DoH 状态未知。"
+      },
+      "dotDetails": {
+        "tlsVerifiedQuerySucceeded": "已验证 Cloudflare DoT TLS 证书并完成 DNS 查询。",
+        "tlsVerifiedDnsResponse": "已验证 Cloudflare DoT TLS 证书并收到 DNS 响应。",
+        "tlsOrQueryFailed": "DoT TLS 证书验证或 DNS 查询失败。",
+        "timedOut": "DoT TLS 握手或 DNS 查询超时。",
+        "unknown": "DoT 状态未知。"
+      }
     },
     "ports": {
-      "hint": "对自有或已授权主机做 TCP connect 端口扫描。最多 256 端口；可取消。",
-      "degradedHint": "降级模式：仅 TCP connect。安装 adv-scanner / nmap 可启用 SYN。",
+      "hint": "对自有或已授权主机做端口扫描。最多 256 端口；可取消。",
+      "scanModeHint": "SYN 模式需要具备相应权限的扫描器；否则会使用 TCP connect。",
       "target": "目标",
       "range": "端口",
       "run": "扫描端口",
       "running": "扫描中…",
       "cancel": "取消",
       "openList": "开放：{{ports}}",
+      "openListCount": "开放端口：{{count}} 个",
+      "openPortsList": "开放端口列表",
+      "samplesList": "端口扫描结果",
+      "state": {
+        "open": "开放",
+        "closed": "关闭",
+        "filtered": "已过滤 / 无响应",
+        "error": "错误",
+        "unknown": "未知"
+      },
+      "mode": {
+        "nmap": "使用 Nmap 扫描；具备权限时使用 SYN，否则回退到 TCP connect。",
+        "tcpConnect": "使用 TCP connect 扫描。",
+        "unknown": "扫描方式未知。"
+      },
+      "cancelled": "扫描已取消，以下为取消前收到的结果。",
+      "noSamples": "尚未收到端口扫描结果。",
+      "resultTarget": "本次扫描目标：{{target}}",
+      "technicalDetails": "技术详情",
+      "technicalReason": "扫描说明",
+      "command": "命令",
       "confirmTitle": "确认端口扫描范围",
       "confirmDesc": "目标 {{target}} · 约 {{count}} 个端口。公网主机或较大范围需二次确认。",
-      "confirmConsequence": "仅扫描自有或已授权资产。当前为 TCP connect（无 SYN）。",
+      "confirmConsequence": "仅扫描自有或已授权资产。扫描器可能使用 SYN 或 TCP connect，不会运行漏洞利用或服务版本检测脚本。",
       "confirmRun": "仍然扫描"
     },
     "arp": {
-      "hint": "读取系统 ARP/邻居缓存中的局域网邻居（降级发现）。",
-      "degradedHint": "降级：仅缓存。特权 ARP 扫需 adv-scanner。",
+      "hint": "读取 ARP 缓存，并对本机 IPv4 /24 执行 TCP 80/443/22 可达性探测。",
+      "degradedHint": "当前使用缓存与 TCP 探测；特权 ARP 请求需 adv-scanner。",
       "run": "刷新 ARP 缓存",
       "running": "读取中…",
       "empty": "ARP 缓存中无邻居。",
@@ -2084,15 +2464,38 @@
       "emptyPermission": "无可用 IPv4 — 请检查系统设置中的「本地网络」权限。",
       "openSettings": "打开系统网络设置",
       "cidr": "扫描网段：{{cidr}}",
-      "meta": "{{count}} 个邻居 · mode={{mode}} · {{ms}} ms",
-      "cancelled": "局域网发现已在扫描中取消。"
+      "meta": "{{count}} 个邻居 · {{mode}} · {{ms}} ms",
+      "neighborsList": "ARP 邻居列表",
+      "modeCache": "ARP 缓存",
+      "modeCacheTcpSweep": "缓存 + TCP 探测",
+      "modeUnknown": "发现方式未知",
+      "technicalDetails": "技术详情",
+      "rawMode": "内部模式",
+      "cancelled": "局域网发现已取消。",
+      "cancelledPartial": "已保留已发现的 {{count}} 个邻居。",
+      "cancelledEmpty": "取消前尚未发现邻居。",
+      "macUnresolved": "未解析到 MAC",
+      "sourceCache": "ARP 缓存",
+      "sourceTcpSweep": "TCP 可达性探测",
+      "sourceUnknown": "其他来源"
     },
     "lanSvc": {
       "hint": "只读浏览局域网 mDNS/DNS-SD 与 SSDP/UPnP 通告。",
-      "readOnlyHint": "只读发现。不暴露 UPnP Write / AddPortMapping。",
+      "readOnlyHint": "仅执行只读发现；不请求设备描述，也不会调用 UPnP 写操作。",
       "run": "浏览局域网服务",
       "running": "浏览中…",
       "empty": "监听窗口内无 mDNS/SSDP 响应。",
+      "emptyPartial": "可用的发现协议在监听窗口内均未收到响应。",
+      "protocolMdns": "mDNS",
+      "protocolSsdp": "SSDP",
+      "protocolFailed": "{{protocol}} 发现未能完成。",
+      "technicalDetails": "技术详情",
+      "issueCode": "错误码",
+      "unknownDevice": "未知设备",
+      "deviceId": "设备 ID",
+      "txtProperties": "TXT 属性",
+      "location": "设备描述地址",
+      "locationUnavailable": "不可用或格式无效",
       "meta": "{{count}} 个服务 · {{ms}} ms"
     },
     "pcap": {
@@ -2101,13 +2504,29 @@
       "run": "采样包计数",
       "running": "采集中…",
       "mode": "模式",
-      "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
+      "status": "状态",
+      "statusValue": {
+        "complete": "已完成",
+        "cancelled": "已取消",
+        "unavailable": "不可用",
+        "unknown": "未知"
+      },
+      "modeValue": {
+        "counters": "仅计数器采样"
+      },
+      "technicalDetails": "技术详情",
+      "diagnostic": "诊断详情",
+      "command": "命令",
+      "noSample": "没有可用的采样数据。",
+      "stats": "数据包={{packets}} · RST={{rst}} · 重传提示≈{{retrans}} · 乱序提示≈{{ooo}}"
     },
     "nodes": {
-      "hint": "对比本机与 Globalping 多地的 DNS 答案。可注册 HTTPS agent 作为自有探测节点。",
+      "hint": "对比本机与 Globalping 多地的 DNS 答案。可注册 HTTPS/WSS agent 作为自有探测节点。",
       "run": "多节点对比 DNS",
       "running": "对比中…",
       "refresh": "刷新节点",
+      "refreshing": "正在刷新节点…",
+      "loading": "正在加载探测节点…",
       "listTitle": "探测节点",
       "addTitle": "添加 agent",
       "addHint": "端点必须为 https:// 或 wss://。任意 shell 动作会被拒绝。",
@@ -2115,22 +2534,72 @@
       "domainPlaceholder": "example.com",
       "endpointPlaceholder": "https://agent.example:8443",
       "addAgent": "添加 agent",
+      "addingAgent": "添加中…",
       "removeAgent": "移除",
-      "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
+      "removingAgent": "移除中…",
+      "agentReachable": "可达",
+      "agentUnreachable": "暂不可达",
+      "endpointError": {
+        "invalid": "请输入有效的 HTTPS 或 WSS 地址。",
+        "scheme": "端点必须使用 HTTPS 或 WSS，明文连接不受支持。",
+        "credentials": "端点 URL 暂不支持用户名/密码、查询参数或片段，请移除后重试。"
+      },
+      "kind": {
+        "remoteProxy": "公共探测节点",
+        "remoteAgent": "自建 Agent",
+        "unknown": "其他节点"
+      },
+      "status": {
+        "success": "查询成功",
+        "failed": "查询失败"
+      },
+      "noAnswers": "此节点未返回 A 记录。",
+      "noResults": "没有可显示的节点结果。",
+      "technicalDetails": "技术详情",
+      "diagnostic": "原始诊断",
+      "command": "命令",
+      "meta": "{{domain}} · {{count}} 个节点结果 · {{ms}} ms"
     },
     "nat": {
-      "hint": "对公网 STUN 服务器做 Binding，查看映射地址 / NAT 暴露情况。",
+      "hint": "对比多个 STUN 服务器报告的公网映射地址。",
+      "scopeNote": "映射一致性不能单独判定锥形 NAT、对称 NAT 等具体类型。",
       "run": "探测 NAT",
       "running": "探测中…",
-      "type": "结果",
-      "mapped": "映射地址"
+      "type": "观测结果",
+      "consistent": "响应服务器返回的映射一致",
+      "varied": "不同服务器返回的映射不同",
+      "blockedOrTimeout": "无有效响应（可能被阻断或超时）",
+      "unknown": "未知观测状态",
+      "mapped": "映射地址",
+      "details": "服务器详情",
+      "technicalDetails": "技术详情"
     },
     "ntp": {
-      "hint": "查询 pool.ntp.org 时钟偏移。过大偏差可能影响 TLS 与鉴权。",
+      "hint": "并行对比 Cloudflare、Google 和 pool.ntp.org 的时钟偏移。偏差过大可能影响 TLS 与鉴权。",
       "run": "探测 NTP",
       "running": "探测中…",
       "offset": "偏移 {{seconds}} 秒（{{severity}}）",
-      "fail": "NTP 探测失败"
+      "fail": "没有任何 NTP 来源返回可用响应。",
+      "sourceResults": "NTP 来源结果",
+      "sourceOffset": "{{server}}：偏移 {{seconds}} 秒",
+      "sourceFailed": "{{server}}：{{reason}}",
+      "technicalDetails": "技术详情",
+      "severity": {
+        "ok": "偏差正常",
+        "info": "轻微偏差",
+        "warn": "偏差较大",
+        "unknown": "未知"
+      },
+      "errors": {
+        "bind": "无法打开本机 UDP 套接字",
+        "dns": "无法解析服务器地址",
+        "network": "UDP 通信失败",
+        "timeout": "请求超时",
+        "source": "响应来自非预期地址",
+        "serverRefused": "服务器暂时拒绝了请求",
+        "response": "服务器响应未通过 NTP 校验",
+        "unknown": "探测失败"
+      }
     },
     "report": {
       "hint": "导出最近一次体检，并浏览本会话命令日志。",
@@ -2149,20 +2618,35 @@
       "historyTitle": "近期体检快照",
       "historyEmpty": "尚无保存的体检。运行一次一键体检后会保留历史。",
       "clearHistory": "清空历史",
+      "clearHistoryConfirmTitle": "清空已保存的体检历史？",
+      "clearHistoryConfirmDescription": "这会永久删除本设备保存的体检快照，且无法撤销。当前报告仍会保留。",
       "historyItem": "{{session}}… · {{count}} 项检查 · {{ms}} ms · {{opinions}} 条建议",
       "privacyHint": "导出内容可能含公网 IP、Wi‑Fi SSID、hosts 异常与本机地址。请仅分享给可信对象。"
+    },
+    "scan": {
+      "cancelling": "正在取消…"
     },
     "traceroute": {
       "hint": "基于 trippy 的路径跳点表（优先特权 ICMP，不足时降级无特权 UDP）。丢包率着色。ASN 经 Team Cymru DNS（可空）。",
       "target": "目标",
       "maxTtl": "最大 TTL",
+      "maxTtlInvalid": "请输入 1–32 之间的整数。",
       "rounds": "轮次",
+      "roundsInvalid": "请输入 1–10 之间的整数。",
       "run": "追踪",
       "running": "追踪中…",
       "cancel": "取消",
       "cancelled": "已取消",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
+      "tableRegion": "Traceroute 跳点结果",
+      "tableCaption": "Traceroute 跳点表",
       "empty": "尚无跳点。运行追踪以填充表格。",
+      "message": {
+        "unprivileged": "特权 ICMP 不可用，已使用无特权 UDP 完成追踪。",
+        "unavailable": "Traceroute 当前不可用；展开技术详情可查看原因。"
+      },
+      "technicalDetails": "技术详情",
+      "technicalReason": "原始说明",
       "mode": {
         "privileged": "特权 ICMP",
         "unprivileged": "无特权 UDP",
@@ -2181,7 +2665,6 @@
     },
     "cmd": {
       "summary": "getLocalNetworkSummary()",
-      "tcpConnect": "tcpConnect(local, '{{host}}', {{port}})",
       "pingHost": "pingHost(local, '{{target}}', {count:{{count}}})",
       "dnsLookup": "dnsLookup(local, '{{domain}}', {rrType:'{{rrType}}',resolver:'{{resolver}}'})",
       "probeTarget": "probeTarget(local, '{{input}}')",
@@ -2207,7 +2690,7 @@
       "lanSvc": "browseLanServices(local) // mDNS+SSDP",
       "pcap": "startPacketCapture(local) // tcpdump counters",
       "compareDns": "dnsLookup(multi, domain)",
-      "addAgent": "addAgent(label, https://…)",
+      "addAgent": "addAgent(label, https://… 或 wss://…)",
       "nat": "probeNat(local)",
       "ntp": "probeNtp(local)",
       "installPack": "installCapabilityPack('{{packId}}')",
@@ -2216,12 +2699,24 @@
     "packs": {
       "dialogTitle": "可选能力包",
       "dialogHint": "高级扫描与 helper 仅按后端 manifest 安装 — 前端不得提交下载 URL（D-017）。",
-      "markerOnly": "标记安装（制品尚未发布）",
+      "artifactPending": "sidecar 制品尚未发布",
+      "markerInstallHint": "此操作只写入本地标记；sidecar 制品发布前，相关工具仍保持降级。",
+      "markerInstalledHint": "当前只记录了本地标记，相关工具仍保持降级。",
       "meta": "v{{version}} · {{sizeMb}} MB · {{status}}",
+      "status": {
+        "installed": "已安装",
+        "available": "可用",
+        "markerOnly": "仅标记安装",
+        "unavailable": "不可用",
+        "unknown": "状态未知"
+      },
       "gatekeeperNote": "ad-hoc / 未签名构建不得宣称 sidecar 已获 Gatekeeper 信任（D-010）。",
       "empty": "当前平台无可用能力包。",
       "refresh": "刷新",
+      "refreshing": "正在刷新…",
       "install": "安装",
+      "installMarkerOnly": "仅安装标记",
+      "notAvailableYet": "当前不可安装",
       "installing": "安装中…",
       "uninstall": "卸载",
       "verifyFail": "测试哈希失败",
@@ -2234,9 +2729,20 @@
       }
     },
     "caps": {
-      "banner": "platform={{platform}} · privilege={{privilege}}（工具状态来自能力矩阵）",
-      "toolDisabled": "{{tool}} status={{status}} — 已按能力矩阵禁用",
-      "localNetworkHint": "全部探测丢失。可能是 macOS「本地网络」权限、防火墙，或真实断网——不要当成唯一结论。"
+      "banner": "平台：{{platform}} · 权限：{{privilege}}",
+      "platform": {
+        "macos": "macOS",
+        "windows": "Windows",
+        "linux": "Linux",
+        "unknown": "未知平台"
+      },
+      "privilege": {
+        "none": "未提权",
+        "user": "普通用户",
+        "elevated": "管理员权限",
+        "unknown": "权限未知"
+      },
+      "toolDisabled": "此功能在当前环境暂不可用。"
     },
     "badge": {
       "post": "Post",
@@ -2266,6 +2772,7 @@
       "openSettingsFailed": "无法打开系统网络设置。",
       "packsFailed": "能力包操作失败。",
       "defaultsFailed": "Defaults 覆盖/重置失败。",
+      "speedSourcesFailed": "加载测速源失败。",
       "speedFailed": "带宽测速失败。",
       "securityAuthRequired": "请先确认安全 Tab 授权声明。",
       "pollutionFailed": "污染检测失败。",
@@ -2279,7 +2786,9 @@
       "pcapFailed": "包级诊断失败。",
       "nodesFailed": "列举探测节点失败。",
       "multiNodeFailed": "多节点 DNS 对比失败。",
-      "agentFailed": "Agent 注册操作失败。"
+      "globalpingFailed": "Globalping 远端测量失败。",
+      "agentFailed": "Agent 注册操作失败。",
+      "agentInvalidInput": "Agent 信息不合法，或端点被网络安全规则拒绝。"
     }
   },
   "extensionCenter": {
@@ -2319,6 +2828,39 @@
     "tabInstalled": "已安装",
     "tabMarket": "市场",
     "tabDiagnostics": "诊断",
+    "details": {
+      "open": "详情",
+      "title": "插件详情",
+      "close": "关闭",
+      "publisher": "发布者",
+      "publisherSourceNote": "这是 registry 的声明，不是独立身份认证。",
+      "engines": "Bench 版本要求",
+      "compatible": "当前宿主版本兼容",
+      "incompatible": "当前宿主版本不满足要求",
+      "trust": "安装时的来源校验",
+      "trustUnknown": "此版本没有保存安装时的来源校验记录，无法确认信任策略。",
+      "bundledTrust": "随 Bench 应用包分发；这里不声称插件有独立签名。",
+      "permissionsTitle": "manifest 申请的宿主命令",
+      "permissionsHint": "下方逐项对照当前宿主开放的能力。命令 ID 保留供核对，说明按命令类别概括。",
+      "capabilityHint": "状态来自宿主当前能力清单；“未开放”表示该命令当前不能由插件调用。",
+      "capabilityLoading": "正在读取宿主能力清单…",
+      "capabilityUnknownHint": "无法读取当前能力清单，状态显示为未知。",
+      "capabilityAvailable": "当前开放",
+      "capabilityUnavailable": "当前未开放",
+      "capabilityUnknown": "状态未知",
+      "permissionFamily": {
+        "photoFiles": "照片与本地文件操作",
+        "terminology": "术语库读取与修改",
+        "developerCleanup": "开发项目扫描与清理",
+        "storageCleanup": "存储扫描与清理",
+        "pricingStandards": "模型价格标准读取与维护",
+        "mediaAssets": "本地媒体资产读取、导入与删除",
+        "privateData": "插件私有数据目录访问",
+        "extensionManagement": "插件查询与生命周期管理",
+        "installedApps": "已安装应用查询与管理（含安装、升级、卸载或授权）",
+        "hostCommand": "宿主命令"
+      }
+    },
     "market": {
       "loadFailed": "市场加载失败",
       "empty": "市场暂无可用插件",
@@ -2331,22 +2873,53 @@
       "revokedBanner": "以下插件已被吊销并强制禁用",
       "revokedNote": "该插件已被吊销：{reason}。建议卸载。",
       "trustTitle": "信任此插件？",
-      "trustDescription": "「{name}」v{version}（{publisher}）已完成完整性与签名校验。安装前请确认其申请的宿主命令权限。",
+      "trustDescription": "「{name}」v{version}（registry 声明发布者：{publisher}）。请检查下方来源校验方式和它申请的宿主命令。",
+      "verification": {
+        "officialRegistryHashes": "已按官方 registry 的 HTTPS 整包 SHA-256/大小和逐文件清单验证；官方源不使用插件级签名。",
+        "minisign": "已通过第三方 registry 的 minisign 签名与逐文件完整性校验。",
+        "developmentUnsigned": "开发模式已跳过插件签名验证；插件来源未验证，只安装你信任的代码。"
+      },
       "unknownPublisher": "未知发布者",
       "requestedPermissions": "申请的宿主命令（deny-by-default）",
       "noPermissions": "该插件未申请任何宿主命令",
-      "trustNote": "未登记的命令会被宿主网关拒绝；能力面经 registry 人工审核把关。",
+      "trustNote": "宿主会拦截此权限清单之外的命令调用。",
       "trustAndInstall": "信任并安装",
       "installing": "安装中…",
       "prepareFailed": "安装校验未通过",
       "commitFailed": "安装失败",
+      "cancelFailed": "未能清理安装缓存",
       "toastInstalled": "插件已安装"
     },
     "diagnostics": {
-      "hint": "插件审计日志与运行时错误（最近 200 条）",
+      "hint": "最近 200 条插件审计事件与运行时记录；数据只保存在本机。",
       "audit": "审计日志 ext-audit.log",
       "runtime": "运行时诊断 ext-diagnostics.jsonl",
-      "empty": "暂无记录"
+      "empty": "暂无记录",
+      "searchLabel": "搜索诊断记录",
+      "searchPlaceholder": "搜索插件、版本、错误或内容",
+      "filterLabel": "按类型筛选",
+      "filterAll": "所有类型",
+      "noMatches": "没有匹配的记录，请调整搜索词或类型。",
+      "unknown": "未知记录",
+      "timeUnavailable": "时间未知",
+      "rawDetails": "查看原始记录",
+      "count": "显示 {{visible}} 条，共 {{total}} 条",
+      "refreshing": "刷新中…",
+      "event": {
+        "install": "安装",
+        "enable": "启用",
+        "disable": "禁用",
+        "uninstall": "卸载",
+        "verifyFail": "校验失败",
+        "aclDeny": "权限拒绝",
+        "revokeHit": "命中吊销"
+      },
+      "kind": {
+        "windowError": "窗口错误",
+        "unhandledRejection": "未处理的 Promise 拒绝",
+        "consoleError": "控制台错误",
+        "boot": "插件启动"
+      }
     },
     "tabBridge": "跨端接入",
     "bridgeTitle": "浏览器扩展与 MCP 接入",
@@ -2363,6 +2936,7 @@
     "bridgeExtId": "扩展 ID",
     "bridgeCopy": "复制",
     "bridgeCopied": "已复制",
+    "bridgeCopyFailed": "复制到剪贴板失败，请检查剪贴板权限后重试。",
     "bridgeNmTitle": "Native Messaging 注册状态",
     "bridgeBrowsers": "本机浏览器",
     "bridgeOpenExtensionsPage": "打开扩展页",

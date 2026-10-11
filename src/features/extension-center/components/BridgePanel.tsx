@@ -4,7 +4,7 @@
  * 浏览器扩展（bench-companion）导出 + Native Messaging 注册状态；
  * MCP 客户端探测与一键写入。二者共用本机 bench-host 二进制（能力出口）。
  */
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 
@@ -35,10 +35,14 @@ function CopyRow({ label, value }: { label: string; value: string }) {
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => {
-          void navigator.clipboard.writeText(value)
-          setCopied(true)
-          setTimeout(() => setCopied(false), 1500)
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(value)
+            setCopied(true)
+            window.setTimeout(() => setCopied(false), 1500)
+          } catch {
+            toast.error(t("extensionCenter.bridgeCopyFailed"))
+          }
         }}
       >
         {copied ? t("extensionCenter.bridgeCopied") : t("extensionCenter.bridgeCopy")}
@@ -55,23 +59,38 @@ export function BridgePanel() {
   const [selectedClients, setSelectedClients] = useState<string[]>([])
   const [exporting, setExporting] = useState(false)
   const [installing, setInstalling] = useState(false)
+  const [refreshing, setRefreshing] = useState(true)
   const [error, setError] = useState<CommandError | null>(null)
+  const requestId = useRef(0)
+  const initializedClientSelection = useRef(false)
 
   const refresh = useCallback(async () => {
+    const currentRequestId = ++requestId.current
+    setRefreshing(true)
+    setError(null)
     try {
       const [s, m] = await Promise.all([getBrowserExtensionStatus(), getMcpTargetsStatus()])
+      if (requestId.current !== currentRequestId) return
       setStatus(s)
       setMcpTargets(m)
-      // 默认勾选「疑似已安装但未配置」的客户端
-      setSelectedClients(m.filter((c) => c.installedHint && !c.benchConfigured).map((c) => c.id))
+      // 初次加载时默认勾选「疑似已安装但未配置」的客户端；手动刷新不覆盖用户选择。
+      if (!initializedClientSelection.current) {
+        setSelectedClients(m.filter((c) => c.installedHint && !c.benchConfigured).map((c) => c.id))
+        initializedClientSelection.current = true
+      }
       setError(null)
     } catch (e) {
-      setError(parseCommandError(e))
+      if (requestId.current === currentRequestId) setError(parseCommandError(e))
+    } finally {
+      if (requestId.current === currentRequestId) setRefreshing(false)
     }
   }, [])
 
   useEffect(() => {
     void refresh()
+    return () => {
+      requestId.current += 1
+    }
   }, [refresh])
 
   const handleExport = async () => {
@@ -138,15 +157,35 @@ export function BridgePanel() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-sm font-medium">{t("extensionCenter.bridgeTitle")}</h2>
           <p className="text-muted-foreground text-xs">{t("extensionCenter.bridgeSubtitle")}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void refresh()}>
-          {t("extensionCenter.bridgeRefresh")}
+        <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={refreshing}>
+          {refreshing ? t("extensionCenter.loading") : t("extensionCenter.bridgeRefresh")}
         </Button>
       </div>
+
+      {error && status && (
+        <div
+          className="border-destructive/30 bg-destructive/10 rounded border p-3 text-sm"
+          role="alert"
+        >
+          <p className="text-destructive font-mono text-xs">
+            [{error.code}] {error.message}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => void refresh()}
+            disabled={refreshing}
+          >
+            {t("extensionCenter.retry")}
+          </Button>
+        </div>
+      )}
 
       {status && !status.hostBinFound && (
         <div className="rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
@@ -182,7 +221,7 @@ export function BridgePanel() {
             </span>
             <Button
               size="sm"
-              disabled={exporting || (status !== null && !status.hostBinFound)}
+              disabled={exporting || refreshing || status === null || !status.hostBinFound}
               onClick={() => void handleExport()}
             >
               {exporting
@@ -286,7 +325,7 @@ export function BridgePanel() {
         <Button
           size="sm"
           className="mt-3"
-          disabled={installing || selectedClients.length === 0}
+          disabled={installing || refreshing || selectedClients.length === 0}
           onClick={() => void handleInstall()}
         >
           {installing ? t("extensionCenter.bridgeMcpWriting") : t("extensionCenter.bridgeMcpWrite")}

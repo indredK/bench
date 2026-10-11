@@ -212,9 +212,14 @@ describe("useBrowserInterop (sync out, per-target)", () => {
     await waitFor(() => expect(toasts.info).toHaveBeenCalledTimes(1))
     expect(toasts.success).not.toHaveBeenCalled()
     // 终态来自扩展回报的任务表，而不是同步命令本身。
-    await waitFor(() => expect(toasts.success).toHaveBeenCalledTimes(1), { timeout: 6000 })
+    await waitFor(
+      () => {
+        expect(toasts.success).toHaveBeenCalledTimes(1)
+        expect(result.current.lastInject?.outcome).toBe("injected")
+      },
+      { timeout: 6000 },
+    )
     expect(browserSessionInjectStatus).toHaveBeenCalledWith("task-1")
-    expect(result.current.lastInject?.outcome).toBe("injected")
   })
 
   it("reports an extension-side failure as an error, never as success", async () => {

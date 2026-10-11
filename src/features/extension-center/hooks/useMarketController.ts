@@ -10,6 +10,7 @@ import { toast } from "sonner"
 
 import {
   commitMarketInstall,
+  cancelMarketInstall,
   listInstalledExtensions,
   listMarketExtensions,
   prepareMarketInstall,
@@ -55,6 +56,14 @@ export function useMarketController() {
   const prepareInstall = useCallback(
     async (extensionId: string, version: string) => {
       const key = `${extensionId}@${version}`
+      const currentState = useExtensionCenterStore.getState()
+      if (
+        currentState.busyIds.includes(key) ||
+        currentState.pendingPreview !== null ||
+        currentState.committing
+      ) {
+        return
+      }
       setBusy(key, true)
       try {
         const preview = await prepareMarketInstall(extensionId, version)
@@ -85,15 +94,23 @@ export function useMarketController() {
       if (installed.status === "fulfilled") setItems(installed.value)
       if (listing.status === "fulfilled") setMarketListing(listing.value)
     } catch (rawError) {
+      setPendingPreview(null)
       toast.error(translateError(t, rawError, t("extensionCenter.market.commitFailed")))
     } finally {
       setCommitting(false)
     }
   }, [setCommitting, setItems, setMarketListing, setPendingPreview, t])
 
-  const cancelInstall = useCallback(() => {
+  const cancelInstall = useCallback(async () => {
+    const preview = useExtensionCenterStore.getState().pendingPreview
     setPendingPreview(null)
-  }, [setPendingPreview])
+    if (!preview) return
+    try {
+      await cancelMarketInstall(preview.id, preview.version)
+    } catch (rawError) {
+      toast.error(translateError(t, rawError, t("extensionCenter.market.cancelFailed")))
+    }
+  }, [setPendingPreview, t])
 
   return {
     marketListing,

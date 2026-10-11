@@ -15,6 +15,7 @@ use std::{
     fs::{self, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
+    sync::Mutex,
 };
 
 use serde::Serialize;
@@ -27,6 +28,12 @@ pub const EXT_AUDIT_FILE: &str = "ext-audit.log";
 
 /// 环形上限（roadmap P3.3：建议 2MB 滚动）。
 pub const MAX_AUDIT_BYTES: u64 = 2 * 1024 * 1024;
+
+/// Serialize rotate + append + read operations inside the single Bench process.
+/// Without this lock, concurrent plugin reports can race a rotation and lose or
+/// interleave JSONL records.
+static LOG_MUTEX: Mutex<()> = Mutex::new(());
+const MAX_JSONL_RECORD_BYTES: usize = 64 * 1024;
 
 /// 审计事件类型（spec §6.2 / roadmap P3.3 事件集）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -106,16 +113,37 @@ fn record_at(
     version: Option<&str>,
     reason: Option<&str>,
 ) -> AppResult<()> {
-    rotate_if_needed(path)?;
+    let extension_id = truncate_chars(extension_id, 128);
+    let version = version.map(|value| truncate_chars(value, 128));
+    let reason = reason.map(|value| truncate_chars(value, 1024));
     let record = AuditRecord {
         ts: chrono::Utc::now().to_rfc3339(),
         event: event.as_str(),
-        id: extension_id,
-        version,
-        reason,
+        id: &extension_id,
+        version: version.as_deref(),
+        reason: reason.as_deref(),
     };
     let line = serde_json::to_string(&record)
         .map_err(|e| crate::error::AppError::internal(format!("serialize audit record: {e}")))?;
+    append_jsonl_at(path, &line)
+}
+
+/// Append a bounded diagnostic JSON record using the same rotation and lock as audit events.
+pub fn append_diagnostic(path: &Path, line: &str) -> AppResult<()> {
+    append_jsonl_at(path, line)
+}
+
+fn append_jsonl_at(path: &Path, line: &str) -> AppResult<()> {
+    if line.len() > MAX_JSONL_RECORD_BYTES {
+        return Err(crate::error::AppError::invalid_input(format!(
+            "JSONL record exceeds the {} byte limit",
+            MAX_JSONL_RECORD_BYTES
+        )));
+    }
+    let _guard = LOG_MUTEX
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    rotate_if_needed(path, line.len() + 1)?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .map_err(|e| crate::error::AppError::io(format!("create audit dir: {e}")))?;
@@ -125,29 +153,38 @@ fn record_at(
         .append(true)
         .open(path)
         .map_err(|e| crate::error::AppError::io(format!("open audit log: {e}")))?;
-    writeln!(file, "{line}")
+    file.write_all(line.as_bytes())
+        .and_then(|()| file.write_all(b"\n"))
         .map_err(|e| crate::error::AppError::io(format!("append audit log: {e}")))?;
     Ok(())
 }
 
-/// 环形滚动：超过 [`MAX_AUDIT_BYTES`] 时仅保留最新一半（按行对齐）。
-///
-/// 同时供诊断 JSONL（`ext-diagnostics.jsonl`）复用 —— 同样的 2MB 上限。
-pub fn rotate_diagnostics(path: &Path) -> AppResult<()> {
-    rotate_if_needed(path)
+fn truncate_chars(value: &str, max_chars: usize) -> String {
+    let mut chars = value.chars();
+    let prefix: String = chars.by_ref().take(max_chars).collect();
+    if chars.next().is_some() {
+        format!("{prefix}…")
+    } else {
+        prefix
+    }
 }
 
 /// 环形滚动核心。
-fn rotate_if_needed(path: &Path) -> AppResult<()> {
+fn rotate_if_needed(path: &Path, incoming_bytes: usize) -> AppResult<()> {
     let Ok(metadata) = fs::metadata(path) else {
         return Ok(()); // 文件不存在：无需滚动。
     };
-    if metadata.len() <= MAX_AUDIT_BYTES {
+    if metadata.len().saturating_add(incoming_bytes as u64) <= MAX_AUDIT_BYTES {
         return Ok(());
     }
     let content = fs::read_to_string(path)
         .map_err(|e| crate::error::AppError::io(format!("read audit log: {e}")))?;
-    let keep_from = content.len() / 2;
+    let midpoint = content.len() / 2;
+    let keep_from = content
+        .char_indices()
+        .find(|(offset, _)| *offset >= midpoint)
+        .map(|(offset, _)| offset)
+        .unwrap_or(content.len());
     // 行首对齐：丢弃残行。
     let tail = &content[keep_from..];
     let aligned = match tail.find('\n') {
@@ -159,15 +196,30 @@ fn rotate_if_needed(path: &Path) -> AppResult<()> {
     Ok(())
 }
 
-/// 读取最近 `max_lines` 条审计记录（诊断面板用，P4）。
-pub fn read_recent<R: Runtime>(app: &AppHandle<R>, max_lines: usize) -> AppResult<Vec<String>> {
-    let Some(path) = audit_path(app) else {
-        return Ok(Vec::new());
-    };
-    read_recent_at(&path, max_lines)
+/// Read both plugin logs from one snapshot while excluding concurrent append/rotation.
+pub fn read_recent_pair_from_paths(
+    audit_path: &Path,
+    runtime_path: &Path,
+    max_lines: usize,
+) -> AppResult<(Vec<String>, Vec<String>)> {
+    let _guard = LOG_MUTEX
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    Ok((
+        read_recent_unlocked(audit_path, max_lines)?,
+        read_recent_unlocked(runtime_path, max_lines)?,
+    ))
 }
 
+#[cfg(test)]
 fn read_recent_at(path: &Path, max_lines: usize) -> AppResult<Vec<String>> {
+    let _guard = LOG_MUTEX
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    read_recent_unlocked(path, max_lines)
+}
+
+fn read_recent_unlocked(path: &Path, max_lines: usize) -> AppResult<Vec<String>> {
     let content = match fs::read_to_string(path) {
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -286,5 +338,54 @@ mod tests {
         for (event, name) in actual.iter().zip(expected.iter()) {
             assert_eq!(event.as_str(), *name);
         }
+    }
+
+    #[test]
+    fn concurrent_records_remain_complete_jsonl() {
+        let path = temp_path("concurrent");
+        let writers: Vec<_> = (0..8)
+            .map(|writer| {
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    for index in 0..50 {
+                        record_at(
+                            &path,
+                            AuditEvent::Enable,
+                            "photo-triage",
+                            None,
+                            Some(&format!("writer-{writer}-{index}")),
+                        )
+                        .expect("append concurrent record");
+                    }
+                })
+            })
+            .collect();
+        for writer in writers {
+            writer.join().expect("writer thread");
+        }
+
+        let records = read_recent_at(&path, 500).expect("read concurrent records");
+        assert_eq!(records.len(), 400);
+        for line in &records {
+            let value: serde_json::Value = serde_json::from_str(line).expect("complete JSONL row");
+            assert_eq!(value["event"], "enable");
+        }
+        fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn rotation_keeps_unicode_jsonl_on_character_boundaries() {
+        let path = temp_path("unicode-rotate");
+        let line = format!("{{\"message\":\"{}\"}}\n", "界".repeat(4096));
+        fs::write(&path, line.repeat(220)).expect("write unicode fixture");
+
+        rotate_if_needed(&path, 0).expect("rotate at UTF-8 boundary");
+
+        let records = read_recent_at(&path, usize::MAX).expect("read rotated unicode JSONL");
+        assert!(!records.is_empty());
+        for record in &records {
+            serde_json::from_str::<serde_json::Value>(record).expect("valid JSON row");
+        }
+        fs::remove_file(&path).ok();
     }
 }

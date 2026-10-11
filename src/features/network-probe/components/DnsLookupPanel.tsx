@@ -39,6 +39,7 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
                 autoComplete="off"
+                disabled={loading}
               />
             </div>
             <div className="w-28 space-y-1">
@@ -50,6 +51,7 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
                 className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
                 value={rrType}
                 onChange={(e) => setRrType(e.target.value)}
+                disabled={loading}
               >
                 {RR_TYPES.map((rt) => (
                   <option key={rt} value={rt}>
@@ -69,6 +71,7 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
                 placeholder={t("networkProbe.dns.resolverPlaceholder")}
                 list="np-dns-presets"
                 autoComplete="off"
+                disabled={loading}
               />
               {dnsPresets && dnsPresets.length > 0 ? (
                 <datalist id="np-dns-presets">
@@ -101,10 +104,16 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
     >
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
-          <div>
+          <div className="font-mono font-medium break-all">
+            {t("networkProbe.dns.resultFor", { domain: result.domain })}
+          </div>
+          <div className="text-muted-foreground">
             {t("networkProbe.dns.meta", {
               rrType: result.rrType,
-              resolver: result.resolver,
+              resolver:
+                result.resolver === "system"
+                  ? t("networkProbe.dns.systemResolver")
+                  : result.resolver,
               ms: result.elapsedMs.toFixed(0),
             })}
           </div>
@@ -122,7 +131,16 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
               ))}
             </ul>
           )}
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+          {result.commandHint ? (
+            <details className="text-muted-foreground text-xs">
+              <summary className="w-fit cursor-pointer">
+                {t("networkProbe.dns.technicalDetails")}
+              </summary>
+              <pre className="mt-1 font-mono break-all whitespace-pre-wrap">
+                {result.commandHint}
+              </pre>
+            </details>
+          ) : null}
         </div>
       ) : null}
     </ProbePanelShell>

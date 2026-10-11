@@ -11,6 +11,7 @@ pub async fn run_health_scan<R: Runtime>(
 ) -> AppResult<HealthScanResult> {
     let started = Instant::now();
     let session_id = super::session::new_session_id();
+    let _session_guard = super::session::SessionGuard::new(session_id.clone());
     let command_hint = format!("startHealthScan(local) // sessionId={session_id}");
     let mut items = Vec::new();
     let mut cancelled = false;
@@ -143,7 +144,22 @@ pub async fn run_health_scan<R: Runtime>(
     }
     if !cancelled {
         if let (Some(gw), Some(ip), Some(name)) = (&reach_gw, &reach_ip, &reach_name) {
-            push_or_stop!(synthesize_dns_vs_ip(gw, ip, name));
+            let status_for = |key: &str| {
+                items
+                    .iter()
+                    .find(|check| check.key == key)
+                    .map(|check| check.status.as_str())
+                    .unwrap_or("skip")
+            };
+            let diagnosis = synthesize_dns_vs_ip(
+                gw,
+                ip,
+                name,
+                status_for("dns.servers"),
+                status_for("dns.resolve_name"),
+                status_for("hosts.override"),
+            );
+            push_or_stop!(diagnosis);
         }
     }
     if !cancelled {
@@ -918,6 +934,9 @@ fn synthesize_dns_vs_ip(
     gw: &HealthCheckItem,
     ip: &HealthCheckItem,
     name: &HealthCheckItem,
+    dns_servers_status: &str,
+    dns_resolution_status: &str,
+    hosts_override_status: &str,
 ) -> HealthCheckItem {
     let g = gw.status.as_str();
     let p = ip.status.as_str();
@@ -933,9 +952,21 @@ fn synthesize_dns_vs_ip(
             "fail",
             "Public IP unreachable → uplink / ISP / firewall".to_string(),
         ),
-        (true, _, "pass", "fail") => (
+        (true, _, "pass", "fail") if dns_resolution_status == "fail" => (
             "fail",
-            "DNS or hosts problem (IP ok, name fail)".to_string(),
+            "DNS resolution failed while the public IP probe passed".to_string(),
+        ),
+        (true, _, "pass", "fail") if dns_servers_status == "fail" => (
+            "fail",
+            "DNS server configuration is unavailable while the name probe failed".to_string(),
+        ),
+        (true, _, "pass", "fail") if hosts_override_status == "fail" => (
+            "fail",
+            "Suspicious hosts overrides were found while the name probe failed".to_string(),
+        ),
+        (true, _, "pass", "fail") => (
+            "warn",
+            "Name probe failed, but DNS and hosts checks did not establish the cause".to_string(),
         ),
         (true, _, "pass", "pass") => (
             "pass",
@@ -1113,6 +1144,9 @@ mod tests {
             &hi("reach.gateway", "skip", "tunnel"),
             &hi("reach.public_ip", "pass", "ok"),
             &hi("reach.public_name", "pass", "ok"),
+            "pass",
+            "pass",
+            "pass",
         );
         assert_eq!(r.status, "pass");
         assert!(!r.detail.as_deref().unwrap_or("").contains("LAN"));
@@ -1124,8 +1158,44 @@ mod tests {
             &hi("reach.gateway", "fail", "No gateway"),
             &hi("reach.public_ip", "pass", "ok"),
             &hi("reach.public_name", "pass", "ok"),
+            "pass",
+            "pass",
+            "pass",
         );
         assert_eq!(r.status, "fail");
         assert!(r.detail.as_deref().unwrap_or("").contains("LAN"));
+    }
+
+    #[test]
+    fn dns_vs_ip_requires_dns_evidence_before_diagnosing_name_failure_as_dns() {
+        let gateway = hi("reach.gateway", "skip", "tunnel");
+        let public_ip = hi("reach.public_ip", "pass", "ok");
+        let name = hi("reach.public_name", "fail", "HTTP timed out");
+
+        let dns_failure = synthesize_dns_vs_ip(&gateway, &public_ip, &name, "pass", "fail", "pass");
+        assert_eq!(dns_failure.status, "fail");
+        assert!(dns_failure
+            .detail
+            .as_deref()
+            .unwrap_or("")
+            .starts_with("DNS resolution failed"));
+
+        let hosts_failure =
+            synthesize_dns_vs_ip(&gateway, &public_ip, &name, "pass", "pass", "fail");
+        assert_eq!(hosts_failure.status, "fail");
+        assert!(hosts_failure
+            .detail
+            .as_deref()
+            .unwrap_or("")
+            .starts_with("Suspicious hosts overrides"));
+
+        let unresolved_cause =
+            synthesize_dns_vs_ip(&gateway, &public_ip, &name, "pass", "pass", "pass");
+        assert_eq!(unresolved_cause.status, "warn");
+        assert!(unresolved_cause
+            .detail
+            .as_deref()
+            .unwrap_or("")
+            .starts_with("Name probe failed"));
     }
 }

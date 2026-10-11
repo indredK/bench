@@ -274,6 +274,66 @@ pub struct PingProbeResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stddev_rtt_ms: Option<f64>,
     pub samples: Vec<PingSample>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    pub cancelled: bool,
+    pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PingSampleEvent {
+    pub session_id: String,
+    pub sample: PingSample,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingPingSample {
+    pub seq: u32,
+    pub rtt_ms: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingPingResult {
+    pub target: String,
+    pub location: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub probe_city: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub probe_country: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_address: Option<String>,
+    pub packets_sent: u32,
+    pub packets_received: u32,
+    pub loss_percent: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_rtt_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avg_rtt_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_rtt_ms: Option<f64>,
+    pub samples: Vec<GlobalpingPingSample>,
+    pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingHttpResult {
+    pub target: String,
+    pub location: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub probe_city: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub probe_country: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ttfb_ms: Option<f64>,
+    pub measurement_status: String,
     pub command_hint: String,
 }
 
@@ -530,6 +590,7 @@ pub struct Ipv6StackResult {
     /// ok | partial | unavailable | fail
     pub status: String,
     pub link_local: Vec<String>,
+    pub unique_local: Vec<String>,
     pub global: Vec<String>,
     pub aaaa_ok: bool,
     pub aaaa_addrs: Vec<String>,
@@ -607,8 +668,21 @@ pub struct WhoisInfo {
     pub raw_text: String,
     pub partial: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<WhoisErrorCode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_status: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WhoisErrorCode {
+    RequestFailed,
+    HttpError,
+    BodyReadFailed,
+    ResponseTruncated,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -661,7 +735,7 @@ pub struct PortScanResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NatProbeResult {
-    /// stun-mapped | blocked-or-timeout | unknown | fail
+    /// consistent-across-servers | varied-across-servers | blocked-or-timeout
     pub nat_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mapped_address: Option<String>,
@@ -670,6 +744,19 @@ pub struct NatProbeResult {
     pub detail: Option<String>,
     pub elapsed_ms: f64,
     pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NtpSourceResult {
+    pub server: String,
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset_seconds: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rtt_seconds: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -684,6 +771,7 @@ pub struct NtpProbeResult {
     pub severity: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    pub sources: Vec<NtpSourceResult>,
     pub elapsed_ms: f64,
     pub command_hint: String,
 }
@@ -704,8 +792,6 @@ pub struct ArpNeighbor {
 pub struct LanDiscoveryResult {
     pub mode: String,
     pub neighbors: Vec<ArpNeighbor>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
     /// none | quiet | permission | isolation | unknown
     #[serde(skip_serializing_if = "Option::is_none")]
     pub empty_reason: Option<String>,
@@ -717,10 +803,26 @@ pub struct LanDiscoveryResult {
     pub command_hint: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LanServiceProtocol {
+    Mdns,
+    Ssdp,
+}
+
+impl LanServiceProtocol {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Mdns => "mdns",
+            Self::Ssdp => "ssdp",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LanServiceItem {
-    pub protocol: String,
+    pub protocol: LanServiceProtocol,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_type: Option<String>,
@@ -728,17 +830,27 @@ pub struct LanServiceItem {
     pub host: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub port: Option<u16>,
-    pub detail: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub txt_properties: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LanServiceIssue {
+    pub protocol: LanServiceProtocol,
+    pub code: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LanServicesResult {
     pub items: Vec<LanServiceItem>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
+    pub issues: Vec<LanServiceIssue>,
     pub elapsed_ms: f64,
-    pub command_hint: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

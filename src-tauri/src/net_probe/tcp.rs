@@ -9,6 +9,10 @@ use tokio::time::timeout;
 const MAX_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_TIMEOUT_MS: u64 = 3_000;
 
+fn command_hint(host: &str, port: u16, timeout_ms: u64) -> String {
+    format!("tcpConnect(local, {host:?}, {port}, {timeout_ms})")
+}
+
 pub async fn tcp_connect(
     host: String,
     port: u16,
@@ -21,7 +25,7 @@ pub async fn tcp_connect(
     let timeout_ms = timeout_ms
         .unwrap_or(DEFAULT_TIMEOUT_MS)
         .clamp(100, MAX_TIMEOUT_MS);
-    let command_hint = format!("tcpConnect(local, '{host}', {port}, {timeout_ms})");
+    let command_hint = command_hint(&host, port, timeout_ms);
 
     let addr_str = format!("{host}:{port}");
     let addrs = match tokio::task::spawn_blocking({
@@ -100,5 +104,18 @@ pub async fn tcp_connect(
             message: Some(format!("Timed out after {timeout_ms}ms")),
             command_hint,
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::command_hint;
+
+    #[test]
+    fn command_hint_escapes_host_input_and_shows_the_timeout() {
+        assert_eq!(
+            command_hint("lab'\nnode", 443, 3_000),
+            "tcpConnect(local, \"lab'\\nnode\", 443, 3000)"
+        );
     }
 }
