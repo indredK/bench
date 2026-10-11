@@ -7,6 +7,7 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
 import type { TracerouteHop, TracerouteResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
@@ -35,6 +36,10 @@ export function TraceroutePanel({
   const [target, setTarget] = useState("1.1.1.1")
   const [maxTtl, setMaxTtl] = useState("20")
   const [rounds, setRounds] = useState("3")
+  const parsedMaxTtl = parseBoundedIntegerInput(maxTtl, 1, 32)
+  const parsedRounds = parseBoundedIntegerInput(rounds, 1, 10)
+  const maxTtlError = parsedMaxTtl == null
+  const roundsError = parsedRounds == null
 
   // 跑动中只渲染本轮 streaming 跳数: 旧 result 优先会遮蔽新一轮逐跳进度。
   const hops = loading ? streamingHops : result?.hops?.length ? result.hops : streamingHops
@@ -74,12 +79,22 @@ export function TraceroutePanel({
               </label>
               <Input
                 id="np-tr-ttl"
+                type="number"
+                min={1}
+                max={32}
+                step={1}
                 value={maxTtl}
                 onChange={(e) => setMaxTtl(e.target.value)}
-                inputMode="numeric"
                 autoComplete="off"
                 disabled={loading}
+                aria-invalid={maxTtlError}
+                aria-describedby={maxTtlError ? "np-tr-ttl-error" : undefined}
               />
+              {maxTtlError ? (
+                <p id="np-tr-ttl-error" className="text-destructive text-xs" role="alert">
+                  {t("networkProbe.traceroute.maxTtlInvalid")}
+                </p>
+              ) : null}
             </div>
             <div className="w-20 space-y-1">
               <label className="text-xs font-medium" htmlFor="np-tr-rounds">
@@ -87,12 +102,22 @@ export function TraceroutePanel({
               </label>
               <Input
                 id="np-tr-rounds"
+                type="number"
+                min={1}
+                max={10}
+                step={1}
                 value={rounds}
                 onChange={(e) => setRounds(e.target.value)}
-                inputMode="numeric"
                 autoComplete="off"
                 disabled={loading}
+                aria-invalid={roundsError}
+                aria-describedby={roundsError ? "np-tr-rounds-error" : undefined}
               />
+              {roundsError ? (
+                <p id="np-tr-rounds-error" className="text-destructive text-xs" role="alert">
+                  {t("networkProbe.traceroute.roundsInvalid")}
+                </p>
+              ) : null}
             </div>
             <CommandHint
               hint={t("networkProbe.cmd.traceroute", {
@@ -104,9 +129,17 @@ export function TraceroutePanel({
               <Button
                 type="button"
                 disabled={
-                  loading || !toolEnabled || !target.trim() || !Number(maxTtl) || !Number(rounds)
+                  loading ||
+                  !toolEnabled ||
+                  !target.trim() ||
+                  parsedMaxTtl == null ||
+                  parsedRounds == null
                 }
-                onClick={() => onRun(target, Number(maxTtl), Number(rounds))}
+                onClick={() => {
+                  if (parsedMaxTtl != null && parsedRounds != null) {
+                    onRun(target, parsedMaxTtl, parsedRounds)
+                  }
+                }}
               >
                 {loading ? t("networkProbe.traceroute.running") : t("networkProbe.traceroute.run")}
               </Button>

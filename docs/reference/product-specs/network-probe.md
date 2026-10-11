@@ -136,7 +136,7 @@ L1 → L2 映射：
 
 **交互细节**：
 
-- **输入护栏（前后端校验）**：ping 次数 clamp `[1,20]`（默认 4）、间隔 clamp `[100,5000]ms`；traceroute `maxTtl` 默认 20、`rounds` 默认 3；端口扫描输入最多 2048 UTF-8 字节、最多 256 个不同端口，renderer 在字段旁显示本地化格式错误并禁用扫描，Rust IPC 仍独立校验并按端口去重；自定义站点最多 24 个且去重；非法 host / 空端口列表返回 `INVALID_INPUT` 并走错误横幅。
+- **输入护栏（前后端校验）**：Ping 次数为整数 `[1,20]`（默认 4），间隔 clamp `[100,5000]ms`；TCP 端口为整数 `[1,65535]`；Traceroute `maxTtl` 为整数 `[1,32]`（默认 20），`rounds` 为整数 `[1,10]`（默认 3）。renderer 对这些数值字段显示本地化内联错误并禁用无效提交，处理完成后恢复提交；Rust 保留整数 IPC 类型和边界夹限。端口扫描输入最多 2048 UTF-8 字节、最多 256 个不同端口，renderer 在字段旁显示本地化格式错误并禁用扫描，Rust IPC 仍独立校验并按端口去重；自定义站点最多 24 个且去重；非法 host / 空端口列表返回 `INVALID_INPUT` 并走错误横幅。
 - **单工具防重入**：ping / dns / tcp / custom / traceroute / mtu / egress / speed 各自独立 loading，运行中按钮禁用 + 运行中文案，不可重复触发；可取消的长任务（traceroute / speed）运行中同位置显示红色「取消」按钮。
 - **ping 全丢包提示**：`packetsReceived === 0` 时命令日志追加「可能需 Local Network 权限」提示（不静默）。
 - **测速冷却**：测速源失败/不可达时 `speedCooldownUntil = now + 30s`，期间「开始测速」禁用并倒计时提示（`测速源失败 — {{seconds}} 秒后可重试`），冷却结束自动恢复；取消成功不计入冷却。

@@ -7,6 +7,7 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
 import type { TcpConnectResult } from "@/lib/tauri/types/network-probe"
 
 interface TcpConnectPanelProps {
@@ -19,6 +20,8 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
   const { t } = useTranslation()
   const [host, setHost] = useState("1.1.1.1")
   const [port, setPort] = useState("443")
+  const parsedPort = parseBoundedIntegerInput(port, 1, 65535)
+  const portError = parsedPort == null
 
   return (
     <ProbePanelShell
@@ -43,11 +46,21 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
               </label>
               <Input
                 id="np-tcp-port"
+                type="number"
+                min={1}
+                max={65535}
+                step={1}
                 value={port}
                 onChange={(e) => setPort(e.target.value)}
-                inputMode="numeric"
                 autoComplete="off"
+                aria-invalid={portError}
+                aria-describedby={portError ? "np-tcp-port-error" : undefined}
               />
+              {portError ? (
+                <p id="np-tcp-port-error" className="text-destructive text-xs" role="alert">
+                  {t("networkProbe.tcp.portInvalid")}
+                </p>
+              ) : null}
             </div>
             <CommandHint
               hint={t("networkProbe.cmd.tcpConnect", {
@@ -57,8 +70,10 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
             >
               <Button
                 type="button"
-                disabled={loading || !host.trim() || !Number(port)}
-                onClick={() => onRun(host, Number(port))}
+                disabled={loading || !host.trim() || parsedPort == null}
+                onClick={() => {
+                  if (parsedPort != null) onRun(host, parsedPort)
+                }}
               >
                 {loading ? t("networkProbe.tcp.running") : t("networkProbe.tcp.run")}
               </Button>

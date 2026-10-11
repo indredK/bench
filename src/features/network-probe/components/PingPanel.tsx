@@ -7,6 +7,7 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
 import type { PingProbeResult } from "@/lib/tauri/types/network-probe"
 
 interface PingPanelProps {
@@ -21,6 +22,8 @@ export function PingPanel({ loading, result, toolEnabled, toolStatus, onRun }: P
   const { t } = useTranslation()
   const [target, setTarget] = useState("1.1.1.1")
   const [count, setCount] = useState("4")
+  const parsedCount = parseBoundedIntegerInput(count, 1, 20)
+  const countError = parsedCount == null
   const showLocalNetworkHint =
     result != null && result.packetsSent > 0 && result.packetsReceived === 0
 
@@ -55,11 +58,21 @@ export function PingPanel({ loading, result, toolEnabled, toolStatus, onRun }: P
               </label>
               <Input
                 id="np-ping-count"
+                type="number"
+                min={1}
+                max={20}
+                step={1}
                 value={count}
                 onChange={(e) => setCount(e.target.value)}
-                inputMode="numeric"
                 autoComplete="off"
+                aria-invalid={countError}
+                aria-describedby={countError ? "np-ping-count-error" : undefined}
               />
+              {countError ? (
+                <p id="np-ping-count-error" className="text-destructive text-xs" role="alert">
+                  {t("networkProbe.ping.countInvalid")}
+                </p>
+              ) : null}
             </div>
             <CommandHint
               hint={t("networkProbe.cmd.pingHost", {
@@ -69,8 +82,10 @@ export function PingPanel({ loading, result, toolEnabled, toolStatus, onRun }: P
             >
               <Button
                 type="button"
-                disabled={loading || !toolEnabled || !target.trim() || !Number(count)}
-                onClick={() => onRun(target, Number(count))}
+                disabled={loading || !toolEnabled || !target.trim() || parsedCount == null}
+                onClick={() => {
+                  if (parsedCount != null) onRun(target, parsedCount)
+                }}
               >
                 {loading ? t("networkProbe.ping.running") : t("networkProbe.ping.run")}
               </Button>
