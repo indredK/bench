@@ -3,6 +3,7 @@
  */
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
+import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { OpenSystemNetworkSettingsButton } from "@/features/network-probe/components/OpenSystemNetworkSettingsButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
@@ -50,18 +51,17 @@ export function OverviewPanel({
     <ProbePanelShell
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" onClick={onRefresh} disabled={loading}>
-            {loading ? t("networkProbe.overview.refreshing") : t("networkProbe.overview.refresh")}
-          </Button>
+          <CommandHint hint={t("networkProbe.cmd.summary")}>
+            <Button type="button" size="sm" onClick={onRefresh} disabled={loading}>
+              {loading ? t("networkProbe.overview.refreshing") : t("networkProbe.overview.refresh")}
+            </Button>
+          </CommandHint>
           <OpenSystemNetworkSettingsButton
             opening={openingSettings}
             label={t("networkProbe.overview.openSettings")}
             onOpen={onOpenSettings}
             size="sm"
           />
-          <span className="text-muted-foreground font-mono text-xs">
-            {t("networkProbe.cmd.summary")}
-          </span>
         </div>
       }
     >

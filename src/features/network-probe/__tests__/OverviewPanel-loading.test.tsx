@@ -8,6 +8,14 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }))
 
+vi.mock("@/components/common/CommandHint", () => ({
+  CommandHint: ({ hint, children }: { hint: string; children: ReactNode }) => (
+    <span data-testid="overview-command-hint" data-hint={hint}>
+      {children}
+    </span>
+  ),
+}))
+
 vi.mock("@/features/network-probe/components/ProbePanelShell", () => ({
   ProbePanelShell: ({ toolbar, children }: { toolbar: ReactNode; children: ReactNode }) => (
     <div>
@@ -76,6 +84,24 @@ describe("OverviewPanel initial loading", () => {
     expect(screen.getAllByTestId("overview-loading-skeleton")).toHaveLength(8)
     expect(screen.queryByText("networkProbe.overview.empty")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "networkProbe.overview.refreshing" })).toBeDisabled()
+  })
+
+  it("keeps the IPC command in the refresh button preview instead of the toolbar", () => {
+    const onRefresh = vi.fn()
+    render(
+      <OverviewPanel
+        {...createProps(false, onRefresh)}
+        summary={{ interfaces: [], dnsServers: [] }}
+      />,
+    )
+
+    expect(screen.getByTestId("overview-command-hint")).toHaveAttribute(
+      "data-hint",
+      "networkProbe.cmd.summary",
+    )
+    expect(screen.queryByText("networkProbe.cmd.summary")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.overview.refresh" }))
+    expect(onRefresh).toHaveBeenCalledTimes(1)
   })
 
   it("keeps the last summary visible while refreshing", () => {
