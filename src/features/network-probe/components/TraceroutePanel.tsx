@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
 import type { TracerouteHop, TracerouteResult } from "@/lib/tauri/types/network-probe"
@@ -14,6 +15,7 @@ import { cn } from "@/lib/utils"
 interface TraceroutePanelProps {
   loading: boolean
   canCancel: boolean
+  cancelling: boolean
   result: TracerouteResult | null
   streamingHops: TracerouteHop[]
   toolEnabled: boolean
@@ -25,6 +27,7 @@ interface TraceroutePanelProps {
 export function TraceroutePanel({
   loading,
   canCancel,
+  cancelling,
   result,
   streamingHops,
   toolEnabled,
@@ -145,11 +148,11 @@ export function TraceroutePanel({
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("networkProbe.traceroute.cancel")}
-                </Button>
-              </CommandHint>
+              <NetworkProbeCancelButton
+                label={t("networkProbe.traceroute.cancel")}
+                cancelling={cancelling}
+                onCancel={onCancel}
+              />
             ) : null}
           </div>
         </>

@@ -29,6 +29,7 @@ function createProps() {
   return {
     loading: false,
     canCancel: false,
+    cancelling: false,
     result: null,
     streaming: [],
     toolEnabled: true,

@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Runtime};
-use trippy_core::{Builder, PrivilegeMode, Protocol};
+use trippy_core::{Builder, Port, PortDirection, PrivilegeMode, Protocol, Tracer};
 
 pub const TRACEROUTE_HOP_EVENT: &str = "network-probe:traceroute-hop";
 pub const SCAN_SESSION_EVENT: &str = "network-probe:scan-session";
@@ -17,6 +17,7 @@ const DEFAULT_ROUNDS: usize = 3;
 const MAX_ROUNDS: usize = 10;
 const DEFAULT_MAX_TTL: u8 = 20;
 const MAX_TTL_CAP: u8 = 32;
+const UDP_SOURCE_PORT: u16 = 33434;
 
 pub async fn run_traceroute<R: Runtime>(
     app: Option<&AppHandle<R>>,
@@ -184,14 +185,7 @@ fn trace_once<R: Runtime>(
     let cancelled_flag = Arc::new(AtomicBool::new(false));
     let cancelled_cb = cancelled_flag.clone();
 
-    let tracer = Builder::new(ip)
-        .privilege_mode(mode)
-        .protocol(proto)
-        .max_rounds(Some(rounds))
-        .first_ttl(1)
-        .max_ttl(max_ttl)
-        .build()
-        .map_err(|e| AppError::new("TRACEROUTE_BUILD", e.to_string()))?;
+    let tracer = build_tracer(ip, max_ttl, rounds, mode, proto)?;
 
     let run_result = catch_unwind(AssertUnwindSafe(|| {
         tracer.run_with(|_round| {
@@ -257,6 +251,65 @@ fn trace_once<R: Runtime>(
         return Ok((hops, false));
     }
     Ok((hops, cancelled))
+}
+
+fn build_tracer(
+    ip: IpAddr,
+    max_ttl: u8,
+    rounds: usize,
+    mode: PrivilegeMode,
+    proto: Protocol,
+) -> Result<Tracer, AppError> {
+    let builder = Builder::new(ip)
+        .privilege_mode(mode)
+        .protocol(proto)
+        .max_rounds(Some(rounds))
+        .first_ttl(1)
+        .max_ttl(max_ttl);
+    let builder = if proto == Protocol::Udp {
+        builder.port_direction(PortDirection::FixedSrc(Port(UDP_SOURCE_PORT)))
+    } else {
+        builder
+    };
+    builder
+        .build()
+        .map_err(|e| AppError::new("TRACEROUTE_BUILD", e.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unprivileged_udp_builder_uses_the_required_fixed_source_port() {
+        let tracer = build_tracer(
+            IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+            32,
+            MAX_ROUNDS,
+            PrivilegeMode::Unprivileged,
+            Protocol::Udp,
+        )
+        .expect("unprivileged UDP configuration must build");
+
+        assert_eq!(
+            tracer.port_direction(),
+            PortDirection::FixedSrc(Port(UDP_SOURCE_PORT))
+        );
+    }
+
+    #[test]
+    fn icmp_builder_keeps_ports_unconfigured() {
+        let tracer = build_tracer(
+            IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+            32,
+            MAX_ROUNDS,
+            PrivilegeMode::Privileged,
+            Protocol::Icmp,
+        )
+        .expect("privileged ICMP configuration must build");
+
+        assert_eq!(tracer.port_direction(), PortDirection::None);
+    }
 }
 
 fn hop_from_trippy(h: &trippy_core::Hop) -> TracerouteHop {

@@ -237,6 +237,7 @@ interface NetworkProbeState {
   setActiveSessionId: (kind: NetworkProbeKind, sessionId: string | null) => void
   clearActiveSessionId: (kind: NetworkProbeKind, expectedSessionId?: string | null) => void
   setCancelRequestedSessionId: (kind: NetworkProbeKind, sessionId: string | null) => void
+  clearCancelRequestedSessionId: (kind: NetworkProbeKind, expectedSessionId: string) => void
   appendCommandLog: (line: string) => void
   clearCommandLog: () => void
   setLoadingSummary: (loading: boolean) => void
@@ -567,6 +568,16 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
         [kind]: sessionId,
       },
     })),
+  clearCancelRequestedSessionId: (kind, expectedSessionId) =>
+    set((state) => {
+      if (state.cancelRequestedSessionIdByKind[kind] !== expectedSessionId) return {}
+      return {
+        cancelRequestedSessionIdByKind: {
+          ...state.cancelRequestedSessionIdByKind,
+          [kind]: null,
+        },
+      }
+    }),
   appendCommandLog: (line) =>
     set((state) => ({
       commandLog: [...state.commandLog.slice(-199), `${new Date().toISOString()} ${line}`],

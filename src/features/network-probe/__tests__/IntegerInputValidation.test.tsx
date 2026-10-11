@@ -100,6 +100,7 @@ describe("network probe integer fields", () => {
       <TraceroutePanel
         loading={false}
         canCancel={false}
+        cancelling={false}
         result={null}
         streamingHops={[]}
         toolEnabled

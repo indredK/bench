@@ -67,6 +67,32 @@ export function useNetworkProbeController() {
   const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
   // 会话按探测种类分槽: 面板只读自己那一槽, 决定 Cancel 目标与按钮可见性。
   const activeSessionIdByKind = useNetworkProbeStore((s) => s.activeSessionIdByKind)
+  const cancelRequestedSessionIdByKind = useNetworkProbeStore(
+    (s) => s.cancelRequestedSessionIdByKind,
+  )
+  const cancellingByKind = {
+    health:
+      activeSessionIdByKind.health != null &&
+      cancelRequestedSessionIdByKind.health === activeSessionIdByKind.health,
+    sites:
+      activeSessionIdByKind.sites != null &&
+      cancelRequestedSessionIdByKind.sites === activeSessionIdByKind.sites,
+    traceroute:
+      activeSessionIdByKind.traceroute != null &&
+      cancelRequestedSessionIdByKind.traceroute === activeSessionIdByKind.traceroute,
+    speed:
+      activeSessionIdByKind.speed != null &&
+      cancelRequestedSessionIdByKind.speed === activeSessionIdByKind.speed,
+    ports:
+      activeSessionIdByKind.ports != null &&
+      cancelRequestedSessionIdByKind.ports === activeSessionIdByKind.ports,
+    pcap:
+      activeSessionIdByKind.pcap != null &&
+      cancelRequestedSessionIdByKind.pcap === activeSessionIdByKind.pcap,
+    lan:
+      activeSessionIdByKind.lan != null &&
+      cancelRequestedSessionIdByKind.lan === activeSessionIdByKind.lan,
+  }
   const commandLog = useNetworkProbeStore((s) => s.commandLog)
   const loadingSummary = useNetworkProbeStore((s) => s.loadingSummary)
   const loadingTcp = useNetworkProbeStore((s) => s.loadingTcp)
@@ -325,6 +351,7 @@ export function useNetworkProbeController() {
     reportHistory,
     securityAuthorized,
     activeSessionIdByKind,
+    cancellingByKind,
     commandLog,
     loadingSummary,
     loadingTcp,

@@ -110,7 +110,7 @@ Tokio TcpStream::connect 带 timeout
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | 特权探测 | `trippy_privilege::Privilege::discover()`                                                                                                  |
 | 无特权   | `PrivilegeMode::Unprivileged`（macOS 对 ICMP 通常 `needs_privileges=false`，见 [Trippy Privileges](https://trippy.rs/guides/privileges/)） |
-| 协议     | 默认 ICMP；可选 UDP/TCP（高级选项，MVP 可先 ICMP）                                                                                         |
+| 协议     | 优先特权 ICMP；不可用时自动降级无特权 UDP，并按 `trippy-core` 要求设置固定源端口，由可变目标端口识别 UDP 探测响应                          |
 | 流式     | 每 hop：ttl、addrs、rtt、loss%、可选 ASN                                                                                                   |
 | 失败诚实 | 无能力时 `unsupported`/`degraded`，**禁止空跳点表假装成功**（design §11.4）                                                                |
 | 取消     | `cancelScan`；trippy 侧停止 round                                                                                                          |

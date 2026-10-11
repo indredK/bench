@@ -1573,6 +1573,7 @@
   "networkProbe": {
     "title": "Network Probe",
     "subtitle": "First-aid diagnostics and targeted probes (module 1.0 / MVP A+B).",
+    "cancelling": "Cancelling…",
     "nav": {
       "l1": "Primary sections",
       "l2": "Tools",

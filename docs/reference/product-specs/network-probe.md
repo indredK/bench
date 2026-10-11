@@ -137,7 +137,7 @@ L1 → L2 映射：
 **交互细节**：
 
 - **输入护栏（前后端校验）**：Ping 次数为整数 `[1,20]`（默认 4），间隔 clamp `[100,5000]ms`；TCP 端口为整数 `[1,65535]`；Traceroute `maxTtl` 为整数 `[1,32]`（默认 20），`rounds` 为整数 `[1,10]`（默认 3）。renderer 对这些数值字段显示本地化内联错误并禁用无效提交，处理完成后恢复提交；Rust 保留整数 IPC 类型和边界夹限。端口扫描输入最多 2048 UTF-8 字节、最多 256 个不同端口，renderer 在字段旁显示本地化格式错误并禁用扫描，Rust IPC 仍独立校验并按端口去重；自定义站点最多 24 个且去重；非法 host / 空端口列表返回 `INVALID_INPUT` 并走错误横幅。
-- **单工具防重入**：ping / dns / tcp / custom / traceroute / mtu / egress / speed 各自独立 loading，运行中按钮禁用 + 运行中文案，不可重复触发；可取消的长任务（traceroute / speed）运行中同位置显示红色「取消」按钮。
+- **单工具防重入与取消反馈**：ping / dns / tcp / custom / traceroute / mtu / egress / speed 各自独立 loading，运行中按钮禁用 + 运行中文案，不可重复触发；health / 站点探测 / traceroute / speed / 端口扫描 / 抓包诊断 / ARP 发现等可取消任务共用取消按钮。请求发出后按钮禁用并显示本地化「正在取消…」，任务结束后显示取消结果；取消 IPC 失败时恢复按钮，允许重试。
 - **ping 全丢包提示**：`packetsReceived === 0` 时命令日志追加「可能需 Local Network 权限」提示（不静默）。
 - **测速冷却**：测速源失败/不可达时 `speedCooldownUntil = now + 30s`，期间「开始测速」禁用并倒计时提示（`测速源失败 — {{seconds}} 秒后可重试`），冷却结束自动恢复；取消成功不计入冷却。
 - **测速冷却双重防护**：除按钮禁用外，`runSpeedTest` 用例入口 `if (speedCooldownUntil > now) return` 短路（连点/脚本调用也不触发）；冷却以 **500ms interval** 倒计时刷新；**源下拉在 `loading || coolingDown` 时同样 disabled**；结果卡 `unavailable`（`!ok && !cancelled && downloadMbps==null`）额外显示「测速源不可用」琥珀提示。
@@ -263,12 +263,13 @@ L1 → L2 映射：
 | 能力包缺失                               | `tools.<key> = missing_pack`                               | 面板禁用 + 「管理能力包」入口跳转安装；安装后自动刷新                                        |
 | 外部工具缺失（如 nmap）                  | externalTools 反映                                         | 端口扫描降级为 TCP connect（degraded），提示安装 adv-scanner/nmap 可启用 SYN                 |
 | 测速源不可达                             | `!result.ok && !cancelled`                                 | 30s 冷却倒计时禁用，可换源；取消成功不计冷却                                                 |
-| 取消命令本身失败                         | `cancelFailed`                                             | 错误横幅提示；会话取消在前后端均幂等                                                         |
+| 取消命令本身失败                         | `cancelFailed`                                             | 错误横幅提示；清除当前会话的取消请求标记并恢复按钮以便重试，不影响较新的会话标记             |
 | 一键诊断部分子项失败                     | `runOfflineDiagnostics` 用 `Promise.all`，任一失败整体失败 | `offlineFailed` 错误横幅、已成功子项不落 store；改用各子面板单独运行可逐项定位               |
 
 ### 13.3 幂等 / 取消 / 并发保护
 
-- **会话取消幂等（前后端双保险）**：前端 `cancelRequestedSessionId` 保证同一 `sessionId` 只发一次 `cancelScan`；后端 `session.rs` 以 `HashSet` 记录已取消 id，重复取消为 no-op 成功。新会话（新 sessionId）自动重置取消标记（有单测 `cancel-idempotency.test.ts`）。
+- **会话取消幂等（前后端双保险）**：前端 `cancelRequestedSessionId` 保证同一 `sessionId` 只发一次 `cancelScan`；按钮随后禁用并显示「正在取消…」。取消 IPC 失败只清除与失败请求匹配的标记，恢复该会话的重试入口，不会覆盖较新会话的请求。后端 `session.rs` 以 `HashSet` 记录已取消 id，重复取消为 no-op 成功。新会话（新 sessionId）自动重置取消标记（有单测 `cancel-idempotency.test.ts`）。
+- **站点探测可中断当前请求**：取消会丢弃正在等待的 HTTP/ICMP 探测 future，保留已完成样本并返回 `cancelled=true`；若没有已完成样本，面板仍显示「已取消」状态。
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
 - **单工具防重入**：每个 use-case 入口 `if (store.loadingX) return`；同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。

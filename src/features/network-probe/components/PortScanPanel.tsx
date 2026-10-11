@@ -7,6 +7,7 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { MAX_PORT_RANGE_INPUT_BYTES, validatePortRange } from "@/features/network-probe/port-range"
 import type { PortSampleEvent, PortScanResult } from "@/lib/tauri/types/network-probe"
@@ -14,6 +15,7 @@ import type { PortSampleEvent, PortScanResult } from "@/lib/tauri/types/network-
 interface PortScanPanelProps {
   loading: boolean
   canCancel: boolean
+  cancelling: boolean
   result: PortScanResult | null
   streaming: PortSampleEvent[]
   toolEnabled: boolean
@@ -39,6 +41,7 @@ function isPrivateOrLocal(host: string): boolean {
 export function PortScanPanel({
   loading,
   canCancel,
+  cancelling,
   result,
   streaming,
   toolEnabled,
@@ -146,11 +149,11 @@ export function PortScanPanel({
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("networkProbe.ports.cancel")}
-                </Button>
-              </CommandHint>
+              <NetworkProbeCancelButton
+                label={t("networkProbe.ports.cancel")}
+                cancelling={cancelling}
+                onCancel={onCancel}
+              />
             ) : null}
           </div>
         </>

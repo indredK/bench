@@ -122,6 +122,65 @@ describe("network-probe cancel idempotency (A4-4)", () => {
     expect(cancelScan).toHaveBeenCalledTimes(1)
   })
 
+  it("clears a failed cancel request so the user can retry", async () => {
+    let resolveScan: (value: unknown) => void = () => {}
+    runHealthScan.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveScan = resolve
+        }),
+    )
+    cancelScan.mockRejectedValueOnce(new Error("temporary IPC failure"))
+    cancelScan.mockResolvedValueOnce(true)
+
+    const scanPromise = networkProbeUseCases.runHealthScan()
+    act(() => {
+      listeners.get(TAURI_EVENTS.networkProbe.scanSession)?.({
+        payload: { sessionId: "retry-session", kind: "health" },
+      })
+    })
+
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("health")
+    })
+    expect(useNetworkProbeStore.getState().cancelRequestedSessionIdByKind.health).toBeNull()
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.cancelFailed")
+
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("health")
+    })
+    expect(cancelScan).toHaveBeenCalledTimes(2)
+    expect(cancelScan).toHaveBeenLastCalledWith("retry-session")
+    expect(useNetworkProbeStore.getState().cancelRequestedSessionIdByKind.health).toBe(
+      "retry-session",
+    )
+    expect(useNetworkProbeStore.getState().error).toBeNull()
+
+    resolveScan(healthResult("retry-session", true))
+    await scanPromise
+  })
+
+  it("does not clear a newer session cancel request when an older IPC call fails", async () => {
+    useNetworkProbeStore.getState().setActiveSessionId("health", "old-session")
+    let rejectCancel: (error: Error) => void = () => {}
+    cancelScan.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectCancel = reject
+        }),
+    )
+
+    const oldCancel = networkProbeUseCases.cancelScan("health")
+    useNetworkProbeStore.getState().setActiveSessionId("health", "new-session")
+    await networkProbeUseCases.cancelScan("health")
+    rejectCancel(new Error("old IPC failure"))
+    await oldCancel
+
+    expect(useNetworkProbeStore.getState().cancelRequestedSessionIdByKind.health).toBe(
+      "new-session",
+    )
+  })
+
   it("does not push a cancelled health scan into report history", async () => {
     runHealthScan.mockResolvedValue(healthResult("session-2", true))
 

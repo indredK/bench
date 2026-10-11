@@ -307,11 +307,14 @@ export const networkProbeUseCases = {
     if (!sessionId) return
     // 幂等 (A4-4): 同一会话只允许发出一次 cancel 请求。
     if (store.cancelRequestedSessionIdByKind[kind] === sessionId) return
+    store.setError(null)
     store.setCancelRequestedSessionId(kind, sessionId)
     store.appendCommandLog(`cancelScan('${sessionId}')`)
     try {
       await networkProbeRepository.cancelScan(sessionId)
     } catch (error) {
+      // Clear only this request: a newer session may already have its own cancel marker.
+      store.clearCancelRequestedSessionId(kind, sessionId)
       store.setError({
         key: "networkProbe.errors.cancelFailed",
         fallback: getErrorMessage(error),

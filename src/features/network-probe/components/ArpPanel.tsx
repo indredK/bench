@@ -4,6 +4,7 @@
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
 
@@ -13,6 +14,7 @@ interface ArpPanelProps {
   toolEnabled: boolean
   toolStatus?: string
   canCancel?: boolean
+  cancelling: boolean
   onRun: () => void
   onCancel?: () => void
   onOpenSettings?: () => void
@@ -24,6 +26,7 @@ export function ArpPanel({
   toolEnabled,
   toolStatus,
   canCancel,
+  cancelling,
   onRun,
   onCancel,
   onOpenSettings,
@@ -62,11 +65,11 @@ export function ArpPanel({
               </Button>
             </CommandHint>
             {canCancel && onCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("common.cancel")}
-                </Button>
-              </CommandHint>
+              <NetworkProbeCancelButton
+                label={t("common.cancel")}
+                cancelling={cancelling}
+                onCancel={onCancel}
+              />
             ) : null}
             {onOpenSettings ? (
               <Button type="button" variant="outline" onClick={onOpenSettings}>

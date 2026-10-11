@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
 import {
   Select,
   SelectContent,
@@ -22,6 +23,7 @@ import type {
 interface SpeedPanelProps {
   loading: boolean
   canCancel: boolean
+  cancelling: boolean
   sources: SpeedSource[]
   result: SpeedTestResult | null
   sample: SpeedSampleEvent | null
@@ -36,6 +38,7 @@ interface SpeedPanelProps {
 export function SpeedPanel({
   loading,
   canCancel,
+  cancelling,
   sources,
   result,
   sample,
@@ -133,11 +136,11 @@ export function SpeedPanel({
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("networkProbe.speed.cancel")}
-                </Button>
-              </CommandHint>
+              <NetworkProbeCancelButton
+                label={t("networkProbe.speed.cancel")}
+                cancelling={cancelling}
+                onCancel={onCancel}
+              />
             ) : null}
           </div>
         </>
