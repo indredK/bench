@@ -31,7 +31,7 @@
 ### Wave 2 · Post-MVP-C（续）
 
 - [ ] **C2-2** Globalping 代理补全：remote ping / http + token（DNS multi 已交付，◐）。
-- [ ] **C2-3** 自有 agent 远程执行：TLS / 鉴权 / 限速贯通，`nodeId` 全链路（HTTPS 注册/健康检查/白名单已交付，远程执行待，◐）。
+- [ ] **C2-3** 自有 agent 远程执行：TLS / 鉴权 / 限速贯通，`nodeId` 全链路（HTTPS/WSS 注册与健康检查、白名单已交付，凭证鉴权和远程执行待，◐）。
 
 ## 待验证（真机 / 行为）
 
@@ -61,4 +61,5 @@
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
 - 2026-09-03：首版生成——依据 `docs/modules/network-probe/roadmap.md`（Wave 0–6）与 `docs/roadmap/ROADMAP.md` D-016，提炼 ⬜/◐ 未完成项为「待实现」「待验证」「远期」三档；产品说明见 `../product-specs/network-probe.md`。
-- 2026-10-06：修复 agent 增删重复提交：UI 共用节点 busy 状态，后端串行化 registry 读改写并原子保存；同标签 + 同规范化 HTTPS URL 幂等。WSS 端点改为明确拒绝，避免把不支持的协议显示为已注册节点；macOS 27.0.1 arm64 真机复测通过。
+- 2026-10-06：修复 agent 增删重复提交：UI 共用节点 busy 状态，后端串行化 registry 读改写并原子保存；同标签 + 同规范化 HTTPS URL 幂等。该版本当时明确拒绝 WSS，原因是健康检查尚未接通。
+- 2026-10-11：按用户确认支持 WSS，复用 `tokio-tungstenite` 与系统证书根；注册和刷新均检查 `/v1/health` 的 TLS WebSocket Ping/Pong，单端点 5 秒超时、最多 8 个并发检查；HTTPS 禁止重定向，registry 读取错误向调用方传播。macOS 27.0.1 arm64 隔离 QA 包真机验证：`wss://echo.websocket.org` 注册后显示「可达」，手动刷新仍可达；HTTP 明文地址提示不支持并禁用提交，带用户名/密码的 WSS 地址显示 URL 错误并禁用提交；预置旧版 `http://127.0.0.1:9` 注册记录在刷新后显示「暂不可达」。测试节点已移除，QA 包和专属数据已清理。

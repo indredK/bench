@@ -2104,17 +2104,24 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "对比本机与 Globalping 多地的 DNS 答案。可注册 HTTPS agent 作为自有探测节点。",
+      "hint": "对比本机与 Globalping 多地的 DNS 答案。可注册 HTTPS/WSS agent 作为自有探测节点。",
       "run": "多节点对比 DNS",
       "running": "对比中…",
       "working": "处理中…",
       "refresh": "刷新节点",
       "listTitle": "探测节点",
       "addTitle": "添加 agent",
-      "addHint": "端点必须为 https://。任意 shell 动作会被拒绝。",
+      "addHint": "端点必须为 HTTPS 或 WSS（https:// 或 wss://）。任意 shell 动作会被拒绝。",
       "labelPlaceholder": "名称",
       "domainPlaceholder": "example.com",
-      "endpointPlaceholder": "https://agent.example:8443",
+      "endpointPlaceholder": "https:// 或 wss://agent.example:8443",
+      "agentReachable": "可达",
+      "agentUnreachable": "暂不可达",
+      "endpointError": {
+        "invalid": "请输入有效的 HTTPS 或 WSS 地址。",
+        "scheme": "端点必须使用 HTTPS 或 WSS，明文连接不受支持。",
+        "credentials": "端点 URL 暂不支持用户名/密码、查询参数或片段，请移除后重试。"
+      },
       "addAgent": "添加 agent",
       "removeAgent": "移除",
       "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"

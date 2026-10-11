@@ -133,15 +133,18 @@ type ProbeNode = {
 
 见 design §4.4 摘要落地：
 
-| 项   | 约定                                                      |
-| ---- | --------------------------------------------------------- |
-| 传输 | HTTPS 或 WSS；禁止明文                                    |
-| 鉴权 | 每 agent token 或 mTLS；HMAC(timestamp+body)              |
-| 方法 | 白名单 tool id；**拒绝任意 shell**                        |
-| 限速 | 每 token QPS/并发；超限 → 429 语义                        |
-| SSRF | agent 拒绝被指使打云元数据/未声明目标                     |
-| 发现 | **手动**添加 endpoint；不做局域网自动扩散（防变僵尸网络） |
-| 密钥 | Keychain / 系统安全存储；不进前端持久化明文               |
+| 项       | 约定                                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 传输     | HTTPS 或 WSS；禁止明文                                                                                                   |
+| 健康检查 | HTTPS `GET /v1/health` 返回 2xx；WSS 在同一路径完成 TLS 升级并通过 Ping/Pong；单端点最多 5 秒，列表刷新最多并发 8 个检查 |
+| 鉴权     | 每 agent token 或 mTLS；HMAC(timestamp+body)                                                                             |
+| 方法     | 白名单 tool id；**拒绝任意 shell**                                                                                       |
+| 限速     | 每 token QPS/并发；超限 → 429 语义                                                                                       |
+| SSRF     | agent 拒绝被指使打云元数据/未声明目标                                                                                    |
+| 发现     | **手动**添加 endpoint；不做局域网自动扩散（防变僵尸网络）                                                                |
+| 密钥     | Keychain / 系统安全存储；不进前端持久化明文                                                                              |
+
+注册表只保存不含用户名/密码、查询参数和片段的端点 URL。TLS 使用系统证书根，HTTPS 不跟随重定向；健康检查只证明 agent 在线，不表示凭证鉴权或远程探测执行已启用。
 
 #### 对比视图
 
@@ -175,11 +178,11 @@ listProbeNodes(): ProbeNode[]
 
 `node.rs` 路由表：
 
-| kind           | 行为              |
-| -------------- | ----------------- |
-| `local`        | 本机执行          |
-| `remote-proxy` | Globalping 适配器 |
-| `remote-agent` | agent HTTP 客户端 |
+| kind           | 行为                                              |
+| -------------- | ------------------------------------------------- |
+| `local`        | 本机执行                                          |
+| `remote-proxy` | Globalping 适配器                                 |
+| `remote-agent` | HTTPS / WSS agent 健康检查；远程探测执行仍待 C2-3 |
 
 未知 `nodeId` → `INVALID_INPUT`；remote 未配置 → `UNSUPPORTED`（诚实）。
 

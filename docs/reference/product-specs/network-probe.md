@@ -164,13 +164,13 @@ L1 → L2 映射：
 
 ## 7. 发现（discover）L1
 
-| 面板    | 说明                                                                                                                                                                                                                                  |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| arp     | 局域网发现：ARP 缓存 + TCP /24 扫（degraded；特权 RAW 扫待 helper）；输出邻居表（ip/mac/iface/source）；空态区分 权限不足（引导开 Local Network 权限）/隔离/安静；可取消                                                              |
-| lan-svc | mDNS/DNS-SD + SSDP/UPnP 服务浏览（只读），输出 `LanServicesResult`                                                                                                                                                                    |
-| nat     | NAT 类型（多 STUN），输出 `NatProbeResult`                                                                                                                                                                                            |
-| ntp     | NTP 时间偏移（多源中位数），输出 `NtpProbeResult`                                                                                                                                                                                     |
-| nodes   | **多节点 DNS 对比 + agent 注册**：域名对比（local + 各节点 DNS 结果按节点列出）；节点列表（local / Globalping 区域 / remote-agent）；注册 agent（label + https endpoint）→ `addAgent`（HTTPS 注册/健康检查/白名单），可移除；刷新节点 |
+| 面板    | 说明                                                                                                                                                                                                                                                                                                                         |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| arp     | 局域网发现：ARP 缓存 + TCP /24 扫（degraded；特权 RAW 扫待 helper）；输出邻居表（ip/mac/iface/source）；空态区分 权限不足（引导开 Local Network 权限）/隔离/安静；可取消                                                                                                                                                     |
+| lan-svc | mDNS/DNS-SD + SSDP/UPnP 服务浏览（只读），输出 `LanServicesResult`                                                                                                                                                                                                                                                           |
+| nat     | NAT 类型（多 STUN），输出 `NatProbeResult`                                                                                                                                                                                                                                                                                   |
+| ntp     | NTP 时间偏移（多源中位数），输出 `NtpProbeResult`                                                                                                                                                                                                                                                                            |
+| nodes   | **多节点 DNS 对比 + agent 注册**：域名对比（local + 各节点 DNS 结果按节点列出）；节点列表（local / Globalping 区域 / remote-agent）；注册 agent（label + HTTPS/WSS endpoint）→ `addAgent`（TLS 健康检查：HTTPS `GET /v1/health` 返回 2xx；WSS 同路径 Ping/Pong；拒绝明文、URL 凭据与重定向），可移除；刷新节点时更新可达状态 |
 
 ## 8. 能力包（D-017 packs）
 
@@ -273,7 +273,7 @@ L1 → L2 映射：
 - **单工具防重入**：每个 use-case 入口 `if (store.loadingX) return`；同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
 - **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；**能力包刷新除外**——`refreshCapabilityPacks` 无 loading 标志，防重入由 PackInstallDialog 的 `busy` 提供（见 §8）。
-- **agent 注册表并发安全**：`addAgent` / `removeAgent` / `refreshProbeNodes` 共用 `loadingNodes` 防重入和控件禁用态；后端 registry 读改写由进程内互斥锁串行化，并使用 `persistence::atomic_write` 替换文件。重复的「同标签 + 同规范化 HTTPS URL」注册返回已有节点，不创建重复记录。
+- **agent 注册表并发安全**：`addAgent` / `removeAgent` / `refreshProbeNodes` 共用 `loadingNodes` 防重入和控件禁用态；后端 registry 读改写由进程内互斥锁串行化，并使用 `persistence::atomic_write` 替换文件。重复的「同标签 + 同规范化 HTTPS/WSS URL」注册返回已有节点，不创建重复记录。刷新以最多 8 个并发、每端点 5 秒时限重新检查 HTTPS 2xx 或 WSS Ping/Pong；registry 读取失败向 IPC 传播，不以空列表伪装刷新成功。
 - **仍未加 loading 标志的动作**：`loadNetworkServices` / `openSystemNetworkSettings` 可被快速重复调用；前者为只读列表加载，后者可能重复打开系统设置。
 
 ### 13.4 数据与安全
