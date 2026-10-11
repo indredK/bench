@@ -364,10 +364,17 @@ export const networkProbeUseCases = {
   async runSitesProbe(packId: string) {
     const store = useNetworkProbeStore.getState()
     if (store.loadingSites) return
+    const isOfficial = packId === "official"
     store.setSitesResultOwner(packId === "official" ? "official" : "packs")
     store.setLoadingSites(true)
     store.clearError("networkProbe.errors.sitesFailed")
     store.resetSitesStreaming()
+    if (isOfficial) {
+      store.resetOfficialSiteSamples()
+      store.setOfficialSitePendingTargets(
+        (store.defaults?.sitePacks?.[packId] ?? []).map((site) => site.target),
+      )
+    }
     // 重跑先清空上一轮结果, 否则面板会优先渲染旧结果而遮蔽本轮流式进度。
     store.setSitesResult(null)
     const sessions = createScanSessionTracker("sites")
@@ -378,11 +385,18 @@ export const networkProbeUseCases = {
       unlistenSample = await listenToPlatformEvent<SiteSampleResult>(
         TAURI_EVENTS.networkProbe.siteSample,
         (event) => {
-          useNetworkProbeStore.getState().upsertSiteSample(event.payload)
+          const current = useNetworkProbeStore.getState()
+          current.upsertSiteSample(event.payload)
+          if (isOfficial) current.upsertOfficialSiteSample(event.payload)
         },
       )
       const result = await networkProbeRepository.sitesProbe(packId)
       store.setSitesResult(result)
+      if (isOfficial) {
+        for (const sample of result.results) {
+          useNetworkProbeStore.getState().upsertOfficialSiteSample(sample)
+        }
+      }
       store.appendCommandLog(
         result.cancelled
           ? `sitesProbe cancelled sessionId=${result.sessionId}`
@@ -396,7 +410,9 @@ export const networkProbeUseCases = {
     } finally {
       unlistenSample?.()
       sessions.stop()
-      useNetworkProbeStore.getState().setLoadingSites(false)
+      const current = useNetworkProbeStore.getState()
+      current.setLoadingSites(false)
+      if (isOfficial) current.setOfficialSitePendingTargets([])
     }
   },
 
@@ -407,6 +423,10 @@ export const networkProbeUseCases = {
     store.setLoadingSites(true)
     store.clearError("networkProbe.errors.sitesFailed")
     store.resetSitesStreaming()
+    if (resultOwner === "official") {
+      store.removeOfficialSiteSamples(targets)
+      store.setOfficialSitePendingTargets(targets)
+    }
     // 同上: 单站重测也要先清掉整包结果, 避免旧数据顶替本轮进度。
     store.setSitesResult(null)
     const sessions = createScanSessionTracker("sites")
@@ -417,11 +437,18 @@ export const networkProbeUseCases = {
       unlistenSample = await listenToPlatformEvent<SiteSampleResult>(
         TAURI_EVENTS.networkProbe.siteSample,
         (event) => {
-          useNetworkProbeStore.getState().upsertSiteSample(event.payload)
+          const current = useNetworkProbeStore.getState()
+          current.upsertSiteSample(event.payload)
+          if (resultOwner === "official") current.upsertOfficialSiteSample(event.payload)
         },
       )
       const result = await networkProbeRepository.sitesProbeCustom(targets)
       store.setSitesResult(result)
+      if (resultOwner === "official") {
+        for (const sample of result.results) {
+          useNetworkProbeStore.getState().upsertOfficialSiteSample(sample)
+        }
+      }
       store.appendCommandLog(
         result.cancelled
           ? `sitesProbeCustom cancelled sessionId=${result.sessionId}`
@@ -435,7 +462,9 @@ export const networkProbeUseCases = {
     } finally {
       unlistenSample?.()
       sessions.stop()
-      useNetworkProbeStore.getState().setLoadingSites(false)
+      const current = useNetworkProbeStore.getState()
+      current.setLoadingSites(false)
+      if (resultOwner === "official") current.setOfficialSitePendingTargets([])
     }
   },
 

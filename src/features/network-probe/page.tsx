@@ -418,8 +418,9 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     canCancel={Boolean(activeSessionIdByKind.sites) && c.loadingSites}
                     cancelRequested={isScanCancelRequested("sites")}
                     presets={officialPresets}
-                    result={officialSiteData.result}
-                    streaming={officialSiteData.streaming}
+                    samplesByTarget={c.officialSiteSamplesByTarget}
+                    pendingTargets={c.officialSitePendingTargets}
+                    cancelled={officialSiteData.result?.cancelled ?? false}
                     toolEnabled={c.toolEnabled.sitesProbe}
                     toolStatus={c.toolStatus.sitesProbe}
                     onTestAll={() => c.runSitesProbe(OFFICIAL_PACK_ID)}

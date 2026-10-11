@@ -41,6 +41,8 @@ export function useNetworkProbeController() {
   const sitesResult = useNetworkProbeStore((s) => s.sitesResult)
   const sitesResultOwner = useNetworkProbeStore((s) => s.sitesResultOwner)
   const sitesStreaming = useNetworkProbeStore((s) => s.sitesStreaming)
+  const officialSiteSamplesByTarget = useNetworkProbeStore((s) => s.officialSiteSamplesByTarget)
+  const officialSitePendingTargets = useNetworkProbeStore((s) => s.officialSitePendingTargets)
   const siteSparklineByTarget = useNetworkProbeStore((s) => s.siteSparklineByTarget)
   const healthResult = useNetworkProbeStore((s) => s.healthResult)
   const healthStreamingItems = useNetworkProbeStore((s) => s.healthStreamingItems)
@@ -343,6 +345,8 @@ export function useNetworkProbeController() {
     sitesResult,
     sitesResultOwner,
     sitesStreaming,
+    officialSiteSamplesByTarget,
+    officialSitePendingTargets,
     siteSparklineByTarget,
     healthResult,
     healthStreamingItems,

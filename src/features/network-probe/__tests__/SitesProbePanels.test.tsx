@@ -52,6 +52,15 @@ function makeResult(results: SiteSampleResult[]): SitesProbeResult {
   }
 }
 
+function makeSnapshots(samples: SiteSampleResult[]) {
+  return Object.fromEntries(
+    samples.map((sample, index) => [
+      sample.target,
+      { sample, testedAt: 1_800_000_000_000 + index },
+    ]),
+  )
+}
+
 afterEach(() => {
   cleanup()
   sessionStorage.clear()
@@ -292,8 +301,8 @@ describe("site probe failure details", () => {
         canCancel={false}
         cancelRequested={false}
         presets={[{ id: "baidu", target: "https://no-such-host.invalid", channel: "http" }]}
-        result={makeResult([{ ...failedSample, id: "baidu" }])}
-        streaming={[]}
+        samplesByTarget={makeSnapshots([{ ...failedSample, id: "baidu" }])}
+        pendingTargets={[]}
         toolEnabled
         onTestAll={vi.fn()}
         onTestOne={vi.fn()}
@@ -327,8 +336,8 @@ describe("site probe failure details", () => {
         { id: "google", target: "https://example.com", channel: "http" },
         { id: "cloudflare", target: "https://cloudflare.example", channel: "http" },
       ],
-      result: makeResult([successfulSample, retainedSample]),
-      streaming: [],
+      samplesByTarget: makeSnapshots([successfulSample, retainedSample]),
+      pendingTargets: [],
       toolEnabled: true,
       onTestAll: vi.fn(),
       onTestOne,
@@ -340,10 +349,24 @@ describe("site probe failure details", () => {
       expect(screen.getAllByText("networkProbe.official.statusOk")).toHaveLength(2),
     )
     fireEvent.click(screen.getByRole("button", { name: /networkProbe\.official\.sites\.google/ }))
-    view.rerender(<OfficialSitesPanel {...props} loading result={null} />)
+    view.rerender(
+      <OfficialSitesPanel
+        {...props}
+        loading
+        samplesByTarget={makeSnapshots([retainedSample])}
+        pendingTargets={["https://example.com"]}
+      />,
+    )
     expect(screen.getByText("networkProbe.official.statusRunning")).toBeTruthy()
 
-    view.rerender(<OfficialSitesPanel {...props} loading={false} result={null} />)
+    view.rerender(
+      <OfficialSitesPanel
+        {...props}
+        loading={false}
+        samplesByTarget={makeSnapshots([retainedSample])}
+        pendingTargets={[]}
+      />,
+    )
 
     expect(onTestOne).toHaveBeenCalledWith("https://example.com")
     const googleCard = screen.getByRole("button", {
@@ -352,6 +375,61 @@ describe("site probe failure details", () => {
     expect(googleCard.textContent).toContain("networkProbe.official.statusIdle")
     expect(googleCard.textContent).not.toContain("networkProbe.official.httpMs")
     expect(screen.getAllByText("networkProbe.official.statusOk")).toHaveLength(1)
+  })
+
+  it("preserves other official-site results when navigation unmounts a single-site retry", async () => {
+    const onTestOne = vi.fn()
+    const retainedSample: SiteSampleResult = {
+      ...successfulSample,
+      id: "cloudflare",
+      target: "https://cloudflare.example",
+      httpTtfbMs: 80,
+    }
+    const props = {
+      canCancel: false,
+      cancelRequested: false,
+      presets: [
+        { id: "google", target: "https://example.com", channel: "http" },
+        { id: "cloudflare", target: "https://cloudflare.example", channel: "http" },
+      ],
+      samplesByTarget: makeSnapshots([successfulSample, retainedSample]),
+      pendingTargets: [],
+      toolEnabled: true,
+      onTestAll: vi.fn(),
+      onTestOne,
+      onCancel: vi.fn(),
+    }
+    const view = render(<OfficialSitesPanel loading={false} {...props} />)
+
+    await waitFor(() =>
+      expect(screen.getAllByText("networkProbe.official.statusOk")).toHaveLength(2),
+    )
+    fireEvent.click(screen.getByRole("button", { name: /networkProbe\.official\.sites\.google/ }))
+    view.rerender(
+      <OfficialSitesPanel
+        {...props}
+        loading
+        samplesByTarget={makeSnapshots([retainedSample])}
+        pendingTargets={["https://example.com"]}
+      />,
+    )
+    expect(screen.getByText("networkProbe.official.statusRunning")).toBeTruthy()
+
+    view.unmount()
+    render(
+      <OfficialSitesPanel
+        loading={false}
+        {...props}
+        samplesByTarget={makeSnapshots([successfulSample, retainedSample])}
+        pendingTargets={[]}
+      />,
+    )
+
+    const cloudflareCard = screen.getByRole("button", {
+      name: /networkProbe\.official\.sites\.cloudflare/,
+    })
+    expect(cloudflareCard.textContent).toContain("networkProbe.official.statusOk")
+    expect(onTestOne).toHaveBeenCalledWith("https://example.com")
   })
 
   it("keeps pack controls disabled while an official-site request owns the shared scan slot", () => {

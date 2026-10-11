@@ -109,6 +109,11 @@ export type NetworkProbeAgentAction = { kind: "add" } | { kind: "remove"; agentI
 
 export type NetworkProbeL2ByL1 = Record<NetworkProbeL1, string>
 
+export interface OfficialSiteSampleSnapshot {
+  sample: SiteSampleResult
+  testedAt: number
+}
+
 interface NetworkProbeState {
   nav: {
     l1Id: NetworkProbeL1
@@ -133,6 +138,8 @@ interface NetworkProbeState {
   sitesResult: SitesProbeResult | null
   sitesResultOwner: SiteProbeResultOwner
   sitesStreaming: SiteSampleResult[]
+  officialSiteSamplesByTarget: Record<string, OfficialSiteSampleSnapshot>
+  officialSitePendingTargets: string[]
   siteSparklineByTarget: Record<string, number[]>
   healthResult: HealthScanResult | null
   healthStreamingItems: HealthCheckItem[]
@@ -230,6 +237,10 @@ interface NetworkProbeState {
   setSitesResultOwner: (owner: SiteProbeResultOwner) => void
   resetSitesStreaming: () => void
   upsertSiteSample: (sample: SiteSampleResult) => void
+  resetOfficialSiteSamples: () => void
+  removeOfficialSiteSamples: (targets: string[]) => void
+  setOfficialSitePendingTargets: (targets: string[]) => void
+  upsertOfficialSiteSample: (sample: SiteSampleResult) => void
   setHealthResult: (healthResult: HealthScanResult | null) => void
   resetHealthStreaming: () => void
   upsertHealthStreamingItem: (item: HealthCheckItem) => void
@@ -389,6 +400,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   sitesResult: null,
   sitesResultOwner: "packs",
   sitesStreaming: [],
+  officialSiteSamplesByTarget: {},
+  officialSitePendingTargets: [],
   siteSparklineByTarget: {},
   healthResult: null,
   healthStreamingItems: [],
@@ -500,6 +513,33 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setSitesResult: (sitesResult) => set({ sitesResult }),
   setSitesResultOwner: (sitesResultOwner) => set({ sitesResultOwner }),
   resetSitesStreaming: () => set({ sitesStreaming: [] }),
+  resetOfficialSiteSamples: () =>
+    set({ officialSiteSamplesByTarget: {}, officialSitePendingTargets: [] }),
+  removeOfficialSiteSamples: (targets) =>
+    set((state) => {
+      const next = { ...state.officialSiteSamplesByTarget }
+      for (const target of targets) delete next[target.trim()]
+      return { officialSiteSamplesByTarget: next }
+    }),
+  setOfficialSitePendingTargets: (targets) =>
+    set({
+      officialSitePendingTargets: [
+        ...new Set(targets.map((target) => target.trim()).filter(Boolean)),
+      ],
+    }),
+  upsertOfficialSiteSample: (sample) => {
+    const target = sample.target.trim()
+    if (!target) return
+    set((state) => ({
+      officialSiteSamplesByTarget: {
+        ...state.officialSiteSamplesByTarget,
+        [target]: { sample, testedAt: Date.now() },
+      },
+      officialSitePendingTargets: state.officialSitePendingTargets.filter(
+        (pending) => pending !== target,
+      ),
+    }))
+  },
   upsertSiteSample: (sample) =>
     set((state) => {
       const idx = state.sitesStreaming.findIndex((s) => s.id === sample.id)
