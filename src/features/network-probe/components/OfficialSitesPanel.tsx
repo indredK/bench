@@ -1,17 +1,14 @@
 /**
  * Feature UI / 功能界面: Sites L1 · official website reachability cards.
  */
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
-import type {
-  SitePreset,
-  SiteSampleResult,
-  SitesProbeResult,
-} from "@/lib/tauri/types/network-probe"
+import type { LatestSiteSample } from "@/features/network-probe/store"
+import type { SitePreset, SitesProbeResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
 const OFFICIAL_PACK_ID = "official"
@@ -21,18 +18,13 @@ interface OfficialSitesPanelProps {
   canCancel: boolean
   cancelling: boolean
   presets: SitePreset[]
+  latestByTarget: Record<string, LatestSiteSample>
   result: SitesProbeResult | null
-  streaming: SiteSampleResult[]
   toolEnabled: boolean
   toolStatus?: string
   onTestAll: () => void
   onTestOne: (target: string) => void
   onCancel: () => void
-}
-
-type CardSample = SiteSampleResult & {
-  testedAt: number
-  fingerprint: string
 }
 
 function hostOf(target: string): string {
@@ -50,27 +42,13 @@ function targetKey(target: string): string {
   return target.trim()
 }
 
-function fingerprintOf(row: SiteSampleResult): string {
-  return [
-    row.id,
-    row.ok ? "1" : "0",
-    row.httpStatus ?? "",
-    row.httpTtfbMs ?? "",
-    row.icmpRttMs ?? "",
-    row.downloadMbps ?? "",
-    row.downloadBytes ?? "",
-    row.error ?? "",
-    row.degraded ? "1" : "0",
-  ].join("|")
-}
-
 export function OfficialSitesPanel({
   loading,
   canCancel,
   cancelling,
   presets,
+  latestByTarget,
   result,
-  streaming,
   toolEnabled,
   toolStatus,
   onTestAll,
@@ -78,50 +56,15 @@ export function OfficialSitesPanel({
   onCancel,
 }: OfficialSitesPanelProps) {
   const { t, i18n } = useTranslation()
-  const [samplesByTarget, setSamplesByTarget] = useState<Record<string, CardSample>>({})
   const [pendingTarget, setPendingTarget] = useState<string | null>(null)
-
-  // Merge streaming / final results by target so single-card runs keep prior results.
-  useEffect(() => {
-    // 跑动中 streaming 必须排在旧 result 之后: 反过来的话上一轮的整包结果会盖掉本轮逐站进度。
-    const incoming = loading
-      ? [...(result?.results ?? []), ...streaming]
-      : [...streaming, ...(result?.results ?? [])]
-    if (incoming.length === 0) return
-
-    setSamplesByTarget((prev) => {
-      let changed = false
-      const next = { ...prev }
-      const now = Date.now()
-      for (const row of incoming) {
-        const key = targetKey(row.target)
-        if (!key) continue
-        const fingerprint = fingerprintOf(row)
-        if (next[key]?.fingerprint === fingerprint) continue
-        next[key] = { ...row, testedAt: now, fingerprint }
-        changed = true
-      }
-      return changed ? next : prev
-    })
-  }, [streaming, result, loading])
-
-  // 整包重跑时本轮 streaming 是唯一可信来源: 本地缓存必须一起清, 否则尚未测到的卡片
-  // 仍显示上一轮的绿/红状态和「刚刚测于」时间, 看起来像本轮没在推进。
-  // 单站重测（pendingTarget 非空）保留其它卡片结果, 与原设计一致。
-  const wasLoadingRef = useRef(loading)
-  useEffect(() => {
-    const started = loading && !wasLoadingRef.current
-    wasLoadingRef.current = loading
-    if (started && pendingTarget === null) setSamplesByTarget({})
-  }, [loading, pendingTarget])
 
   useEffect(() => {
     if (!loading) setPendingTarget(null)
   }, [loading])
 
-  const okCount = presets.filter((p) => samplesByTarget[targetKey(p.target)]?.ok).length
+  const okCount = presets.filter((p) => latestByTarget[targetKey(p.target)]?.sample.ok).length
   const failCount = presets.filter((p) => {
-    const sample = samplesByTarget[targetKey(p.target)]
+    const sample = latestByTarget[targetKey(p.target)]?.sample
     return sample && !sample.ok
   }).length
 
@@ -190,7 +133,8 @@ export function OfficialSitesPanel({
         <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
           {presets.map((site) => {
             const key = targetKey(site.target)
-            const sample = samplesByTarget[key]
+            const latest = latestByTarget[key]
+            const sample = latest?.sample
             const label = t(`networkProbe.official.sites.${site.id}`, {
               defaultValue: site.id,
             })
@@ -260,10 +204,10 @@ export function OfficialSitesPanel({
                       ? t("networkProbe.official.running")
                       : sample?.error && !sample.ok
                         ? t("networkProbe.official.fail", { error: sample.error })
-                        : sample
+                        : latest
                           ? [
                               t("networkProbe.official.testedAt", {
-                                time: formatTestedAt(sample.testedAt),
+                                time: formatTestedAt(latest.testedAt),
                               }),
                               latency,
                             ]

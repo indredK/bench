@@ -101,6 +101,13 @@ export type NetworkProbeOfflineSub =
 
 export type NetworkProbeL2ByL1 = Record<NetworkProbeL1, string>
 
+export interface LatestSiteSample {
+  sample: SiteSampleResult
+  testedAt: number
+}
+
+const MAX_SITE_LATEST_TARGETS = 256
+
 interface NetworkProbeState {
   nav: {
     l1Id: NetworkProbeL1
@@ -121,6 +128,7 @@ interface NetworkProbeState {
   probeResult: ProbeTargetResult | null
   sitesResult: SitesProbeResult | null
   sitesStreaming: SiteSampleResult[]
+  siteLatestByTarget: Record<string, LatestSiteSample>
   siteSparklineById: Record<string, number[]>
   healthResult: HealthScanResult | null
   healthStreamingItems: HealthCheckItem[]
@@ -201,6 +209,8 @@ interface NetworkProbeState {
   setSitesResult: (sitesResult: SitesProbeResult | null) => void
   resetSitesStreaming: () => void
   upsertSiteSample: (sample: SiteSampleResult) => void
+  mergeSiteLatestSamples: (samples: SiteSampleResult[]) => void
+  clearSiteLatestByTargets: (targets: string[]) => void
   setHealthResult: (healthResult: HealthScanResult | null) => void
   resetHealthStreaming: () => void
   upsertHealthStreamingItem: (item: HealthCheckItem) => void
@@ -333,6 +343,29 @@ function sparkMs(sample: SiteSampleResult): number | null {
   return null
 }
 
+function mergeLatestSiteSamples(
+  previous: Record<string, LatestSiteSample>,
+  samples: SiteSampleResult[],
+  testedAt: number,
+): Record<string, LatestSiteSample> {
+  let next = previous
+  for (const sample of samples) {
+    const target = sample.target.trim()
+    if (!target) continue
+    if (next === previous) next = { ...previous }
+    next[target] = { sample, testedAt }
+  }
+
+  const targets = Object.keys(next)
+  if (targets.length <= MAX_SITE_LATEST_TARGETS) return next
+
+  targets.sort((left, right) => next[left].testedAt - next[right].testedAt)
+  for (const target of targets.slice(0, targets.length - MAX_SITE_LATEST_TARGETS)) {
+    delete next[target]
+  }
+  return next
+}
+
 export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   nav: loadNav(),
   capabilities: null,
@@ -349,6 +382,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   probeResult: null,
   sitesResult: null,
   sitesStreaming: [],
+  siteLatestByTarget: {},
   siteSparklineById: {},
   healthResult: null,
   healthStreamingItems: [],
@@ -464,7 +498,25 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
               ...state.siteSparklineById,
               [sample.id]: [...prev.slice(-19), ms],
             }
-      return { sitesStreaming, siteSparklineById }
+      const siteLatestByTarget = mergeLatestSiteSamples(
+        state.siteLatestByTarget,
+        [sample],
+        Date.now(),
+      )
+      return { sitesStreaming, siteSparklineById, siteLatestByTarget }
+    }),
+  mergeSiteLatestSamples: (samples) =>
+    set((state) => ({
+      siteLatestByTarget: mergeLatestSiteSamples(state.siteLatestByTarget, samples, Date.now()),
+    })),
+  clearSiteLatestByTargets: (targets) =>
+    set((state) => {
+      const targetSet = new Set(targets.map((target) => target.trim()).filter(Boolean))
+      if (targetSet.size === 0) return state
+      const siteLatestByTarget = Object.fromEntries(
+        Object.entries(state.siteLatestByTarget).filter(([target]) => !targetSet.has(target)),
+      )
+      return { siteLatestByTarget }
     }),
   setHealthResult: (healthResult) => set({ healthResult }),
   resetHealthStreaming: () => set({ healthStreamingItems: [] }),

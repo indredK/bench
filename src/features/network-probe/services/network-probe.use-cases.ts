@@ -186,6 +186,9 @@ export const networkProbeUseCases = {
     store.setLoadingSites(true)
     store.setError(null)
     store.resetSitesStreaming()
+    store.clearSiteLatestByTargets(
+      store.defaults?.sitePacks[packId]?.map((site) => site.target) ?? [],
+    )
     // 重跑先清空上一轮结果, 否则面板会优先渲染旧结果而遮蔽本轮流式进度。
     store.setSitesResult(null)
     const sessions = createScanSessionTracker("sites")
@@ -200,6 +203,7 @@ export const networkProbeUseCases = {
         },
       )
       const result = await networkProbeRepository.sitesProbe(packId)
+      store.mergeSiteLatestSamples(result.results)
       store.setSitesResult(result)
       store.appendCommandLog(
         result.cancelled
@@ -238,6 +242,7 @@ export const networkProbeUseCases = {
         },
       )
       const result = await networkProbeRepository.sitesProbeCustom(targets)
+      store.mergeSiteLatestSamples(result.results)
       store.setSitesResult(result)
       store.appendCommandLog(
         result.cancelled
