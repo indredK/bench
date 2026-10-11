@@ -136,7 +136,7 @@ L1 → L2 映射：
 
 **交互细节**：
 
-- **输入护栏（后端 clamp/校验）**：ping 次数 clamp `[1,20]`（默认 4）、间隔 clamp `[100,5000]ms`；traceroute `maxTtl` 默认 20、`rounds` 默认 3；端口扫描最多 256 端口（去重后超限返回 `INVALID_INPUT`）；自定义站点最多 24 个且去重；非法 host / 空端口列表返回 `INVALID_INPUT` 并走错误横幅。
+- **输入护栏（前后端校验）**：ping 次数 clamp `[1,20]`（默认 4）、间隔 clamp `[100,5000]ms`；traceroute `maxTtl` 默认 20、`rounds` 默认 3；端口扫描输入最多 2048 UTF-8 字节、最多 256 个不同端口，renderer 在字段旁显示本地化格式错误并禁用扫描，Rust IPC 仍独立校验并按端口去重；自定义站点最多 24 个且去重；非法 host / 空端口列表返回 `INVALID_INPUT` 并走错误横幅。
 - **单工具防重入**：ping / dns / tcp / custom / traceroute / mtu / egress / speed 各自独立 loading，运行中按钮禁用 + 运行中文案，不可重复触发；可取消的长任务（traceroute / speed）运行中同位置显示红色「取消」按钮。
 - **ping 全丢包提示**：`packetsReceived === 0` 时命令日志追加「可能需 Local Network 权限」提示（不静默）。
 - **测速冷却**：测速源失败/不可达时 `speedCooldownUntil = now + 30s`，期间「开始测速」禁用并倒计时提示（`测速源失败 — {{seconds}} 秒后可重试`），冷却结束自动恢复；取消成功不计入冷却。
@@ -148,18 +148,18 @@ L1 → L2 映射：
 
 > 未授权时 use-case 直接报 `securityAuthRequired`，不发起探测。
 
-| 面板      | 说明                                                                                                                                                                                                                                                                  |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ports     | TCP connect 端口扫描（默认 127.0.0.1 / 22,80,443,8080，端口范围语法支持 `,`/`-`）；**目标非内网或端口数 >64 时强制二次确认**（DestructiveConfirm）；流式 `port-sample`；显示开放端口列表、每个端口状态/serviceHint/rtt、degraded 提示（本机 nmap -sS/-sT 可用时回退） |
-| pollution | DNS 污染检测：对域名跑检测（本地 + 公共 DNS 对照），输出 `PollutionReport`（finding 列表）                                                                                                                                                                            |
-| pcap      | 诊断抓包（`pcap-diag`，默认 5s）：重传/乱序/RST 统计；无特权时 tcpdump 计数降级；可取消；缺 pack 时引导安装 `pcap-diag`                                                                                                                                               |
-| dnssec    | DNSSEC 校验（Cloudflare DoH AD 位验证链），输出 `DnsSecCheckResult`                                                                                                                                                                                                   |
-| whois     | WHOIS 查询（任意 query），输出 `WhoisInfo`                                                                                                                                                                                                                            |
+| 面板      | 说明                                                                                                                                                                                                                                                                                                                                                               |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ports     | TCP connect 端口扫描（默认 127.0.0.1 / 22,80,443,8080，端口范围语法支持 `,`/`-`；输入上限 2048 UTF-8 字节、最多 256 个不同端口）；字段内联显示本地化输入错误并禁用无效提交；**目标非内网或不同端口数 >64 时强制二次确认**（DestructiveConfirm）；流式 `port-sample`；显示开放端口列表、每个端口状态/serviceHint/rtt、degraded 提示（本机 nmap -sS/-sT 可用时回退） |
+| pollution | DNS 污染检测：对域名跑检测（本地 + 公共 DNS 对照），输出 `PollutionReport`（finding 列表）                                                                                                                                                                                                                                                                         |
+| pcap      | 诊断抓包（`pcap-diag`，默认 5s）：重传/乱序/RST 统计；无特权时 tcpdump 计数降级；可取消；缺 pack 时引导安装 `pcap-diag`                                                                                                                                                                                                                                            |
+| dnssec    | DNSSEC 校验（Cloudflare DoH AD 位验证链），输出 `DnsSecCheckResult`                                                                                                                                                                                                                                                                                                |
+| whois     | WHOIS 查询（任意 query），输出 `WhoisInfo`                                                                                                                                                                                                                                                                                                                         |
 
 **交互细节**：
 
 - **SecurityAuthGate**：未授权时 L1=security 显示琥珀色提示 + 「我确认 — 启用安全工具」按钮；点击后 `authorizeSecurity` 置位并持久化 localStorage；已授权显示「本机已授权使用安全工具。」+「撤销」；授权/撤销即时生效。未授权点击任何安全工具，use-case 直接 `setError(securityAuthRequired)` 且不发起 IPC。
-- **端口扫描确认**：目标非内网（非私有/回环）或展开端口数 >64 时，点击「扫描端口」先弹 `DestructiveConfirmDialog`（展示目标 + 约 N 个端口 + 「仅扫描自有或已授权资产，当前为 TCP connect」），确认「仍然扫描」才执行；勾选范围内可免确认。端口范围解析失败（如超 256、非法语法）由后端返回 `INVALID_INPUT`。
+- **端口扫描确认**：目标非内网（非私有/回环）或展开不同端口数 >64 时，点击「扫描端口」先弹 `DestructiveConfirmDialog`（展示目标 + 约 N 个端口 + 「仅扫描自有或已授权资产，当前为 TCP connect」），确认「仍然扫描」才执行；勾选范围内可免确认。端口语法、范围和大小在 renderer 显示本地化字段错误并阻止 IPC；Rust 对输入字节数、端口范围和去重后的数量再次校验，作为 IPC 安全边界。
 - **空态细分（arp）**：按 `emptyReason` 区分「权限不足（引导打开系统网络设置）/ 客户端隔离（仅网关响应）/ 安静网络（无邻居）」三种空态文案，不统一显示空。
 
 ## 7. 发现（discover）L1

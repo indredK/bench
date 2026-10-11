@@ -2067,6 +2067,14 @@
       "run": "Scan ports",
       "running": "Scanning…",
       "cancel": "Cancel",
+      "validation": {
+        "empty": "Enter at least one port or range.",
+        "invalidFormat": "Use ports like 80,443,8000-8010.",
+        "outOfRange": "Ports must be between 1 and 65535.",
+        "reversedRange": "The start of a range must not exceed its end.",
+        "tooMany": "Scan at most 256 unique ports.",
+        "tooLong": "Port input is too long (maximum 2048 bytes)."
+      },
       "openList": "Open: {{ports}}",
       "confirmTitle": "Confirm port scan scope",
       "confirmDesc": "Target {{target}} · about {{count}} ports. Public hosts or large ranges need an extra confirm.",

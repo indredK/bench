@@ -2067,6 +2067,14 @@
       "run": "扫描端口",
       "running": "扫描中…",
       "cancel": "取消",
+      "validation": {
+        "empty": "请输入至少一个端口或范围。",
+        "invalidFormat": "请按 80,443,8000-8010 的格式输入。",
+        "outOfRange": "端口号必须在 1 到 65535 之间。",
+        "reversedRange": "范围起始端口不能大于结束端口。",
+        "tooMany": "最多扫描 256 个不同端口。",
+        "tooLong": "端口输入过长（最多 2048 字节）。"
+      },
       "openList": "开放：{{ports}}",
       "confirmTitle": "确认端口扫描范围",
       "confirmDesc": "目标 {{target}} · 约 {{count}} 个端口。公网主机或较大范围需二次确认。",

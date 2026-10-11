@@ -8,6 +8,7 @@ import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirm
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { MAX_PORT_RANGE_INPUT_BYTES, validatePortRange } from "@/features/network-probe/port-range"
 import type { PortSampleEvent, PortScanResult } from "@/lib/tauri/types/network-probe"
 
 interface PortScanPanelProps {
@@ -35,25 +36,6 @@ function isPrivateOrLocal(host: string): boolean {
   return false
 }
 
-function estimatePortCount(spec: string): number {
-  let n = 0
-  for (const part of spec.split(/[,\s]+/)) {
-    const p = part.trim()
-    if (!p) continue
-    if (p.includes("-")) {
-      const [a, b] = p.split("-")
-      const start = Number(a)
-      const end = Number(b)
-      if (Number.isFinite(start) && Number.isFinite(end) && end >= start) {
-        n += end - start + 1
-      }
-    } else if (Number.isFinite(Number(p))) {
-      n += 1
-    }
-  }
-  return n
-}
-
 export function PortScanPanel({
   loading,
   canCancel,
@@ -67,6 +49,7 @@ export function PortScanPanel({
   const { t } = useTranslation()
   const [target, setTarget] = useState("127.0.0.1")
   const [ports, setPorts] = useState("22,80,443,8080")
+  const [portTouched, setPortTouched] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
   const samples = result?.samples?.length ? result.samples : streaming
@@ -74,7 +57,9 @@ export function PortScanPanel({
     ? result.openPorts
     : samples.filter((s) => s.state === "open").map((s) => s.port)
 
-  const portCount = useMemo(() => estimatePortCount(ports), [ports])
+  const portValidation = useMemo(() => validatePortRange(ports), [ports])
+  const portCount = portValidation.valid ? portValidation.count : 0
+  const showPortError = portTouched && !portValidation.valid
   const needsConfirm = useMemo(() => {
     const host = target.trim()
     if (!host) return false
@@ -82,6 +67,10 @@ export function PortScanPanel({
   }, [target, portCount])
 
   const start = () => {
+    if (!portValidation.valid) {
+      setPortTouched(true)
+      return
+    }
     if (needsConfirm) {
       setConfirmOpen(true)
       return
@@ -126,10 +115,21 @@ export function PortScanPanel({
               <Input
                 id="np-ports-range"
                 value={ports}
-                onChange={(e) => setPorts(e.target.value)}
+                onChange={(e) => {
+                  setPortTouched(true)
+                  setPorts(e.target.value)
+                }}
+                aria-invalid={showPortError}
+                aria-describedby={showPortError ? "np-ports-range-error" : undefined}
+                maxLength={MAX_PORT_RANGE_INPUT_BYTES}
                 autoComplete="off"
                 disabled={loading}
               />
+              {showPortError ? (
+                <p id="np-ports-range-error" role="alert" className="text-destructive text-xs">
+                  {t(`networkProbe.ports.validation.${portValidation.error}`)}
+                </p>
+              ) : null}
             </div>
             <CommandHint
               hint={t("networkProbe.cmd.scanPorts", {
@@ -139,7 +139,7 @@ export function PortScanPanel({
             >
               <Button
                 type="button"
-                disabled={loading || !toolEnabled || !target.trim() || !ports.trim()}
+                disabled={loading || !toolEnabled || !target.trim() || !portValidation.valid}
                 onClick={start}
               >
                 {loading ? t("networkProbe.ports.running") : t("networkProbe.ports.run")}

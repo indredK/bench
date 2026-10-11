@@ -14,6 +14,7 @@ pub const PORT_SAMPLE_EVENT: &str = "network-probe:port-sample";
 pub const SCAN_SESSION_EVENT: &str = "network-probe:scan-session";
 
 const MAX_PORTS: usize = 256;
+const MAX_PORT_SPEC_BYTES: usize = 2048;
 const DEFAULT_TIMEOUT_MS: u64 = 800;
 const CONCURRENCY: usize = 32;
 
@@ -341,6 +342,12 @@ fn validate_scan_target(target: &str) -> AppResult<()> {
 
 /// Parse "80,443,8000-8010" into port list.
 pub fn parse_port_range(spec: &str) -> AppResult<Vec<u16>> {
+    if spec.len() > MAX_PORT_SPEC_BYTES {
+        return Err(AppError::invalid_input(format!(
+            "Port specification is too long (max {MAX_PORT_SPEC_BYTES} bytes)"
+        )));
+    }
+
     let mut out = Vec::new();
     for part in spec.split([',', ' ']) {
         let part = part.trim();
@@ -375,10 +382,46 @@ pub fn parse_port_range(spec: &str) -> AppResult<Vec<u16>> {
             out.push(p);
         }
     }
+    if out.is_empty() {
+        return Err(AppError::invalid_input("Port list is empty"));
+    }
+    out.sort_unstable();
+    out.dedup();
     if out.len() > MAX_PORTS {
         return Err(AppError::invalid_input(format!(
             "Too many ports (max {MAX_PORTS})"
         )));
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_port_range, MAX_PORTS, MAX_PORT_SPEC_BYTES};
+
+    #[test]
+    fn parses_ranges_and_returns_unique_sorted_ports() {
+        assert_eq!(
+            parse_port_range("443,80,8000-8002,80").unwrap(),
+            vec![80, 443, 8000, 8001, 8002]
+        );
+    }
+
+    #[test]
+    fn accepts_more_than_the_limit_of_duplicate_entries_after_deduplication() {
+        let duplicate_entries = std::iter::repeat_n("80", MAX_PORTS + 1)
+            .collect::<Vec<_>>()
+            .join(",");
+
+        assert_eq!(parse_port_range(&duplicate_entries).unwrap(), vec![80]);
+    }
+
+    #[test]
+    fn rejects_invalid_and_oversized_port_specifications() {
+        for input in ["", "abc", "80-", "0", "65536", "10-1", "1-257"] {
+            assert!(parse_port_range(input).is_err(), "accepted {input:?}");
+        }
+
+        assert!(parse_port_range(&"1".repeat(MAX_PORT_SPEC_BYTES + 1)).is_err());
+    }
 }
