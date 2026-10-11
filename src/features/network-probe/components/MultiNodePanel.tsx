@@ -9,6 +9,26 @@ import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
 
+type AgentEndpointError = "invalid" | "scheme" | "credentials" | null
+
+function getAgentEndpointError(endpoint: string): AgentEndpointError {
+  const value = endpoint.trim()
+  if (!value) return null
+
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return "invalid"
+  }
+
+  if (url.protocol !== "https:" && url.protocol !== "wss:") return "scheme"
+  if (url.username || url.password || value.includes("?") || value.includes("#")) {
+    return "credentials"
+  }
+  return null
+}
+
 interface MultiNodePanelProps {
   loading: boolean
   loadingNodes: boolean
@@ -38,6 +58,9 @@ export function MultiNodePanel({
   const [domain, setDomain] = useState("example.com")
   const [label, setLabel] = useState("")
   const [endpoint, setEndpoint] = useState("https://")
+  const [endpointTouched, setEndpointTouched] = useState(false)
+  const endpointError = getAgentEndpointError(endpoint)
+  const showEndpointError = endpointTouched && endpointError !== null
 
   return (
     <ProbePanelShell
@@ -63,7 +86,7 @@ export function MultiNodePanel({
             <CommandHint hint={t("networkProbe.cmd.compareDns")}>
               <Button
                 type="button"
-                disabled={loading || !toolEnabled || !domain.trim()}
+                disabled={loading || loadingNodes || !toolEnabled || !domain.trim()}
                 onClick={() => onCompare(domain.trim())}
               >
                 {loading ? t("networkProbe.nodes.running") : t("networkProbe.nodes.run")}
@@ -75,7 +98,7 @@ export function MultiNodePanel({
               disabled={loadingNodes}
               onClick={onRefreshNodes}
             >
-              {t("networkProbe.nodes.refresh")}
+              {loadingNodes ? t("networkProbe.nodes.working") : t("networkProbe.nodes.refresh")}
             </Button>
           </div>
 
@@ -89,13 +112,30 @@ export function MultiNodePanel({
                     {n.endpoint ? ` · ${n.endpoint}` : ""}
                   </span>
                   {n.kind === "remote-agent" ? (
+                    <span
+                      role="status"
+                      className={
+                        n.reachable
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : "text-muted-foreground"
+                      }
+                    >
+                      {n.reachable
+                        ? t("networkProbe.nodes.agentReachable")
+                        : t("networkProbe.nodes.agentUnreachable")}
+                    </span>
+                  ) : null}
+                  {n.kind === "remote-agent" ? (
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
+                      disabled={loadingNodes}
                       onClick={() => onRemoveAgent(n.id)}
                     >
-                      {t("networkProbe.nodes.removeAgent")}
+                      {loadingNodes
+                        ? t("networkProbe.nodes.working")
+                        : t("networkProbe.nodes.removeAgent")}
                     </Button>
                   ) : null}
                 </li>
@@ -111,21 +151,46 @@ export function MultiNodePanel({
                 className="max-w-[10rem]"
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
+                disabled={loadingNodes}
                 placeholder={t("networkProbe.nodes.labelPlaceholder")}
+                aria-label={t("networkProbe.nodes.labelPlaceholder")}
+                maxLength={80}
               />
               <Input
                 className="min-w-[16rem] flex-1"
                 value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
+                onChange={(e) => {
+                  setEndpointTouched(true)
+                  setEndpoint(e.target.value)
+                }}
+                disabled={loadingNodes}
                 placeholder={t("networkProbe.nodes.endpointPlaceholder")}
+                aria-label={t("networkProbe.nodes.endpointPlaceholder")}
+                aria-invalid={showEndpointError}
+                aria-describedby={
+                  showEndpointError ? "network-probe-agent-endpoint-error" : undefined
+                }
               />
+              {showEndpointError ? (
+                <p
+                  id="network-probe-agent-endpoint-error"
+                  role="alert"
+                  className="text-destructive w-full text-xs"
+                >
+                  {t(`networkProbe.nodes.endpointError.${endpointError}`)}
+                </p>
+              ) : null}
               <CommandHint hint={t("networkProbe.cmd.addAgent")}>
                 <Button
                   type="button"
-                  disabled={!label.trim() || !endpoint.trim()}
+                  disabled={
+                    loadingNodes || !label.trim() || !endpoint.trim() || endpointError !== null
+                  }
                   onClick={() => onAddAgent(label.trim(), endpoint.trim())}
                 >
-                  {t("networkProbe.nodes.addAgent")}
+                  {loadingNodes
+                    ? t("networkProbe.nodes.working")
+                    : t("networkProbe.nodes.addAgent")}
                 </Button>
               </CommandHint>
             </div>

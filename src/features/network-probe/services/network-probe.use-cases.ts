@@ -938,6 +938,8 @@ export const networkProbeUseCases = {
 
   async addAgent(label: string, endpoint: string) {
     const store = useNetworkProbeStore.getState()
+    if (store.loadingNodes) return
+    store.setLoadingNodes(true)
     store.setError(null)
     store.appendCommandLog(`addAgent('${label}', '${endpoint}')`)
     try {
@@ -949,11 +951,15 @@ export const networkProbeUseCases = {
         key: "networkProbe.errors.agentFailed",
         fallback: getErrorMessage(error),
       })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingNodes(false)
     }
   },
 
   async removeAgent(agentId: string) {
     const store = useNetworkProbeStore.getState()
+    if (store.loadingNodes) return
+    store.setLoadingNodes(true)
     store.setError(null)
     store.appendCommandLog(`removeAgent('${agentId}')`)
     try {
@@ -965,6 +971,8 @@ export const networkProbeUseCases = {
         key: "networkProbe.errors.agentFailed",
         fallback: getErrorMessage(error),
       })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingNodes(false)
     }
   },
 

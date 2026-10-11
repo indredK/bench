@@ -2067,6 +2067,14 @@
       "run": "Scan ports",
       "running": "Scanning…",
       "cancel": "Cancel",
+      "validation": {
+        "empty": "Enter at least one port or range.",
+        "invalidFormat": "Use ports like 80,443,8000-8010.",
+        "outOfRange": "Ports must be between 1 and 65535.",
+        "reversedRange": "The start of a range must not exceed its end.",
+        "tooMany": "Scan at most 256 unique ports.",
+        "tooLong": "Port input is too long (maximum 2048 bytes)."
+      },
       "openList": "Open: {{ports}}",
       "confirmTitle": "Confirm port scan scope",
       "confirmDesc": "Target {{target}} · about {{count}} ports. Public hosts or large ranges need an extra confirm.",
@@ -2104,16 +2112,24 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "Compare DNS answers from this Mac and Globalping locations. Register HTTPS agents for self-hosted probes.",
+      "hint": "Compare DNS answers from this Mac and Globalping locations. Register HTTPS/WSS agents for self-hosted probes.",
       "run": "Compare DNS (multi-node)",
       "running": "Comparing…",
+      "working": "Working…",
       "refresh": "Refresh nodes",
       "listTitle": "Probe nodes",
       "addTitle": "Add agent",
-      "addHint": "Endpoint must be https:// or wss://. Arbitrary shell actions are rejected.",
+      "addHint": "Endpoint must use HTTPS or WSS (https:// or wss://). Arbitrary shell actions are rejected.",
       "labelPlaceholder": "Label",
       "domainPlaceholder": "example.com",
-      "endpointPlaceholder": "https://agent.example:8443",
+      "endpointPlaceholder": "https:// or wss://agent.example:8443",
+      "agentReachable": "Reachable",
+      "agentUnreachable": "Unavailable",
+      "endpointError": {
+        "invalid": "Enter a valid HTTPS or WSS URL.",
+        "scheme": "Use HTTPS or WSS; plaintext connections are not supported.",
+        "credentials": "Credentials, query parameters, and fragments are not supported in the endpoint URL. Remove them and try again."
+      },
       "addAgent": "Add agent",
       "removeAgent": "Remove",
       "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
