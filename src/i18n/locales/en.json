@@ -2618,6 +2618,8 @@
       "historyTitle": "Recent health snapshots",
       "historyEmpty": "No saved health scans yet. Run a health scan to keep history.",
       "clearHistory": "Clear history",
+      "clearHistoryConfirmTitle": "Clear saved health history?",
+      "clearHistoryConfirmDescription": "This permanently removes the saved health snapshots on this device. The current report remains available.",
       "historyItem": "{{session}}… · {{count}} checks · {{ms}} ms · {{opinions}} opinions",
       "privacyHint": "Exports may include public IP, Wi‑Fi SSID, hosts overrides, and local addresses. Share only with people you trust."
     },

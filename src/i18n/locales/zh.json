@@ -2618,6 +2618,8 @@
       "historyTitle": "近期体检快照",
       "historyEmpty": "尚无保存的体检。运行一次一键体检后会保留历史。",
       "clearHistory": "清空历史",
+      "clearHistoryConfirmTitle": "清空已保存的体检历史？",
+      "clearHistoryConfirmDescription": "这会永久删除本设备保存的体检快照，且无法撤销。当前报告仍会保留。",
       "historyItem": "{{session}}… · {{count}} 项检查 · {{ms}} ms · {{opinions}} 条建议",
       "privacyHint": "导出内容可能含公网 IP、Wi‑Fi SSID、hosts 异常与本机地址。请仅分享给可信对象。"
     },

@@ -46,6 +46,7 @@
 
 - [§4/§5] `src/features/network-probe/components/PackInstallDialog.tsx` - **Low**：能力包列表把后端 `installed` / `available` / `unavailable` 状态直接插入界面，中文用户可见原始英文 `available` - 状态按中英文 locale 映射，未知值回退为本地化“状态未知”；补四态组件回归 - **强制** - 状态：已修复（macOS 27.0.1 arm64 隔离 Bench QA 基线与修复版 UI 分别复现与确认；中文显示“可用”，英文显示“Available”；QA 进程退出且正式 `bench-host` 保留）
 - [§3/§5] `src/features/network-probe/components/ReportPanel.tsx` - **Low**：报告页在导出按钮下直接显示带 session ID 的原始 `commandHint`，同一会话已在两个命令日志区域展示 - 移除报告摘要中的重复原始命令，保留命令日志和带隐私提示的导出；补报告页回归 - **强制** - 状态：已修复（macOS 27.0.1 arm64 隔离 QA 对只读 21 项体检两次复现；修复版再次实跑 21 项，中英文报告页均不再显示原始命令，隐私提示、历史与命令日志保留）
+- [§5] `src/features/network-probe/components/ReportPanel.tsx` - 报告历史“清空”直接删除 localStorage 中的快照，没有产品规格要求的二次确认 - 使用共享 `DestructiveConfirmDialog`，明确说明删除范围且当前报告仍保留；补取消与确认回归 - **强制** - 状态：已修复（macOS arm64 本机浏览器以合成快照复现直接清空；修复版验证中英文确认文案、取消保留、确认后清空）
 
 - [§3/§5/§9] [前端] `src/features/network-probe/components/HealthTreePanel.tsx` - **Low**：Health DTO 允许任意状态字符串，未识别状态原样显示为内部标识，且没有明确的状态语义/视觉层级 - 已知值走双语映射，未知值统一显示本地化中性徽标，避免把协议扩展值误当用户文案 - 设计理念：界面语言与协议标识解耦，未识别值不会误用通过/失败颜色或暴露内部码 - **强制** - 状态：已修复（HealthTreePanel 定向测试 12 项；Map 查找覆盖 `toString` / `constructor` 等原型键；macOS arm64 隔离 QA 实际运行 21 项体检，合成未知状态在中文显示“未知状态”、英文显示 “UNKNOWN STATUS”，默认中性色；本次无注入的隔离 debug `.app` 构建成功）
 

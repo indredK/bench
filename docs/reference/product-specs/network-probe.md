@@ -108,7 +108,7 @@ L1 → L2 映射：
 
 - 当前体检结果导出：**JSON**（整份 `HealthScanResult`）与 **Markdown**（含每个检查项与建议）浏览器下载；隐私提示文案。
 - 页面摘要只显示检查数、耗时、取消状态和隐私提示；不重复展示原始 `commandHint` / session ID，命令由日志追溯；完整导出字段保持不变。
-- **历史快照**：最近 10 次未取消体检（localStorage `network-probe:report-history`），显示 sessionId/项数/耗时/建议数，可清空。
+- **历史快照**：最近 10 次未取消体检（localStorage `network-probe:report-history`），显示 sessionId/项数/耗时/建议数；清空前需二次确认。
 - **命令日志**：完整命令列表，可清空。
 
 ## 4. 站点延迟（sites）L1
@@ -295,6 +295,6 @@ NTP 结果按来源展示本地化偏移或失败原因；后端原始 `detail` 
 
 ### 13.4 数据与安全
 
-- 报告导出（JSON/Markdown）含公网 IP、Wi-Fi SSID、hosts 异常等，导出前展示隐私提示；reportHistory 仅保留最近 10 条（localStorage），清空需确认。
+- 报告导出（JSON/Markdown）含公网 IP、Wi-Fi SSID、hosts 异常等，导出前展示隐私提示；reportHistory 仅保留最近 10 条（localStorage），清空需二次确认。
 - 能力包安装路径：前端禁止提交下载 URL；仅后端 manifest 的 https URL + SHA-256 校验；`PACK_HASH_MISMATCH` 时二进制不落盘。
 - `saveDefaultsOverride`/`resetDefaults` 失败 → `networkProbe.errors.defaultsFailed`；默认资源损坏时重置即可恢复内置值。
