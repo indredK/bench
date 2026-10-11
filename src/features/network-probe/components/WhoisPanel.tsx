@@ -116,8 +116,13 @@ export function WhoisPanel({ loading, result, toolEnabled, toolStatus, onRun }: 
               {t("networkProbe.whois.empty")}
             </pre>
           ) : null}
-          {!result.errorCode ? (
-            <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+          {!result.errorCode && result.commandHint ? (
+            <details className="text-muted-foreground text-xs">
+              <summary className="cursor-pointer">
+                {t("networkProbe.whois.technicalDetails")}
+              </summary>
+              <pre className="mt-1 font-mono whitespace-pre-wrap">{result.commandHint}</pre>
+            </details>
           ) : null}
         </div>
       ) : null}

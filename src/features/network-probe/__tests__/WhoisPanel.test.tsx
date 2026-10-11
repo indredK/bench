@@ -75,7 +75,7 @@ describe("WhoisPanel result visibility", () => {
     expect(details?.textContent).toContain("whois('example.invalid')")
   })
 
-  it("keeps successful response text and command hint visible", () => {
+  it("keeps successful response text visible and collapses the command hint", () => {
     render(
       <WhoisPanel
         loading={false}
@@ -94,7 +94,9 @@ describe("WhoisPanel result visibility", () => {
     )
 
     expect(screen.getByText("successful RDAP response").closest("details")).toBeNull()
-    expect(screen.getByText("whois('example.invalid')").closest("details")).toBeNull()
+    const details = screen.getByText("networkProbe.whois.technicalDetails").closest("details")
+    expect(details?.open).toBe(false)
+    expect(screen.getByText("whois('example.invalid')").closest("details")).toBe(details)
   })
 
   it("uses a localized fallback for prototype-key error codes", () => {
