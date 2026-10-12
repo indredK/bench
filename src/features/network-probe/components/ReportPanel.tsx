@@ -67,7 +67,7 @@ export function ReportPanel({
 }: ReportPanelProps) {
   const { t } = useTranslation()
   const stamp = useMemo(() => new Date().toISOString().replace(/[:.]/g, "-"), [health])
-  const [clearHistoryOpen, setClearHistoryOpen] = useState(false)
+  const [clearConfirmation, setClearConfirmation] = useState<"history" | "log" | null>(null)
 
   return (
     <ProbePanelShell
@@ -139,7 +139,7 @@ export function ReportPanel({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setClearHistoryOpen(true)}
+              onClick={() => setClearConfirmation("history")}
             >
               {t("networkProbe.report.clearHistory")}
             </Button>
@@ -168,7 +168,13 @@ export function ReportPanel({
           <h3 className="text-xs font-semibold tracking-wide uppercase">
             {t("networkProbe.report.logTitle")}
           </h3>
-          <Button type="button" variant="ghost" size="sm" onClick={onClearLog}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={commandLog.length === 0}
+            onClick={() => setClearConfirmation("log")}
+          >
             {t("networkProbe.report.clearLog")}
           </Button>
         </div>
@@ -189,14 +195,39 @@ export function ReportPanel({
       </section>
 
       <DestructiveConfirmDialog
-        open={clearHistoryOpen}
-        onOpenChange={setClearHistoryOpen}
-        title={t("networkProbe.report.clearHistoryConfirm.title")}
-        description={t("networkProbe.report.clearHistoryConfirm.description")}
-        consequence={t("networkProbe.report.clearHistoryConfirm.consequence")}
-        confirmLabel={t("networkProbe.report.clearHistoryConfirm.confirm")}
-        cancelLabel={t("networkProbe.report.clearHistoryConfirm.cancel")}
-        onConfirm={onClearHistory}
+        open={clearConfirmation !== null}
+        onOpenChange={(open) => {
+          if (!open) setClearConfirmation(null)
+        }}
+        title={
+          clearConfirmation === "history"
+            ? t("networkProbe.report.clearHistoryConfirm.title")
+            : t("networkProbe.sideLog.clearConfirmTitle")
+        }
+        description={
+          clearConfirmation === "history"
+            ? t("networkProbe.report.clearHistoryConfirm.description")
+            : t("networkProbe.sideLog.clearConfirmDescription")
+        }
+        consequence={
+          clearConfirmation === "history"
+            ? t("networkProbe.report.clearHistoryConfirm.consequence")
+            : undefined
+        }
+        confirmLabel={
+          clearConfirmation === "history"
+            ? t("networkProbe.report.clearHistoryConfirm.confirm")
+            : t("networkProbe.sideLog.clear")
+        }
+        cancelLabel={
+          clearConfirmation === "history"
+            ? t("networkProbe.report.clearHistoryConfirm.cancel")
+            : t("common.cancel")
+        }
+        onConfirm={() => {
+          if (clearConfirmation === "history") onClearHistory()
+          if (clearConfirmation === "log") onClearLog()
+        }}
       />
     </ProbePanelShell>
   )

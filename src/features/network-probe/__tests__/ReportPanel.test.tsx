@@ -28,20 +28,24 @@ const historyItem: HealthScanResult = {
   commandHint: "startHealthScan(local)",
 }
 
-function renderReport(onClearHistory: () => void) {
+function renderReport(
+  onClearHistory: () => void,
+  onClearLog: () => void = vi.fn(),
+  commandLog = ["2026-10-13T00:00:00.000Z startHealthScan(local)"],
+) {
   return render(
     <ReportPanel
       health={null}
       history={[historyItem]}
-      commandLog={[]}
-      onClearLog={vi.fn()}
+      commandLog={commandLog}
+      onClearLog={onClearLog}
       onClearHistory={onClearHistory}
       onGoTree={vi.fn()}
     />,
   )
 }
 
-describe("network-probe report history clearing", () => {
+describe("network-probe report clear confirmations", () => {
   it("keeps history when the user cancels the confirmation", async () => {
     const onClearHistory = vi.fn()
     renderReport(onClearHistory)
@@ -75,5 +79,49 @@ describe("network-probe report history clearing", () => {
     )
 
     expect(onClearHistory).toHaveBeenCalledOnce()
+  })
+
+  it("keeps command logs when the user cancels the confirmation", async () => {
+    const onClearLog = vi.fn()
+    renderReport(vi.fn(), onClearLog)
+
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.report.clearLog" }))
+    const dialog = screen.getByRole("alertdialog")
+
+    expect(
+      within(dialog).getByText("networkProbe.sideLog.clearConfirmDescription"),
+    ).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole("button", { name: "common.cancel" }))
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument())
+    expect(screen.getByText("2026-10-13T00:00:00.000Z startHealthScan(local)")).toBeInTheDocument()
+    expect(onClearLog).not.toHaveBeenCalled()
+  })
+
+  it("clears command logs only after confirmation and disables clearing when empty", async () => {
+    const onClearLog = vi.fn()
+    const { rerender } = renderReport(vi.fn(), onClearLog)
+
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.report.clearLog" }))
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "networkProbe.sideLog.clear",
+      }),
+    )
+
+    expect(onClearLog).toHaveBeenCalledOnce()
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument())
+
+    rerender(
+      <ReportPanel
+        health={null}
+        history={[historyItem]}
+        commandLog={[]}
+        onClearLog={onClearLog}
+        onClearHistory={vi.fn()}
+        onGoTree={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole("button", { name: "networkProbe.report.clearLog" })).toBeDisabled()
   })
 })
