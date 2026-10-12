@@ -47,6 +47,7 @@ L1 → L2 映射：
 ### 全局交互与反馈细节
 
 - **bootstrap 加载**：首次进入 `bootstrap()` 并行拉取 capabilities / defaults / packs / nodes；任一失败在顶部错误横幅展示 `networkProbe.errors.bootstrapFailed`（可重试，重进页面或刷新按钮触发），不阻断其余面板。
+- **总览加载失败**：进入 overview 面板时自动加载一次；本机信息读取失败后保留错误横幅与空态，不自动连续重试，用户可点击「刷新」重试；手动请求期间刷新按钮禁用。
 - **错误横幅**：`error` 非空时面板上方红框展示，文案优先本地化 `networkProbe.errors.<tool>Failed`，兜底后端 `message`；每个操作开始前 `setError(null)`，结束（成功或失败）后由用例设置或清除，单条错误会随下一次操作被清掉。
 - **每工具 loading 独立 + 防重入**：`loading*`（每工具一个）为真时对应「运行」按钮禁用并显示运行中文案（如「Ping → 探测中…」）；use-case 入口统一 `if (store.loadingX) return` 短路，同一工具不可并发、不同工具可并行。无 loading 标志的动作（如刷新网络服务、打开系统设置）无禁用态。
 - **节点注册表操作**：刷新、新增和移除共享 `loadingNodes` single-flight 状态；操作期间相关按钮和输入框禁用并显示「处理中…」。后端对同标签 + 规范化 HTTPS URL 的重复新增返回现有节点；注册表读改写串行执行并通过原子替换持久化，避免重复点击造成重复条目或损坏 JSON。

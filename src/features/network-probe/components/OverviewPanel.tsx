@@ -1,7 +1,7 @@
 /**
  * Feature UI / 功能界面: overview panel for basic L1.
  */
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
@@ -33,9 +33,13 @@ export function OverviewPanel({
   onOpenSettings,
 }: OverviewPanelProps) {
   const { t } = useTranslation()
+  const autoLoadStarted = useRef(false)
 
   useEffect(() => {
-    if (!summary && !loading) onRefresh()
+    if (!summary && !loading && !autoLoadStarted.current) {
+      autoLoadStarted.current = true
+      onRefresh()
+    }
   }, [summary, loading, onRefresh])
 
   return (
