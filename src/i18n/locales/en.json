@@ -2199,6 +2199,13 @@
       "historyTitle": "Recent health snapshots",
       "historyEmpty": "No saved health scans yet. Run a health scan to keep history.",
       "clearHistory": "Clear history",
+      "clearHistoryConfirm": {
+        "title": "Clear health history?",
+        "description": "This removes the recent health snapshots saved on this device.",
+        "consequence": "This cannot be undone. The current report and command log will remain.",
+        "confirm": "Clear history",
+        "cancel": "Keep history"
+      },
       "historyItem": "{{session}}… · {{count}} checks · {{ms}} ms · {{opinions}} opinions",
       "privacyHint": "Exports may include public IP, Wi‑Fi SSID, hosts overrides, and local addresses. Share only with people you trust."
     },

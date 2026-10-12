@@ -1,8 +1,9 @@
 /**
  * Feature UI / 功能界面: health report export (JSON / Markdown).
  */
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { HealthScanResult } from "@/lib/tauri/types/network-probe"
@@ -66,6 +67,7 @@ export function ReportPanel({
 }: ReportPanelProps) {
   const { t } = useTranslation()
   const stamp = useMemo(() => new Date().toISOString().replace(/[:.]/g, "-"), [health])
+  const [clearHistoryOpen, setClearHistoryOpen] = useState(false)
 
   return (
     <ProbePanelShell
@@ -133,7 +135,12 @@ export function ReportPanel({
             {t("networkProbe.report.historyTitle")}
           </h3>
           {history.length > 0 ? (
-            <Button type="button" variant="ghost" size="sm" onClick={onClearHistory}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setClearHistoryOpen(true)}
+            >
               {t("networkProbe.report.clearHistory")}
             </Button>
           ) : null}
@@ -180,6 +187,17 @@ export function ReportPanel({
           </ul>
         )}
       </section>
+
+      <DestructiveConfirmDialog
+        open={clearHistoryOpen}
+        onOpenChange={setClearHistoryOpen}
+        title={t("networkProbe.report.clearHistoryConfirm.title")}
+        description={t("networkProbe.report.clearHistoryConfirm.description")}
+        consequence={t("networkProbe.report.clearHistoryConfirm.consequence")}
+        confirmLabel={t("networkProbe.report.clearHistoryConfirm.confirm")}
+        cancelLabel={t("networkProbe.report.clearHistoryConfirm.cancel")}
+        onConfirm={onClearHistory}
+      />
     </ProbePanelShell>
   )
 }
