@@ -64,7 +64,7 @@ L1 → L2 映射：
 
 ### 3.2 体检树 tree（L0–L3 健康扫描）
 
-- 点击「运行体检」→ 后端 `runHealthScan` 逐项流式推送 `health-item` 事件，面板按层分组（L0 网络层 / L1 网关 / L2 DNS / L3 公网）实时渲染；每项显示 key、状态徽标（pass/warn/fail/error/skip）、detail、commandHint。
+- 点击「运行体检」→ 后端 `runHealthScan` 逐项流式推送 `health-item` 事件，面板按层分组（L0 网络层 / L1 网关 / L2 DNS / L3 公网）实时渲染；每项优先显示按当前语言本地化的检查名称，同时保留稳定 key 作为次要技术标识，并显示状态徽标（pass/warn/fail/error/skip）、detail、commandHint。key 与 commandHint 是契约/诊断信息，不参与翻译。
 - 运行中可「取消」（走会话取消）；完成后显示耗时与「已取消」标记；未取消的结果自动加入报告历史。
 - 空态提示 + 顶部命令提示（CommandHint）。
 

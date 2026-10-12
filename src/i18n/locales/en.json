@@ -1783,6 +1783,37 @@
       "cancelled": "cancelled",
       "empty": "No scan yet. Run a health scan to populate the tree.",
       "elapsed": "Completed in {{ms}} ms",
+      "items": {
+        "link": {
+          "iface": { "title": "Network interfaces" },
+          "wifi_or_wired": { "title": "Connection type" }
+        },
+        "addr": {
+          "ipv4": { "title": "IPv4 address" },
+          "ipv6": { "title": "IPv6 address" },
+          "dhcp_or_static": { "title": "Address configuration" }
+        },
+        "route": { "default": { "title": "Default route" } },
+        "dns": {
+          "servers": { "title": "DNS servers" },
+          "resolve_name": { "title": "DNS resolution" },
+          "fake_ip": { "title": "DNS mode" }
+        },
+        "hosts": { "override": { "title": "Hosts overrides" } },
+        "proxy": { "system": { "title": "System proxy" } },
+        "vpn": { "tunnel": { "title": "VPN / tunnel" } },
+        "firewall": { "status": { "title": "Firewall status" } },
+        "svc": { "network": { "title": "Network services" } },
+        "reach": {
+          "gateway": { "title": "Gateway reachability" },
+          "public_ip": { "title": "Public IP reachability" },
+          "public_name": { "title": "Public domain reachability" },
+          "captive": { "title": "Captive portal check" },
+          "public_egress": { "title": "Public egress" },
+          "mtu": { "title": "Path MTU" }
+        },
+        "diff": { "dns_vs_ip": { "title": "DNS vs. IP diagnosis" } }
+      },
       "layers": {
         "L0": "L0 · Link",
         "L1": "L1 · Address / DNS / Policy",
