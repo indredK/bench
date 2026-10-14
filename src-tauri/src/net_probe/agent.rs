@@ -182,7 +182,9 @@ fn agent_to_node(agent: &AgentRecord, reachable: bool) -> ProbeNode {
         reachable,
         endpoint: Some(agent.endpoint.clone()),
         region: None,
-        capabilities: Some(vec!["dns".into(), "ping".into(), "http".into()]),
+        // The current agent protocol only checks endpoint health. Do not advertise
+        // probe tools until remote execution and capability negotiation exist.
+        capabilities: None,
     }
 }
 
@@ -265,7 +267,8 @@ async fn websocket_health_check(endpoint: Url) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        health_check, health_endpoint, upsert_agent_record, validate_endpoint, AgentRecord,
+        agent_to_node, health_check, health_endpoint, upsert_agent_record, validate_endpoint,
+        AgentRecord,
     };
     use std::time::Duration;
     use url::Url;
@@ -316,6 +319,22 @@ mod tests {
         assert!(inserted);
         assert_eq!(stored.id, "agent-alias");
         assert_eq!(agents.len(), 2);
+    }
+
+    #[test]
+    fn health_only_agent_does_not_advertise_unimplemented_probe_capabilities() {
+        let agent = AgentRecord {
+            id: "agent-health-only".into(),
+            label: "Health only".into(),
+            endpoint: "wss://agent.example.test".into(),
+            token_hint: String::new(),
+        };
+
+        let node = agent_to_node(&agent, true);
+
+        assert_eq!(node.kind, "remote-agent");
+        assert!(node.reachable);
+        assert_eq!(node.capabilities, None);
     }
 
     #[test]

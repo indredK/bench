@@ -95,13 +95,13 @@ Post-MVP-Adv
 
 ### 步骤
 
-1. 「多节点对比」选 tool=DNS、目标域名、勾选本机 + 2 个远端
-2. 并排查看答案差异
+1. 输入目标域名并运行 DNS 对比
+2. 并排查看本机、Globalping 世界 / 美国 / 欧洲探点的答案
 3. 额度用尽时出现可理解错误（非空成功）
 
 ### 期望
 
-- 同一 `(tool,target)` 写入 `store.byNode`
+- 结果按 local 和每个 Globalping 探点分别展示
 - 远端失败不阻断整表
 - 命令日志标注 `via globalping`
 - **不**要求本机 Adv pack（远程零重库）
@@ -116,14 +116,15 @@ Post-MVP-C
 
 ### 背景
 
-团队在机房放了自有 probe agent，想从笔记本对比机房视角。
+团队在机房放了自有 probe agent，想从笔记本确认其安全连接与在线状态。
 
 ### 步骤
 
-1. 手动添加 agent endpoint + 凭证（进 Keychain/安全存储）
+1. 手动添加 HTTPS/WSS agent endpoint
 2. `listProbeNodes` 出现 `remote-agent`
-3. 用 ping/http 跑同一目标
-4. 负向：尝试让 agent 执行非白名单/任意 shell → 被拒
+3. 列表显示 agent 的 TLS 健康检查状态
+4. 负向：HTTP 明文、URL 凭据、查询参数和片段被拒
+5. `rejectAgentAction('shell')` 拒绝任意 shell 动作
 
 ### 期望
 
@@ -132,6 +133,8 @@ Post-MVP-C
 - SSRF：拒云元数据等危险目标
 
 当前注册健康检查契约：HTTPS `GET /v1/health` 返回 2xx；WSS 在 `/v1/health` 完成 TLS WebSocket 升级并响应 Ping/Pong。两种传输都使用系统证书根，HTTPS 不跟随重定向；单端点最多等待 5 秒，列表刷新最多并发 8 个检查。凭证鉴权、429 语义和远程探测执行仍待 C2-3。
+
+当前 UI 明示 agent 仅检查可达性；remote-agent 不参与 DNS / Ping / HTTP 探测，也不宣称相关能力。远程探测执行和凭证鉴权未完成前，不把 agent 显示为可用于远端对比的结果节点。
 
 ### 档位
 

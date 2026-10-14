@@ -2145,7 +2145,7 @@
       "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
     },
     "nodes": {
-      "hint": "对比本机与 Globalping 多地的 DNS 答案。可注册 HTTPS/WSS agent 作为自有探测节点。",
+      "hint": "对比本机与 Globalping 多地的 DNS 答案。HTTPS/WSS agent 当前仅检查可达性，尚不能执行远程探测。",
       "run": "多节点对比 DNS",
       "running": "对比中…",
       "working": "处理中…",
