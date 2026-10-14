@@ -272,6 +272,43 @@ pub fn is_pack_installed(app: &AppHandle<impl Runtime>, pack_id: &str) -> bool {
         .is_some_and(|record| record.mode != "marker")
 }
 
+fn optional_tool_statuses(
+    adv_installed: bool,
+    pcap_installed: bool,
+    nmap_found: bool,
+) -> [(&'static str, &'static str); 4] {
+    [
+        (
+            "portScan",
+            if nmap_found || adv_installed {
+                "supported"
+            } else {
+                "degraded"
+            },
+        ),
+        // ARP cache and the bounded TCP sweep are the always-available fallback.
+        ("arp", "degraded"),
+        (
+            "pcap",
+            if pcap_installed {
+                "supported"
+            } else {
+                "degraded"
+            },
+        ),
+        (
+            "fingerprint",
+            if adv_installed {
+                "degraded"
+            } else if nmap_found {
+                "unsupported"
+            } else {
+                "missing_pack"
+            },
+        ),
+    ]
+}
+
 pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbeCapabilities {
     let platform = platform_id().to_string();
     let mut tools = HashMap::new();
@@ -356,32 +393,10 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
         .unwrap_or(false);
     let nmap = nmap_status();
 
-    // TCP connect always available (degraded); SYN when nmap found.
-    tools.insert(
-        "portScan".into(),
-        if nmap == "found" || adv_installed {
-            s("supported")
-        } else {
-            s("degraded")
-        },
-    );
-    // ARP: cache read always; privileged sweep needs pack.
-    tools.insert("arp".into(), s("degraded"));
-    // Pcap: tcpdump counters always attempted; pack unlocks richer mode later.
-    tools.insert(
-        "pcap".into(),
-        if pcap_installed {
-            s("supported")
-        } else {
-            s("degraded")
-        },
-    );
-    if adv_installed {
-        tools.insert("fingerprint".into(), s("degraded"));
-    } else if nmap == "found" {
-        tools.insert("fingerprint".into(), s("unsupported"));
-    } else {
-        tools.insert("fingerprint".into(), s("missing_pack"));
+    // TCP connect/ARP cache/tcpdump counters remain explicit degraded fallbacks until optional
+    // scanner binaries are actually available.
+    for (tool, status) in optional_tool_statuses(adv_installed, pcap_installed, nmap == "found") {
+        tools.insert(tool.into(), s(status));
     }
 
     let mut packs = HashMap::new();
@@ -406,6 +421,46 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
         tools,
         packs,
         external_tools,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::optional_tool_statuses;
+    use std::collections::HashMap;
+
+    fn status_map(
+        adv_installed: bool,
+        pcap_installed: bool,
+        nmap_found: bool,
+    ) -> HashMap<&'static str, &'static str> {
+        optional_tool_statuses(adv_installed, pcap_installed, nmap_found)
+            .into_iter()
+            .collect()
+    }
+
+    #[test]
+    fn missing_optional_tools_keep_the_supported_fallbacks_degraded() {
+        let statuses = status_map(false, false, false);
+
+        assert_eq!(statuses.get("portScan"), Some(&"degraded"));
+        assert_eq!(statuses.get("arp"), Some(&"degraded"));
+        assert_eq!(statuses.get("pcap"), Some(&"degraded"));
+        assert_eq!(statuses.get("fingerprint"), Some(&"missing_pack"));
+    }
+
+    #[test]
+    fn detected_nmap_and_installed_packs_only_unlock_their_declared_paths() {
+        let nmap_only = status_map(false, false, true);
+        assert_eq!(nmap_only.get("portScan"), Some(&"supported"));
+        assert_eq!(nmap_only.get("pcap"), Some(&"degraded"));
+        assert_eq!(nmap_only.get("fingerprint"), Some(&"unsupported"));
+
+        let packs = status_map(true, true, false);
+        assert_eq!(packs.get("portScan"), Some(&"supported"));
+        assert_eq!(packs.get("arp"), Some(&"degraded"));
+        assert_eq!(packs.get("pcap"), Some(&"supported"));
+        assert_eq!(packs.get("fingerprint"), Some(&"degraded"));
     }
 }
 
