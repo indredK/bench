@@ -527,6 +527,13 @@ export const networkProbeUseCases = {
     if (store.loadingOffline) return
     store.setLoadingOffline(true)
     store.setError(null)
+    // An atomic rerun replaces the whole bundle. Clear every previous card first so a failed
+    // subrequest cannot leave old results looking like they came from this run.
+    store.setCaptiveResult(null)
+    store.setPublicIpInfo(null)
+    store.setProxyVpnStatus(null)
+    store.setIpv6Result(null)
+    store.setMtuResult(null)
     try {
       const [captive, publicIp, proxyVpn, ipv6, mtu] = await Promise.all([
         networkProbeRepository.detectCaptivePortal(),
@@ -555,6 +562,8 @@ export const networkProbeUseCases = {
     if (store.loadingOffline) return
     store.setLoadingOffline(true)
     store.setError(null)
+    // Keep a failed egress refresh from presenting the last IP as the current result.
+    store.setPublicIpInfo(null)
     try {
       const publicIp = await networkProbeRepository.getPublicIpInfo()
       store.setPublicIpInfo(publicIp)
