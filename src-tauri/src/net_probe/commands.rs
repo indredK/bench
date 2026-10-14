@@ -137,10 +137,11 @@ pub async fn network_probe_run_pcap_diag(
 
 #[tauri::command]
 pub async fn network_probe_compare_dns_multi(
+    app: AppHandle,
     domain: String,
     locations: Option<Vec<String>>,
 ) -> AppResult<MultiNodeDnsResult> {
-    super::globalping::compare_dns_multi(domain, locations.unwrap_or_default()).await
+    super::globalping::compare_dns_multi(&app, domain, locations.unwrap_or_default()).await
 }
 
 #[tauri::command]

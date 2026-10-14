@@ -528,11 +528,14 @@ export interface NodeDnsAnswer {
   ok: boolean
   answers: string[]
   detail?: string
+  failureKind?: "quota" | "timeout" | "request" | "measurement"
 }
 
 export interface MultiNodeDnsResult {
   domain: string
   answers: NodeDnsAnswer[]
   elapsedMs: number
+  sessionId: string
+  cancelled: boolean
   commandHint: string
 }

@@ -775,6 +775,8 @@ pub struct NodeDnsAnswer {
     pub answers: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_kind: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -783,5 +785,7 @@ pub struct MultiNodeDnsResult {
     pub domain: String,
     pub answers: Vec<NodeDnsAnswer>,
     pub elapsed_ms: f64,
+    pub session_id: String,
+    pub cancelled: bool,
     pub command_hint: String,
 }

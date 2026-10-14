@@ -122,12 +122,14 @@ type ProbeNode = {
 
 #### Globalping（`remote-proxy`）
 
-| 项   | 约定                                                      |
-| ---- | --------------------------------------------------------- |
-| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 轮询 status |
-| 能力 | ping / traceroute / dns / mtr / http（**无带宽**）        |
-| 配额 | 匿名额度用尽 → 提示配置 token；错误映射 `AppError`        |
-| ToS  | 遵守官方限额；前端展示剩余额度（若 API 提供）             |
+| 项   | 约定                                                                                         |
+| ---- | -------------------------------------------------------------------------------------------- |
+| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 轮询 status                                    |
+| 能力 | Globalping API 支持 ping / traceroute / dns / mtr / http（**无带宽**）；Bench 当前只接入 DNS |
+| 配额 | 匿名额度用尽 → 提示配置 token；结果按探点返回结构化失败类型并本地化显示                      |
+| ToS  | 遵守官方限额；前端展示剩余额度（若 API 提供）                                                |
+
+DNS 对比按 Globalping 的 `in-progress` 状态轮询，至少间隔 700 ms；收到其他状态即停止轮询。Globalping 单个 HTTP 请求最多等待 8 秒，远端流程总时限 20 秒，本机 DNS 最多等待 5 秒。用户可停止本机等待；Globalping 不提供撤销已创建测量的接口，提交后的远端工作可能继续。超时和远端错误作为失败节点显示，不丢弃本机结果。
 
 #### 自有 agent（`remote-agent`）
 
@@ -191,7 +193,7 @@ listProbeNodes(): ProbeNode[]
 ## 5. UX
 
 - ARP/服务扫描：进度条 + 已发现计数；空态文案区分权限/隔离/真静网。
-- 多节点：先选 tool + target，再勾选节点并跑；部分节点失败不阻断整表。
+- 多节点：先选 tool + target，再勾选节点并跑；部分节点失败不阻断整表；等待中可停止本机轮询，结果细节和状态使用本地化文案。
 - 命令透明：remote 路径标注 `via globalping|agent`。
 - Post / C badge 与 roadmap 档位一致。
 

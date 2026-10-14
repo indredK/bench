@@ -97,6 +97,9 @@ export function useNetworkProbeController() {
     lan:
       activeSessionIdByKind.lan != null &&
       cancelRequestedSessionIdByKind.lan === activeSessionIdByKind.lan,
+    multiNode:
+      activeSessionIdByKind.multiNode != null &&
+      cancelRequestedSessionIdByKind.multiNode === activeSessionIdByKind.multiNode,
   }
   const commandLog = useNetworkProbeStore((s) => s.commandLog)
   const loadingSummary = useNetworkProbeStore((s) => s.loadingSummary)

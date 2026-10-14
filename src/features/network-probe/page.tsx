@@ -724,7 +724,10 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     nodes={c.probeNodes}
                     toolEnabled={c.toolEnabled.multiNode}
                     toolStatus={c.toolStatus.multiNode}
+                    canCancel={c.loadingMultiNode && Boolean(activeSessionIdByKind.multiNode)}
+                    cancelling={c.cancellingByKind.multiNode}
                     onCompare={c.compareDnsMulti}
+                    onCancel={() => c.cancelScan("multiNode")}
                     onRefreshNodes={c.refreshProbeNodes}
                     onAddAgent={c.addAgent}
                     onRemoveAgent={c.removeAgent}

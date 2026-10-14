@@ -2162,6 +2162,15 @@
       "hint": "对比本机与 Globalping 多地的 DNS 答案。HTTPS/WSS agent 当前仅检查可达性，尚不能执行远程探测。",
       "run": "多节点对比 DNS",
       "running": "对比中…",
+      "stopWaitingHint": "停止等待会结束本机轮询；已提交给 Globalping 的探测仍可能继续运行。",
+      "cancelled": "已停止等待，当前显示停止前已收到的结果。",
+      "technicalDetails": "技术详情",
+      "failures": {
+        "quota": "Globalping 额度或速率限制已用尽。",
+        "timeout": "等待超时；本机最长等待 20 秒。",
+        "request": "无法完成 Globalping 请求。",
+        "measurement": "该探点未返回 DNS 答案。"
+      },
       "working": "处理中…",
       "refresh": "刷新节点",
       "listTitle": "探测节点",
@@ -2179,7 +2188,9 @@
       },
       "addAgent": "添加 agent",
       "removeAgent": "移除",
-      "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms",
+      "meta_one": "{{domain}} · {{count}} 条答案 · {{ms}} ms",
+      "meta_other": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
     },
     "nat": {
       "hint": "对公网 STUN 服务器做 Binding，查看映射地址 / NAT 暴露情况。",

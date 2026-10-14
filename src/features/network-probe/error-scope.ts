@@ -36,6 +36,7 @@ const ERROR_ROUTES: Record<string, readonly ErrorRoute[]> = {
     route("security", "ports"),
     route("security", "pcap"),
     route("discover", "arp"),
+    route("discover", "nodes"),
   ],
   "networkProbe.errors.servicesFailed": [route("basic", "fix")],
   "networkProbe.errors.fixFailed": [route("basic", "fix")],
@@ -84,6 +85,7 @@ const CANCEL_ROUTES: Record<NetworkProbeKind, readonly ErrorRoute[]> = {
   ports: [route("security", "ports")],
   pcap: [route("security", "pcap")],
   lan: [route("discover", "arp")],
+  multiNode: [route("discover", "nodes")],
 }
 
 export function isNetworkProbeErrorVisible(

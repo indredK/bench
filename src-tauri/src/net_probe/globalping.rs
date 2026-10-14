@@ -3,9 +3,16 @@
 use super::types::{MultiNodeDnsResult, NodeDnsAnswer, ProbeNode};
 use crate::error::{AppError, AppResult};
 use serde::Deserialize;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+use tauri::{AppHandle, Emitter, Runtime};
+use tokio::time::Instant as TokioInstant;
 
 const GP_API: &str = "https://api.globalping.io/v1/measurements";
+const GP_REQUEST_TIMEOUT: Duration = Duration::from_secs(8);
+const GP_MEASUREMENT_TIMEOUT: Duration = Duration::from_secs(20);
+const GP_POLL_INTERVAL: Duration = Duration::from_millis(700);
+const LOCAL_DNS_TIMEOUT: Duration = Duration::from_secs(5);
+const SCAN_SESSION_EVENT: &str = "network-probe:scan-session";
 
 pub fn list_nodes_with_agents(agents: &[ProbeNode]) -> Vec<ProbeNode> {
     let mut nodes = vec![ProbeNode {
@@ -87,22 +94,47 @@ struct GpProbeMeta {
     country: Option<String>,
 }
 
-pub async fn compare_dns_multi(
+pub async fn compare_dns_multi<R: Runtime>(
+    app: &AppHandle<R>,
     domain: String,
     location_magics: Vec<String>,
 ) -> AppResult<MultiNodeDnsResult> {
     super::validate::validate_host(&domain)?;
+    let session_id = super::session::new_session_id();
+    let _ = app.emit(
+        SCAN_SESSION_EVENT,
+        &super::types::ScanSessionEvent {
+            session_id: session_id.clone(),
+            kind: "multiNode".into(),
+        },
+    );
+    let result = compare_dns_multi_with_session(domain, location_magics, &session_id).await;
+    super::session::clear_session(&session_id);
+    result
+}
+
+async fn compare_dns_multi_with_session(
+    domain: String,
+    location_magics: Vec<String>,
+    session_id: &str,
+) -> AppResult<MultiNodeDnsResult> {
     let started = Instant::now();
     let command_hint = format!(
         "dnsLookup(multi, '{domain}') // via globalping locations={:?}",
         location_magics
     );
-
     let mut answers = Vec::new();
 
-    // Local first
-    match super::dns::dns_lookup(domain.clone(), Some("A".into()), None).await {
-        Ok(res) => {
+    // Keep the local answer useful even when a system resolver stalls.
+    let local_result = tokio::select! {
+        biased;
+        _ = wait_for_cancellation(session_id) => {
+            return Ok(make_result(domain, answers, started, command_hint, session_id, true));
+        }
+        result = tokio::time::timeout(LOCAL_DNS_TIMEOUT, super::dns::dns_lookup(domain.clone(), Some("A".into()), None)) => result,
+    };
+    match local_result {
+        Ok(Ok(res)) => {
             let vals: Vec<String> = res.records.into_iter().map(|r| r.data).collect();
             answers.push(NodeDnsAnswer {
                 node_id: "local".into(),
@@ -110,15 +142,35 @@ pub async fn compare_dns_multi(
                 ok: true,
                 answers: vals,
                 detail: None,
+                failure_kind: None,
             });
         }
-        Err(e) => answers.push(NodeDnsAnswer {
+        Ok(Err(error)) => answers.push(NodeDnsAnswer {
             node_id: "local".into(),
             node_label: "This Mac".into(),
             ok: false,
             answers: vec![],
-            detail: Some(e.to_string()),
+            detail: Some(error.to_string()),
+            failure_kind: Some("request".into()),
         }),
+        Err(_) => answers.push(NodeDnsAnswer {
+            node_id: "local".into(),
+            node_label: "This Mac".into(),
+            ok: false,
+            answers: vec![],
+            detail: None,
+            failure_kind: Some("timeout".into()),
+        }),
+    }
+    if super::session::is_cancelled(session_id) {
+        return Ok(make_result(
+            domain,
+            answers,
+            started,
+            command_hint,
+            session_id,
+            true,
+        ));
     }
 
     let magics = if location_magics.is_empty() {
@@ -126,130 +178,316 @@ pub async fn compare_dns_multi(
     } else {
         location_magics.into_iter().take(3).collect()
     };
-
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(45))
+        .timeout(GP_REQUEST_TIMEOUT)
         .user_agent("Bench-NetworkProbe/1.0")
         .build()
-        .map_err(|e| AppError::new("GP_CLIENT", e.to_string()))?;
-
+        .map_err(|error| AppError::new("GP_CLIENT", error.to_string()))?;
     let locations: Vec<serde_json::Value> = magics
         .iter()
-        .map(|m| serde_json::json!({ "magic": m, "limit": 1 }))
+        .map(|magic| serde_json::json!({ "magic": magic, "limit": 1 }))
         .collect();
     let body = serde_json::json!({
         "type": "dns",
-        "target": domain,
+        "target": domain.clone(),
         "locations": locations,
         "measurementOptions": { "query": { "type": "A" } }
     });
+    let deadline = TokioInstant::now() + GP_MEASUREMENT_TIMEOUT;
 
-    match client.post(GP_API).json(&body).send().await {
-        Ok(resp) if resp.status().is_success() => {
-            let created: GpCreate = resp
-                .json()
-                .await
-                .map_err(|e| AppError::new("GP_PARSE", e.to_string()))?;
-            // poll
-            let mut final_res: Option<GpResult> = None;
-            for _ in 0..20 {
-                tokio::time::sleep(std::time::Duration::from_millis(700)).await;
-                let url = format!("{GP_API}/{}", created.id);
-                match client.get(&url).send().await {
-                    Ok(r) if r.status().is_success() => {
-                        let parsed: GpResult = r
-                            .json()
-                            .await
-                            .map_err(|e| AppError::new("GP_PARSE", e.to_string()))?;
-                        if parsed.status == "finished" || !parsed.results.is_empty() {
-                            if parsed.status == "finished"
-                                || parsed.results.iter().all(|x| !x.result.status.is_empty())
-                            {
-                                final_res = Some(parsed);
-                                break;
-                            }
-                            final_res = Some(parsed);
-                        }
-                    }
-                    Ok(r) if r.status().as_u16() == 429 => {
-                        answers.push(NodeDnsAnswer {
-                            node_id: "globalping".into(),
-                            node_label: "Globalping".into(),
-                            ok: false,
-                            answers: vec![],
-                            detail: Some(
-                                "Globalping quota exhausted (HTTP 429). Configure a token later."
-                                    .into(),
-                            ),
-                        });
-                        break;
-                    }
-                    _ => {}
-                }
+    let create_result = tokio::select! {
+        biased;
+        _ = wait_for_cancellation(session_id) => {
+            return Ok(make_result(domain, answers, started, command_hint, session_id, true));
+        }
+        result = tokio::time::timeout_at(deadline, async {
+            let response = client.post(GP_API).json(&body).send().await?;
+            if response.status().as_u16() == 429 {
+                return Ok::<_, reqwest::Error>(CreateOutcome::Quota);
             }
-            if let Some(res) = final_res {
-                for (idx, pr) in res.results.into_iter().enumerate() {
-                    let label = format!(
-                        "Globalping · {}/{}",
-                        pr.probe.city.unwrap_or_else(|| "?".into()),
-                        pr.probe.country.unwrap_or_else(|| "?".into())
-                    );
-                    let vals: Vec<String> = pr
-                        .result
-                        .answers
-                        .into_iter()
-                        .map(|a| {
-                            if a.rr_type.is_empty() {
-                                a.value
-                            } else {
-                                format!("{} {}", a.rr_type, a.value)
-                            }
-                        })
-                        .collect();
-                    let ok = pr.result.status == "finished" || !vals.is_empty();
-                    answers.push(NodeDnsAnswer {
-                        node_id: format!("gp-{idx}"),
-                        node_label: label,
-                        ok,
-                        answers: vals,
-                        detail: pr.result.raw_output,
-                    });
+            let status = response.status();
+            if !status.is_success() {
+                return Ok(CreateOutcome::Http(status.as_u16()));
+            }
+            response.json::<GpCreate>().await.map(CreateOutcome::Created)
+        }) => result,
+    };
+
+    let created = match create_result {
+        Err(_) => {
+            answers.push(globalping_failure("timeout", None));
+            return Ok(make_result(
+                domain,
+                answers,
+                started,
+                command_hint,
+                session_id,
+                false,
+            ));
+        }
+        Ok(Ok(CreateOutcome::Created(created))) => created,
+        Ok(Ok(CreateOutcome::Quota)) => {
+            answers.push(globalping_failure("quota", None));
+            return Ok(make_result(
+                domain,
+                answers,
+                started,
+                command_hint,
+                session_id,
+                false,
+            ));
+        }
+        Ok(Ok(CreateOutcome::Http(status))) => {
+            answers.push(globalping_failure(
+                "request",
+                Some(format!("Globalping HTTP {status}")),
+            ));
+            return Ok(make_result(
+                domain,
+                answers,
+                started,
+                command_hint,
+                session_id,
+                false,
+            ));
+        }
+        Ok(Err(error)) => {
+            answers.push(globalping_request_failure(error));
+            return Ok(make_result(
+                domain,
+                answers,
+                started,
+                command_hint,
+                session_id,
+                false,
+            ));
+        }
+    };
+
+    let url = format!("{GP_API}/{}", created.id);
+    loop {
+        if super::session::is_cancelled(session_id) {
+            return Ok(make_result(
+                domain,
+                answers,
+                started,
+                command_hint,
+                session_id,
+                true,
+            ));
+        }
+        if TokioInstant::now() >= deadline {
+            answers.push(globalping_failure("timeout", None));
+            break;
+        }
+
+        // Globalping defines every status other than `in-progress` as terminal.
+        let poll_result = tokio::select! {
+            biased;
+            _ = wait_for_cancellation(session_id) => {
+                return Ok(make_result(domain, answers, started, command_hint, session_id, true));
+            }
+            result = tokio::time::timeout_at(deadline, async {
+                let response = client.get(&url).send().await?;
+                if response.status().as_u16() == 429 {
+                    return Ok::<_, reqwest::Error>(PollOutcome::Quota);
                 }
+                let status = response.status();
+                if !status.is_success() {
+                    return Ok(PollOutcome::Http(status.as_u16()));
+                }
+                response.json::<GpResult>().await.map(PollOutcome::Result)
+            }) => result,
+        };
+
+        match poll_result {
+            Err(_) => {
+                answers.push(globalping_failure("timeout", None));
+                break;
+            }
+            Ok(Ok(PollOutcome::Result(result))) if is_measurement_terminal(&result.status) => {
+                if result.results.is_empty() {
+                    answers.push(globalping_failure("measurement", None));
+                } else {
+                    append_measurement_results(&mut answers, result);
+                }
+                break;
+            }
+            Ok(Ok(PollOutcome::Result(_))) => {}
+            Ok(Ok(PollOutcome::Quota)) => {
+                answers.push(globalping_failure("quota", None));
+                break;
+            }
+            Ok(Ok(PollOutcome::Http(status))) => {
+                answers.push(globalping_failure(
+                    "request",
+                    Some(format!("Globalping HTTP {status}")),
+                ));
+                break;
+            }
+            Ok(Err(error)) => {
+                answers.push(globalping_request_failure(error));
+                break;
             }
         }
-        Ok(resp) if resp.status().as_u16() == 429 => {
-            answers.push(NodeDnsAnswer {
-                node_id: "globalping".into(),
-                node_label: "Globalping".into(),
-                ok: false,
-                answers: vec![],
-                detail: Some("Globalping quota exhausted (HTTP 429).".into()),
-            });
-        }
-        Ok(resp) => {
-            answers.push(NodeDnsAnswer {
-                node_id: "globalping".into(),
-                node_label: "Globalping".into(),
-                ok: false,
-                answers: vec![],
-                detail: Some(format!("Globalping HTTP {}", resp.status())),
-            });
-        }
-        Err(e) => {
-            answers.push(NodeDnsAnswer {
-                node_id: "globalping".into(),
-                node_label: "Globalping".into(),
-                ok: false,
-                answers: vec![],
-                detail: Some(format!("Globalping request failed: {e}")),
-            });
+
+        tokio::select! {
+            biased;
+            _ = wait_for_cancellation(session_id) => {
+                return Ok(make_result(domain, answers, started, command_hint, session_id, true));
+            }
+            _ = tokio::time::sleep_until(next_poll_wakeup(TokioInstant::now(), deadline)) => {}
         }
     }
 
-    Ok(MultiNodeDnsResult {
+    Ok(make_result(
+        domain,
+        answers,
+        started,
+        command_hint,
+        session_id,
+        false,
+    ))
+}
+
+#[derive(Debug)]
+enum CreateOutcome {
+    Created(GpCreate),
+    Quota,
+    Http(u16),
+}
+
+#[derive(Debug)]
+enum PollOutcome {
+    Result(GpResult),
+    Quota,
+    Http(u16),
+}
+
+fn append_measurement_results(answers: &mut Vec<NodeDnsAnswer>, result: GpResult) {
+    for (idx, probe_result) in result.results.into_iter().enumerate() {
+        let label = format!(
+            "Globalping · {}/{}",
+            probe_result.probe.city.unwrap_or_else(|| "?".into()),
+            probe_result.probe.country.unwrap_or_else(|| "?".into())
+        );
+        let vals: Vec<String> = probe_result
+            .result
+            .answers
+            .into_iter()
+            .map(|answer| {
+                if answer.rr_type.is_empty() {
+                    answer.value
+                } else {
+                    format!("{} {}", answer.rr_type, answer.value)
+                }
+            })
+            .collect();
+        let ok = probe_result.result.status == "finished" || !vals.is_empty();
+        answers.push(NodeDnsAnswer {
+            node_id: format!("gp-{idx}"),
+            node_label: label,
+            ok,
+            answers: vals,
+            detail: probe_result.result.raw_output,
+            failure_kind: (!ok).then_some("measurement".into()),
+        });
+    }
+}
+
+fn is_measurement_terminal(status: &str) -> bool {
+    status != "in-progress"
+}
+
+fn next_poll_wakeup(now: TokioInstant, deadline: TokioInstant) -> TokioInstant {
+    std::cmp::min(now + GP_POLL_INTERVAL, deadline)
+}
+
+fn globalping_failure(failure_kind: &str, detail: Option<String>) -> NodeDnsAnswer {
+    NodeDnsAnswer {
+        node_id: "globalping".into(),
+        node_label: "Globalping".into(),
+        ok: false,
+        answers: vec![],
+        detail,
+        failure_kind: Some(failure_kind.into()),
+    }
+}
+
+fn globalping_request_failure(error: reqwest::Error) -> NodeDnsAnswer {
+    let failure_kind = if error.is_timeout() {
+        "timeout"
+    } else {
+        "request"
+    };
+    globalping_failure(failure_kind, Some(error.to_string()))
+}
+
+fn make_result(
+    domain: String,
+    answers: Vec<NodeDnsAnswer>,
+    started: Instant,
+    command_hint: String,
+    session_id: &str,
+    cancelled: bool,
+) -> MultiNodeDnsResult {
+    MultiNodeDnsResult {
         domain,
         answers,
         elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
+        session_id: session_id.into(),
+        cancelled,
         command_hint,
-    })
+    }
+}
+
+async fn wait_for_cancellation(session_id: &str) {
+    while !super::session::is_cancelled(session_id) {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{compare_dns_multi_with_session, is_measurement_terminal, next_poll_wakeup};
+    use crate::net_probe::session::{cancel_scan, clear_session, new_session_id};
+    use std::time::Duration;
+    use tokio::time::Instant;
+
+    #[test]
+    fn follows_globalping_terminal_status_contract() {
+        assert!(!is_measurement_terminal("in-progress"));
+        assert!(is_measurement_terminal("finished"));
+        assert!(is_measurement_terminal("failed"));
+        assert!(is_measurement_terminal("unknown-future-status"));
+    }
+
+    #[test]
+    fn poll_sleep_never_exceeds_measurement_deadline() {
+        let now = Instant::now();
+        let near_deadline = now + Duration::from_millis(100);
+        assert_eq!(next_poll_wakeup(now, near_deadline), near_deadline);
+
+        let later_deadline = now + Duration::from_secs(2);
+        assert_eq!(
+            next_poll_wakeup(now, later_deadline),
+            now + Duration::from_millis(700)
+        );
+    }
+
+    #[tokio::test]
+    async fn pre_cancelled_comparison_returns_without_network_work() {
+        let session_id = new_session_id();
+        cancel_scan(session_id.clone());
+
+        let result =
+            compare_dns_multi_with_session("example.com".into(), vec!["world".into()], &session_id)
+                .await
+                .expect("a cancelled comparison should return its partial result");
+
+        assert!(result.cancelled);
+        assert_eq!(result.session_id, session_id);
+        assert!(result.answers.is_empty());
+        clear_session(&result.session_id);
+    }
 }

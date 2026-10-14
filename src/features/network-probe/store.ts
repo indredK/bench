@@ -95,7 +95,7 @@ export type NetworkProbeL1 = "basic" | "sites" | "test" | "security" | "discover
  * 注意与 `ProbeNode.kind`（local / remote-proxy / remote-agent）不是一回事——那是「探测原点」。
  */
 export type NetworkProbeKind =
-  "health" | "sites" | "ping" | "traceroute" | "speed" | "ports" | "pcap" | "lan"
+  "health" | "sites" | "ping" | "traceroute" | "speed" | "ports" | "pcap" | "lan" | "multiNode"
 
 export type NetworkProbeError = LocalizedError & { scope?: NetworkProbeKind }
 
@@ -308,6 +308,7 @@ const EMPTY_SESSION_ID_SLOTS: Record<NetworkProbeKind, string | null> = {
   ports: null,
   pcap: null,
   lan: null,
+  multiNode: null,
 }
 
 function isOfflineSub(value: unknown): value is NetworkProbeOfflineSub {

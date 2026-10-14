@@ -2,10 +2,19 @@ import type { ReactNode } from "react"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { MultiNodePanel } from "@/features/network-probe/components/MultiNodePanel"
-import type { ProbeNode } from "@/lib/tauri/types/network-probe"
+import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, options?: Record<string, unknown>) => {
+      if (key === "networkProbe.nodes.meta") {
+        const count = Number(options?.count ?? 0)
+        const answerNoun = count === 1 ? "answer" : "answers"
+        return `${options?.domain} · ${count} ${answerNoun} · ${options?.ms} ms`
+      }
+      return key
+    },
+  }),
 }))
 
 vi.mock("@/components/common/CommandHint", () => ({
@@ -32,10 +41,13 @@ function createProps(nodes: ProbeNode[] = [localNode]) {
   return {
     loading: false,
     loadingNodes: false,
-    result: null,
+    canCancel: false,
+    cancelling: false,
+    result: null as MultiNodeDnsResult | null,
     nodes,
     toolEnabled: true,
     onCompare: vi.fn(),
+    onCancel: vi.fn(),
     onRefreshNodes: vi.fn(),
     onAddAgent: vi.fn(),
     onRemoveAgent: vi.fn(),
@@ -45,6 +57,39 @@ function createProps(nodes: ProbeNode[] = [localNode]) {
 afterEach(() => cleanup())
 
 describe("MultiNodePanel agent endpoints", () => {
+  it("lets the user stop waiting for a Globalping comparison", () => {
+    const props = createProps()
+    render(<MultiNodePanel {...props} loading canCancel />)
+
+    expect(screen.getByRole("status")).toHaveTextContent("networkProbe.nodes.stopWaitingHint")
+    fireEvent.click(screen.getByRole("button", { name: "common.cancel" }))
+
+    expect(props.onCancel).toHaveBeenCalledOnce()
+    expect(screen.getByPlaceholderText("networkProbe.nodes.domainPlaceholder")).toBeDisabled()
+  })
+
+  it("uses singular metadata when exactly one node returns an answer", () => {
+    const props = createProps()
+    props.result = {
+      domain: "example.com",
+      answers: [
+        {
+          nodeId: "local",
+          nodeLabel: "This Mac",
+          ok: true,
+          answers: ["192.0.2.1"],
+        },
+      ],
+      elapsedMs: 12,
+      sessionId: "session-1",
+      cancelled: false,
+      commandHint: "",
+    }
+    render(<MultiNodePanel {...props} />)
+
+    expect(screen.getByText("example.com · 1 answer · 12 ms")).toBeInTheDocument()
+  })
+
   it("accepts WSS and submits the self-hosted endpoint", () => {
     const props = createProps()
     render(<MultiNodePanel {...props} />)

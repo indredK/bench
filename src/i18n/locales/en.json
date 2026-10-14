@@ -2162,6 +2162,15 @@
       "hint": "Compare DNS answers from this Mac and Globalping locations. HTTPS/WSS agents currently report reachability only; remote probes are not available yet.",
       "run": "Compare DNS (multi-node)",
       "running": "Comparing…",
+      "stopWaitingHint": "Stopping ends local polling. A measurement already submitted to Globalping may continue running.",
+      "cancelled": "Stopped waiting. Results received before stopping are shown.",
+      "technicalDetails": "Technical details",
+      "failures": {
+        "quota": "Globalping quota or rate limit reached.",
+        "timeout": "Timed out; this app waits up to 20 seconds.",
+        "request": "The Globalping request could not be completed.",
+        "measurement": "This probe returned no DNS answer."
+      },
       "working": "Working…",
       "refresh": "Refresh nodes",
       "listTitle": "Probe nodes",
@@ -2179,7 +2188,9 @@
       },
       "addAgent": "Add agent",
       "removeAgent": "Remove",
-      "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} answers · {{ms}} ms",
+      "meta_one": "{{domain}} · {{count}} answer · {{ms}} ms",
+      "meta_other": "{{domain}} · {{count}} answers · {{ms}} ms"
     },
     "nat": {
       "hint": "STUN Binding against a public server to learn your mapped address / NAT exposure.",

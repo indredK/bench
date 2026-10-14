@@ -979,19 +979,25 @@ export const networkProbeUseCases = {
     store.setError(null)
     store.setMultiNodeDnsResult(null)
     store.appendCommandLog(`dnsLookup(multi, '${domain.trim()}')`)
+    const sessions = createScanSessionTracker("multiNode")
     try {
+      await sessions.start()
       const result = await networkProbeRepository.compareDnsMulti(domain.trim(), [
         "world",
         "US",
         "Europe",
       ])
       store.setMultiNodeDnsResult(result)
+      if (result.cancelled) {
+        store.appendCommandLog(`dnsLookup(multi) stopped waiting sessionId=${result.sessionId}`)
+      }
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.multiNodeFailed",
         fallback: getErrorMessage(error),
       })
     } finally {
+      sessions.stop()
       useNetworkProbeStore.getState().setLoadingMultiNode(false)
     }
   },
