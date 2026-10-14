@@ -177,9 +177,6 @@ export function SpeedPanel({
               {t("networkProbe.speed.sourceUnavailable")}
             </p>
           ) : null}
-          {result.message ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
-          ) : null}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Metric
               label={t("networkProbe.speed.ping")}
