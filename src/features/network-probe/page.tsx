@@ -323,8 +323,21 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
               </div>
 
               {errorText ? (
-                <div className="border-destructive/40 bg-destructive/5 text-destructive shrink-0 rounded-md border px-3 py-2 text-sm">
-                  {errorText}
+                <div
+                  className="border-destructive/40 bg-destructive/5 text-destructive flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                  role="alert"
+                >
+                  <span>{errorText}</span>
+                  {c.error?.key === "networkProbe.errors.icmpUnavailable" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={c.openSystemNetworkSettings}
+                    >
+                      {t("networkProbe.overview.openSettings")}
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
 

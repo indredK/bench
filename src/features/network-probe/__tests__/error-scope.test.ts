@@ -9,6 +9,13 @@ describe("network-probe error panel scope", () => {
     expect(isNetworkProbeErrorVisible(error, "test", "dns", "all")).toBe(false)
   })
 
+  it("keeps ICMP permission guidance on the Ping panel", () => {
+    const error = { key: "networkProbe.errors.icmpUnavailable" }
+
+    expect(isNetworkProbeErrorVisible(error, "test", "ping", "all")).toBe(true)
+    expect(isNetworkProbeErrorVisible(error, "test", "dns", "all")).toBe(false)
+  })
+
   it("keeps cancel failures with the session kind that failed", () => {
     const error = { key: "networkProbe.errors.cancelFailed", scope: "traceroute" as const }
     const pingError = { key: "networkProbe.errors.cancelFailed", scope: "ping" as const }

@@ -2325,6 +2325,7 @@
       "overviewFailed": "Failed to load network overview.",
       "tcpFailed": "TCP connect failed.",
       "pingFailed": "Ping failed.",
+      "icmpUnavailable": "Could not open the ICMP socket. Check macOS Local Network permission, firewall settings, or system restrictions; this does not necessarily mean the network is down.",
       "dnsFailed": "DNS lookup failed.",
       "probeFailed": "Custom target probe failed.",
       "sitesFailed": "Site pack probe failed.",

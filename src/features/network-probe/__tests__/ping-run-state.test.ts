@@ -98,6 +98,19 @@ describe("network-probe ping run state", () => {
     expect(state.loadingPing).toBe(false)
   })
 
+  it("explains Local Network permission when the ICMP socket is unavailable", async () => {
+    pingHost.mockRejectedValue({
+      code: "ICMP_UNAVAILABLE",
+      message: "Failed to open ICMP socket",
+    })
+
+    await networkProbeUseCases.runPing("192.168.0.1", 1)
+
+    const state = useNetworkProbeStore.getState()
+    expect(state.error?.key).toBe("networkProbe.errors.icmpUnavailable")
+    expect(state.error?.fallback).toBe("Failed to open ICMP socket")
+  })
+
   it("only stores samples from the active ping session", async () => {
     const activeSample = { seq: 0, ok: true, rttMs: 1.2 }
     pingHost.mockImplementation(async () => {

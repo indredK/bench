@@ -4,7 +4,7 @@
 import { networkProbeRepository } from "@/features/network-probe/services/network-probe.repository"
 import { type NetworkProbeKind, useNetworkProbeStore } from "@/features/network-probe/store"
 import { TAURI_EVENTS } from "@/lib/tauri/contracts"
-import { getErrorMessage } from "@/lib/tauri/errors"
+import { getErrorCode, getErrorMessage } from "@/lib/tauri/errors"
 import type {
   CapabilityPackProgress,
   HealthCheckItem,
@@ -158,7 +158,10 @@ export const networkProbeUseCases = {
       }
     } catch (error) {
       store.setError({
-        key: "networkProbe.errors.pingFailed",
+        key:
+          getErrorCode(error) === "ICMP_UNAVAILABLE"
+            ? "networkProbe.errors.icmpUnavailable"
+            : "networkProbe.errors.pingFailed",
         fallback: getErrorMessage(error),
       })
     } finally {

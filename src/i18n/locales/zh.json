@@ -2325,6 +2325,7 @@
       "overviewFailed": "加载网络概览失败。",
       "tcpFailed": "TCP 连通探测失败。",
       "pingFailed": "Ping 探测失败。",
+      "icmpUnavailable": "无法打开 ICMP 探测套接字。请检查 macOS「本地网络」权限、防火墙或系统限制；这不代表网络一定中断。",
       "dnsFailed": "DNS 查询失败。",
       "probeFailed": "自定义目标探测失败。",
       "sitesFailed": "站点包探测失败。",
