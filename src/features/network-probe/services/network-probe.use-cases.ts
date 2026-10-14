@@ -483,6 +483,8 @@ export const networkProbeUseCases = {
     if (store.loadingMtu) return
     store.setLoadingMtu(true)
     store.setError(null)
+    // A failed rerun must not leave measurements from the previous path visible as current.
+    store.setMtuResult(null)
     try {
       const result = await networkProbeRepository.probePathMtu(target.trim() || "1.1.1.1")
       store.setMtuResult(result)
