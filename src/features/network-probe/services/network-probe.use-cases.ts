@@ -98,6 +98,8 @@ export const networkProbeUseCases = {
     if (store.loadingTcp) return
     store.setLoadingTcp(true)
     store.setError(null)
+    // Keep a failed rerun from leaving a previous host:port result visible as current.
+    store.setTcpResult(null)
     try {
       const result = await networkProbeRepository.tcpConnect(host.trim(), port)
       store.setTcpResult(result)
