@@ -226,32 +226,15 @@ async fn http_health_check(endpoint: &str) -> bool {
 }
 
 async fn websocket_health_check(endpoint: Url) -> bool {
-    const PING_PAYLOAD: &[u8] = b"bench-health";
-
     // reqwest enables multiple rustls providers through feature unification.
     // Select one explicitly so the WSS path cannot stall while choosing a provider.
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let check = async move {
-        let (mut socket, _) = tokio_tungstenite::connect_async(endpoint.as_str())
+        let (socket, _) = tokio_tungstenite::connect_async(endpoint.as_str())
             .await
             .ok()?;
-        socket
-            .send(Message::Ping(PING_PAYLOAD.to_vec().into()))
-            .await
-            .ok()?;
-
-        while let Some(message) = socket.next().await {
-            match message.ok()? {
-                Message::Pong(payload) if payload.as_ref() == PING_PAYLOAD => {
-                    let _ = socket.send(Message::Close(None)).await;
-                    return Some(true);
-                }
-                Message::Close(_) => return Some(false),
-                _ => {}
-            }
-        }
-        Some(false)
+        Some(websocket_ping_pong(socket).await)
     };
 
     let mut check_task = tokio::spawn(check);
@@ -264,11 +247,38 @@ async fn websocket_health_check(endpoint: Url) -> bool {
     }
 }
 
+async fn websocket_ping_pong<S>(mut socket: tokio_tungstenite::WebSocketStream<S>) -> bool
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
+    const PING_PAYLOAD: &[u8] = b"bench-health";
+
+    if socket
+        .send(Message::Ping(PING_PAYLOAD.to_vec().into()))
+        .await
+        .is_err()
+    {
+        return false;
+    }
+
+    while let Some(message) = socket.next().await {
+        match message {
+            Ok(Message::Pong(payload)) if payload.as_ref() == PING_PAYLOAD => {
+                let _ = socket.send(Message::Close(None)).await;
+                return true;
+            }
+            Ok(Message::Close(_)) | Err(_) => return false,
+            _ => {}
+        }
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         agent_to_node, health_check, health_endpoint, upsert_agent_record, validate_endpoint,
-        AgentRecord,
+        websocket_ping_pong, AgentRecord,
     };
     use std::time::Duration;
     use url::Url;
@@ -406,6 +416,60 @@ mod tests {
 
         server.abort();
         assert_eq!(result, Ok(false), "a stalled WSS handshake must be bounded");
+    }
+
+    #[tokio::test]
+    async fn wss_health_check_accepts_only_a_matching_pong() {
+        use futures_util::{SinkExt, StreamExt};
+        use tokio::io::duplex;
+        use tokio_tungstenite::{
+            tungstenite::protocol::Role, tungstenite::Message, WebSocketStream,
+        };
+
+        let (client_io, server_io) = duplex(1024);
+        let client = WebSocketStream::from_raw_socket(client_io, Role::Client, None).await;
+        let mut server = WebSocketStream::from_raw_socket(server_io, Role::Server, None).await;
+        let server_task = tokio::spawn(async move {
+            let Some(Ok(Message::Ping(payload))) = server.next().await else {
+                return false;
+            };
+            if server
+                .send(Message::Pong(b"wrong-health-token".to_vec().into()))
+                .await
+                .is_err()
+            {
+                return false;
+            }
+            if server.send(Message::Pong(payload)).await.is_err() {
+                return false;
+            }
+            matches!(server.next().await, Some(Ok(Message::Close(_))))
+        });
+
+        assert!(websocket_ping_pong(client).await);
+        assert!(server_task.await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn wss_health_check_rejects_close_without_matching_pong() {
+        use futures_util::{SinkExt, StreamExt};
+        use tokio::io::duplex;
+        use tokio_tungstenite::{
+            tungstenite::protocol::Role, tungstenite::Message, WebSocketStream,
+        };
+
+        let (client_io, server_io) = duplex(1024);
+        let client = WebSocketStream::from_raw_socket(client_io, Role::Client, None).await;
+        let mut server = WebSocketStream::from_raw_socket(server_io, Role::Server, None).await;
+        let server_task = tokio::spawn(async move {
+            if !matches!(server.next().await, Some(Ok(Message::Ping(_)))) {
+                return false;
+            }
+            server.send(Message::Close(None)).await.is_ok()
+        });
+
+        assert!(!websocket_ping_pong(client).await);
+        assert!(server_task.await.unwrap());
     }
 }
 
