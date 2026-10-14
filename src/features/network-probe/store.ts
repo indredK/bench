@@ -96,6 +96,8 @@ export type NetworkProbeL1 = "basic" | "sites" | "test" | "security" | "discover
 export type NetworkProbeKind =
   "health" | "sites" | "traceroute" | "speed" | "ports" | "pcap" | "lan"
 
+export type NetworkProbeError = LocalizedError & { scope?: NetworkProbeKind }
+
 export type NetworkProbeOfflineSub =
   "all" | "captive" | "proxy" | "ipv6" | "mtu" | "egress" | "diff"
 
@@ -188,7 +190,7 @@ interface NetworkProbeState {
   loadingPcap: boolean
   loadingMultiNode: boolean
   loadingNodes: boolean
-  error: LocalizedError | null
+  error: NetworkProbeError | null
 
   setL1: (l1Id: NetworkProbeL1) => void
   setL2: (l2Id: string) => void
@@ -274,7 +276,7 @@ interface NetworkProbeState {
   setLoadingPcap: (loading: boolean) => void
   setLoadingMultiNode: (loading: boolean) => void
   setLoadingNodes: (loading: boolean) => void
-  setError: (error: LocalizedError | null) => void
+  setError: (error: NetworkProbeError | null) => void
 }
 
 const DEFAULT_L2: NetworkProbeL2ByL1 = {
@@ -443,23 +445,28 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   error: null,
 
   setL1: (l1Id) => {
-    const nav = { ...get().nav, l1Id }
+    const state = get()
+    if (state.nav.l1Id === l1Id) return
+    const nav = { ...state.nav, l1Id }
     persistNav(nav)
-    set({ nav })
+    set({ nav, error: null })
   },
   setL2: (l2Id) => {
     const { nav } = get()
+    if (nav.l2ByL1[nav.l1Id] === l2Id) return
     const next = {
       ...nav,
       l2ByL1: { ...nav.l2ByL1, [nav.l1Id]: l2Id },
     }
     persistNav(next)
-    set({ nav: next })
+    set({ nav: next, error: null })
   },
   setOfflineSub: (offlineSub) => {
-    const nav = { ...get().nav, offlineSub }
+    const state = get()
+    if (state.nav.offlineSub === offlineSub) return
+    const nav = { ...state.nav, offlineSub }
     persistNav(nav)
-    set({ nav })
+    set({ nav, error: null })
   },
   setCapabilities: (capabilities) => set({ capabilities }),
   setCapabilityPacks: (capabilityPacks) => set({ capabilityPacks }),

@@ -39,6 +39,7 @@ import { TraceroutePanel } from "@/features/network-probe/components/TracerouteP
 import { WhoisPanel } from "@/features/network-probe/components/WhoisPanel"
 import { CommandLogSidePanel } from "@/features/network-probe/components/CommandLogSidePanel"
 import { useNetworkProbeController } from "@/features/network-probe/hooks/useNetworkProbeController"
+import { isNetworkProbeErrorVisible } from "@/features/network-probe/error-scope"
 import {
   OFFLINE_SUBS,
   type NetworkProbeL1,
@@ -127,8 +128,11 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
     [probeNodes],
   )
 
-  const errorText = c.error ? t(c.error.key, { defaultValue: c.error.fallback }) : null
   const offlineSub = c.offlineSub
+  const errorText =
+    c.error && isNetworkProbeErrorVisible(c.error, c.l1Id, resolvedL2, offlineSub)
+      ? t(c.error.key, { defaultValue: c.error.fallback })
+      : null
   const panelTitle = t(`networkProbe.l2.${resolvedL2}`)
   const crumbOffline =
     c.l1Id === "basic" && resolvedL2 === "offline" && offlineSub !== "all"

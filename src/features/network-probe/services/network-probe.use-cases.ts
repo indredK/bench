@@ -331,6 +331,7 @@ export const networkProbeUseCases = {
       store.setError({
         key: "networkProbe.errors.cancelFailed",
         fallback: getErrorMessage(error),
+        scope: kind,
       })
     }
   },
