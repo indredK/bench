@@ -77,6 +77,7 @@ const ERROR_ROUTES: Record<string, readonly ErrorRoute[]> = {
 const CANCEL_ROUTES: Record<NetworkProbeKind, readonly ErrorRoute[]> = {
   health: [route("basic", "tree")],
   sites: [route("sites", "official"), route("sites", "packs")],
+  ping: [route("test", "ping")],
   traceroute: [route("test", "traceroute")],
   speed: [route("test", "speed")],
   ports: [route("security", "ports")],

@@ -55,6 +55,7 @@ beforeEach(() => {
     activeSessionIdByKind: {
       health: null,
       sites: null,
+      ping: null,
       traceroute: null,
       speed: null,
       ports: null,
@@ -64,6 +65,7 @@ beforeEach(() => {
     cancelRequestedSessionIdByKind: {
       health: null,
       sites: null,
+      ping: null,
       traceroute: null,
       speed: null,
       ports: null,
@@ -83,6 +85,22 @@ describe("network-probe cancel idempotency (A4-4)", () => {
     })
     expect(cancelScan).not.toHaveBeenCalled()
     expect(useNetworkProbeStore.getState().error).toBeNull()
+  })
+
+  it("cancels only the active Ping session and sends the request once", async () => {
+    useNetworkProbeStore.getState().setActiveSessionId("ping", "ping-session-1")
+    cancelScan.mockResolvedValue(true)
+
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("ping")
+      await networkProbeUseCases.cancelScan("ping")
+    })
+
+    expect(cancelScan).toHaveBeenCalledTimes(1)
+    expect(cancelScan).toHaveBeenCalledWith("ping-session-1")
+    expect(useNetworkProbeStore.getState().cancelRequestedSessionIdByKind.ping).toBe(
+      "ping-session-1",
+    )
   })
 
   it("cancels the active session exactly once and is idempotent afterwards", async () => {

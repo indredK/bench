@@ -11,9 +11,12 @@ describe("network-probe error panel scope", () => {
 
   it("keeps cancel failures with the session kind that failed", () => {
     const error = { key: "networkProbe.errors.cancelFailed", scope: "traceroute" as const }
+    const pingError = { key: "networkProbe.errors.cancelFailed", scope: "ping" as const }
 
     expect(isNetworkProbeErrorVisible(error, "test", "traceroute", "all")).toBe(true)
     expect(isNetworkProbeErrorVisible(error, "security", "ports", "all")).toBe(false)
+    expect(isNetworkProbeErrorVisible(pingError, "test", "ping", "all")).toBe(true)
+    expect(isNetworkProbeErrorVisible(pingError, "test", "dns", "all")).toBe(false)
   })
 
   it("limits offline subtool errors to the matching subview", () => {

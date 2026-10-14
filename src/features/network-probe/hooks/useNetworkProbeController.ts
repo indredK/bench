@@ -31,6 +31,7 @@ export function useNetworkProbeController() {
   const hosts = useNetworkProbeStore((s) => s.hosts)
   const tcpResult = useNetworkProbeStore((s) => s.tcpResult)
   const pingResult = useNetworkProbeStore((s) => s.pingResult)
+  const pingStreamingSamples = useNetworkProbeStore((s) => s.pingStreamingSamples)
   const dnsResult = useNetworkProbeStore((s) => s.dnsResult)
   const probeResult = useNetworkProbeStore((s) => s.probeResult)
   const sitesResult = useNetworkProbeStore((s) => s.sitesResult)
@@ -78,6 +79,9 @@ export function useNetworkProbeController() {
     sites:
       activeSessionIdByKind.sites != null &&
       cancelRequestedSessionIdByKind.sites === activeSessionIdByKind.sites,
+    ping:
+      activeSessionIdByKind.ping != null &&
+      cancelRequestedSessionIdByKind.ping === activeSessionIdByKind.ping,
     traceroute:
       activeSessionIdByKind.traceroute != null &&
       cancelRequestedSessionIdByKind.traceroute === activeSessionIdByKind.traceroute,
@@ -317,6 +321,7 @@ export function useNetworkProbeController() {
     hosts,
     tcpResult,
     pingResult,
+    pingStreamingSamples,
     dnsResult,
     probeResult,
     sitesResult,

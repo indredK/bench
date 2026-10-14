@@ -56,14 +56,14 @@ src-tauri/src/net_probe/
 
 ### 3.1 Ping（`pingHost`）
 
-| 项     | 约定                                                                          |
-| ------ | ----------------------------------------------------------------------------- |
-| 库     | `surge-ping`                                                                  |
-| 套接字 | 非 root：`SOCK_DGRAM`/`IPPROTO_ICMP`（Apple 惯例）；root：可 RAW              |
-| 输出   | 每包 RTT + 结束汇总（min/avg/max/stddev/loss%）                               |
-| 流式   | `network-probe://ping-sample`；`count`/`intervalMs` 有硬顶（防打爆）          |
-| 校验   | host 禁止 shell 元字符（对齐现有 `validate_host`）；拒绝空、过长、以 `-` 开头 |
-| 降级   | ICMP 不可用 → 返回 `degraded` 并建议改用 TCP/HTTP；UI 不显示假 0ms            |
+| 项     | 约定                                                                                                                                                                            |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 库     | `surge-ping`                                                                                                                                                                    |
+| 套接字 | 非 root：`SOCK_DGRAM`/`IPPROTO_ICMP`（Apple 惯例）；root：可 RAW                                                                                                                |
+| 输出   | 每包 RTT + 结束汇总（min/avg/max/stddev/loss%）                                                                                                                                 |
+| 流式   | `network-probe:ping-sample` 携带 `sessionId` 与单包样本；运行期间显示已完成包数/总数，目标与次数锁定；取消走统一 `cancelScan(sessionId)`；`count`/`intervalMs` 有硬顶（防打爆） |
+| 校验   | host 禁止 shell 元字符（对齐现有 `validate_host`）；拒绝空、过长、以 `-` 开头                                                                                                   |
+| 降级   | ICMP 不可用 → 返回 `degraded` 并建议改用 TCP/HTTP；UI 不显示假 0ms                                                                                                              |
 
 真机注意：macOS **本地网络**隐私权限会影响 LAN ping；能力矩阵标 `D/S`，UI 给设置跳转文案。
 

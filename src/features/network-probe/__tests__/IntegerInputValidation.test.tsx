@@ -44,7 +44,18 @@ describe("bounded integer input", () => {
 describe("network probe integer fields", () => {
   it("shows a field error and blocks Ping until the count is valid", () => {
     const onRun = vi.fn()
-    render(<PingPanel loading={false} result={null} toolEnabled onRun={onRun} />)
+    render(
+      <PingPanel
+        loading={false}
+        result={null}
+        streamingSamples={[]}
+        toolEnabled
+        canCancel={false}
+        cancelling={false}
+        onRun={onRun}
+        onCancel={vi.fn()}
+      />,
+    )
 
     const input = screen.getByLabelText("networkProbe.ping.count")
     const runButton = screen.getByRole("button", { name: "networkProbe.ping.run" })

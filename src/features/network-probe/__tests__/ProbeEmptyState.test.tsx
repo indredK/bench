@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { DnsLookupPanel } from "@/features/network-probe/components/DnsLookupPanel"
 import { EgressPanel } from "@/features/network-probe/components/EgressPanel"
@@ -52,7 +52,17 @@ function renderTestPanel(
 ) {
   if (panel === "ping") {
     return render(
-      <PingPanel loading={loading} result={null} hasError={hasError} toolEnabled onRun={vi.fn()} />,
+      <PingPanel
+        loading={loading}
+        result={null}
+        streamingSamples={[]}
+        hasError={hasError}
+        toolEnabled
+        canCancel={false}
+        cancelling={false}
+        onRun={vi.fn()}
+        onCancel={vi.fn()}
+      />,
     )
   }
   if (panel === "dns") {
@@ -140,13 +150,42 @@ describe("network-probe result empty states", () => {
       <PingPanel
         loading={false}
         result={null}
+        streamingSamples={[]}
         toolEnabled={false}
         toolStatus="unsupported"
+        canCancel={false}
+        cancelling={false}
         onRun={vi.fn()}
+        onCancel={vi.fn()}
       />,
     )
 
     expect(screen.queryByText("networkProbe.resultEmpty")).not.toBeInTheDocument()
+  })
+
+  it("shows live ping samples, locks inputs, and exposes cancellation while running", () => {
+    const onCancel = vi.fn()
+    render(
+      <PingPanel
+        loading
+        result={null}
+        streamingSamples={[{ seq: 0, ok: true, rttMs: 3.4 }]}
+        toolEnabled
+        canCancel
+        cancelling={false}
+        onRun={vi.fn()}
+        onCancel={onCancel}
+      />,
+    )
+
+    expect(screen.getByRole("status")).toHaveTextContent("networkProbe.ping.progress")
+    expect(screen.getByText("networkProbe.ping.sampleOk")).toBeInTheDocument()
+    expect(screen.queryByText("networkProbe.resultEmpty")).not.toBeInTheDocument()
+    expect(screen.getByLabelText("networkProbe.ping.target")).toBeDisabled()
+    expect(screen.getByLabelText("networkProbe.ping.count")).toBeDisabled()
+
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.ping.cancel" }))
+    expect(onCancel).toHaveBeenCalledOnce()
   })
 
   it("does not show the speed result prompt without a usable source", () => {

@@ -6,27 +6,36 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
 import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
-import type { PingProbeResult } from "@/lib/tauri/types/network-probe"
+import type { PingProbeResult, PingSample } from "@/lib/tauri/types/network-probe"
 
 interface PingPanelProps {
   loading: boolean
   result: PingProbeResult | null
+  streamingSamples: PingSample[]
   hasError?: boolean
   toolEnabled: boolean
   toolStatus?: string
+  canCancel: boolean
+  cancelling: boolean
   onRun: (target: string, count: number) => void
+  onCancel: () => void
 }
 
 export function PingPanel({
   loading,
   result,
+  streamingSamples,
   hasError = false,
   toolEnabled,
   toolStatus,
+  canCancel,
+  cancelling,
   onRun,
+  onCancel,
 }: PingPanelProps) {
   const { t } = useTranslation()
   const [target, setTarget] = useState("1.1.1.1")
@@ -35,6 +44,7 @@ export function PingPanel({
   const countError = parsedCount == null
   const showLocalNetworkHint =
     result != null && result.packetsSent > 0 && result.packetsReceived === 0
+  const samples = result?.samples ?? streamingSamples
 
   return (
     <ProbePanelShell
@@ -59,6 +69,7 @@ export function PingPanel({
                 value={target}
                 onChange={(e) => setTarget(e.target.value)}
                 autoComplete="off"
+                disabled={loading}
               />
             </div>
             <div className="w-24 space-y-1">
@@ -74,6 +85,7 @@ export function PingPanel({
                 value={count}
                 onChange={(e) => setCount(e.target.value)}
                 autoComplete="off"
+                disabled={loading}
                 aria-invalid={countError}
                 aria-describedby={countError ? "np-ping-count-error" : undefined}
               />
@@ -83,22 +95,31 @@ export function PingPanel({
                 </p>
               ) : null}
             </div>
-            <CommandHint
-              hint={t("networkProbe.cmd.pingHost", {
-                target: target.trim() || "…",
-                count: count || "…",
-              })}
-            >
-              <Button
-                type="button"
-                disabled={loading || !toolEnabled || !target.trim() || parsedCount == null}
-                onClick={() => {
-                  if (parsedCount != null) onRun(target, parsedCount)
-                }}
+            {loading ? (
+              <NetworkProbeCancelButton
+                label={t("networkProbe.ping.cancel")}
+                cancelling={cancelling}
+                disabled={!canCancel}
+                onCancel={onCancel}
+              />
+            ) : (
+              <CommandHint
+                hint={t("networkProbe.cmd.pingHost", {
+                  target: target.trim() || "…",
+                  count: count || "…",
+                })}
               >
-                {loading ? t("networkProbe.ping.running") : t("networkProbe.ping.run")}
-              </Button>
-            </CommandHint>
+                <Button
+                  type="button"
+                  disabled={!toolEnabled || !target.trim() || parsedCount == null}
+                  onClick={() => {
+                    if (parsedCount != null) onRun(target, parsedCount)
+                  }}
+                >
+                  {t("networkProbe.ping.run")}
+                </Button>
+              </CommandHint>
+            )}
           </div>
         </>
       }
@@ -111,12 +132,27 @@ export function PingPanel({
       {!loading && !result && !hasError && toolEnabled ? (
         <ProbeEmptyState>{t("networkProbe.resultEmpty")}</ProbeEmptyState>
       ) : null}
+      {loading ? (
+        <p className="text-muted-foreground text-sm" role="status">
+          {t("networkProbe.ping.progress", {
+            sent: streamingSamples.length,
+            total: parsedCount ?? count,
+          })}
+        </p>
+      ) : null}
+      {result?.cancelled ? (
+        <p className="text-muted-foreground text-sm" role="status">
+          {t("networkProbe.ping.cancelled")}
+        </p>
+      ) : null}
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
-          <div>
-            {t("networkProbe.ping.resolved")}:{" "}
-            <span className="font-mono font-medium">{result.resolvedIp}</span>
-          </div>
+          {result.resolvedIp ? (
+            <div>
+              {t("networkProbe.ping.resolved")}:{" "}
+              <span className="font-mono font-medium">{result.resolvedIp}</span>
+            </div>
+          ) : null}
           <div>
             {t("networkProbe.ping.summary", {
               sent: result.packetsSent,
@@ -134,23 +170,25 @@ export function PingPanel({
               })}
             </div>
           ) : null}
-          <ul className="text-muted-foreground space-y-0.5 font-mono text-xs">
-            {result.samples.map((s) => (
-              <li key={s.seq}>
-                {s.ok
-                  ? t("networkProbe.ping.sampleOk", {
-                      seq: s.seq,
-                      ms: s.rttMs?.toFixed(1) ?? "—",
-                    })
-                  : t("networkProbe.ping.sampleFail", {
-                      seq: s.seq,
-                      error: s.error ?? "timeout",
-                    })}
-              </li>
-            ))}
-          </ul>
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
+      ) : null}
+      {samples.length > 0 ? (
+        <ul className="text-muted-foreground max-h-64 space-y-0.5 overflow-y-auto font-mono text-xs">
+          {samples.map((s) => (
+            <li key={s.seq}>
+              {s.ok
+                ? t("networkProbe.ping.sampleOk", {
+                    seq: s.seq,
+                    ms: s.rttMs?.toFixed(1) ?? "—",
+                  })
+                : t("networkProbe.ping.sampleFail", {
+                    seq: s.seq,
+                    error: s.error ?? "timeout",
+                  })}
+            </li>
+          ))}
+        </ul>
       ) : null}
     </ProbePanelShell>
   )

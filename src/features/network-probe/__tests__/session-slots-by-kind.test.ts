@@ -93,6 +93,7 @@ beforeEach(() => {
     activeSessionIdByKind: {
       health: null,
       sites: null,
+      ping: null,
       traceroute: null,
       speed: null,
       ports: null,
@@ -102,6 +103,7 @@ beforeEach(() => {
     cancelRequestedSessionIdByKind: {
       health: null,
       sites: null,
+      ping: null,
       traceroute: null,
       speed: null,
       ports: null,

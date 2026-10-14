@@ -274,7 +274,16 @@ pub struct PingProbeResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stddev_rtt_ms: Option<f64>,
     pub samples: Vec<PingSample>,
+    pub session_id: String,
+    pub cancelled: bool,
     pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PingSampleEvent {
+    pub session_id: String,
+    pub sample: PingSample,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

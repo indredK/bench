@@ -506,10 +506,14 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <PingPanel
                     loading={c.loadingPing}
                     result={c.pingResult}
+                    streamingSamples={c.pingStreamingSamples}
                     hasError={Boolean(errorText)}
                     toolEnabled={c.toolEnabled.ping}
                     toolStatus={c.toolStatus.ping}
+                    canCancel={Boolean(activeSessionIdByKind.ping) && c.loadingPing}
+                    cancelling={c.cancellingByKind.ping}
                     onRun={c.runPing}
+                    onCancel={() => c.cancelScan("ping")}
                   />
                 ) : null}
 

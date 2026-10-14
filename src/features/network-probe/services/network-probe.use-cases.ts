@@ -8,7 +8,7 @@ import { getErrorMessage } from "@/lib/tauri/errors"
 import type {
   CapabilityPackProgress,
   HealthCheckItem,
-  PingSample,
+  PingSampleEvent,
   SiteSampleResult,
   SpeedSampleEvent,
   PortSampleEvent,
@@ -122,16 +122,25 @@ export const networkProbeUseCases = {
     store.setPingResult(null)
     store.resetPingStreaming()
     store.appendCommandLog(`pingHost('${target.trim()}', ${count})`)
+    const sessions = createScanSessionTracker("ping")
     let unlisten: (() => void) | undefined
     try {
-      unlisten = await listenToPlatformEvent<PingSample>(
+      await sessions.start()
+      unlisten = await listenToPlatformEvent<PingSampleEvent>(
         TAURI_EVENTS.networkProbe.pingSample,
         (event) => {
-          useNetworkProbeStore.getState().appendPingSample(event.payload)
+          const current = useNetworkProbeStore.getState()
+          if (current.activeSessionIdByKind.ping !== event.payload.sessionId) return
+          current.appendPingSample(event.payload.sample)
         },
       )
       const result = await networkProbeRepository.pingHost(target.trim(), count)
       store.setPingResult(result)
+      store.appendCommandLog(
+        result.cancelled
+          ? `pingHost cancelled sessionId=${result.sessionId}`
+          : `pingHost done sessionId=${result.sessionId} samples=${result.samples.length}`,
+      )
       if (result.packetsReceived === 0) {
         store.appendCommandLog(
           "pingHost // hint: Local Network permission may be required on macOS",
@@ -144,6 +153,7 @@ export const networkProbeUseCases = {
       })
     } finally {
       unlisten?.()
+      sessions.stop()
       useNetworkProbeStore.getState().setLoadingPing(false)
     }
   },

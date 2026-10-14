@@ -408,8 +408,11 @@ startHealthScan(nodeId, opts?): ScanSessionId
 // event network-probe://health-item → HealthCheckItem（key 见 §5.4.1）
 cancelScan(sessionId): void
 
-pingHost(nodeId, target, { count, intervalMs }): ScanSessionId
-// event network-probe://ping-sample
+pingHost(nodeId, target, { count, intervalMs }): PingProbeResult
+// scan-session { kind: "ping", sessionId }；
+// event network-probe:ping-sample { sessionId, sample: PingSample }；
+// PingProbeResult 含同一 sessionId、部分或完整 samples 与 cancelled；
+// 运行期间锁定输入并显示进度，cancelScan(sessionId) 后返回已完成样本的汇总
 
 dnsLookup(nodeId, domain, { rrType, resolver? }): DnsRecord[]
 

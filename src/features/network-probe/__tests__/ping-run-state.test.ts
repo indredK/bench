@@ -1,17 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { pingHost } = vi.hoisted(() => ({ pingHost: vi.fn() }))
+const { pingHost, eventListeners } = vi.hoisted(() => ({
+  pingHost: vi.fn(),
+  eventListeners: new Map<string, (event: { payload: unknown }) => void>(),
+}))
 
 vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
   networkProbeRepository: { pingHost },
 }))
 
 vi.mock("@/platform/events", () => ({
-  listenToPlatformEvent: vi.fn(async () => () => {}),
+  listenToPlatformEvent: vi.fn(
+    async (name: string, handler: (event: { payload: unknown }) => void) => {
+      eventListeners.set(name, handler)
+      return () => eventListeners.delete(name)
+    },
+  ),
 }))
 
 import { networkProbeUseCases } from "@/features/network-probe/services/network-probe.use-cases"
 import { useNetworkProbeStore } from "@/features/network-probe/store"
+import { TAURI_EVENTS } from "@/lib/tauri/contracts"
 import type { PingProbeResult } from "@/lib/tauri/types/network-probe"
 
 function deferred<T>() {
@@ -33,15 +42,38 @@ const previousResult = {
   maxRttMs: 0,
   stddevRttMs: 0,
   samples: [],
+  sessionId: "session-previous",
+  cancelled: false,
   commandHint: "pingHost(local, '127.0.0.1', {count:1})",
 } satisfies PingProbeResult
 
 beforeEach(() => {
   pingHost.mockReset()
+  eventListeners.clear()
   useNetworkProbeStore.setState({
     loadingPing: false,
     pingResult: previousResult,
     pingStreamingSamples: [],
+    activeSessionIdByKind: {
+      health: null,
+      sites: null,
+      ping: null,
+      traceroute: null,
+      speed: null,
+      ports: null,
+      pcap: null,
+      lan: null,
+    },
+    cancelRequestedSessionIdByKind: {
+      health: null,
+      sites: null,
+      ping: null,
+      traceroute: null,
+      speed: null,
+      ports: null,
+      pcap: null,
+      lan: null,
+    },
     commandLog: [],
     error: null,
   })
@@ -64,5 +96,28 @@ describe("network-probe ping run state", () => {
     expect(state.pingResult).toBeNull()
     expect(state.error?.key).toBe("networkProbe.errors.pingFailed")
     expect(state.loadingPing).toBe(false)
+  })
+
+  it("only stores samples from the active ping session", async () => {
+    const activeSample = { seq: 0, ok: true, rttMs: 1.2 }
+    pingHost.mockImplementation(async () => {
+      eventListeners.get(TAURI_EVENTS.networkProbe.scanSession)?.({
+        payload: { sessionId: "ping-session-1", kind: "ping" },
+      })
+      eventListeners.get(TAURI_EVENTS.networkProbe.pingSample)?.({
+        payload: { sessionId: "stale-session", sample: { seq: 99, ok: true, rttMs: 99 } },
+      })
+      eventListeners.get(TAURI_EVENTS.networkProbe.pingSample)?.({
+        payload: { sessionId: "ping-session-1", sample: activeSample },
+      })
+      return { ...previousResult, sessionId: "ping-session-1", samples: [activeSample] }
+    })
+
+    await networkProbeUseCases.runPing("127.0.0.1", 1)
+
+    const state = useNetworkProbeStore.getState()
+    expect(state.pingStreamingSamples).toEqual([activeSample])
+    expect(state.activeSessionIdByKind.ping).toBeNull()
+    expect(state.pingResult?.sessionId).toBe("ping-session-1")
   })
 })

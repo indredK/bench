@@ -6,9 +6,17 @@ use std::sync::MutexGuard;
 use std::sync::OnceLock;
 use uuid::Uuid;
 
-fn cancelled() -> &'static Mutex<HashSet<String>> {
-    static SET: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
-    SET.get_or_init(|| Mutex::new(HashSet::new()))
+#[derive(Default)]
+struct SessionRegistry {
+    active: HashSet<String>,
+    cancelled: HashSet<String>,
+}
+
+fn registry() -> &'static Mutex<SessionRegistry> {
+    // Keep active/cancelled membership under one lock so a late cancel cannot
+    // resurrect a session after its command has already cleared it.
+    static REGISTRY: OnceLock<Mutex<SessionRegistry>> = OnceLock::new();
+    REGISTRY.get_or_init(|| Mutex::new(SessionRegistry::default()))
 }
 
 fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -17,29 +25,36 @@ fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-fn lock_cancelled() -> MutexGuard<'static, HashSet<String>> {
-    lock_unpoisoned(cancelled())
+fn lock_registry() -> MutexGuard<'static, SessionRegistry> {
+    lock_unpoisoned(registry())
 }
 
 pub fn new_session_id() -> String {
-    Uuid::new_v4().to_string()
+    let session_id = Uuid::new_v4().to_string();
+    lock_registry().active.insert(session_id.clone());
+    session_id
 }
 
-/// Idempotent: repeated cancel for the same id is a no-op success.
+/// Idempotent for active sessions; a late cancel after clear is ignored.
 pub fn cancel_scan(session_id: String) {
     let id = session_id.trim();
     if id.is_empty() {
         return;
     }
-    lock_cancelled().insert(id.to_string());
+    let mut registry = lock_registry();
+    if registry.active.contains(id) {
+        registry.cancelled.insert(id.to_string());
+    }
 }
 
 pub fn is_cancelled(session_id: &str) -> bool {
-    lock_cancelled().contains(session_id)
+    lock_registry().cancelled.contains(session_id)
 }
 
 pub fn clear_session(session_id: &str) {
-    lock_cancelled().remove(session_id);
+    let mut registry = lock_registry();
+    registry.active.remove(session_id);
+    registry.cancelled.remove(session_id);
 }
 
 #[cfg(test)]
@@ -56,6 +71,16 @@ mod tests {
         assert!(is_cancelled(&session_id));
 
         clear_session(&session_id);
+        assert!(!is_cancelled(&session_id));
+    }
+
+    #[test]
+    fn a_late_cancel_cannot_recreate_a_cleared_session() {
+        let session_id = new_session_id();
+        clear_session(&session_id);
+
+        cancel_scan(session_id.clone());
+
         assert!(!is_cancelled(&session_id));
     }
 
