@@ -116,6 +116,8 @@ export const networkProbeUseCases = {
     if (store.loadingPing) return
     store.setLoadingPing(true)
     store.setError(null)
+    // A failed rerun must not leave a previous target's success visible as if it were current.
+    store.setPingResult(null)
     store.resetPingStreaming()
     store.appendCommandLog(`pingHost('${target.trim()}', ${count})`)
     let unlisten: (() => void) | undefined
