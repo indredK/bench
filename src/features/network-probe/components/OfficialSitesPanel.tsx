@@ -157,69 +157,73 @@ export function OfficialSitesPanel({
             const status = isPending ? "running" : !sample ? "idle" : sample.ok ? "ok" : "fail"
 
             return (
-              <button
+              <CommandHint
                 key={site.id}
-                type="button"
-                disabled={loading || !toolEnabled}
-                title={t("networkProbe.official.cardHint", { host })}
-                onClick={() => handleTestOne(site.target)}
-                className={cn(
-                  "relative flex min-h-[5.25rem] flex-col rounded-md border px-3.5 pt-3 pb-8 text-left transition-colors",
-                  "hover:bg-muted/60 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
-                  (loading || !toolEnabled) && "cursor-not-allowed",
-                  !toolEnabled && "opacity-60",
-                  status === "ok" && "border-emerald-500/40 bg-emerald-500/5",
-                  status === "fail" && "border-destructive/40 bg-destructive/5",
-                  status === "running" && "border-primary/40 bg-primary/5",
-                )}
+                hint={t("networkProbe.cmd.sitesProbeOne", { target: site.target })}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{label}</div>
-                    <div className="text-muted-foreground truncate font-mono text-[11px]">
-                      {host}
+                <button
+                  type="button"
+                  disabled={loading || !toolEnabled}
+                  onClick={() => handleTestOne(site.target)}
+                  className={cn(
+                    "relative flex min-h-[5.25rem] flex-col rounded-md border px-3.5 pt-3 pb-8 text-left transition-colors",
+                    "hover:bg-muted/60 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
+                    (loading || !toolEnabled) && "cursor-not-allowed",
+                    !toolEnabled && "opacity-60",
+                    status === "ok" && "border-emerald-500/40 bg-emerald-500/5",
+                    status === "fail" && "border-destructive/40 bg-destructive/5",
+                    status === "running" && "border-primary/40 bg-primary/5",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{label}</div>
+                      <div className="text-muted-foreground truncate font-mono text-[11px]">
+                        {host}
+                      </div>
                     </div>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase",
+                        status === "ok" &&
+                          "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+                        status === "fail" && "bg-destructive/15 text-destructive",
+                        status === "idle" && "bg-muted text-muted-foreground",
+                        status === "running" && "bg-primary/15 text-primary",
+                      )}
+                    >
+                      {status === "ok"
+                        ? t("networkProbe.official.statusOk")
+                        : status === "fail"
+                          ? t("networkProbe.official.statusFail")
+                          : status === "running"
+                            ? t("networkProbe.official.statusRunning")
+                            : t("networkProbe.official.statusIdle")}
+                    </span>
                   </div>
-                  <span
-                    className={cn(
-                      "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase",
-                      status === "ok" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-                      status === "fail" && "bg-destructive/15 text-destructive",
-                      status === "idle" && "bg-muted text-muted-foreground",
-                      status === "running" && "bg-primary/15 text-primary",
-                    )}
-                  >
-                    {status === "ok"
-                      ? t("networkProbe.official.statusOk")
-                      : status === "fail"
-                        ? t("networkProbe.official.statusFail")
-                        : status === "running"
-                          ? t("networkProbe.official.statusRunning")
-                          : t("networkProbe.official.statusIdle")}
-                  </span>
-                </div>
-                <div className="text-muted-foreground absolute inset-x-3 bottom-2 flex items-end justify-between gap-2 font-mono text-[11px]">
-                  <span className="min-w-0 truncate">
-                    {isPending
-                      ? t("networkProbe.official.running")
-                      : sample?.error && !sample.ok
-                        ? t("networkProbe.official.fail", { error: sample.error })
-                        : latest
-                          ? [
-                              t("networkProbe.official.testedAt", {
-                                time: formatTestedAt(latest.testedAt),
-                              }),
-                              latency,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")
-                          : t("networkProbe.official.clickToTest")}
-                  </span>
-                  <span className="min-w-[4.5rem] shrink-0 text-right tabular-nums">
-                    {isPending ? "" : (throughput ?? "")}
-                  </span>
-                </div>
-              </button>
+                  <div className="text-muted-foreground absolute inset-x-3 bottom-2 flex items-end justify-between gap-2 font-mono text-[11px]">
+                    <span className="min-w-0 truncate">
+                      {isPending
+                        ? t("networkProbe.official.running")
+                        : sample?.error && !sample.ok
+                          ? t("networkProbe.official.fail", { error: sample.error })
+                          : latest
+                            ? [
+                                t("networkProbe.official.testedAt", {
+                                  time: formatTestedAt(latest.testedAt),
+                                }),
+                                latency,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")
+                            : t("networkProbe.official.clickToTest")}
+                    </span>
+                    <span className="min-w-[4.5rem] shrink-0 text-right tabular-nums">
+                      {isPending ? "" : (throughput ?? "")}
+                    </span>
+                  </div>
+                </button>
+              </CommandHint>
             )
           })}
         </div>

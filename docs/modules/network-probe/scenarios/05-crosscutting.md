@@ -42,13 +42,14 @@ MVP
 
 ### 步骤
 
-1. hover「开始体检」/「Ping」等按钮 → 看 Tooltip
-2. 执行后打开命令日志 → 见 command/event 序列
+1. hover 或键盘聚焦「开始体检」/「Ping」等按钮及一个官网单卡 → Tooltip 显示 IPC 契约名和关键参数
+2. 单测官网卡片后打开命令日志 → 见实际 command/event 序列与单卡目标
 3. 展开某个体检项 → 见 `commandHint`；合成项标明非独立 IPC
 
 ### 期望
 
 - 显示契约名（不翻译标识符）；参数脱敏
+- 官网单卡提示包含 `startSitesProbe` 和该卡片目标
 - 降级路径写明 `// degraded: …`
 - 无 token/密钥进日志
 
