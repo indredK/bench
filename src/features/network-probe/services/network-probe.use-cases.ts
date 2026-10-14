@@ -12,6 +12,7 @@ import type {
   SiteSampleResult,
   SpeedSampleEvent,
   PortSampleEvent,
+  ProbeNode,
   TracerouteHop,
 } from "@/lib/tauri/types/network-probe"
 import { listenToPlatformEvent } from "@/platform/events"
@@ -44,6 +45,15 @@ function createScanSessionTracker(kind: NetworkProbeKind) {
       useNetworkProbeStore.getState().clearActiveSessionId(kind, sessionId)
     },
   }
+}
+
+function upsertProbeNode(nodes: ProbeNode[], updatedNode: ProbeNode): ProbeNode[] {
+  const index = nodes.findIndex((node) => node.id === updatedNode.id)
+  if (index < 0) return [...nodes, updatedNode]
+
+  const nextNodes = [...nodes]
+  nextNodes[index] = updatedNode
+  return nextNodes
 }
 
 export const networkProbeUseCases = {
@@ -972,9 +982,18 @@ export const networkProbeUseCases = {
     store.setError(null)
     store.appendCommandLog(`addAgent('${label}', '${endpoint}')`)
     try {
-      await networkProbeRepository.addAgent(label, endpoint)
-      const nodes = await networkProbeRepository.listProbeNodes()
-      store.setProbeNodes(nodes)
+      const addedNode = await networkProbeRepository.addAgent(label, endpoint)
+      const currentNodes = useNetworkProbeStore.getState().probeNodes
+      if (currentNodes.length === 0) {
+        // Bootstrap may have failed or still be loading. Rehydrate the local and
+        // Globalping entries so the new agent cannot become the only probe origin.
+        const nodes = await networkProbeRepository.listProbeNodes()
+        store.setProbeNodes(nodes)
+      } else {
+        // Registration already checked this endpoint. Keep its result and avoid
+        // reopening every agent's HTTPS/WSS connection after a successful add.
+        store.setProbeNodes(upsertProbeNode(currentNodes, addedNode))
+      }
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.agentFailed",
@@ -993,8 +1012,8 @@ export const networkProbeUseCases = {
     store.appendCommandLog(`removeAgent('${agentId}')`)
     try {
       await networkProbeRepository.removeAgent(agentId)
-      const nodes = await networkProbeRepository.listProbeNodes()
-      store.setProbeNodes(nodes)
+      const currentNodes = useNetworkProbeStore.getState().probeNodes
+      store.setProbeNodes(currentNodes.filter((node) => node.id !== agentId))
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.agentFailed",
