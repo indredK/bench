@@ -723,6 +723,7 @@ export const networkProbeUseCases = {
     if (store.loadingPollution) return
     store.setLoadingPollution(true)
     store.setError(null)
+    store.setPollutionResult(null)
     store.appendCommandLog(`detectPollution(local, '${domain.trim()}')`)
     try {
       const result = await networkProbeRepository.runPollutionCheck(domain.trim())
@@ -749,6 +750,7 @@ export const networkProbeUseCases = {
     if (store.loadingWhois) return
     store.setLoadingWhois(true)
     store.setError(null)
+    store.setWhoisResult(null)
     store.appendCommandLog(`whois('${query.trim()}')`)
     try {
       const result = await networkProbeRepository.whoisLookup(query.trim())
@@ -775,6 +777,7 @@ export const networkProbeUseCases = {
     if (store.loadingDnssec) return
     store.setLoadingDnssec(true)
     store.setError(null)
+    store.setDnssecResult(null)
     store.appendCommandLog(`checkDnsSec('${domain.trim()}')`)
     try {
       const result = await networkProbeRepository.checkDnssec(domain.trim())
@@ -838,6 +841,7 @@ export const networkProbeUseCases = {
     if (store.loadingNat) return
     store.setLoadingNat(true)
     store.setError(null)
+    store.setNatResult(null)
     store.appendCommandLog("probeNat(local)")
     try {
       const result = await networkProbeRepository.probeNat()
@@ -857,6 +861,7 @@ export const networkProbeUseCases = {
     if (store.loadingNtp) return
     store.setLoadingNtp(true)
     store.setError(null)
+    store.setNtpResult(null)
     store.appendCommandLog("probeNtp(local)")
     try {
       const result = await networkProbeRepository.probeNtp()
@@ -876,6 +881,7 @@ export const networkProbeUseCases = {
     if (store.loadingLan) return
     store.setLoadingLan(true)
     store.setError(null)
+    store.setLanResult(null)
     const sessions = createScanSessionTracker("lan")
     store.appendCommandLog("scanLan(local)")
     try {
@@ -903,6 +909,7 @@ export const networkProbeUseCases = {
     if (store.loadingLanServices) return
     store.setLoadingLanServices(true)
     store.setError(null)
+    store.setLanServicesResult(null)
     store.appendCommandLog("browseLanServices(local)")
     try {
       const result = await networkProbeRepository.browseLanServices()
@@ -929,6 +936,7 @@ export const networkProbeUseCases = {
     if (store.loadingPcap) return
     store.setLoadingPcap(true)
     store.setError(null)
+    store.setPcapResult(null)
     const sessions = createScanSessionTracker("pcap")
     store.appendCommandLog(`startPacketCapture(local, {secs:${durationSecs ?? 5}})`)
     try {
@@ -969,6 +977,7 @@ export const networkProbeUseCases = {
     if (store.loadingMultiNode) return
     store.setLoadingMultiNode(true)
     store.setError(null)
+    store.setMultiNodeDnsResult(null)
     store.appendCommandLog(`dnsLookup(multi, '${domain.trim()}')`)
     try {
       const result = await networkProbeRepository.compareDnsMulti(domain.trim(), [
