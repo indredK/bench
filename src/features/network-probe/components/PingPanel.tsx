@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
 import type { PingProbeResult } from "@/lib/tauri/types/network-probe"
@@ -13,12 +14,20 @@ import type { PingProbeResult } from "@/lib/tauri/types/network-probe"
 interface PingPanelProps {
   loading: boolean
   result: PingProbeResult | null
+  hasError?: boolean
   toolEnabled: boolean
   toolStatus?: string
   onRun: (target: string, count: number) => void
 }
 
-export function PingPanel({ loading, result, toolEnabled, toolStatus, onRun }: PingPanelProps) {
+export function PingPanel({
+  loading,
+  result,
+  hasError = false,
+  toolEnabled,
+  toolStatus,
+  onRun,
+}: PingPanelProps) {
   const { t } = useTranslation()
   const [target, setTarget] = useState("1.1.1.1")
   const [count, setCount] = useState("4")
@@ -98,6 +107,9 @@ export function PingPanel({ loading, result, toolEnabled, toolStatus, onRun }: P
         <p className="text-xs text-amber-700 dark:text-amber-400">
           {t("networkProbe.caps.localNetworkHint")}
         </p>
+      ) : null}
+      {!loading && !result && !hasError && toolEnabled ? (
+        <ProbeEmptyState>{t("networkProbe.resultEmpty")}</ProbeEmptyState>
       ) : null}
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">

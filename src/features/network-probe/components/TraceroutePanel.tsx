@@ -7,6 +7,7 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
+import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
 import type { TracerouteHop, TracerouteResult } from "@/lib/tauri/types/network-probe"
@@ -17,6 +18,7 @@ interface TraceroutePanelProps {
   canCancel: boolean
   cancelling: boolean
   result: TracerouteResult | null
+  hasError?: boolean
   streamingHops: TracerouteHop[]
   toolEnabled: boolean
   toolStatus?: string
@@ -29,6 +31,7 @@ export function TraceroutePanel({
   canCancel,
   cancelling,
   result,
+  hasError = false,
   streamingHops,
   toolEnabled,
   toolStatus,
@@ -174,8 +177,8 @@ export function TraceroutePanel({
         </div>
       ) : null}
 
-      {hops.length === 0 && !loading ? (
-        <p className="text-muted-foreground text-sm">{t("networkProbe.traceroute.empty")}</p>
+      {hops.length === 0 && !loading && !hasError ? (
+        <ProbeEmptyState>{t("networkProbe.traceroute.empty")}</ProbeEmptyState>
       ) : null}
 
       {hops.length > 0 ? (

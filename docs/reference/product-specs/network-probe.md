@@ -52,6 +52,7 @@ L1 → L2 映射：
 - **每工具 loading 独立 + 防重入**：`loading*`（每工具一个）为真时对应「运行」按钮禁用并显示运行中文案（如「Ping → 探测中…」）；use-case 入口统一 `if (store.loadingX) return` 短路，同一工具不可并发、不同工具可并行。无 loading 标志的动作（如刷新网络服务、打开系统设置）无禁用态。
 - **节点注册表操作**：刷新、新增和移除共享 `loadingNodes` single-flight 状态；操作期间相关按钮和输入框禁用并显示「处理中…」。后端对同标签 + 规范化 HTTPS URL 的重复新增返回现有节点；注册表读改写串行执行并通过原子替换持久化，避免重复点击造成重复条目或损坏 JSON。
 - **能力降级**：`toolEnabled=false`（status 为 `unsupported`/`missing_pack`）时按钮禁用并显示 toolDisabled 提示（`{{tool}} status={{status}} — 已按能力矩阵禁用`）；缺 pack 的工具给出「管理能力包」入口跳转 PackInstallDialog。
+- **主动探测结果空态**：测试面板初次打开且无结果时显示本地化引导；请求运行中隐藏空态，失败时只保留所属工具的错误反馈，能力不可用或测速源未就绪时不显示无法执行的引导。
 - **命令日志侧栏**：每个探测命令追加一行时间戳日志（`appendCommandLog`），运行中/成功/失败/取消均有摘要；可折叠（sessionStorage 记忆）、清空需二次确认。
 - **键盘**：各面板均为表单 + 按钮触发（Enter 提交表单）；无全局快捷键（见 §9）。
 

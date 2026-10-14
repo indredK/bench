@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
 import type { TcpConnectResult } from "@/lib/tauri/types/network-probe"
@@ -13,10 +14,16 @@ import type { TcpConnectResult } from "@/lib/tauri/types/network-probe"
 interface TcpConnectPanelProps {
   loading: boolean
   result: TcpConnectResult | null
+  hasError?: boolean
   onRun: (host: string, port: number) => void
 }
 
-export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps) {
+export function TcpConnectPanel({
+  loading,
+  result,
+  hasError = false,
+  onRun,
+}: TcpConnectPanelProps) {
   const { t } = useTranslation()
   const [host, setHost] = useState("1.1.1.1")
   const [port, setPort] = useState("443")
@@ -82,6 +89,9 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
         </>
       }
     >
+      {!loading && !result && !hasError ? (
+        <ProbeEmptyState>{t("networkProbe.resultEmpty")}</ProbeEmptyState>
+      ) : null}
       {result ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div>

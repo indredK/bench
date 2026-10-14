@@ -5,6 +5,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { PathMtuResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
@@ -12,11 +13,12 @@ import { cn } from "@/lib/utils"
 interface MtuPanelProps {
   loading: boolean
   result: PathMtuResult | null
+  hasError?: boolean
   onRun: (target: string) => void
   dualFrom?: "offline" | "test"
 }
 
-export function MtuPanel({ loading, result, onRun, dualFrom }: MtuPanelProps) {
+export function MtuPanel({ loading, result, hasError = false, onRun, dualFrom }: MtuPanelProps) {
   const { t } = useTranslation()
   const [target, setTarget] = useState("1.1.1.1")
 
@@ -125,9 +127,9 @@ export function MtuPanel({ loading, result, onRun, dualFrom }: MtuPanelProps) {
             </div>
           ) : null}
         </div>
-      ) : (
-        <p className="text-muted-foreground text-sm">{t("networkProbe.mtu.empty")}</p>
-      )}
+      ) : !loading && !hasError ? (
+        <ProbeEmptyState>{t("networkProbe.mtu.empty")}</ProbeEmptyState>
+      ) : null}
     </ProbePanelShell>
   )
 }

@@ -456,6 +456,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                           <MtuPanel
                             loading={c.loadingMtu || c.loadingOffline}
                             result={c.mtuResult}
+                            hasError={Boolean(errorText)}
                             onRun={c.probePathMtu}
                             dualFrom="offline"
                           />
@@ -465,6 +466,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                           <EgressPanel
                             loading={c.loadingOffline}
                             result={c.publicIpInfo}
+                            hasError={Boolean(errorText)}
                             onRun={c.refreshPublicIp}
                             dualFrom="offline"
                           />
@@ -504,6 +506,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <PingPanel
                     loading={c.loadingPing}
                     result={c.pingResult}
+                    hasError={Boolean(errorText)}
                     toolEnabled={c.toolEnabled.ping}
                     toolStatus={c.toolStatus.ping}
                     onRun={c.runPing}
@@ -514,6 +517,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <DnsLookupPanel
                     loading={c.loadingDns}
                     result={c.dnsResult}
+                    hasError={Boolean(errorText)}
                     dnsPresets={c.defaults?.dnsPresets}
                     onRun={c.runDnsLookup}
                   />
@@ -523,6 +527,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <TcpConnectPanel
                     loading={c.loadingTcp}
                     result={c.tcpResult}
+                    hasError={Boolean(errorText)}
                     onRun={c.runTcpConnect}
                   />
                 ) : null}
@@ -531,6 +536,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <ProbeTargetPanel
                     loading={c.loadingProbe}
                     result={c.probeResult}
+                    hasError={Boolean(errorText)}
                     onRun={c.runProbeTarget}
                   />
                 ) : null}
@@ -541,6 +547,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     canCancel={Boolean(activeSessionIdByKind.traceroute) && c.loadingTraceroute}
                     cancelling={c.cancellingByKind.traceroute}
                     result={c.tracerouteResult}
+                    hasError={Boolean(errorText)}
                     streamingHops={c.tracerouteStreamingHops}
                     toolEnabled={c.toolEnabled.traceroute}
                     toolStatus={c.toolStatus.traceroute}
@@ -553,6 +560,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <MtuPanel
                     loading={c.loadingMtu}
                     result={c.mtuResult}
+                    hasError={Boolean(errorText)}
                     onRun={c.probePathMtu}
                     dualFrom="test"
                   />
@@ -562,6 +570,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <EgressPanel
                     loading={c.loadingOffline}
                     result={c.publicIpInfo}
+                    hasError={Boolean(errorText)}
                     onRun={c.refreshPublicIp}
                     dualFrom="test"
                   />
@@ -574,6 +583,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     cancelling={c.cancellingByKind.speed}
                     sources={c.speedSources}
                     result={c.speedResult}
+                    hasError={Boolean(errorText)}
                     sample={c.speedSample}
                     cooldownUntil={c.speedCooldownUntil}
                     toolEnabled={c.toolEnabled.speedTest}

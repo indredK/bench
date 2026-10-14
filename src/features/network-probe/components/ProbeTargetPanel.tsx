@@ -6,16 +6,23 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { ProbeTargetResult } from "@/lib/tauri/types/network-probe"
 
 interface ProbeTargetPanelProps {
   loading: boolean
   result: ProbeTargetResult | null
+  hasError?: boolean
   onRun: (input: string) => void
 }
 
-export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelProps) {
+export function ProbeTargetPanel({
+  loading,
+  result,
+  hasError = false,
+  onRun,
+}: ProbeTargetPanelProps) {
   const { t } = useTranslation()
   const [input, setInput] = useState("https://example.com")
 
@@ -49,6 +56,9 @@ export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelPro
         </>
       }
     >
+      {!loading && !result && !hasError ? (
+        <ProbeEmptyState>{t("networkProbe.resultEmpty")}</ProbeEmptyState>
+      ) : null}
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div>

@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
+import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import {
   Select,
   SelectContent,
@@ -26,6 +27,7 @@ interface SpeedPanelProps {
   cancelling: boolean
   sources: SpeedSource[]
   result: SpeedTestResult | null
+  hasError?: boolean
   sample: SpeedSampleEvent | null
   cooldownUntil: number | null
   toolEnabled: boolean
@@ -41,6 +43,7 @@ export function SpeedPanel({
   cancelling,
   sources,
   result,
+  hasError = false,
   sample,
   cooldownUntil,
   toolEnabled,
@@ -155,6 +158,9 @@ export function SpeedPanel({
               ? ` · ${sample.detail}`
               : null}
         </p>
+      ) : null}
+      {!loading && !result && !hasError && toolEnabled && sources.length > 0 ? (
+        <ProbeEmptyState>{t("networkProbe.resultEmpty")}</ProbeEmptyState>
       ) : null}
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
