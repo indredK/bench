@@ -2,6 +2,7 @@
  * Feature Store / 功能状态: store state and simple actions; 只存状态与简单动作.
  */
 import { create } from "zustand"
+import { isNetworkProbeErrorVisible } from "@/features/network-probe/error-scope"
 import type { LocalizedError } from "@/lib/errors"
 import type {
   CaptivePortalResult,
@@ -667,7 +668,24 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLoadingPcap: (loadingPcap) => set({ loadingPcap }),
   setLoadingMultiNode: (loadingMultiNode) => set({ loadingMultiNode }),
   setLoadingNodes: (loadingNodes) => set({ loadingNodes }),
-  setError: (error) => set({ error }),
+  setError: (error) =>
+    set((state) => {
+      if (error && state.error) {
+        const { l1Id, l2ByL1, offlineSub } = state.nav
+        const currentErrorVisible = isNetworkProbeErrorVisible(
+          state.error,
+          l1Id,
+          l2ByL1[l1Id],
+          offlineSub,
+        )
+        const nextErrorVisible = isNetworkProbeErrorVisible(error, l1Id, l2ByL1[l1Id], offlineSub)
+
+        // A late failure from another panel must not hide the active panel's error.
+        if (currentErrorVisible && !nextErrorVisible) return state
+      }
+
+      return { error }
+    }),
 }))
 
 export { OFFLINE_SUBS }

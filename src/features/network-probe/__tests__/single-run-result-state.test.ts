@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const {
   dnsLookup,
+  tcpConnect,
   probeTarget,
   probePathMtu,
   detectCaptivePortal,
@@ -10,6 +11,7 @@ const {
   checkIpv6Stack,
 } = vi.hoisted(() => ({
   dnsLookup: vi.fn(),
+  tcpConnect: vi.fn(),
   probeTarget: vi.fn(),
   probePathMtu: vi.fn(),
   detectCaptivePortal: vi.fn(),
@@ -21,6 +23,7 @@ const {
 vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
   networkProbeRepository: {
     dnsLookup,
+    tcpConnect,
     probeTarget,
     probePathMtu,
     detectCaptivePortal,
@@ -31,9 +34,11 @@ vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
 }))
 
 import { networkProbeUseCases } from "@/features/network-probe/services/network-probe.use-cases"
+import { isNetworkProbeErrorVisible } from "@/features/network-probe/error-scope"
 import { useNetworkProbeStore } from "@/features/network-probe/store"
 import type {
   DnsLookupResult,
+  TcpConnectResult,
   CaptivePortalResult,
   Ipv6StackResult,
   PathMtuResult,
@@ -109,6 +114,7 @@ const previousIpv6 = {
 
 beforeEach(() => {
   dnsLookup.mockReset()
+  tcpConnect.mockReset()
   probeTarget.mockReset()
   probePathMtu.mockReset()
   detectCaptivePortal.mockReset()
@@ -234,5 +240,30 @@ describe("network-probe single-run result state", () => {
     expect(state.proxyVpnStatus).toBeNull()
     expect(state.ipv6Result).toBeNull()
     expect(state.mtuResult).toBeNull()
+  })
+
+  it("keeps the active panel error when an older request fails later", async () => {
+    const dnsRequest = deferred<DnsLookupResult>()
+    const tcpRequest = deferred<TcpConnectResult>()
+    dnsLookup.mockReturnValue(dnsRequest.promise)
+    tcpConnect.mockReturnValue(tcpRequest.promise)
+
+    const store = useNetworkProbeStore.getState()
+    store.setL1("test")
+    store.setL2("tcp")
+
+    const dnsRun = networkProbeUseCases.runDnsLookup("example.com", "A")
+    const tcpRun = networkProbeUseCases.runTcpConnect("127.0.0.1", 1)
+
+    tcpRequest.reject(new Error("TCP connection refused"))
+    await tcpRun
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.tcpFailed")
+
+    dnsRequest.reject(new Error("DNS lookup failed"))
+    await dnsRun
+
+    const state = useNetworkProbeStore.getState()
+    expect(state.error?.key).toBe("networkProbe.errors.tcpFailed")
+    expect(isNetworkProbeErrorVisible(state.error, "test", "tcp", state.nav.offlineSub)).toBe(true)
   })
 })
