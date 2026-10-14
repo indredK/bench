@@ -153,6 +153,8 @@ export const networkProbeUseCases = {
     if (store.loadingDns) return
     store.setLoadingDns(true)
     store.setError(null)
+    // Do not let a failed query leave the previous domain's DNS records looking current.
+    store.setDnsResult(null)
     try {
       const result = await networkProbeRepository.dnsLookup(domain.trim(), rrType, resolver)
       store.setDnsResult(result)
@@ -171,6 +173,8 @@ export const networkProbeUseCases = {
     if (store.loadingProbe) return
     store.setLoadingProbe(true)
     store.setError(null)
+    // A failed rerun must not leave the previous host or URL result visible as current.
+    store.setProbeResult(null)
     try {
       const result = await networkProbeRepository.probeTarget(input.trim())
       store.setProbeResult(result)
