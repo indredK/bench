@@ -1659,6 +1659,16 @@
       "run": "连接",
       "running": "连接中…",
       "status": "状态",
+      "statusValue": {
+        "ok": "已连接",
+        "refused": "连接被拒绝",
+        "unreachable": "网络不可达",
+        "dnsFailed": "DNS 解析失败",
+        "timeout": "连接超时",
+        "error": "连接失败",
+        "unknown": "未知状态"
+      },
+      "systemDetail": "系统诊断详情",
       "rtt": "RTT",
       "rttValue": "RTT: {{ms}} ms"
     },

@@ -11,6 +11,15 @@ import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelS
 import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
 import type { TcpConnectResult } from "@/lib/tauri/types/network-probe"
 
+const TCP_STATUS_KEYS = {
+  ok: "networkProbe.tcp.statusValue.ok",
+  refused: "networkProbe.tcp.statusValue.refused",
+  unreachable: "networkProbe.tcp.statusValue.unreachable",
+  dns_failed: "networkProbe.tcp.statusValue.dnsFailed",
+  timeout: "networkProbe.tcp.statusValue.timeout",
+  error: "networkProbe.tcp.statusValue.error",
+} as const
+
 interface TcpConnectPanelProps {
   loading: boolean
   result: TcpConnectResult | null
@@ -29,6 +38,9 @@ export function TcpConnectPanel({
   const [port, setPort] = useState("443")
   const parsedPort = parseBoundedIntegerInput(port, 1, 65535)
   const portError = parsedPort == null
+  const statusKey = result
+    ? TCP_STATUS_KEYS[result.status as keyof typeof TCP_STATUS_KEYS]
+    : undefined
 
   return (
     <ProbePanelShell
@@ -95,12 +107,24 @@ export function TcpConnectPanel({
       {result ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div>
-            {t("networkProbe.tcp.status")}: <span className="font-medium">{result.status}</span>
+            {t("networkProbe.tcp.status")}:{" "}
+            <span className="font-medium">
+              {t(statusKey ?? "networkProbe.tcp.statusValue.unknown")}
+            </span>
           </div>
           {result.rttMs != null ? (
             <div>{t("networkProbe.tcp.rttValue", { ms: result.rttMs.toFixed(1) })}</div>
           ) : null}
-          {result.message ? <div className="text-muted-foreground">{result.message}</div> : null}
+          {result.message ? (
+            <details className="text-xs">
+              <summary className="text-muted-foreground cursor-pointer">
+                {t("networkProbe.tcp.systemDetail")}
+              </summary>
+              <p className="text-muted-foreground mt-1 font-mono break-all" dir="ltr">
+                {result.message}
+              </p>
+            </details>
+          ) : null}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}

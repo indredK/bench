@@ -1659,6 +1659,16 @@
       "run": "Connect",
       "running": "Connecting…",
       "status": "Status",
+      "statusValue": {
+        "ok": "Connected",
+        "refused": "Connection refused",
+        "unreachable": "Network unreachable",
+        "dnsFailed": "DNS resolution failed",
+        "timeout": "Connection timed out",
+        "error": "Connection failed",
+        "unknown": "Unknown status"
+      },
+      "systemDetail": "System details",
       "rtt": "RTT",
       "rttValue": "RTT: {{ms}} ms"
     },
