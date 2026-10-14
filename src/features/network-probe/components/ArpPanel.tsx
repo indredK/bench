@@ -87,9 +87,6 @@ export function ArpPanel({
               {t("networkProbe.arp.cidr", { cidr: result.cidr })}
             </p>
           ) : null}
-          {result.message ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
-          ) : null}
           <p className="text-muted-foreground text-xs">
             {t("networkProbe.arp.meta", {
               count: result.neighbors.length,
