@@ -11,6 +11,8 @@ import type { DnsPreset, FixResult } from "@/lib/tauri/types/network-probe"
 
 interface FixPanelProps {
   loading: boolean
+  loadingServices: boolean
+  openingSettings: boolean
   services: string[]
   dnsPresets: DnsPreset[]
   lastResult: FixResult | null
@@ -35,6 +37,8 @@ const RESET_PHRASE = "RESET"
 
 export function FixPanel({
   loading,
+  loadingServices,
+  openingSettings,
   services,
   dnsPresets,
   lastResult,
@@ -47,6 +51,7 @@ export function FixPanel({
 }: FixPanelProps) {
   const { t } = useTranslation()
   const [service, setService] = useState("")
+  const [serviceSelectionRequired, setServiceSelectionRequired] = useState(false)
   const [presetId, setPresetId] = useState(dnsPresets[0]?.id ?? "")
   const [pending, setPending] = useState<PendingAction>(null)
 
@@ -55,14 +60,27 @@ export function FixPanel({
   }, [onLoadServices])
 
   useEffect(() => {
-    if (!service && services.length > 0) {
-      const preferred =
-        services.find((s) => /wi-?fi|wlan/i.test(s)) ??
-        services.find((s) => /ethernet|usb/i.test(s)) ??
-        services[0]
-      setService(preferred)
+    if (services.length === 0) {
+      if (service) {
+        setService("")
+        setServiceSelectionRequired(true)
+      }
+      return
     }
-  }, [services, service])
+    if (service && services.includes(service)) return
+    if (service) {
+      setService("")
+      setServiceSelectionRequired(true)
+      return
+    }
+    if (serviceSelectionRequired) return
+
+    const preferred =
+      services.find((s) => /wi-?fi|wlan/i.test(s)) ??
+      services.find((s) => /ethernet|usb/i.test(s)) ??
+      services[0]
+    setService(preferred)
+  }, [services, service, serviceSelectionRequired])
 
   useEffect(() => {
     if (!presetId && dnsPresets[0]) setPresetId(dnsPresets[0].id)
@@ -70,6 +88,7 @@ export function FixPanel({
 
   const selectedPreset = dnsPresets.find((p) => p.id === presetId)
   const servers = selectedPreset ? [selectedPreset.address] : []
+  const serviceAvailable = service !== "" && services.includes(service)
 
   return (
     <ProbePanelShell
@@ -86,8 +105,21 @@ export function FixPanel({
                 id="np-fix-service"
                 className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
                 value={service}
-                onChange={(e) => setService(e.target.value)}
+                onChange={(e) => {
+                  setServiceSelectionRequired(false)
+                  setService(e.target.value)
+                }}
+                disabled={loading || loadingServices || services.length === 0}
               >
+                {!service ? (
+                  <option value="" disabled>
+                    {loadingServices
+                      ? t("networkProbe.fix.loadingServices")
+                      : services.length === 0
+                        ? t("networkProbe.fix.servicesEmpty")
+                        : t("networkProbe.fix.selectService")}
+                  </option>
+                ) : null}
                 {services.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -95,6 +127,19 @@ export function FixPanel({
                 ))}
               </select>
             </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={loading || loadingServices}
+              onClick={onLoadServices}
+            >
+              {loadingServices
+                ? t("networkProbe.fix.loadingServices")
+                : services.length === 0
+                  ? t("networkProbe.fix.loadServices")
+                  : t("networkProbe.fix.refreshServices")}
+            </Button>
             <div className="min-w-[10rem] flex-1 space-y-1">
               <label className="text-xs font-medium" htmlFor="np-fix-dns">
                 {t("networkProbe.fix.dnsPreset")}
@@ -120,14 +165,14 @@ export function FixPanel({
             </Button>
             <Button
               type="button"
-              disabled={loading || !service || servers.length === 0}
+              disabled={loading || !serviceAvailable || servers.length === 0}
               onClick={() => setPending({ kind: "switch-step1" })}
             >
               {t("networkProbe.fix.switchDns")}
             </Button>
             <Button
               type="button"
-              disabled={loading || !service}
+              disabled={loading || !serviceAvailable}
               onClick={() => setPending({ kind: "renew-step1" })}
             >
               {t("networkProbe.fix.renewDhcp")}
@@ -135,13 +180,20 @@ export function FixPanel({
             <Button
               type="button"
               variant="destructive"
-              disabled={loading || !service}
+              disabled={loading || !serviceAvailable}
               onClick={() => setPending({ kind: "reset" })}
             >
               {t("networkProbe.fix.resetStack")}
             </Button>
-            <Button type="button" variant="outline" onClick={onOpenSettings}>
-              {t("networkProbe.fix.openSettings")}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={openingSettings}
+              onClick={onOpenSettings}
+            >
+              {openingSettings
+                ? t("networkProbe.fix.openingSettings")
+                : t("networkProbe.fix.openSettings")}
             </Button>
           </div>
 

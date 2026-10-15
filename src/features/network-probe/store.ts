@@ -136,6 +136,8 @@ interface NetworkProbeState {
   healthResult: HealthScanResult | null
   healthStreamingItems: HealthCheckItem[]
   networkServices: string[]
+  loadingNetworkServices: boolean
+  openingSystemNetworkSettings: boolean
   fixResult: FixResult | null
   captiveResult: CaptivePortalResult | null
   publicIpInfo: PublicIpInfo | null
@@ -218,6 +220,8 @@ interface NetworkProbeState {
   resetHealthStreaming: () => void
   upsertHealthStreamingItem: (item: HealthCheckItem) => void
   setNetworkServices: (services: string[]) => void
+  setLoadingNetworkServices: (loading: boolean) => void
+  setOpeningSystemNetworkSettings: (opening: boolean) => void
   setFixResult: (fixResult: FixResult | null) => void
   setCaptiveResult: (captiveResult: CaptivePortalResult | null) => void
   setPublicIpInfo: (publicIpInfo: PublicIpInfo | null) => void
@@ -392,6 +396,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   healthResult: null,
   healthStreamingItems: [],
   networkServices: [],
+  loadingNetworkServices: false,
+  openingSystemNetworkSettings: false,
   fixResult: null,
   captiveResult: null,
   publicIpInfo: null,
@@ -541,6 +547,9 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
       return { healthStreamingItems: next }
     }),
   setNetworkServices: (networkServices) => set({ networkServices }),
+  setLoadingNetworkServices: (loadingNetworkServices) => set({ loadingNetworkServices }),
+  setOpeningSystemNetworkSettings: (openingSystemNetworkSettings) =>
+    set({ openingSystemNetworkSettings }),
   setFixResult: (fixResult) => set({ fixResult }),
   setCaptiveResult: (captiveResult) => set({ captiveResult }),
   setPublicIpInfo: (publicIpInfo) => set({ publicIpInfo }),

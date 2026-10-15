@@ -26,6 +26,7 @@ describe("network-probe overview loading", () => {
       summary: null,
       firewall: null,
       hostsSuspiciousCount: 0,
+      openingSettings: false,
       onRefresh,
       onOpenSettings: vi.fn(),
     }

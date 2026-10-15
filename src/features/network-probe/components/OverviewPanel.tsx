@@ -20,6 +20,7 @@ interface OverviewPanelProps {
   } | null
   firewall: { status: string; detail?: string } | null
   hostsSuspiciousCount: number
+  openingSettings: boolean
   onRefresh: () => void
   onOpenSettings: () => void
 }
@@ -29,6 +30,7 @@ export function OverviewPanel({
   summary,
   firewall,
   hostsSuspiciousCount,
+  openingSettings,
   onRefresh,
   onOpenSettings,
 }: OverviewPanelProps) {
@@ -49,8 +51,16 @@ export function OverviewPanel({
           <Button type="button" size="sm" onClick={onRefresh} disabled={loading}>
             {loading ? t("networkProbe.overview.refreshing") : t("networkProbe.overview.refresh")}
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={onOpenSettings}>
-            {t("networkProbe.overview.openSettings")}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={openingSettings}
+            onClick={onOpenSettings}
+          >
+            {openingSettings
+              ? t("networkProbe.overview.openingSettings")
+              : t("networkProbe.overview.openSettings")}
           </Button>
           <span className="text-muted-foreground font-mono text-xs">
             {t("networkProbe.cmd.summary")}

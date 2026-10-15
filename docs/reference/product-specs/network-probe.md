@@ -282,7 +282,7 @@ L1 → L2 映射：
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
 - **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；**能力包刷新除外**——`refreshCapabilityPacks` 无 loading 标志，防重入由 PackInstallDialog 的 `busy` 提供（见 §8）。
 - **agent 注册表并发安全**：`addAgent` / `removeAgent` / `refreshProbeNodes` 共用 `loadingNodes` 防重入和控件禁用态；后端 registry 读改写由进程内互斥锁串行化，并使用 `persistence::atomic_write` 替换文件。重复的「同标签 + 同规范化 HTTPS/WSS URL」注册返回已有节点，不创建重复记录。刷新以最多 8 个并发、每端点 5 秒时限重新检查 HTTPS 2xx 或 WSS Ping/Pong；registry 读取失败向 IPC 传播，不以空列表伪装刷新成功。agent 当前只报告可达性，未协商或声明远程探测能力，实际执行仍待 C2-3。
-- **仍未加 loading 标志的动作**：`loadNetworkServices` / `openSystemNetworkSettings` 可被快速重复调用；前者为只读列表加载，后者可能重复打开系统设置。
+- **Quick Fix 服务与系统设置操作**：`loadNetworkServices` 和 `openSystemNetworkSettings` 均由 use-case loading 状态 single-flight；服务列表加载期间禁用选择与刷新按钮，空列表显示明确提示并保留重试入口。刷新失败保留已加载服务列表，同时显示错误横幅；成功刷新后若先前选择的服务已消失，清除该选择并禁用依赖服务的修复动作；即使还有其他服务，也要求用户明确重新选择，避免把修复静默切到另一块网卡。打开系统设置期间按钮禁用并显示进行中状态，避免重复派发打开请求。
 
 ### 13.4 数据与安全
 

@@ -358,6 +358,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     summary={c.summary}
                     firewall={c.firewall}
                     hostsSuspiciousCount={hostsSuspicious}
+                    openingSettings={c.openingSystemNetworkSettings}
                     onRefresh={c.refreshOverview}
                     onOpenSettings={c.openSystemNetworkSettings}
                   />
@@ -492,6 +493,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 {showFix ? (
                   <FixPanel
                     loading={c.loadingFix}
+                    loadingServices={c.loadingNetworkServices}
+                    openingSettings={c.openingSystemNetworkSettings}
                     services={c.networkServices}
                     dnsPresets={c.defaults?.dnsPresets ?? []}
                     lastResult={c.fixResult}
