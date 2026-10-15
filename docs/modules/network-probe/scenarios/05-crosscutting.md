@@ -358,6 +358,37 @@ MVP（P0-1 失败态与本地化一致性）
 
 ---
 
+## S-X-29 · DNS 刷新部分失败不得报告成功
+
+### 背景
+
+macOS 的 DNS 刷新包含缓存刷新与 mDNSResponder 通知两步；其中一步失败时，结果卡必须反映整体未完成，同时保留两步的具体反馈。
+
+### 步骤
+
+1. 在隔离 QA 中让 `dscacheutil -flushcache` 成功、`killall -HUP mDNSResponder` 失败。
+2. 检查 Quick Fix 结果状态与默认折叠的系统反馈详情。
+3. 让两条命令都成功，再检查结果状态。
+
+### 期望
+
+- 两条命令都会尝试执行，即使第一条失败也继续执行第二条。
+- 只有两条命令都成功时，DNS 刷新结果才标记成功。
+- 任一步失败都会标记整体失败，并在系统反馈详情中保留两步结果。
+
+### 映射
+
+- UI：`FixPanel` / `FixResult`
+- IPC：`flushDns` / `resetNetworkStack`
+- Rust：`net_probe::fix::flush_dns`
+- 产品规格：§3.5
+
+### 档位
+
+MVP（P0-1 部分失败反馈）
+
+---
+
 ## S-X-23 · 诊断结果状态本地化与系统反馈折叠
 
 ### 背景

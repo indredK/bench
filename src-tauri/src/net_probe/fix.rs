@@ -43,38 +43,17 @@ pub fn list_network_services() -> AppResult<Vec<String>> {
 pub fn flush_dns() -> AppResult<FixResult> {
     #[cfg(target_os = "macos")]
     {
-        let mut messages = Vec::new();
-        // Idempotent: both may fail without privileges; report honestly.
-        match Command::new("dscacheutil").args(["-flushcache"]).output() {
-            Ok(o) if o.status.success() => messages.push("dscacheutil -flushcache: ok".into()),
-            Ok(o) => messages.push(format!(
-                "dscacheutil: {}",
-                String::from_utf8_lossy(&o.stderr).trim()
-            )),
-            Err(e) => messages.push(format!("dscacheutil: {e}")),
-        }
-        match Command::new("killall")
-            .args(["-HUP", "mDNSResponder"])
-            .output()
-        {
-            Ok(o) if o.status.success() => messages.push("killall -HUP mDNSResponder: ok".into()),
-            Ok(o) => {
-                let err = String::from_utf8_lossy(&o.stderr).trim().to_string();
-                messages.push(if err.is_empty() {
-                    "killall mDNSResponder: failed (may need privileges)".into()
-                } else {
-                    format!("killall: {err}")
-                });
+        Ok(flush_dns_with(|program, args| {
+            let output = Command::new(program)
+                .args(args)
+                .output()
+                .map_err(|error| error.to_string())?;
+            if output.status.success() {
+                Ok(())
+            } else {
+                Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
             }
-            Err(e) => messages.push(format!("killall: {e}")),
-        }
-        let ok = messages.iter().any(|m| m.contains(": ok"));
-        Ok(FixResult {
-            action: "flushDns".into(),
-            ok,
-            message: messages.join("; "),
-            command_hint: "flushDns()".into(),
-        })
+        }))
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -84,6 +63,50 @@ pub fn flush_dns() -> AppResult<FixResult> {
             message: "flushDns is only implemented on macOS for MVP".into(),
             command_hint: "flushDns()".into(),
         })
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn flush_dns_with<RunCommand>(mut run_command: RunCommand) -> FixResult
+where
+    RunCommand: FnMut(&str, &[&str]) -> Result<(), String>,
+{
+    let dscache = run_command("dscacheutil", &["-flushcache"])
+        .map_err(|error| format_command_failure("dscacheutil", error));
+    let mdns = run_command("killall", &["-HUP", "mDNSResponder"])
+        .map_err(|error| format_command_failure("killall", error));
+    let ok = dscache.is_ok() && mdns.is_ok();
+    let message = [
+        dscache
+            .map(|()| "dscacheutil -flushcache: ok".to_string())
+            .unwrap_or_else(|error| error),
+        mdns.map(|()| "killall -HUP mDNSResponder: ok".to_string())
+            .unwrap_or_else(|error| error),
+    ]
+    .join("; ");
+
+    FixResult {
+        action: "flushDns".into(),
+        ok,
+        message,
+        command_hint: "flushDns()".into(),
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn format_command_failure(program: &str, error: String) -> String {
+    if error.trim().is_empty() {
+        match program {
+            "dscacheutil" => "dscacheutil -flushcache failed (may need privileges)".into(),
+            "killall" => "killall mDNSResponder: failed (may need privileges)".into(),
+            _ => format!("{program} failed"),
+        }
+    } else {
+        match program {
+            "dscacheutil" => format!("dscacheutil: {error}"),
+            "killall" => format!("killall: {error}"),
+            _ => format!("{program}: {error}"),
+        }
     }
 }
 
@@ -259,7 +282,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{reset_network_stack_with, validate_network_service};
+    use super::{flush_dns_with, reset_network_stack_with, validate_network_service};
     use crate::error::AppResult;
     use crate::net_probe::types::FixResult;
     use std::cell::RefCell;
@@ -271,6 +294,63 @@ mod tests {
             message: message.into(),
             command_hint: format!("{action}()"),
         }
+    }
+
+    #[test]
+    fn flush_dns_requires_both_commands_and_preserves_partial_failure_details() {
+        let calls = RefCell::new(Vec::new());
+        let result = flush_dns_with(|program, args| {
+            calls.borrow_mut().push((
+                program.to_string(),
+                args.iter().map(|arg| arg.to_string()).collect::<Vec<_>>(),
+            ));
+            match program {
+                "dscacheutil" => Ok(()),
+                "killall" => Err("permission denied".into()),
+                _ => unreachable!("unexpected DNS flush command"),
+            }
+        });
+
+        assert!(!result.ok);
+        assert!(result.message.contains("dscacheutil -flushcache: ok"));
+        assert!(result.message.contains("killall: permission denied"));
+        assert_eq!(
+            calls.into_inner(),
+            vec![
+                ("dscacheutil".to_string(), vec!["-flushcache".to_string()]),
+                (
+                    "killall".to_string(),
+                    vec!["-HUP".to_string(), "mDNSResponder".to_string()]
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn flush_dns_succeeds_only_when_both_commands_succeed() {
+        let result = flush_dns_with(|_, _| Ok(()));
+
+        assert!(result.ok);
+        assert!(result.message.contains("dscacheutil -flushcache: ok"));
+        assert!(result.message.contains("killall -HUP mDNSResponder: ok"));
+    }
+
+    #[test]
+    fn flush_dns_still_runs_responder_notification_when_cache_flush_fails() {
+        let calls = RefCell::new(Vec::new());
+        let result = flush_dns_with(|program, _| {
+            calls.borrow_mut().push(program.to_string());
+            if program == "dscacheutil" {
+                Err("cache flush failed".into())
+            } else {
+                Ok(())
+            }
+        });
+
+        assert!(!result.ok);
+        assert!(result.message.contains("dscacheutil: cache flush failed"));
+        assert!(result.message.contains("killall -HUP mDNSResponder: ok"));
+        assert_eq!(calls.into_inner(), vec!["dscacheutil", "killall"]);
     }
 
     #[test]
