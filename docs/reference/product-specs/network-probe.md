@@ -92,7 +92,7 @@ L1 → L2 映射：
 
 - 操作对象：网络服务下拉（自动优先 Wi-Fi → 有线 → 首个） + DNS 预设下拉（来自 defaults）。
 - 操作按钮：**刷新 DNS**（DestructiveConfirm 一次确认）、**切换 DNS**（两步确认，第 2 步展示服务与目标 DNS 服务器）、**续租 DHCP**（两步确认）、**重置网络栈**（**TripleDestructiveConfirm 三步确认 + 手输 `RESET`**，最高危）、打开系统网络设置。
-- 所有修复需加载网络服务列表；结果卡将 action 和 ok 状态按当前语言本地化，保留 commandHint；原始 message 收在默认折叠的「系统反馈详情」中，便于排障且不把系统英文输出混入主界面。
+- 所有修复需加载网络服务列表；`resetNetworkStack` 在任何副作用前重新读取并校验服务白名单一次，随后复用该服务执行 DNS 刷新与 DHCP 续租，避免副作用后再次读取服务列表导致部分执行结果丢失。结果卡将 action 和 ok 状态按当前语言本地化，保留 commandHint；原始 message 收在默认折叠的「系统反馈详情」中，便于排障且不把系统英文输出混入主界面。
 
 **交互细节**：
 
@@ -100,7 +100,7 @@ L1 → L2 映射：
 - **各修复按钮禁用条件细化**：刷新 DNS 仅需 `!loadingFix`；切换 DNS 需 `service` 非空**且** DNS 预设非空（`servers.length===0` 时禁用，如预设列表为空）；续租 DHCP / 重置网络栈需 `service` 非空；「打开系统设置」无 loading 标志、任何时刻可点。服务/DNS 预设用**原生 `<select>`**（非 shadcn Select），label 以 `htmlFor` 关联。
 - 所有修复按钮共用 `loadingFix` 全局禁用（防重入）；刷新 DNS / 切换 DNS / 续租 DHCP / 重置网络栈任一执行中，其余全部按钮禁用。
 - 两步确认（切换 DNS / 续租 DHCP）：第 1 步「下一步」→ 延迟 320ms 弹第 2 步（确认服务与目标 DNS 服务器），任一步取消即中止；确认按钮在 `loadingFix` 时显示 loading。
-- 三步确认（重置网络栈）：step1 后果说明 → step2 核对参数 → step3 勾选风险确认框 + 手输 `RESET` 才能点「立即重置」；后端忽略前端任何「已确认」标志，每次调用重新校验服务白名单（幂等）。
+- 三步确认（重置网络栈）：step1 后果说明 → step2 核对参数 → step3 勾选风险确认框 + 手输 `RESET` 才能点「立即重置」；后端忽略前端任何「已确认」标志，每次调用在副作用前重新校验服务白名单一次，并在本次执行内复用校验结果。重复调用不复用前次内存状态；DNS 刷新与 DHCP 续租部分失败时仍返回两步的结果详情。
 - 结果卡：`lastResult.action + ok/failed` + message + commandHint；失败不弹 toast，直接在结果卡呈现（修复动作有确定性结果语义）。
 
 ### 3.6 报告 report
