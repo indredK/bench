@@ -91,7 +91,7 @@ L1 → L2 映射：
 
 - 操作对象：网络服务下拉（自动优先 Wi-Fi → 有线 → 首个） + DNS 预设下拉（来自 defaults）。
 - 操作按钮：**刷新 DNS**（DestructiveConfirm 一次确认）、**切换 DNS**（两步确认，第 2 步展示服务与目标 DNS 服务器）、**续租 DHCP**（两步确认）、**重置网络栈**（**TripleDestructiveConfirm 三步确认 + 手输 `RESET`**，最高危）、打开系统网络设置。
-- 所有修复需加载网络服务列表；完成后展示结果（action / ok / message / commandHint）。
+- 所有修复需加载网络服务列表；结果卡将 action 和 ok 状态按当前语言本地化，保留 commandHint；原始 message 收在默认折叠的「系统反馈详情」中，便于排障且不把系统英文输出混入主界面。
 
 **交互细节**：
 

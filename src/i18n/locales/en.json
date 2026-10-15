@@ -1932,6 +1932,8 @@
       "openingSettings": "Opening settings…",
       "ok": "ok",
       "failed": "failed",
+      "unknownAction": "Network repair action",
+      "systemDetail": "System response details",
       "confirm": {
         "cancel": "Cancel",
         "confirm": "Confirm",

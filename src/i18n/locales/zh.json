@@ -1932,6 +1932,8 @@
       "openingSettings": "正在打开设置…",
       "ok": "成功",
       "failed": "失败",
+      "unknownAction": "网络修复操作",
+      "systemDetail": "系统反馈详情",
       "confirm": {
         "cancel": "取消",
         "confirm": "确认",

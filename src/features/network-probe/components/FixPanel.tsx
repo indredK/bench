@@ -50,6 +50,20 @@ export function FixPanel({
   onOpenSettings,
 }: FixPanelProps) {
   const { t } = useTranslation()
+  const getActionLabel = (action: string) => {
+    switch (action) {
+      case "flushDns":
+        return t("networkProbe.fix.flush")
+      case "switchDns":
+        return t("networkProbe.fix.switchDns")
+      case "renewDhcp":
+        return t("networkProbe.fix.renewDhcp")
+      case "resetNetworkStack":
+        return t("networkProbe.fix.resetStack")
+      default:
+        return t("networkProbe.fix.unknownAction")
+    }
+  }
   const [service, setService] = useState("")
   const [serviceSelectionRequired, setServiceSelectionRequired] = useState(false)
   const [presetId, setPresetId] = useState(dnsPresets[0]?.id ?? "")
@@ -214,12 +228,21 @@ export function FixPanel({
       {lastResult ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div>
-            {lastResult.action}:{" "}
+            {getActionLabel(lastResult.action)}:{" "}
             <span className="font-medium">
               {lastResult.ok ? t("networkProbe.fix.ok") : t("networkProbe.fix.failed")}
             </span>
           </div>
-          <div className="text-muted-foreground text-xs">{lastResult.message}</div>
+          {lastResult.message ? (
+            <details className="text-xs">
+              <summary className="text-muted-foreground cursor-pointer">
+                {t("networkProbe.fix.systemDetail")}
+              </summary>
+              <p className="text-muted-foreground mt-1 font-mono break-all" dir="auto">
+                {lastResult.message}
+              </p>
+            </details>
+          ) : null}
           <div className="text-muted-foreground font-mono text-xs">{lastResult.commandHint}</div>
         </div>
       ) : null}
