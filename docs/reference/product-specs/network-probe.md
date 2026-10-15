@@ -143,7 +143,7 @@ L1 → L2 映射：
 
 - **输入护栏（前后端校验）**：Ping 次数为整数 `[1,20]`（默认 4），间隔 clamp `[100,5000]ms`；TCP 端口为整数 `[1,65535]`；Traceroute `maxTtl` 为整数 `[1,32]`（默认 20），`rounds` 为整数 `[1,10]`（默认 3）。renderer 对这些数值字段显示本地化内联错误并禁用无效提交，处理完成后恢复提交；Rust 保留整数 IPC 类型和边界夹限。端口扫描输入最多 2048 UTF-8 字节、最多 256 个不同端口，renderer 在字段旁显示本地化格式错误并禁用扫描，Rust IPC 仍独立校验并按端口去重；自定义站点最多 24 个且去重；非法 host / 空端口列表返回 `INVALID_INPUT` 并走错误横幅。
 - **单工具防重入与取消反馈**：ping / dns / tcp / custom / traceroute / mtu / egress / speed 各自独立 loading，运行中不可重复触发；Ping 按包显示进度，运行期间锁定目标与次数，并可取消；health / 站点探测 / Ping / traceroute / speed / 端口扫描 / 抓包诊断 / ARP 发现等可取消任务共用取消按钮。请求发出后按钮禁用并显示本地化「正在取消…」，任务结束后显示取消结果；取消 IPC 失败时恢复按钮，允许重试。
-- **单次探测重跑状态**：Ping / TCP / DNS / 自定义目标 / MTU，以及污染检测、WHOIS、DNSSEC、NAT、NTP、ARP 发现、局域网服务浏览、抓包诊断和多节点 DNS 的新请求开始时，先清除对应上次结果；若本轮请求失败，展示本次错误，不将上次成功结果留作当前结果。离线完整诊断启动时同步清空 Captive、公网 IP、代理/VPN、IPv6 和 MTU 五项；公网 IP 单项刷新只清空旧 IP。
+- **单次操作重跑状态**：Ping / TCP / DNS / 自定义目标 / MTU，以及污染检测、WHOIS、DNSSEC、NAT、NTP、ARP 发现、局域网服务浏览、抓包诊断和多节点 DNS 的新请求开始时，先清除对应上次结果；Quick Fix 的 DNS 刷新、切换 DNS、DHCP 续租和重置网络栈也在每次操作开始时清除上一次修复结果；若本轮请求失败，展示本次错误，不将上次成功结果留作当前结果。离线完整诊断启动时同步清空 Captive、公网 IP、代理/VPN、IPv6 和 MTU 五项；公网 IP 单项刷新只清空旧 IP。
 - **TCP 终态本地化**：`ok`、`refused`、`unreachable`、`dns_failed`、`timeout` 和 `error` 按当前语言显示；操作系统 `message` 收在默认折叠的「系统诊断详情」中，便于需要时查看原始诊断。
 - **Ping 单包失败本地化**：IPC 返回稳定错误码（`timeout` / `permission_denied` / `network_error`），界面按当前语言显示，不直出 Rust/操作系统依赖的自由文本，避免中英文混排。
 - **Ping 域名解析失败本地化**：解析失败使用稳定错误码 `DNS_RESOLUTION_FAILED`，显示独立的中英文提示，并归属 Ping 面板；与 ICMP socket 权限错误、超时或报文错误区分，不把依赖库或操作系统的原始错误直接显示在主界面。

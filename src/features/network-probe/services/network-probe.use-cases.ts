@@ -386,6 +386,7 @@ export const networkProbeUseCases = {
     if (store.loadingFix) return
     store.setLoadingFix(true)
     store.setError(null)
+    store.setFixResult(null)
     try {
       const result = await networkProbeRepository.flushDns()
       store.setFixResult(result)
@@ -404,6 +405,7 @@ export const networkProbeUseCases = {
     if (store.loadingFix) return
     store.setLoadingFix(true)
     store.setError(null)
+    store.setFixResult(null)
     try {
       const result = await networkProbeRepository.switchDns(service, servers)
       store.setFixResult(result)
@@ -422,6 +424,7 @@ export const networkProbeUseCases = {
     if (store.loadingFix) return
     store.setLoadingFix(true)
     store.setError(null)
+    store.setFixResult(null)
     try {
       const result = await networkProbeRepository.renewDhcp(service)
       store.setFixResult(result)
@@ -440,6 +443,7 @@ export const networkProbeUseCases = {
     if (store.loadingFix) return
     store.setLoadingFix(true)
     store.setError(null)
+    store.setFixResult(null)
     try {
       const result = await networkProbeRepository.resetNetworkStack(service)
       store.setFixResult(result)
