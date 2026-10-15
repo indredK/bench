@@ -75,6 +75,7 @@ export function SpeedPanel({
   const cooldownSec =
     cooldownUntil != null && cooldownUntil > now ? Math.ceil((cooldownUntil - now) / 1000) : 0
   const coolingDown = cooldownSec > 0
+  const selectedSource = sources.find((source) => source.id === sourceId)
 
   const phaseLabel =
     sample?.phase != null
@@ -128,6 +129,11 @@ export function SpeedPanel({
                   ))}
                 </SelectContent>
               </Select>
+              {selectedSource ? (
+                <p className="text-muted-foreground text-xs">
+                  {t("networkProbe.speed.uploadLimit", { mb: selectedSource.maxUploadMb })}
+                </p>
+              ) : null}
             </div>
             <CommandHint hint={t("networkProbe.cmd.speedTest", { sourceId: sourceId || "…" })}>
               <Button

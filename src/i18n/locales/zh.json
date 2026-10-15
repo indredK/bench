@@ -2072,6 +2072,7 @@
       "hint": "兼容 LibreSpeed 的带宽测速（ping / 下载 / 上传）。可取消中途停止。",
       "source": "测速源",
       "sourcePlaceholder": "选择测速源",
+      "uploadLimit": "本次最多发送 {{mb}} MiB 上行数据",
       "emptySources": "暂无可用测速源。",
       "run": "开始测速",
       "running": "测速中…",

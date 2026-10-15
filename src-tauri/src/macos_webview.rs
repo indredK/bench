@@ -34,8 +34,8 @@ fn disable_overscroll_bounce(window: &tauri::WebviewWindow) -> Result<usize, tau
     window.with_webview(move |webview| {
         use objc2::msg_send;
         use objc2::rc::Retained;
-        use objc2::runtime::{AnyObject, Bool};
-        use objc2_app_kit::NSView;
+        use objc2::runtime::AnyObject;
+        use objc2_app_kit::{NSScrollElasticity, NSScrollView, NSView};
         use objc2_foundation::NSArray;
         use objc2_web_kit::WKWebView;
 
@@ -49,13 +49,12 @@ fn disable_overscroll_bounce(window: &tauri::WebviewWindow) -> Result<usize, tau
                 if node.is_null() {
                     continue;
                 }
-                let class_name = (*node).class().name().to_str().unwrap_or("");
-                if class_name.contains("ScrollView") || class_name.contains("WKScroll") {
-                    let _: () = msg_send![node, setBounces: Bool::NO];
-                    let _: () = msg_send![node, setAlwaysBouncesVertical: Bool::NO];
-                    let _: () = msg_send![node, setAlwaysBouncesHorizontal: Bool::NO];
-                    let _: () = msg_send![node, setVerticalScrollElasticity: 0isize];
-                    let _: () = msg_send![node, setHorizontalScrollElasticity: 0isize];
+                // Match the AppKit type instead of a class-name substring: WebKit
+                // also has private content-background views whose names contain
+                // `ScrollView` but do not implement NSScrollView's setters.
+                if let Some(scroll_view) = (*node).downcast_ref::<NSScrollView>() {
+                    scroll_view.setVerticalScrollElasticity(NSScrollElasticity::None);
+                    scroll_view.setHorizontalScrollElasticity(NSScrollElasticity::None);
                     found_in_closure.fetch_add(1, Ordering::Relaxed);
                 }
                 let subs: Retained<NSArray<NSView>> = msg_send![node, subviews];

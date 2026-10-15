@@ -2072,6 +2072,7 @@
       "hint": "LibreSpeed-compatible bandwidth probe (ping / download / upload). Cancel stops mid-run.",
       "source": "Speed source",
       "sourcePlaceholder": "Select a source",
+      "uploadLimit": "Up to {{mb}} MiB will be sent for the upload measurement",
       "emptySources": "No speed sources available.",
       "run": "Start speed test",
       "running": "Testing…",

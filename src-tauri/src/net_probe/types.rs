@@ -89,6 +89,7 @@ pub struct SpeedSource {
     pub dl_path: String,
     pub ul_path: String,
     pub ping_path: String,
+    pub max_upload_mb: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

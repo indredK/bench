@@ -38,6 +38,7 @@ const source = {
   dlPath: "/download",
   ulPath: "/upload",
   pingPath: "/ping",
+  maxUploadMb: 8,
 }
 
 function renderResult(result: SpeedTestResult) {

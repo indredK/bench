@@ -120,6 +120,7 @@ export interface SpeedSource {
   dlPath: string
   ulPath: string
   pingPath: string
+  maxUploadMb: number
 }
 
 export interface SpeedSampleEvent {

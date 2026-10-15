@@ -55,6 +55,7 @@ const speedSource = {
   dlPath: "/download",
   ulPath: "/upload",
   pingPath: "/ping",
+  maxUploadMb: 8,
 }
 
 function renderTestPanel(

@@ -152,7 +152,8 @@ L1 → L2 映射：
 - **自定义目标失败本地化**：HTTP 传输失败、HTTP 状态码失败和 TLS 握手失败均显示本地化状态；ICMP 未识别错误、HTTP 错误与 TLS 握手诊断只在默认折叠的系统详情中显示。
 - **错误反馈归属**：错误横幅按错误 key 映射到所属 L1/L2 工具面板；取消失败按探测会话种类定位。切换面板或离线子视图时清除已显示的错误，晚到的旧请求错误仍归属原工具，不显示在当前无关面板；若当前面板已有可见错误，其他面板迟到的失败不得覆盖它；未分类的模块级初始化错误保持全局可见。
 - **ping 全丢包提示**：`packetsReceived === 0` 时命令日志追加「可能需 Local Network 权限」提示（不静默）。
-- **测速冷却**：测速源失败/不可达时 `speedCooldownUntil = now + 30s`，期间「开始测速」禁用并倒计时提示（`测速源失败 — {{seconds}} 秒后可重试`），冷却结束自动恢复；取消成功不计入冷却。
+- **测速冷却与取消**：测速源失败/不可达时 `speedCooldownUntil = now + 30s`，期间「开始测速」禁用并倒计时提示（`测速源失败 — {{seconds}} 秒后可重试`），冷却结束自动恢复；取消成功不计入冷却。用户取消时应中止当前 ping / 下载 / 上传请求，不等待该请求的 45 秒超时。
+- **测速传输上限**：下载最多计量 32 MiB；上传按测速源配置的上限发送，单次最多 8 MiB。下载响应按流计数，不把完整正文缓存到内存，达到上限后停止消费响应流。
 - **测速冷却双重防护**：除按钮禁用外，`runSpeedTest` 用例入口 `if (speedCooldownUntil > now) return` 短路（连点/脚本调用也不触发）；冷却以 **500ms interval** 倒计时刷新；**源下拉在 `loading || coolingDown` 时同样 disabled**；结果卡 `unavailable`（`!ok && !cancelled && downloadMbps==null`）额外显示「测速源不可用」琥珀提示。
 - **测速终态本地化**：不可用结果使用 `sourceUnavailable` 文案，取消结果使用 `cancelled` 标签；不直接显示 DTO 的后端 `message` 自由文本，避免与本地化状态重复或混用语言。
 - **重新运行前状态复位（流式状态机）**：所有可重复探测（health / sites / traceroute / speed / ports / lan / pcap）每次开始时先 `resetXxxStreaming()` 清空上次流式数据 + `setActiveSessionId(null)`；speed 额外 `setSpeedSample(null)` / `setSpeedResult(null)`、ports 额外 `setPortScanResult(null)`，**新一次探测不留旧结果混淆**；`finally` 里统一 `setActiveSessionId(null)` 复位取消可用性。

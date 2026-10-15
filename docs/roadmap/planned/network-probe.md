@@ -35,7 +35,8 @@
 ## 待验证（真机 / 行为）
 
 - [ ] macOS 真机：Local Network / TCC 拒绝状态下 Ping、ARP、抓包的实际错误码与完整降级行为仍待覆盖；Ping 权限提示、Privacy & Security 跳转和 Info.plist 中英文 usage description 已验证。
-- [ ] 测速源不可用 / 超时 → 30s 冷却倒计时在真机可用；取消测速可立即重跑。
+- [x] 测速源不可用 / 超时 → 30s 冷却倒计时在真机可用；取消测速可立即重跑。
+- [x] 真机：测速在请求等待响应或下载正文时可取消并及时结束；下载按流计量不超过 32 MiB，上行服从源上限且全局不超过 8 MiB。
 - [ ] `priv-helper` 提权路径（Wave 1 pack）在真实系统上可安装、触发提权、自动降级文案正确。
 - [ ] 能力包 hash 校验失败通道（`installCapabilityPackVerifyFail`）行为符合预期。
 - [ ] Windows 降级路径：各工具 `unsupported`/`degraded` 状态与按钮禁用一致，不误报。
@@ -104,3 +105,6 @@
 - 2026-10-15：S-X-28 将多节点 DNS 摘要改为显示结果行数，中文「探点结果」、英文 “node results”，并明确包括失败节点；不再把节点结果行误称为 DNS 答案数。同步 S-X-28 场景、场景索引、发现设计与产品规格；回归用例覆盖 2 个节点行、2 条实际 DNS 记录和 1 个失败节点。macOS 27.0.1 arm64 隔离 QA app `com.bench.qa.sx2820261015` 真机运行 `example.com`：Chinese 摘要为「4 个探点结果」，English 摘要为 “4 node results”；本机返回 1 条记录，3 个 Globalping 探点各返回 2 条 A 记录（实际 7 条 DNS 记录 / 4 行结果），数量和标签均正确。Globalping 本次已恢复连通，正向真实探测完成。全量前端 488 项、`lint:fe`、Prettier、`git diff --check` 通过；QA app 已退出并只剩用户已有 `bench-host`，QA 包、专属数据/cache/WebKit/preferences、`dist` 和扩展 staging 已移入废纸篓，共享 Rust target 与 `node_modules` 保留。Windows 真机回归依用户安排延后。
 - 2026-10-15：完成 S-X-18 Quick Fix 状态复验。macOS 27.0.1 arm64 隔离 QA app `com.bench.qa.sx1820261015` 使用仅允许 `networksetup -listallnetworkservices` 的临时 shim 依次返回读取失败、`Wi-Fi + Ethernet`、仅 `Ethernet` 和空列表；AX 真机界面确认失败后可重试、成功后优先选中 Wi-Fi、原服务消失时清除选择且修复动作禁用、用户明确选 Ethernet 后动作恢复、空列表显示重新读取入口且动作禁用。调用计数恰为 4，未执行任何 DNS / DHCP / 网络栈修改命令。此前 S-X-18 用例已覆盖加载单飞、刷新失败保留旧列表、系统设置打开单飞；前序真机也已确认系统设置入口可打开网络面板且不修改配置。标准调试二进制已恢复；QA app、bundle-ID 专属数据/cache/WebKit/preferences、`dist`、扩展 staging/build 和临时 shim 已移入废纸篓，只剩用户已有 `bench-host`。P0-1 其他空态 / 失败态 / 重入 / 取消场景仍待审查。
 - 2026-10-15：修复 macOS 本地网络权限引导：`ICMP_UNAVAILABLE` 不再误开 Network 面板；Ping 样本 `permission_denied` 提供权限入口，普通超时不展示；应用补充中英文 `NSLocalNetworkUsageDescription`。系统设置面板 ID 从已安装的 Privacy & Security 扩展读取，且等待 `osascript` 完成并把失败反馈给 UI。macOS 27.0.1 arm64 QA `.app` / 真实命令验证 Privacy & Security 面板可打开；未运行网络探测或修改 TCC 授权。Info.plist 打包项、前端单飞/权限引导回归及 Rust 面板错误传播回归已加入；Local Network 被拒时 Ping / ARP / 抓包真实错误码与降级仍留待后续验证。
+- 2026-10-15：完成 S-X-03 三步重置确认流程的无破坏性 Mac 真机核验。macOS 27.0.1 arm64 隔离 QA app `com.bench.qa.p0one.sx0320261015`：步骤标题、影响说明、参数核对与确认词完整显示；第 2 步取消后再次进入回到第 1 步；第 3 步未勾选或未输入 `RESET` 时执行按钮禁用，两项齐备后启用；从第 3 步返回第 2 步再前进时显式确认值保留。未点击最终按钮，未执行 DNS 刷新或 DHCP 续租。后端服务白名单复核和重复调用幂等未在真机验证，因此 S-X-03 / P0-1 仍待完成。QA app 已退出，仅保留用户原有 `bench-host`；QA bundle、专属 Application Support/cache/WebKit/preferences、`dist`、扩展 staging 与临时配置已移入废纸篓，共享 Rust target 与 `node_modules` 保留。
+- 2026-10-15：首次补齐 S-X-15 测速取消真机复验。macOS 27.0.1 arm64 已安装 Bench 1.37.0 使用 LibreSpeed.org 两轮测速，分别在采样阶段与上传阶段点击取消；两轮均显示「已取消」且没有 30 秒冷却，开始按钮恢复可用。上传阶段取消后 AX 界面短暂仍显示「上传中」和「取消」，约 1.7 秒后返回取消结果；当轮慢响应取消未验证，隔离 QA 包启动崩溃且延迟服务未收到请求，后续修复与验证见下条。30 秒失败冷却已由 10/14 真机记录验证；本次确认取消结果不阻止再次运行。
+- 2026-10-15：修复测速取消与 macOS 启动崩溃，并复核公共节点。macOS 27.0.1 arm64 隔离 QA：对暂停在下载响应正文的回环服务点取消，AX 界面约 0.7 秒内返回且服务端观察到连接关闭；真实 LibreSpeed Sharktech 完整测速为 40.1/9.9 Mbps，下载阶段取消不进入冷却、按钮可立即重跑。LibreSpeed 官方 [server-list.json](https://github.com/librespeed/speedtest/blob/master/server-list.json) 中的 Sharktech、Clouvider 端点均以真机 HTTP 200 校验，完整真机测速分别为 40.1/9.9 Mbps 与 48.4/21.8 Mbps。Clouvider 拒绝 8 MiB 上传（413），接受 4 MiB；测速源现声明各自上传上限并由后端统一限制在 8 MiB，界面中英文显示所选源上限。macOS 原生遍历现只对真正的 `NSScrollView` 调用 AppKit 弹性属性；避免把选择器发给 WebKit 的 `_NSScrollViewContentBackgroundView`，隔离 QA 启动稳定。UI 已退出，Windows 真机验证仍依用户安排延后。
