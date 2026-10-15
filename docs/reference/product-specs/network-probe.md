@@ -113,6 +113,7 @@ L1 → L2 映射：
 ### 4.1 官方站点 official
 
 - 官方站点包（`official` pack）卡片网格；每卡：站点名 + host、状态徽标（idle/ok/fail/running）、最近测试时间 + 延迟（HTTP TTFB 优先，回退 ICMP）、吞吐（HTTP 有界下载，≤1MiB/5s → `downloadMbps`）。
+- Network Probe 的 HTTP 探测遵循操作系统代理配置（由 reqwest `system-proxy` 提供）；HTTP TTFB 反映应用实际网络路径，可能经过代理，不代表强制直连源站。
 - 每张单测卡片的 hover/focus 命令提示显示 `startSitesProbe` 与实际目标；「测试全部」提示显示 official pack 参数。
 - 顶部「测试全部」+ 统计（总数/OK/失败）；点击单卡只更新该站并保留其他卡片结果；在应用内切换 L1/L2 后返回仍显示本次会话结果；整包重测按该包目标清理旧结果并逐站更新。运行中可取消。
 - 流式事件 `site-sample` 实时更新卡片；按 target 合并为最新样本，单卡重测更新该站的最新状态与时间；区域/自定义结果展示近 20 次延迟 Sparkline。
