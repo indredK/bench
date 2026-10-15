@@ -6,19 +6,42 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbeSystemDetails } from "@/features/network-probe/components/ProbeSystemDetails"
+import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
 import type { TcpConnectResult } from "@/lib/tauri/types/network-probe"
+
+const TCP_STATUS_KEYS = {
+  ok: "networkProbe.tcp.statusValue.ok",
+  refused: "networkProbe.tcp.statusValue.refused",
+  unreachable: "networkProbe.tcp.statusValue.unreachable",
+  dns_failed: "networkProbe.tcp.statusValue.dnsFailed",
+  timeout: "networkProbe.tcp.statusValue.timeout",
+  error: "networkProbe.tcp.statusValue.error",
+} as const
 
 interface TcpConnectPanelProps {
   loading: boolean
   result: TcpConnectResult | null
+  hasError?: boolean
   onRun: (host: string, port: number) => void
 }
 
-export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps) {
+export function TcpConnectPanel({
+  loading,
+  result,
+  hasError = false,
+  onRun,
+}: TcpConnectPanelProps) {
   const { t } = useTranslation()
   const [host, setHost] = useState("1.1.1.1")
   const [port, setPort] = useState("443")
+  const parsedPort = parseBoundedIntegerInput(port, 1, 65535)
+  const portError = parsedPort == null
+  const statusKey = result
+    ? TCP_STATUS_KEYS[result.status as keyof typeof TCP_STATUS_KEYS]
+    : undefined
 
   return (
     <ProbePanelShell
@@ -43,11 +66,21 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
               </label>
               <Input
                 id="np-tcp-port"
+                type="number"
+                min={1}
+                max={65535}
+                step={1}
                 value={port}
                 onChange={(e) => setPort(e.target.value)}
-                inputMode="numeric"
                 autoComplete="off"
+                aria-invalid={portError}
+                aria-describedby={portError ? "np-tcp-port-error" : undefined}
               />
+              {portError ? (
+                <p id="np-tcp-port-error" className="text-destructive text-xs" role="alert">
+                  {t("networkProbe.tcp.portInvalid")}
+                </p>
+              ) : null}
             </div>
             <CommandHint
               hint={t("networkProbe.cmd.tcpConnect", {
@@ -57,8 +90,10 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
             >
               <Button
                 type="button"
-                disabled={loading || !host.trim() || !Number(port)}
-                onClick={() => onRun(host, Number(port))}
+                disabled={loading || !host.trim() || parsedPort == null}
+                onClick={() => {
+                  if (parsedPort != null) onRun(host, parsedPort)
+                }}
               >
                 {loading ? t("networkProbe.tcp.running") : t("networkProbe.tcp.run")}
               </Button>
@@ -67,15 +102,27 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
         </>
       }
     >
+      {!loading && !result && !hasError ? (
+        <ProbeEmptyState>{t("networkProbe.resultEmpty")}</ProbeEmptyState>
+      ) : null}
       {result ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div>
-            {t("networkProbe.tcp.status")}: <span className="font-medium">{result.status}</span>
+            {t("networkProbe.tcp.status")}:{" "}
+            <span className="font-medium">
+              {t(statusKey ?? "networkProbe.tcp.statusValue.unknown")}
+            </span>
           </div>
           {result.rttMs != null ? (
             <div>{t("networkProbe.tcp.rttValue", { ms: result.rttMs.toFixed(1) })}</div>
           ) : null}
-          {result.message ? <div className="text-muted-foreground">{result.message}</div> : null}
+          {result.message ? (
+            <ProbeSystemDetails>
+              <p className="font-mono break-all" dir="ltr">
+                {result.message}
+              </p>
+            </ProbeSystemDetails>
+          ) : null}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}

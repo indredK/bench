@@ -233,6 +233,7 @@ pub fn detect_arp_spoofing_hints() -> AppResult<Vec<super::types::PollutionFindi
         let gw_entries: Vec<_> = neighbors.iter().filter(|n| n.ip == gw).collect();
         if gw_entries.is_empty() {
             findings.push(PollutionFinding {
+                code: "arp_gateway_missing".into(),
                 kind: "arp".into(),
                 severity: "info".into(),
                 evidence: format!(
@@ -242,29 +243,23 @@ pub fn detect_arp_spoofing_hints() -> AppResult<Vec<super::types::PollutionFindi
             });
         } else if gw_entries.iter().any(|n| n.mac.is_none()) {
             findings.push(PollutionFinding {
+                code: "arp_gateway_incomplete".into(),
                 kind: "arp".into(),
                 severity: "warn".into(),
                 evidence: format!("Gateway {gw} has incomplete ARP entry."),
                 command_hint: "detectArpSpoofing(local) // read-only".into(),
             });
         } else if let Some(mac) = gw_entries[0].mac.as_ref() {
-            let same_mac: Vec<_> = neighbors
+            let shared_ips: Vec<_> = neighbors
                 .iter()
                 .filter(|n| n.mac.as_ref() == Some(mac) && n.ip != gw)
                 .map(|n| n.ip.clone())
                 .collect();
-            if !same_mac.is_empty() {
-                findings.push(PollutionFinding {
-                    kind: "arp".into(),
-                    severity: "high".into(),
-                    evidence: format!(
-                        "Gateway {gw} MAC {mac} also claimed by: {}. Possible ARP spoofing (read-only detection).",
-                        same_mac.join(", ")
-                    ),
-                    command_hint: "detectArpSpoofing(local) // read-only; no poison".into(),
-                });
+            if !shared_ips.is_empty() {
+                findings.push(shared_gateway_mac_finding(&gw, mac, &shared_ips));
             } else {
                 findings.push(PollutionFinding {
+                    code: "arp_gateway_bound".into(),
                     kind: "arp".into(),
                     severity: "info".into(),
                     evidence: format!("Gateway {gw} bound to MAC {mac} (single binding in cache)."),
@@ -274,6 +269,7 @@ pub fn detect_arp_spoofing_hints() -> AppResult<Vec<super::types::PollutionFindi
         }
     } else {
         findings.push(PollutionFinding {
+            code: "arp_no_gateway".into(),
             kind: "arp".into(),
             severity: "info".into(),
             evidence: "No default gateway — skip ARP spoofing check.".into(),
@@ -282,6 +278,42 @@ pub fn detect_arp_spoofing_hints() -> AppResult<Vec<super::types::PollutionFindi
     }
 
     Ok(findings)
+}
+
+fn shared_gateway_mac_finding(
+    gateway: &str,
+    mac: &str,
+    shared_ips: &[String],
+) -> super::types::PollutionFinding {
+    use super::types::PollutionFinding;
+
+    PollutionFinding {
+        code: "arp_shared_mac".into(),
+        kind: "arp".into(),
+        // Shared MACs commonly belong to bridges, virtual networks, or shared devices.
+        // A single ARP cache snapshot cannot prove spoofing or detect MAC changes over time.
+        severity: "info".into(),
+        evidence: format!(
+            "Gateway {gateway} MAC {mac} is also present for: {}. Shared MACs are common and this alone does not indicate spoofing.",
+            shared_ips.join(", ")
+        ),
+        command_hint: "detectArpSpoofing(local) // read-only".into(),
+    }
+}
+
+#[cfg(test)]
+mod arp_pollution_tests {
+    use super::shared_gateway_mac_finding;
+
+    #[test]
+    fn shared_gateway_mac_is_informational_not_an_attack_claim() {
+        let finding =
+            shared_gateway_mac_finding("192.0.2.1", "00:11:22:33:44:55", &["192.0.2.8".into()]);
+
+        assert_eq!(finding.code, "arp_shared_mac");
+        assert_eq!(finding.severity, "info");
+        assert!(finding.evidence.contains("does not indicate spoofing"));
+    }
 }
 
 #[cfg(target_os = "macos")]

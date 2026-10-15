@@ -1573,6 +1573,9 @@
   "networkProbe": {
     "title": "Network Probe",
     "subtitle": "First-aid diagnostics and targeted probes (module 1.0 / MVP A+B).",
+    "cancelling": "Cancelling…",
+    "resultEmpty": "Run a probe to see its results here.",
+    "systemDetail": "System feedback details",
     "nav": {
       "l1": "Primary sections",
       "l2": "Tools",
@@ -1633,6 +1636,7 @@
       "refresh": "Refresh",
       "refreshing": "Refreshing…",
       "openSettings": "Open system network settings",
+      "openingSettings": "Opening settings…",
       "empty": "No summary yet. Refresh to load local network state.",
       "ipv4": "IPv4",
       "ipv6": "IPv6",
@@ -1653,9 +1657,19 @@
       "hint": "Probe TCP reachability to a host:port (developer essential).",
       "host": "Host",
       "port": "Port",
+      "portInvalid": "Port must be a whole number from 1 to 65535.",
       "run": "Connect",
       "running": "Connecting…",
       "status": "Status",
+      "statusValue": {
+        "ok": "Connected",
+        "refused": "Connection refused",
+        "unreachable": "Network unreachable",
+        "dnsFailed": "DNS resolution failed",
+        "timeout": "Connection timed out",
+        "error": "Connection failed",
+        "unknown": "Unknown status"
+      },
       "rtt": "RTT",
       "rttValue": "RTT: {{ms}} ms"
     },
@@ -1663,13 +1677,26 @@
       "hint": "ICMP echo probe with latency, jitter, and loss (requires Local Network permission on macOS).",
       "target": "Target",
       "count": "Count",
+      "countInvalid": "Count must be a whole number from 1 to 20.",
       "run": "Ping",
       "running": "Pinging…",
+      "cancel": "Cancel probe",
+      "cancelled": "Ping was cancelled.",
+      "progress": "{{sent}} / {{total}} packets completed",
       "resolved": "Resolved IP",
       "summary": "Sent {{sent}} · received {{received}} · loss {{loss}}%",
       "rttSummary": "RTT min/avg/max/jitter: {{min}} / {{avg}} / {{max}} / {{jitter}} ms",
       "sampleOk": "#{{seq}} {{ms}} ms",
-      "sampleFail": "#{{seq}} fail — {{error}}"
+      "sampleFail": "#{{seq}} fail — {{error}}",
+      "privacySettingsHint": "In System Settings, open Privacy & Security > Local Network and allow Bench.",
+      "openPrivacySettings": "Open privacy settings",
+      "openingPrivacySettings": "Opening settings…",
+      "sampleError": {
+        "timeout": "Request timed out",
+        "permissionDenied": "Permission denied",
+        "networkError": "Network error",
+        "unknown": "Probe failed"
+      }
     },
     "dns": {
       "hint": "Query DNS records via system resolver or a custom resolver IP.",
@@ -1694,10 +1721,11 @@
       "icmpFail": "fail — {{error}}",
       "http": "HTTP",
       "httpOk": "{{status}} · TTFB {{ms}} ms",
-      "httpFail": "fail — {{error}}",
+      "httpStatusFail": "fail — HTTP {{status}}",
+      "httpRequestFail": "fail — request failed",
       "tls": "TLS",
       "tlsOk": "handshake ok",
-      "tlsFail": "fail — {{detail}}"
+      "tlsFail": "fail — handshake incomplete"
     },
     "sites": {
       "hint": "Probe a built-in site pack with ICMP/HTTP latency and bounded download throughput. Custom hosts stream in with sparklines; cancel stops mid-run.",
@@ -1733,7 +1761,6 @@
       "empty": "No official site pack loaded.",
       "summary": "{{ok}} ok · {{fail}} fail · {{total}} total",
       "clickToTest": "Click to test",
-      "cardHint": "Test {{host}}",
       "statusOk": "OK",
       "statusFail": "Fail",
       "statusIdle": "Idle",
@@ -1780,6 +1807,37 @@
       "cancelled": "cancelled",
       "empty": "No scan yet. Run a health scan to populate the tree.",
       "elapsed": "Completed in {{ms}} ms",
+      "items": {
+        "link": {
+          "iface": { "title": "Network interfaces" },
+          "wifi_or_wired": { "title": "Connection type" }
+        },
+        "addr": {
+          "ipv4": { "title": "IPv4 address" },
+          "ipv6": { "title": "IPv6 address" },
+          "dhcp_or_static": { "title": "Address configuration" }
+        },
+        "route": { "default": { "title": "Default route" } },
+        "dns": {
+          "servers": { "title": "DNS servers" },
+          "resolve_name": { "title": "DNS resolution" },
+          "fake_ip": { "title": "DNS mode" }
+        },
+        "hosts": { "override": { "title": "Hosts overrides" } },
+        "proxy": { "system": { "title": "System proxy" } },
+        "vpn": { "tunnel": { "title": "VPN / tunnel" } },
+        "firewall": { "status": { "title": "Firewall status" } },
+        "svc": { "network": { "title": "Network services" } },
+        "reach": {
+          "gateway": { "title": "Gateway reachability" },
+          "public_ip": { "title": "Public IP reachability" },
+          "public_name": { "title": "Public domain reachability" },
+          "captive": { "title": "Captive portal check" },
+          "public_egress": { "title": "Public egress" },
+          "mtu": { "title": "Path MTU" }
+        },
+        "diff": { "dns_vs_ip": { "title": "DNS vs. IP diagnosis" } }
+      },
       "layers": {
         "L0": "L0 · Link",
         "L1": "L1 · Address / DNS / Policy",
@@ -1862,14 +1920,21 @@
     "fix": {
       "hint": "Privilege-free self-heal actions. Backend re-validates services and DNS against a whitelist.",
       "service": "Network service",
+      "servicesEmpty": "No network services found",
+      "loadingServices": "Loading services…",
+      "selectService": "Choose a network service",
+      "loadServices": "Load services",
+      "refreshServices": "Refresh services",
       "dnsPreset": "DNS preset",
       "flush": "Flush DNS",
       "switchDns": "Switch DNS",
       "renewDhcp": "Renew DHCP",
       "resetStack": "Reset network stack",
       "openSettings": "Open system network settings",
+      "openingSettings": "Opening settings…",
       "ok": "ok",
       "failed": "failed",
+      "unknownAction": "Network repair action",
       "confirm": {
         "cancel": "Cancel",
         "confirm": "Confirm",
@@ -1905,7 +1970,7 @@
       }
     },
     "offline": {
-      "hint": "Run captive portal, public egress IP, and proxy/VPN checks for “can't connect” triage.",
+      "hint": "Run captive portal, proxy/VPN, IPv6, path MTU, and public egress checks to triage connection issues.",
       "run": "Run offline diagnostics",
       "running": "Running…",
       "pending": "Not run yet.",
@@ -2007,6 +2072,7 @@
       "hint": "LibreSpeed-compatible bandwidth probe (ping / download / upload). Cancel stops mid-run.",
       "source": "Speed source",
       "sourcePlaceholder": "Select a source",
+      "uploadLimit": "Up to {{mb}} MiB will be sent for the upload measurement",
       "emptySources": "No speed sources available.",
       "run": "Start speed test",
       "running": "Testing…",
@@ -2034,11 +2100,45 @@
       }
     },
     "pollution": {
-      "hint": "Compare DNS answers across resolvers, scan hosts overrides, and probe HTTPS trust (corporate middleboxes vs failures).",
+      "hint": "Compare DNS answers across resolvers, inspect hosts overrides, and verify HTTPS trust. A network failure alone is not evidence of interception.",
       "domain": "Domain",
       "run": "Run pollution check",
       "running": "Checking…",
-      "meta": "{{domain}} · {{count}} findings · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} findings · {{ms}} ms",
+      "kind": {
+        "dns": "DNS",
+        "hosts": "Hosts file",
+        "tls": "HTTPS / TLS",
+        "route": "Route",
+        "arp": "ARP",
+        "unknown": "Other"
+      },
+      "severity": {
+        "info": "Info",
+        "warn": "Warning",
+        "high": "High",
+        "unknown": "Unknown severity"
+      },
+      "finding": {
+        "dnsResolverFailed": "A DNS resolver did not respond",
+        "dnsAnswersDisagree": "DNS resolvers returned different answers",
+        "dnsResolversAgree": "DNS resolvers returned matching answers",
+        "hostsClean": "No suspicious hosts override was found",
+        "hostsOverride": "The hosts file contains a suspicious override",
+        "hostsReadFailed": "The hosts file could not be inspected",
+        "tlsClientSetupFailed": "HTTPS verification could not start",
+        "tlsProbeSucceeded": "HTTPS connected and the certificate chain was accepted",
+        "tlsProbeFailed": "HTTPS could not be verified; this alone does not indicate interception",
+        "routeTunnelDetected": "The default route uses a tunnel",
+        "routeProxyEnabled": "A system proxy is enabled",
+        "arpCheckFailed": "The ARP cache could not be inspected",
+        "arpGatewayMissing": "The gateway is not yet in the ARP cache",
+        "arpGatewayIncomplete": "The gateway ARP entry is incomplete",
+        "arpSharedMac": "The gateway MAC also appears on another IP; this can be normal on shared devices",
+        "arpGatewayBound": "The gateway has one MAC binding in the current cache",
+        "arpNoGateway": "No default gateway; the ARP check was skipped",
+        "unknown": "Unknown finding. See technical details."
+      }
     },
     "whois": {
       "hint": "RDAP lookup via rdap.org (WHOIS fallback not required for this build). Output may be truncated.",
@@ -2067,6 +2167,14 @@
       "run": "Scan ports",
       "running": "Scanning…",
       "cancel": "Cancel",
+      "validation": {
+        "empty": "Enter at least one port or range.",
+        "invalidFormat": "Use ports like 80,443,8000-8010.",
+        "outOfRange": "Ports must be between 1 and 65535.",
+        "reversedRange": "The start of a range must not exceed its end.",
+        "tooMany": "Scan at most 256 unique ports.",
+        "tooLong": "Port input is too long (maximum 2048 bytes)."
+      },
       "openList": "Open: {{ports}}",
       "confirmTitle": "Confirm port scan scope",
       "confirmDesc": "Target {{target}} · about {{count}} ports. Public hosts or large ranges need an extra confirm.",
@@ -2093,7 +2201,13 @@
       "run": "Browse LAN services",
       "running": "Browsing…",
       "empty": "No mDNS/SSDP responses in the listen window.",
-      "meta": "{{count}} services · {{ms}} ms"
+      "meta": "{{count}} services · {{ms}} ms",
+      "protocolError": "{{protocol}} discovery failed",
+      "protocol": {
+        "mdns": "mDNS",
+        "ssdp": "SSDP",
+        "unknown": "Other protocol"
+      }
     },
     "pcap": {
       "hint": "Short counter-only packet sample (RST / retransmit hints). Full pcap write stays opt-in.",
@@ -2101,22 +2215,72 @@
       "run": "Sample packet counters",
       "running": "Capturing…",
       "mode": "Mode",
-      "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
+      "stats": "Packets={{packets}} · RST={{rst}} · Retransmits≈{{retrans}} · Out of order≈{{ooo}}",
+      "modeValue": {
+        "tcpdumpCounters": "tcpdump counters (degraded)",
+        "unavailable": "Unavailable",
+        "unknown": "Unknown mode"
+      },
+      "resultStatus": {
+        "cancelled": "Capture was cancelled.",
+        "unavailable": "Packet capture is unavailable.",
+        "degraded": "Counter sample completed; packet contents were not saved.",
+        "unknown": "Capture status is unknown."
+      }
     },
     "nodes": {
-      "hint": "Compare DNS answers from this Mac and Globalping locations. Register HTTPS agents for self-hosted probes.",
+      "hint": "Compare DNS answers from this Mac and Globalping locations. HTTPS/WSS agents currently report reachability only; remote probes are not available yet.",
       "run": "Compare DNS (multi-node)",
       "running": "Comparing…",
+      "stopWaitingHint": "Stopping ends local polling. A measurement already submitted to Globalping may continue running.",
+      "cancelled": "Stopped waiting. Results received before stopping are shown.",
+      "technicalDetails": "Technical details",
+      "failures": {
+        "quota": "Globalping quota or rate limit reached.",
+        "timeout": "The Globalping measurement timed out; this app waits up to 20 seconds.",
+        "request": "The Globalping request could not be completed.",
+        "measurement": "This probe could not complete the DNS measurement.",
+        "noAnswers": "This probe returned no DNS answer.",
+        "localRequest": "The local DNS lookup failed.",
+        "localTimeout": "The local DNS lookup exceeded the 5-second wait limit."
+      },
+      "working": "Working…",
       "refresh": "Refresh nodes",
       "listTitle": "Probe nodes",
       "addTitle": "Add agent",
-      "addHint": "Endpoint must be https:// or wss://. Arbitrary shell actions are rejected.",
+      "addHint": "Endpoint must use HTTPS or WSS (https:// or wss://). Arbitrary shell actions are rejected.",
       "labelPlaceholder": "Label",
       "domainPlaceholder": "example.com",
-      "endpointPlaceholder": "https://agent.example:8443",
+      "endpointPlaceholder": "https:// or wss://agent.example:8443",
+      "kind": {
+        "local": "This device",
+        "remoteProxy": "Globalping node",
+        "remoteAgent": "Self-hosted agent",
+        "unknown": "Unknown node type"
+      },
+      "labels": {
+        "local": "This device",
+        "globalpingWorld": "Globalping · World",
+        "globalpingUs": "Globalping · United States",
+        "globalpingEurope": "Globalping · Europe",
+        "globalpingAsia": "Globalping · Asia"
+      },
+      "agentReachable": "Reachable",
+      "agentUnreachable": "Unavailable",
+      "answerStatus": {
+        "success": "Success",
+        "failed": "Failed"
+      },
+      "endpointError": {
+        "invalid": "Enter a valid HTTPS or WSS URL.",
+        "scheme": "Use HTTPS or WSS; plaintext connections are not supported.",
+        "credentials": "Credentials, query parameters, and fragments are not supported in the endpoint URL. Remove them and try again."
+      },
       "addAgent": "Add agent",
       "removeAgent": "Remove",
-      "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} node results · {{ms}} ms",
+      "meta_one": "{{domain}} · {{count}} node result · {{ms}} ms",
+      "meta_other": "{{domain}} · {{count}} node results · {{ms}} ms"
     },
     "nat": {
       "hint": "STUN Binding against a public server to learn your mapped address / NAT exposure.",
@@ -2129,8 +2293,15 @@
       "hint": "Query pool.ntp.org for clock offset. Large skew can break TLS and auth.",
       "run": "Probe NTP",
       "running": "Probing…",
-      "offset": "Offset {{seconds}} s ({{severity}})",
-      "fail": "NTP probe failed"
+      "offset": "Offset {{seconds}} s",
+      "fail": "NTP probe failed",
+      "severity": {
+        "ok": "Normal",
+        "info": "Info",
+        "warn": "Warning",
+        "fail": "Failed",
+        "unknown": "Unknown status"
+      }
     },
     "report": {
       "hint": "Export the latest health scan and browse the session command log.",
@@ -2149,6 +2320,13 @@
       "historyTitle": "Recent health snapshots",
       "historyEmpty": "No saved health scans yet. Run a health scan to keep history.",
       "clearHistory": "Clear history",
+      "clearHistoryConfirm": {
+        "title": "Clear health history?",
+        "description": "This removes the recent health snapshots saved on this device.",
+        "consequence": "This cannot be undone. The current report and command log will remain.",
+        "confirm": "Clear history",
+        "cancel": "Keep history"
+      },
       "historyItem": "{{session}}… · {{count}} checks · {{ms}} ms · {{opinions}} opinions",
       "privacyHint": "Exports may include public IP, Wi‑Fi SSID, hosts overrides, and local addresses. Share only with people you trust."
     },
@@ -2156,18 +2334,23 @@
       "hint": "Path hop table via trippy (privileged ICMP, falls back to unprivileged UDP). Loss % is color-coded. ASN via Team Cymru DNS (may be empty).",
       "target": "Target",
       "maxTtl": "Max TTL",
+      "maxTtlInvalid": "Max TTL must be a whole number from 1 to 32.",
       "rounds": "Rounds",
+      "roundsInvalid": "Rounds must be a whole number from 1 to 10.",
       "run": "Trace",
       "running": "Tracing…",
       "cancel": "Cancel",
       "cancelled": "cancelled",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "No hops yet. Run a trace to populate the table.",
+      "unavailableResult": "Traceroute is unavailable; no path hops could be collected.",
+      "noHopsResult": "No path hops were received in this run.",
       "mode": {
         "privileged": "privileged ICMP",
         "unprivileged": "unprivileged UDP",
         "unavailable": "unavailable",
-        "cancelled": "cancelled"
+        "cancelled": "cancelled",
+        "unknown": "Unknown mode"
       },
       "col": {
         "ttl": "TTL",
@@ -2187,6 +2370,7 @@
       "probeTarget": "probeTarget(local, '{{input}}')",
       "sitesProbe": "startSitesProbe(local, '{{packId}}')",
       "sitesProbeCustom": "startSitesProbe(local, custom[{{n}}])",
+      "sitesProbeOne": "startSitesProbe(local, custom[1]) // target: '{{target}}'",
       "healthScan": "startHealthScan(local)",
       "cancelScan": "cancelScan(sessionId)",
       "flushDns": "flushDns()",
@@ -2224,7 +2408,13 @@
       "install": "Install",
       "installing": "Installing…",
       "uninstall": "Uninstall",
-      "verifyFail": "Test hash fail",
+      "verifyFail": "Test hash verification failure",
+      "installSuccess": "Capability pack installed.",
+      "uninstallSuccess": "Capability pack uninstalled.",
+      "installFailed": "Capability pack installation failed.",
+      "hashMismatch": "SHA-256 verification failed. The pack was not installed.",
+      "markerInstalled": "Only a local install marker was created. The artifact is not published yet, so related tools remain degraded.",
+      "resultDetails": "Details",
       "manage": "Manage packs",
       "missingHint": "This tool needs an optional pack ({{packId}}).",
       "desc": {
@@ -2252,6 +2442,8 @@
       "overviewFailed": "Failed to load network overview.",
       "tcpFailed": "TCP connect failed.",
       "pingFailed": "Ping failed.",
+      "pingDnsResolutionFailed": "Could not resolve the target hostname. Check its spelling, DNS settings, or network connection.",
+      "icmpUnavailable": "Could not open the ICMP socket. Check macOS Local Network permission, firewall settings, or system restrictions; this does not necessarily mean the network is down.",
       "dnsFailed": "DNS lookup failed.",
       "probeFailed": "Custom target probe failed.",
       "sitesFailed": "Site pack probe failed.",

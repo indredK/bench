@@ -17,7 +17,7 @@ pub async fn get_network_probe_capabilities(app: AppHandle) -> AppResult<Network
 
 #[tauri::command]
 pub async fn list_probe_nodes(app: AppHandle) -> AppResult<Vec<ProbeNode>> {
-    let agents = super::agent::agents_as_nodes(&app).unwrap_or_default();
+    let agents = super::agent::agents_as_nodes(&app).await?;
     Ok(super::globalping::list_nodes_with_agents(&agents))
 }
 
@@ -137,10 +137,11 @@ pub async fn network_probe_run_pcap_diag(
 
 #[tauri::command]
 pub async fn network_probe_compare_dns_multi(
+    app: AppHandle,
     domain: String,
     locations: Option<Vec<String>>,
 ) -> AppResult<MultiNodeDnsResult> {
-    super::globalping::compare_dns_multi(domain, locations.unwrap_or_default()).await
+    super::globalping::compare_dns_multi(&app, domain, locations.unwrap_or_default()).await
 }
 
 #[tauri::command]

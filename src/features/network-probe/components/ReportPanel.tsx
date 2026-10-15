@@ -1,8 +1,9 @@
 /**
  * Feature UI / 功能界面: health report export (JSON / Markdown).
  */
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { HealthScanResult } from "@/lib/tauri/types/network-probe"
@@ -66,6 +67,7 @@ export function ReportPanel({
 }: ReportPanelProps) {
   const { t } = useTranslation()
   const stamp = useMemo(() => new Date().toISOString().replace(/[:.]/g, "-"), [health])
+  const [clearConfirmation, setClearConfirmation] = useState<"history" | "log" | null>(null)
 
   return (
     <ProbePanelShell
@@ -133,7 +135,12 @@ export function ReportPanel({
             {t("networkProbe.report.historyTitle")}
           </h3>
           {history.length > 0 ? (
-            <Button type="button" variant="ghost" size="sm" onClick={onClearHistory}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setClearConfirmation("history")}
+            >
               {t("networkProbe.report.clearHistory")}
             </Button>
           ) : null}
@@ -161,7 +168,13 @@ export function ReportPanel({
           <h3 className="text-xs font-semibold tracking-wide uppercase">
             {t("networkProbe.report.logTitle")}
           </h3>
-          <Button type="button" variant="ghost" size="sm" onClick={onClearLog}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={commandLog.length === 0}
+            onClick={() => setClearConfirmation("log")}
+          >
             {t("networkProbe.report.clearLog")}
           </Button>
         </div>
@@ -180,6 +193,42 @@ export function ReportPanel({
           </ul>
         )}
       </section>
+
+      <DestructiveConfirmDialog
+        open={clearConfirmation !== null}
+        onOpenChange={(open) => {
+          if (!open) setClearConfirmation(null)
+        }}
+        title={
+          clearConfirmation === "history"
+            ? t("networkProbe.report.clearHistoryConfirm.title")
+            : t("networkProbe.sideLog.clearConfirmTitle")
+        }
+        description={
+          clearConfirmation === "history"
+            ? t("networkProbe.report.clearHistoryConfirm.description")
+            : t("networkProbe.sideLog.clearConfirmDescription")
+        }
+        consequence={
+          clearConfirmation === "history"
+            ? t("networkProbe.report.clearHistoryConfirm.consequence")
+            : undefined
+        }
+        confirmLabel={
+          clearConfirmation === "history"
+            ? t("networkProbe.report.clearHistoryConfirm.confirm")
+            : t("networkProbe.sideLog.clear")
+        }
+        cancelLabel={
+          clearConfirmation === "history"
+            ? t("networkProbe.report.clearHistoryConfirm.cancel")
+            : t("common.cancel")
+        }
+        onConfirm={() => {
+          if (clearConfirmation === "history") onClearHistory()
+          if (clearConfirmation === "log") onClearLog()
+        }}
+      />
     </ProbePanelShell>
   )
 }

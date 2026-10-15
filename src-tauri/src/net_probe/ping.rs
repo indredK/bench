@@ -1,4 +1,6 @@
-use super::types::{PingProbeResult, PingSample};
+use super::types::{
+    PingProbeResult, PingSample, PingSampleError, PingSampleEvent, ScanSessionEvent,
+};
 use super::validate::validate_host;
 use crate::error::{AppError, AppResult};
 use std::net::IpAddr;
@@ -8,6 +10,7 @@ use tauri::{AppHandle, Emitter, Runtime};
 use tokio::time::sleep;
 
 pub const PING_SAMPLE_EVENT: &str = "network-probe:ping-sample";
+const SCAN_SESSION_EVENT: &str = "network-probe:scan-session";
 
 const MAX_COUNT: u32 = 20;
 const DEFAULT_COUNT: u32 = 4;
@@ -20,7 +23,7 @@ pub async fn ping_host(
     count: Option<u32>,
     interval_ms: Option<u64>,
 ) -> AppResult<PingProbeResult> {
-    ping_host_with_sample(target, count, interval_ms, |_| {}).await
+    ping_host_with_sample(target, count, interval_ms, None, |_| {}).await
 }
 
 pub async fn ping_host_streaming<R: Runtime>(
@@ -29,16 +32,34 @@ pub async fn ping_host_streaming<R: Runtime>(
     count: Option<u32>,
     interval_ms: Option<u64>,
 ) -> AppResult<PingProbeResult> {
-    ping_host_with_sample(target, count, interval_ms, |sample| {
-        let _ = app.emit(PING_SAMPLE_EVENT, sample);
+    validate_host(&target)?;
+    let session_id = super::session::new_session_id();
+    let _ = app.emit(
+        SCAN_SESSION_EVENT,
+        &ScanSessionEvent {
+            session_id: session_id.clone(),
+            kind: "ping".into(),
+        },
+    );
+    let result = ping_host_with_sample(target, count, interval_ms, Some(&session_id), |sample| {
+        let _ = app.emit(
+            PING_SAMPLE_EVENT,
+            PingSampleEvent {
+                session_id: session_id.clone(),
+                sample: sample.clone(),
+            },
+        );
     })
-    .await
+    .await;
+    super::session::clear_session(&session_id);
+    result
 }
 
 async fn ping_host_with_sample(
     target: String,
     count: Option<u32>,
     interval_ms: Option<u64>,
+    session_id: Option<&str>,
     mut on_sample: impl FnMut(&PingSample),
 ) -> AppResult<PingProbeResult> {
     validate_host(&target)?;
@@ -49,7 +70,34 @@ async fn ping_host_with_sample(
     let command_hint =
         format!("pingHost(local, '{target}', {{count:{count},intervalMs:{interval_ms}}})");
 
-    let ip = resolve_target_ip(&target).await?;
+    let ip = if let Some(session_id) = session_id {
+        tokio::select! {
+            biased;
+            _ = wait_for_cancellation(session_id) => {
+                return Ok(summarize_result(
+                    target.clone(),
+                    String::new(),
+                    session_id.to_string(),
+                    command_hint.clone(),
+                    Vec::new(),
+                    true,
+                ));
+            }
+            result = resolve_target_ip(&target) => result?,
+        }
+    } else {
+        resolve_target_ip(&target).await?
+    };
+    if session_id.is_some_and(super::session::is_cancelled) {
+        return Ok(summarize_result(
+            target,
+            ip.to_string(),
+            session_id.unwrap_or_default().to_string(),
+            command_hint,
+            Vec::new(),
+            true,
+        ));
+    }
     let config = match ip {
         IpAddr::V4(_) => Config::default(),
         IpAddr::V6(_) => Config::builder().kind(ICMP::V6).build(),
@@ -68,16 +116,42 @@ async fn ping_host_with_sample(
 
     let payload = [0u8; 56];
     let mut samples = Vec::with_capacity(count as usize);
-    let mut rtts = Vec::new();
+    let mut cancelled = false;
 
     for seq in 0..count {
-        if seq > 0 {
-            sleep(Duration::from_millis(interval_ms)).await;
+        if session_id.is_some_and(super::session::is_cancelled) {
+            cancelled = true;
+            break;
         }
-        let sample = match pinger.ping(PingSequence(seq as u16), &payload).await {
+        if seq > 0 {
+            if let Some(session_id) = session_id {
+                tokio::select! {
+                    biased;
+                    _ = wait_for_cancellation(session_id) => {
+                        cancelled = true;
+                        break;
+                    }
+                    _ = sleep(Duration::from_millis(interval_ms)) => {}
+                }
+            } else {
+                sleep(Duration::from_millis(interval_ms)).await;
+            }
+        }
+        let ping_result = if let Some(session_id) = session_id {
+            tokio::select! {
+                biased;
+                _ = wait_for_cancellation(session_id) => {
+                    cancelled = true;
+                    break;
+                }
+                result = pinger.ping(PingSequence(seq as u16), &payload) => result,
+            }
+        } else {
+            pinger.ping(PingSequence(seq as u16), &payload).await
+        };
+        let sample = match ping_result {
             Ok((_packet, duration)) => {
                 let rtt_ms = duration.as_secs_f64() * 1000.0;
-                rtts.push(rtt_ms);
                 PingSample {
                     seq,
                     ok: true,
@@ -89,43 +163,89 @@ async fn ping_host_with_sample(
                 seq,
                 ok: false,
                 rtt_ms: None,
-                error: Some(e.to_string()),
+                error: Some(classify_sample_error(e)),
             },
         };
         on_sample(&sample);
         samples.push(sample);
     }
 
+    Ok(summarize_result(
+        target,
+        ip.to_string(),
+        session_id.unwrap_or_default().to_string(),
+        command_hint,
+        samples,
+        cancelled,
+    ))
+}
+
+fn classify_sample_error(error: surge_ping::SurgeError) -> PingSampleError {
+    match error {
+        surge_ping::SurgeError::Timeout { .. } => PingSampleError::Timeout,
+        surge_ping::SurgeError::IOError(error) if error.kind() == std::io::ErrorKind::TimedOut => {
+            PingSampleError::Timeout
+        }
+        surge_ping::SurgeError::IOError(error)
+            if error.kind() == std::io::ErrorKind::PermissionDenied =>
+        {
+            PingSampleError::PermissionDenied
+        }
+        _ => PingSampleError::NetworkError,
+    }
+}
+
+async fn wait_for_cancellation(session_id: &str) {
+    while !super::session::is_cancelled(session_id) {
+        sleep(Duration::from_millis(25)).await;
+    }
+}
+
+fn summarize_result(
+    target: String,
+    resolved_ip: String,
+    session_id: String,
+    command_hint: String,
+    samples: Vec<PingSample>,
+    cancelled: bool,
+) -> PingProbeResult {
+    let packets_sent = samples.len() as u32;
+    let rtts = samples
+        .iter()
+        .filter_map(|sample| sample.rtt_ms)
+        .collect::<Vec<_>>();
     let packets_received = rtts.len() as u32;
-    let (min_rtt, avg_rtt, max_rtt, stddev_rtt) = if rtts.is_empty() {
+    let (min_rtt_ms, avg_rtt_ms, max_rtt_ms, stddev_rtt_ms) = if rtts.is_empty() {
         (None, None, None, None)
     } else {
         let min = rtts.iter().cloned().fold(f64::INFINITY, f64::min);
         let max = rtts.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         let avg = rtts.iter().sum::<f64>() / rtts.len() as f64;
-        let var = rtts.iter().map(|v| (v - avg).powi(2)).sum::<f64>() / rtts.len() as f64;
-        (Some(min), Some(avg), Some(max), Some(var.sqrt()))
+        let variance =
+            rtts.iter().map(|value| (value - avg).powi(2)).sum::<f64>() / rtts.len() as f64;
+        (Some(min), Some(avg), Some(max), Some(variance.sqrt()))
     };
-
-    let loss_percent = if count > 0 {
-        100.0 * (1.0 - packets_received as f64 / count as f64)
-    } else {
+    let loss_percent = if packets_sent == 0 {
         0.0
+    } else {
+        100.0 * (1.0 - packets_received as f64 / packets_sent as f64)
     };
 
-    Ok(PingProbeResult {
+    PingProbeResult {
         target,
-        resolved_ip: ip.to_string(),
-        packets_sent: count,
+        resolved_ip,
+        packets_sent,
         packets_received,
         loss_percent,
-        min_rtt_ms: min_rtt,
-        avg_rtt_ms: avg_rtt,
-        max_rtt_ms: max_rtt,
-        stddev_rtt_ms: stddev_rtt,
+        min_rtt_ms,
+        avg_rtt_ms,
+        max_rtt_ms,
+        stddev_rtt_ms,
         samples,
+        session_id,
+        cancelled,
         command_hint,
-    })
+    }
 }
 
 pub(crate) async fn resolve_target_ip(target: &str) -> AppResult<IpAddr> {
@@ -141,10 +261,71 @@ pub(crate) async fn resolve_target_ip(target: &str) -> AppResult<IpAddr> {
     })
     .await
     .map_err(|e| AppError::task_failed(format!("resolve: {e}")))?
-    .map_err(|e| AppError::invalid_input(format!("DNS resolve failed: {e}")))?;
+    .map_err(|e| dns_resolution_error(format!("DNS resolve failed: {e}")))?;
 
     addrs
         .into_iter()
         .next()
-        .ok_or_else(|| AppError::invalid_input("No addresses resolved for target"))
+        .ok_or_else(|| dns_resolution_error("No addresses resolved for target"))
+}
+
+fn dns_resolution_error(message: impl Into<String>) -> AppError {
+    AppError::new("DNS_RESOLUTION_FAILED", message)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{classify_sample_error, ping_host_with_sample};
+    use crate::net_probe::session::{cancel_scan, clear_session, new_session_id};
+    use crate::net_probe::types::PingSampleError;
+
+    #[test]
+    fn ping_sample_errors_are_stable_codes_instead_of_dependency_messages() {
+        assert_eq!(
+            classify_sample_error(surge_ping::SurgeError::Timeout {
+                seq: surge_ping::PingSequence(2),
+            }),
+            PingSampleError::Timeout
+        );
+        assert_eq!(
+            classify_sample_error(surge_ping::SurgeError::IOError(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "localized by the OS",
+            ))),
+            PingSampleError::PermissionDenied
+        );
+        assert_eq!(
+            serde_json::to_string(&PingSampleError::Timeout).unwrap(),
+            "\"timeout\""
+        );
+    }
+
+    #[test]
+    fn dns_resolution_errors_have_a_stable_code() {
+        let error = super::dns_resolution_error("DNS resolve failed: name not found");
+        assert_eq!(error.code, "DNS_RESOLUTION_FAILED");
+        assert_eq!(error.message, "DNS resolve failed: name not found");
+    }
+
+    #[tokio::test]
+    async fn a_cancelled_session_stops_before_resolving_or_sending_packets() {
+        let session_id = new_session_id();
+        cancel_scan(session_id.clone());
+
+        let result = ping_host_with_sample(
+            "127.0.0.1".into(),
+            Some(20),
+            Some(1_000),
+            Some(&session_id),
+            |_| {},
+        )
+        .await
+        .expect("pre-cancelled ping returns a cancelled result");
+
+        clear_session(&session_id);
+        assert!(result.cancelled);
+        assert_eq!(result.packets_sent, 0);
+        assert!(result.samples.is_empty());
+        assert!(result.resolved_ip.is_empty());
+    }
 }

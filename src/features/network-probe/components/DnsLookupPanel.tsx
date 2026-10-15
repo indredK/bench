@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { DnsLookupResult } from "@/lib/tauri/types/network-probe"
 
@@ -14,11 +15,18 @@ const RR_TYPES = ["A", "AAAA", "CNAME", "MX", "TXT"] as const
 interface DnsLookupPanelProps {
   loading: boolean
   result: DnsLookupResult | null
+  hasError?: boolean
   dnsPresets?: { id: string; address: string }[]
   onRun: (domain: string, rrType: string, resolver?: string) => void
 }
 
-export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookupPanelProps) {
+export function DnsLookupPanel({
+  loading,
+  result,
+  hasError = false,
+  dnsPresets,
+  onRun,
+}: DnsLookupPanelProps) {
   const { t } = useTranslation()
   const [domain, setDomain] = useState("example.com")
   const [rrType, setRrType] = useState<string>("A")
@@ -99,6 +107,9 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
         </>
       }
     >
+      {!loading && !result && !hasError ? (
+        <ProbeEmptyState>{t("networkProbe.resultEmpty")}</ProbeEmptyState>
+      ) : null}
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div>

@@ -41,6 +41,8 @@
 	<string>照片筛选需要访问你选择的文件夹以读取照片与视频</string>
 	<key>NSDownloadsFolderUsageDescription</key>
 	<string>照片筛选需要访问你选择的下载文件夹以读取照片与视频</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Bench 使用本地网络执行 Ping、局域网发现和本地网络诊断。</string>
 	<key>NSRemovableVolumesUsageDescription</key>
 	<string>照片筛选需要访问你选择的外置磁盘以读取照片与视频</string>
 </dict>

@@ -4,7 +4,7 @@
  * v3: App 偏好 (SettingsDialog) 与系统设置 (SystemSettings page) 分离。
  */
 import { Router, Route, Switch, useLocation } from "wouter"
-import { useHashLocation } from "wouter/use-hash-location"
+import { useTauriHashLocation } from "@/lib/routing/tauri-hash-location"
 import { AnimatePresence, motion } from "motion/react"
 import { useTranslation } from "react-i18next"
 import NavigationShell from "./components/layout/NavigationShell"
@@ -240,7 +240,7 @@ function App() {
 
   return (
     <>
-      <Router hook={useHashLocation}>
+      <Router hook={useTauriHashLocation}>
         <AuthProxyNavigationListener />
         <GlobalContextMenu className="app-root bg-background flex h-screen overflow-hidden">
           <div className="flex flex-1 flex-col overflow-hidden">

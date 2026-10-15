@@ -32,3 +32,4 @@
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
 - 2026-09-03：首版生成——依据 `docs/modules/system-settings/roadmap.md` 与 `docs/roadmap/ROADMAP.md` R03/D-019 提取未完成项；产品说明见 `../product-specs/system-settings.md`。
+- 2026-10-15：修复全局语言切换后 HTML 根节点 `lang` 仍沿用启动默认值的问题；首次渲染按有效 locale 设置，运行时随 i18next 语言变化同步，辅助技术可正确朗读。

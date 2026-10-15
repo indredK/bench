@@ -1,7 +1,7 @@
 /**
  * Feature UI / 功能界面: overview panel for basic L1.
  */
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
@@ -20,6 +20,7 @@ interface OverviewPanelProps {
   } | null
   firewall: { status: string; detail?: string } | null
   hostsSuspiciousCount: number
+  openingSettings: boolean
   onRefresh: () => void
   onOpenSettings: () => void
 }
@@ -29,13 +30,18 @@ export function OverviewPanel({
   summary,
   firewall,
   hostsSuspiciousCount,
+  openingSettings,
   onRefresh,
   onOpenSettings,
 }: OverviewPanelProps) {
   const { t } = useTranslation()
+  const autoLoadStarted = useRef(false)
 
   useEffect(() => {
-    if (!summary && !loading) onRefresh()
+    if (!summary && !loading && !autoLoadStarted.current) {
+      autoLoadStarted.current = true
+      onRefresh()
+    }
   }, [summary, loading, onRefresh])
 
   return (
@@ -45,8 +51,16 @@ export function OverviewPanel({
           <Button type="button" size="sm" onClick={onRefresh} disabled={loading}>
             {loading ? t("networkProbe.overview.refreshing") : t("networkProbe.overview.refresh")}
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={onOpenSettings}>
-            {t("networkProbe.overview.openSettings")}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={openingSettings}
+            onClick={onOpenSettings}
+          >
+            {openingSettings
+              ? t("networkProbe.overview.openingSettings")
+              : t("networkProbe.overview.openSettings")}
           </Button>
           <span className="text-muted-foreground font-mono text-xs">
             {t("networkProbe.cmd.summary")}

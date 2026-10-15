@@ -6,18 +6,35 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbeSystemDetails } from "@/features/network-probe/components/ProbeSystemDetails"
+import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import {
+  getPingSampleErrorKey,
+  isKnownPingSampleError,
+} from "@/features/network-probe/ping-sample-error"
 import type { ProbeTargetResult } from "@/lib/tauri/types/network-probe"
 
 interface ProbeTargetPanelProps {
   loading: boolean
   result: ProbeTargetResult | null
+  hasError?: boolean
   onRun: (input: string) => void
 }
 
-export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelProps) {
+export function ProbeTargetPanel({
+  loading,
+  result,
+  hasError = false,
+  onRun,
+}: ProbeTargetPanelProps) {
   const { t } = useTranslation()
   const [input, setInput] = useState("https://example.com")
+  const hasSystemDetails = Boolean(
+    (result?.icmp?.error && !isKnownPingSampleError(result.icmp.error)) ||
+    result?.http?.error ||
+    (!result?.tls?.handshakeOk && result?.tls?.detail),
+  )
 
   return (
     <ProbePanelShell
@@ -49,6 +66,9 @@ export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelPro
         </>
       }
     >
+      {!loading && !result && !hasError ? (
+        <ProbeEmptyState>{t("networkProbe.resultEmpty")}</ProbeEmptyState>
+      ) : null}
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div>
@@ -63,7 +83,7 @@ export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelPro
                     ip: result.icmp.resolvedIp ?? "—",
                   })
                 : t("networkProbe.probe.icmpFail", {
-                    error: result.icmp.error ?? "—",
+                    error: t(getPingSampleErrorKey(result.icmp.error)),
                   })}
             </div>
           ) : null}
@@ -75,9 +95,9 @@ export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelPro
                     status: result.http.status ?? "—",
                     ms: result.http.ttfbMs?.toFixed(0) ?? "—",
                   })
-                : t("networkProbe.probe.httpFail", {
-                    error: result.http.error ?? "—",
-                  })}
+                : result.http.status != null
+                  ? t("networkProbe.probe.httpStatusFail", { status: result.http.status })
+                  : t("networkProbe.probe.httpRequestFail")}
               {result.http.finalUrl ? (
                 <div className="text-muted-foreground font-mono text-xs">
                   {result.http.finalUrl}
@@ -90,10 +110,38 @@ export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelPro
               {t("networkProbe.probe.tls")}:{" "}
               {result.tls.handshakeOk
                 ? t("networkProbe.probe.tlsOk")
-                : t("networkProbe.probe.tlsFail", {
-                    detail: result.tls.detail ?? "—",
-                  })}
+                : t("networkProbe.probe.tlsFail")}
             </div>
+          ) : null}
+          {hasSystemDetails ? (
+            <ProbeSystemDetails>
+              <div className="space-y-1">
+                {result.icmp?.error && !isKnownPingSampleError(result.icmp.error) ? (
+                  <p>
+                    <span className="text-muted-foreground">{t("networkProbe.probe.icmp")}: </span>
+                    <span className="font-mono break-all" dir="ltr">
+                      {result.icmp.error}
+                    </span>
+                  </p>
+                ) : null}
+                {result.http?.error ? (
+                  <p>
+                    <span className="text-muted-foreground">{t("networkProbe.probe.http")}: </span>
+                    <span className="font-mono break-all" dir="ltr">
+                      {result.http.error}
+                    </span>
+                  </p>
+                ) : null}
+                {!result.tls?.handshakeOk && result.tls?.detail ? (
+                  <p>
+                    <span className="text-muted-foreground">{t("networkProbe.probe.tls")}: </span>
+                    <span className="font-mono break-all" dir="ltr">
+                      {result.tls.detail}
+                    </span>
+                  </p>
+                ) : null}
+              </div>
+            </ProbeSystemDetails>
           ) : null}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>

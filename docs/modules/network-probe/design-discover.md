@@ -122,26 +122,31 @@ type ProbeNode = {
 
 #### Globalping（`remote-proxy`）
 
-| 项   | 约定                                                      |
-| ---- | --------------------------------------------------------- |
-| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 轮询 status |
-| 能力 | ping / traceroute / dns / mtr / http（**无带宽**）        |
-| 配额 | 匿名额度用尽 → 提示配置 token；错误映射 `AppError`        |
-| ToS  | 遵守官方限额；前端展示剩余额度（若 API 提供）             |
+| 项   | 约定                                                                                         |
+| ---- | -------------------------------------------------------------------------------------------- |
+| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 轮询 status                                    |
+| 能力 | Globalping API 支持 ping / traceroute / dns / mtr / http（**无带宽**）；Bench 当前只接入 DNS |
+| 配额 | 匿名额度用尽 → 提示配置 token；结果按探点返回结构化失败类型并本地化显示                      |
+| ToS  | 遵守官方限额；前端展示剩余额度（若 API 提供）                                                |
+
+DNS 对比按 Globalping 的 `in-progress` 状态轮询，至少间隔 700 ms；收到其他状态即停止轮询。只有探点状态为 `finished` 且至少返回一条 DNS 答案时标为成功；已完成但无答案显示本地化无答案状态，测量失败或离线显示测量失败。摘要显示节点结果行数（包含失败节点），不将 DNS 记录条数称为答案总数。Globalping 单个 HTTP 请求最多等待 8 秒，远端流程总时限 20 秒，本机 DNS 最多等待 5 秒。本机请求失败 / 超时与 Globalping 请求失败 / 超时使用各自的本地化说明，避免将本机错误归因给远端服务。用户可停止本机等待；Globalping 不提供撤销已创建测量的接口，提交后的远端工作可能继续。超时和远端错误作为失败节点显示，不丢弃本机结果。
 
 #### 自有 agent（`remote-agent`）
 
 见 design §4.4 摘要落地：
 
-| 项   | 约定                                                      |
-| ---- | --------------------------------------------------------- |
-| 传输 | HTTPS 或 WSS；禁止明文                                    |
-| 鉴权 | 每 agent token 或 mTLS；HMAC(timestamp+body)              |
-| 方法 | 白名单 tool id；**拒绝任意 shell**                        |
-| 限速 | 每 token QPS/并发；超限 → 429 语义                        |
-| SSRF | agent 拒绝被指使打云元数据/未声明目标                     |
-| 发现 | **手动**添加 endpoint；不做局域网自动扩散（防变僵尸网络） |
-| 密钥 | Keychain / 系统安全存储；不进前端持久化明文               |
+| 项       | 约定                                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 传输     | HTTPS 或 WSS；禁止明文                                                                                                   |
+| 健康检查 | HTTPS `GET /v1/health` 返回 2xx；WSS 在同一路径完成 TLS 升级并通过 Ping/Pong；单端点最多 5 秒，列表刷新最多并发 8 个检查 |
+| 鉴权     | 每 agent token 或 mTLS；HMAC(timestamp+body)                                                                             |
+| 方法     | 白名单 tool id；**拒绝任意 shell**                                                                                       |
+| 限速     | 每 token QPS/并发；超限 → 429 语义                                                                                       |
+| SSRF     | agent 拒绝被指使打云元数据/未声明目标                                                                                    |
+| 发现     | **手动**添加 endpoint；不做局域网自动扩散（防变僵尸网络）                                                                |
+| 密钥     | Keychain / 系统安全存储；不进前端持久化明文                                                                              |
+
+注册表只保存不含用户名/密码、查询参数和片段的端点 URL。TLS 使用系统证书根，HTTPS 不跟随重定向；健康检查只证明 agent 在线，不表示凭证鉴权或远程探测执行已启用。
 
 #### 对比视图
 
@@ -175,11 +180,11 @@ listProbeNodes(): ProbeNode[]
 
 `node.rs` 路由表：
 
-| kind           | 行为              |
-| -------------- | ----------------- |
-| `local`        | 本机执行          |
-| `remote-proxy` | Globalping 适配器 |
-| `remote-agent` | agent HTTP 客户端 |
+| kind           | 行为                                              |
+| -------------- | ------------------------------------------------- |
+| `local`        | 本机执行                                          |
+| `remote-proxy` | Globalping 适配器                                 |
+| `remote-agent` | HTTPS / WSS agent 健康检查；远程探测执行仍待 C2-3 |
 
 未知 `nodeId` → `INVALID_INPUT`；remote 未配置 → `UNSUPPORTED`（诚实）。
 
@@ -188,7 +193,7 @@ listProbeNodes(): ProbeNode[]
 ## 5. UX
 
 - ARP/服务扫描：进度条 + 已发现计数；空态文案区分权限/隔离/真静网。
-- 多节点：先选 tool + target，再勾选节点并跑；部分节点失败不阻断整表。
+- 多节点：先选 tool + target，再勾选节点并跑；部分节点失败不阻断整表；等待中可停止本机轮询，结果细节和状态使用本地化文案。
 - 命令透明：remote 路径标注 `via globalping|agent`。
 - Post / C badge 与 roadmap 档位一致。
 

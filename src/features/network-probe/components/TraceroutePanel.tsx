@@ -6,14 +6,20 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
+import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeSystemDetails } from "@/features/network-probe/components/ProbeSystemDetails"
+import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
 import type { TracerouteHop, TracerouteResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
 interface TraceroutePanelProps {
   loading: boolean
   canCancel: boolean
+  cancelling: boolean
   result: TracerouteResult | null
+  hasError?: boolean
   streamingHops: TracerouteHop[]
   toolEnabled: boolean
   toolStatus?: string
@@ -24,7 +30,9 @@ interface TraceroutePanelProps {
 export function TraceroutePanel({
   loading,
   canCancel,
+  cancelling,
   result,
+  hasError = false,
   streamingHops,
   toolEnabled,
   toolStatus,
@@ -35,12 +43,27 @@ export function TraceroutePanel({
   const [target, setTarget] = useState("1.1.1.1")
   const [maxTtl, setMaxTtl] = useState("20")
   const [rounds, setRounds] = useState("3")
+  const parsedMaxTtl = parseBoundedIntegerInput(maxTtl, 1, 32)
+  const parsedRounds = parseBoundedIntegerInput(rounds, 1, 10)
+  const maxTtlError = parsedMaxTtl == null
+  const roundsError = parsedRounds == null
 
   // 跑动中只渲染本轮 streaming 跳数: 旧 result 优先会遮蔽新一轮逐跳进度。
   const hops = loading ? streamingHops : result?.hops?.length ? result.hops : streamingHops
-  const modeKey = result?.privilegeMode
-    ? `networkProbe.traceroute.mode.${result.privilegeMode}`
-    : null
+  const modeKey = (() => {
+    switch (result?.privilegeMode) {
+      case "privileged":
+        return "networkProbe.traceroute.mode.privileged"
+      case "unprivileged":
+        return "networkProbe.traceroute.mode.unprivileged"
+      case "unavailable":
+        return "networkProbe.traceroute.mode.unavailable"
+      case "cancelled":
+        return "networkProbe.traceroute.mode.cancelled"
+      default:
+        return "networkProbe.traceroute.mode.unknown"
+    }
+  })()
 
   return (
     <ProbePanelShell
@@ -74,12 +97,22 @@ export function TraceroutePanel({
               </label>
               <Input
                 id="np-tr-ttl"
+                type="number"
+                min={1}
+                max={32}
+                step={1}
                 value={maxTtl}
                 onChange={(e) => setMaxTtl(e.target.value)}
-                inputMode="numeric"
                 autoComplete="off"
                 disabled={loading}
+                aria-invalid={maxTtlError}
+                aria-describedby={maxTtlError ? "np-tr-ttl-error" : undefined}
               />
+              {maxTtlError ? (
+                <p id="np-tr-ttl-error" className="text-destructive text-xs" role="alert">
+                  {t("networkProbe.traceroute.maxTtlInvalid")}
+                </p>
+              ) : null}
             </div>
             <div className="w-20 space-y-1">
               <label className="text-xs font-medium" htmlFor="np-tr-rounds">
@@ -87,12 +120,22 @@ export function TraceroutePanel({
               </label>
               <Input
                 id="np-tr-rounds"
+                type="number"
+                min={1}
+                max={10}
+                step={1}
                 value={rounds}
                 onChange={(e) => setRounds(e.target.value)}
-                inputMode="numeric"
                 autoComplete="off"
                 disabled={loading}
+                aria-invalid={roundsError}
+                aria-describedby={roundsError ? "np-tr-rounds-error" : undefined}
               />
+              {roundsError ? (
+                <p id="np-tr-rounds-error" className="text-destructive text-xs" role="alert">
+                  {t("networkProbe.traceroute.roundsInvalid")}
+                </p>
+              ) : null}
             </div>
             <CommandHint
               hint={t("networkProbe.cmd.traceroute", {
@@ -104,19 +147,27 @@ export function TraceroutePanel({
               <Button
                 type="button"
                 disabled={
-                  loading || !toolEnabled || !target.trim() || !Number(maxTtl) || !Number(rounds)
+                  loading ||
+                  !toolEnabled ||
+                  !target.trim() ||
+                  parsedMaxTtl == null ||
+                  parsedRounds == null
                 }
-                onClick={() => onRun(target, Number(maxTtl), Number(rounds))}
+                onClick={() => {
+                  if (parsedMaxTtl != null && parsedRounds != null) {
+                    onRun(target, parsedMaxTtl, parsedRounds)
+                  }
+                }}
               >
                 {loading ? t("networkProbe.traceroute.running") : t("networkProbe.traceroute.run")}
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("networkProbe.traceroute.cancel")}
-                </Button>
-              </CommandHint>
+              <NetworkProbeCancelButton
+                label={t("networkProbe.traceroute.cancel")}
+                cancelling={cancelling}
+                onCancel={onCancel}
+              />
             ) : null}
           </div>
         </>
@@ -127,19 +178,36 @@ export function TraceroutePanel({
           <div>
             {t("networkProbe.traceroute.meta", {
               ip: result.resolvedIp,
-              mode: modeKey ? t(modeKey, { defaultValue: result.privilegeMode }) : "—",
+              mode: t(modeKey),
               ms: result.elapsedMs.toFixed(0),
             })}
             {result.cancelled ? (
               <span className="ml-2">{t("networkProbe.traceroute.cancelled")}</span>
             ) : null}
           </div>
-          {result.message ? <div>{result.message}</div> : null}
+          {result.message ? (
+            <ProbeSystemDetails>
+              <p className="font-mono break-all">{result.message}</p>
+            </ProbeSystemDetails>
+          ) : null}
         </div>
       ) : null}
 
-      {hops.length === 0 && !loading ? (
-        <p className="text-muted-foreground text-sm">{t("networkProbe.traceroute.empty")}</p>
+      {hops.length === 0 && !loading && !hasError && !result ? (
+        <ProbeEmptyState>{t("networkProbe.traceroute.empty")}</ProbeEmptyState>
+      ) : null}
+      {hops.length === 0 && !loading && !hasError && result && !result.cancelled ? (
+        <p
+          className={cn(
+            "text-sm",
+            result.privilegeMode === "unavailable" ? "text-destructive" : "text-muted-foreground",
+          )}
+          role={result.privilegeMode === "unavailable" ? "alert" : "status"}
+        >
+          {result.privilegeMode === "unavailable"
+            ? t("networkProbe.traceroute.unavailableResult")
+            : t("networkProbe.traceroute.noHopsResult")}
+        </p>
       ) : null}
 
       {hops.length > 0 ? (

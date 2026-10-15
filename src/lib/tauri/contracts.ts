@@ -86,6 +86,7 @@ import type {
   LocalNetworkSummary,
   NetworkProbeCapabilities,
   NetworkProbeDefaultsCatalog,
+  PingSampleEvent,
   PingProbeResult,
   ProbeNode,
   ProbeTargetResult,
@@ -1839,4 +1840,5 @@ export interface TauriEventContracts {
   "network-probe:health-item": HealthCheckItem
   "network-probe:traceroute-hop": TracerouteHop
   "network-probe:scan-session": ScanSessionEvent
+  "network-probe:ping-sample": PingSampleEvent
 }

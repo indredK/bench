@@ -56,14 +56,14 @@ src-tauri/src/net_probe/
 
 ### 3.1 Ping（`pingHost`）
 
-| 项     | 约定                                                                          |
-| ------ | ----------------------------------------------------------------------------- |
-| 库     | `surge-ping`                                                                  |
-| 套接字 | 非 root：`SOCK_DGRAM`/`IPPROTO_ICMP`（Apple 惯例）；root：可 RAW              |
-| 输出   | 每包 RTT + 结束汇总（min/avg/max/stddev/loss%）                               |
-| 流式   | `network-probe://ping-sample`；`count`/`intervalMs` 有硬顶（防打爆）          |
-| 校验   | host 禁止 shell 元字符（对齐现有 `validate_host`）；拒绝空、过长、以 `-` 开头 |
-| 降级   | ICMP 不可用 → 返回 `degraded` 并建议改用 TCP/HTTP；UI 不显示假 0ms            |
+| 项     | 约定                                                                                                                                                                            |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 库     | `surge-ping`                                                                                                                                                                    |
+| 套接字 | 非 root：`SOCK_DGRAM`/`IPPROTO_ICMP`（Apple 惯例）；root：可 RAW                                                                                                                |
+| 输出   | 每包 RTT + 结束汇总（min/avg/max/stddev/loss%）                                                                                                                                 |
+| 流式   | `network-probe:ping-sample` 携带 `sessionId` 与单包样本；运行期间显示已完成包数/总数，目标与次数锁定；取消走统一 `cancelScan(sessionId)`；`count`/`intervalMs` 有硬顶（防打爆） |
+| 校验   | host 禁止 shell 元字符（对齐现有 `validate_host`）；拒绝空、过长、以 `-` 开头                                                                                                   |
+| 降级   | ICMP 不可用 → 返回 `degraded` 并建议改用 TCP/HTTP；UI 不显示假 0ms                                                                                                              |
 
 真机注意：macOS **本地网络**隐私权限会影响 LAN ping；能力矩阵标 `D/S`，UI 给设置跳转文案。
 
@@ -110,7 +110,7 @@ Tokio TcpStream::connect 带 timeout
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | 特权探测 | `trippy_privilege::Privilege::discover()`                                                                                                  |
 | 无特权   | `PrivilegeMode::Unprivileged`（macOS 对 ICMP 通常 `needs_privileges=false`，见 [Trippy Privileges](https://trippy.rs/guides/privileges/)） |
-| 协议     | 默认 ICMP；可选 UDP/TCP（高级选项，MVP 可先 ICMP）                                                                                         |
+| 协议     | 优先特权 ICMP；不可用时自动降级无特权 UDP，并按 `trippy-core` 要求设置固定源端口，由可变目标端口识别 UDP 探测响应                          |
 | 流式     | 每 hop：ttl、addrs、rtt、loss%、可选 ASN                                                                                                   |
 | 失败诚实 | 无能力时 `unsupported`/`degraded`，**禁止空跳点表假装成功**（design §11.4）                                                                |
 | 取消     | `cancelScan`；trippy 侧停止 round                                                                                                          |
@@ -128,12 +128,13 @@ UI：测试入口与「上不了网」入口共用面板组件；面包屑标明
 
 ### 3.7 带宽测速（Post-MVP-C）
 
-| 项         | 约定                                                  |
-| ---------- | ----------------------------------------------------- |
-| 协议       | **librespeed**（开源）；禁止捆绑 Ookla 专有二进制     |
-| 源         | 公共实例可配 + 鼓励自建；并发/间隔硬顶（design §9.4） |
-| 事件       | `speed-sample`：下行/上行/jitter 进度                 |
-| Globalping | **无带宽 API** → 测速与 GP 分离（design §11.1）       |
+| 项          | 约定                                                                                                                        |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 协议        | **librespeed**（开源）；禁止捆绑 Ookla 专有二进制                                                                           |
+| 源          | 公共实例可配 + 鼓励自建；并发/间隔硬顶（design §9.4）                                                                       |
+| 事件        | `speed-sample`：下行/上行/jitter 进度                                                                                       |
+| 资源 / 取消 | 下行最多计量 32 MiB、上行按测速源上限发送且全局不超过 8 MiB；下载按流计数，取消会中止当前 HTTP future，不等待 45 秒请求超时 |
+| Globalping  | **无带宽 API** → 测速与 GP 分离（design §11.1）                                                                             |
 
 ---
 

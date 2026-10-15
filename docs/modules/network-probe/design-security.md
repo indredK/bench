@@ -135,15 +135,15 @@ src-tauri/src/net_probe/
 
 ### 5.2 污染检测（`pollution` 聚合）
 
-| 子检测       | macOS 做法                                                                                             |
-| ------------ | ------------------------------------------------------------------------------------------------------ |
-| DNS 污染     | 多 resolver（系统 + 1.1.1.1 + 8.8.8.8 + 用户）经 `hickory-resolver` 查同一域名；答案集合不一致 → warn  |
-| hosts        | 复用 `checkHostsOverrides`；标指到 `127.0.0.1`/内网/异常                                               |
-| 证书 MITM    | `reqwest`+rustls 拉目标；比对系统信任锚与叶子/中间异常；公司代理合法 MITM 标「企业中间盒」而非「黑客」 |
-| ARP 欺骗迹象 | 周期性读网关 MAC（`arp -an` 结构化或 sysctl/路由邻接）；与首次绑定漂移 → warn；**只读**                |
-| 路由绕行     | traceroute hop ASN 突变（需测试 Tab 引擎）；异常跨境绕行标 info/warn                                   |
+| 子检测         | macOS 做法                                                                                                                                                           |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DNS 污染       | 多 resolver（系统 + 1.1.1.1 + 8.8.8.8 + 用户）经 `hickory-resolver` 查同一域名；答案集合不一致 → warn                                                                |
+| hosts          | 复用 `checkHostsOverrides`；标指到 `127.0.0.1`/内网/异常                                                                                                             |
+| HTTPS 信任探测 | `reqwest`+rustls 发起 HTTPS 请求；只报告连接及客户端证书校验结果。DNS、路由、超时、代理或 TLS 请求失败都不能单独证明 MITM；需要独立证书链/信任锚对照才能作更强判断。 |
+| ARP 提示       | 当前只读 ARP 缓存快照不证明欺骗；共享 MAC 可能来自桥接、虚拟网络或共享设备，须作为 info 提示，不得标为攻击结论。可靠漂移检查需跨时间保存并比较网关绑定。             |
+| 路由绕行       | traceroute hop ASN 突变（需测试 Tab 引擎）；异常跨境绕行标 info/warn                                                                                                 |
 
-输出统一为 `PollutionFinding[]`：`kind` / `severity` / `evidence` / `commandHint`。
+输出统一为 `PollutionFinding[]`：稳定本地化码 `code`、`kind`、`severity`、原始诊断 `evidence` 与 `commandHint`。界面按 code/kind/severity 本地化主结果，原始证据默认折叠。
 
 ### 5.3 包级诊断（`startPacketCapture`）
 

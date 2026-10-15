@@ -33,6 +33,7 @@ pub async fn run_pollution_check(domain: String) -> AppResult<PollutionReport> {
             }
             Err(e) => {
                 findings.push(PollutionFinding {
+                    code: "dns_resolver_failed".into(),
                     kind: "dns".into(),
                     severity: "warn".into(),
                     evidence: format!("resolver {label} failed: {e}"),
@@ -60,6 +61,7 @@ pub async fn run_pollution_check(domain: String) -> AppResult<PollutionReport> {
                 })
                 .collect();
             findings.push(PollutionFinding {
+                code: "dns_answers_disagree".into(),
                 kind: "dns".into(),
                 severity: "warn".into(),
                 evidence: format!(
@@ -70,6 +72,7 @@ pub async fn run_pollution_check(domain: String) -> AppResult<PollutionReport> {
             });
         } else if !first.is_empty() {
             findings.push(PollutionFinding {
+                code: "dns_resolvers_agree".into(),
                 kind: "dns".into(),
                 severity: "info".into(),
                 evidence: format!(
@@ -87,6 +90,7 @@ pub async fn run_pollution_check(domain: String) -> AppResult<PollutionReport> {
             let suspicious: Vec<_> = hosts.into_iter().filter(|h| h.suspicious).collect();
             if suspicious.is_empty() {
                 findings.push(PollutionFinding {
+                    code: "hosts_clean".into(),
                     kind: "hosts".into(),
                     severity: "info".into(),
                     evidence: "No suspicious hosts overrides detected.".into(),
@@ -95,8 +99,9 @@ pub async fn run_pollution_check(domain: String) -> AppResult<PollutionReport> {
             } else {
                 for h in suspicious.into_iter().take(12) {
                     findings.push(PollutionFinding {
+                        code: "hosts_override".into(),
                         kind: "hosts".into(),
-                        severity: "high".into(),
+                        severity: "warn".into(),
                         evidence: format!(
                             "hosts line {}: {} → {}",
                             h.line,
@@ -109,6 +114,7 @@ pub async fn run_pollution_check(domain: String) -> AppResult<PollutionReport> {
             }
         }
         Ok(Err(e)) => findings.push(PollutionFinding {
+            code: "hosts_read_failed".into(),
             kind: "hosts".into(),
             severity: "warn".into(),
             evidence: format!("Could not read hosts: {e}"),
@@ -128,6 +134,7 @@ pub async fn run_pollution_check(domain: String) -> AppResult<PollutionReport> {
     {
         if status.default_via_tunnel {
             findings.push(PollutionFinding {
+                code: "route_tunnel_detected".into(),
                 kind: "route".into(),
                 severity: "info".into(),
                 evidence: "Default route appears to go through a tunnel (VPN/proxy-like).".into(),
@@ -136,6 +143,7 @@ pub async fn run_pollution_check(domain: String) -> AppResult<PollutionReport> {
         }
         if status.proxy_enabled {
             findings.push(PollutionFinding {
+                code: "route_proxy_enabled".into(),
                 kind: "route".into(),
                 severity: "info".into(),
                 evidence: format!(
@@ -151,6 +159,7 @@ pub async fn run_pollution_check(domain: String) -> AppResult<PollutionReport> {
     match tauri::async_runtime::spawn_blocking(super::discovery::detect_arp_spoofing_hints).await {
         Ok(Ok(mut arp_findings)) => findings.append(&mut arp_findings),
         Ok(Err(e)) => findings.push(PollutionFinding {
+            code: "arp_check_failed".into(),
             kind: "arp".into(),
             severity: "warn".into(),
             evidence: format!("ARP spoofing check failed: {e}"),
@@ -180,6 +189,7 @@ async fn check_ssl_light(domain: &str) -> PollutionFinding {
         Ok(c) => c,
         Err(e) => {
             return PollutionFinding {
+                code: "tls_client_setup_failed".into(),
                 kind: "tls".into(),
                 severity: "warn".into(),
                 evidence: format!("TLS client build failed: {e}"),
@@ -191,34 +201,54 @@ async fn check_ssl_light(domain: &str) -> PollutionFinding {
     match client.get(&url).send().await {
         Ok(resp) => {
             let status = resp.status();
-            // rustls path: success implies chain validated against built-in roots.
-            // Corporate MITM with custom roots may fail here → mark as possible middlebox.
+            // A successful response means this client accepted the certificate chain;
+            // it is not a full comparison against the operating system's trust store.
             PollutionFinding {
+                code: "tls_probe_succeeded".into(),
                 kind: "tls".into(),
                 severity: "info".into(),
-                evidence: format!(
-                    "HTTPS to {domain} OK (HTTP {status}); rustls trust anchors accepted the chain. Corporate proxy MITM usually needs a custom CA and would fail this check."
-                ),
+                evidence: format!("HTTPS to {domain} succeeded (HTTP {status}); the client accepted the certificate chain."),
                 command_hint: format!("checkSsl('{domain}')"),
             }
         }
-        Err(e) => {
-            let msg = e.to_string();
-            let corporate = msg.to_ascii_lowercase().contains("certificate")
-                || msg.to_ascii_lowercase().contains("tls")
-                || msg.to_ascii_lowercase().contains("ssl");
-            PollutionFinding {
-                kind: "tls".into(),
-                severity: if corporate { "warn" } else { "high" }.into(),
-                evidence: if corporate {
-                    format!(
-                        "TLS handshake failed for {domain}: {msg}. If on a managed network this may be a corporate TLS middlebox (not necessarily an attacker)."
-                    )
-                } else {
-                    format!("HTTPS probe failed for {domain}: {msg}")
-                },
-                command_hint: format!("checkSsl('{domain}')"),
-            }
+        Err(e) => https_probe_failed(domain, e),
+    }
+}
+
+fn https_probe_failed(domain: &str, error: impl std::fmt::Display) -> PollutionFinding {
+    PollutionFinding {
+        code: "tls_probe_failed".into(),
+        kind: "tls".into(),
+        // A failed HTTP request can be caused by DNS, routing, timeout, proxy, or TLS.
+        // It does not establish interception, so never classify this as a high-risk finding.
+        severity: "warn".into(),
+        evidence: format!(
+            "Could not verify HTTPS for {domain}: {error}. This failure alone does not indicate TLS interception."
+        ),
+        command_hint: format!("checkSsl('{domain}')"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::https_probe_failed;
+
+    #[test]
+    fn ordinary_https_transport_failures_are_not_reported_as_high_risk() {
+        for message in [
+            "request timed out",
+            "failed to resolve host",
+            "proxy connection refused",
+            "certificate verification failed",
+        ] {
+            let finding = https_probe_failed("example.com", message);
+
+            assert_eq!(finding.code, "tls_probe_failed");
+            assert_eq!(finding.kind, "tls");
+            assert_eq!(finding.severity, "warn");
+            assert!(finding
+                .evidence
+                .contains("does not indicate TLS interception"));
         }
     }
 }

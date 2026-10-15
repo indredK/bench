@@ -3,17 +3,25 @@
  */
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
+import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { PublicIpInfo } from "@/lib/tauri/types/network-probe"
 
 interface EgressPanelProps {
   loading: boolean
   result: PublicIpInfo | null
+  hasError?: boolean
   onRun: () => void
   dualFrom?: "offline" | "test"
 }
 
-export function EgressPanel({ loading, result, onRun, dualFrom }: EgressPanelProps) {
+export function EgressPanel({
+  loading,
+  result,
+  hasError = false,
+  onRun,
+  dualFrom,
+}: EgressPanelProps) {
   const { t } = useTranslation()
 
   return (
@@ -54,9 +62,9 @@ export function EgressPanel({ loading, result, onRun, dualFrom }: EgressPanelPro
           {result.detail ? <p className="text-muted-foreground text-xs">{result.detail}</p> : null}
           <p className="text-muted-foreground font-mono text-[10px]">{result.commandHint}</p>
         </div>
-      ) : (
-        <p className="text-muted-foreground text-sm">{t("networkProbe.egress.empty")}</p>
-      )}
+      ) : !loading && !hasError ? (
+        <ProbeEmptyState>{t("networkProbe.egress.empty")}</ProbeEmptyState>
+      ) : null}
     </ProbePanelShell>
   )
 }

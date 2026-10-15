@@ -7,8 +7,47 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeSystemDetails } from "@/features/network-probe/components/ProbeSystemDetails"
 import type { PollutionReport } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
+
+const findingKeys: Record<string, string> = {
+  dns_resolver_failed: "dnsResolverFailed",
+  dns_answers_disagree: "dnsAnswersDisagree",
+  dns_resolvers_agree: "dnsResolversAgree",
+  hosts_clean: "hostsClean",
+  hosts_override: "hostsOverride",
+  hosts_read_failed: "hostsReadFailed",
+  tls_client_setup_failed: "tlsClientSetupFailed",
+  tls_probe_succeeded: "tlsProbeSucceeded",
+  tls_probe_failed: "tlsProbeFailed",
+  route_tunnel_detected: "routeTunnelDetected",
+  route_proxy_enabled: "routeProxyEnabled",
+  arp_check_failed: "arpCheckFailed",
+  arp_gateway_missing: "arpGatewayMissing",
+  arp_gateway_incomplete: "arpGatewayIncomplete",
+  arp_shared_mac: "arpSharedMac",
+  arp_gateway_bound: "arpGatewayBound",
+  arp_no_gateway: "arpNoGateway",
+}
+
+const kindKeys: Record<string, string> = {
+  dns: "dns",
+  hosts: "hosts",
+  tls: "tls",
+  route: "route",
+  arp: "arp",
+}
+
+const severityKeys: Record<string, string> = {
+  info: "info",
+  warn: "warn",
+  high: "high",
+}
+
+function localizeKey(dictionary: Record<string, string>, value: string) {
+  return Object.hasOwn(dictionary, value) ? dictionary[value] : "unknown"
+}
 
 interface PollutionPanelProps {
   loading: boolean
@@ -87,11 +126,18 @@ export function PollutionPanel({
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
-                  <span>{f.kind}</span>
-                  <span className="text-muted-foreground">{f.severity}</span>
+                  <span>{t(`networkProbe.pollution.kind.${localizeKey(kindKeys, f.kind)}`)}</span>
+                  <span className="text-muted-foreground">
+                    {t(`networkProbe.pollution.severity.${localizeKey(severityKeys, f.severity)}`)}
+                  </span>
                 </div>
-                <p className="mt-1 text-sm">{f.evidence}</p>
-                <p className="text-muted-foreground mt-1 font-mono text-[11px]">{f.commandHint}</p>
+                <p className="mt-1 text-sm">
+                  {t(`networkProbe.pollution.finding.${localizeKey(findingKeys, f.code)}`)}
+                </p>
+                <ProbeSystemDetails>
+                  <p>{f.evidence}</p>
+                  <p className="mt-1 font-mono">{f.commandHint}</p>
+                </ProbeSystemDetails>
               </li>
             ))}
           </ul>

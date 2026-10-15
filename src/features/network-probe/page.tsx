@@ -39,6 +39,7 @@ import { TraceroutePanel } from "@/features/network-probe/components/TracerouteP
 import { WhoisPanel } from "@/features/network-probe/components/WhoisPanel"
 import { CommandLogSidePanel } from "@/features/network-probe/components/CommandLogSidePanel"
 import { useNetworkProbeController } from "@/features/network-probe/hooks/useNetworkProbeController"
+import { isNetworkProbeErrorVisible } from "@/features/network-probe/error-scope"
 import {
   OFFLINE_SUBS,
   type NetworkProbeL1,
@@ -81,6 +82,9 @@ const POST_L2 = new Set([
   "nodes",
 ])
 
+const showPackVerifyTestControl =
+  import.meta.env.DEV || import.meta.env.VITE_BENCH_ENABLE_PACK_VERIFY_TEST === "1"
+
 export default function NetworkProbePage({ feature }: { feature?: FeatureDescriptor }) {
   const { t } = useTranslation()
   const c = useNetworkProbeController()
@@ -88,6 +92,12 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   const [focusPackId, setFocusPackId] = useState<string | null>(null)
   const [packsBusy, setPacksBusy] = useState(false)
   const [sideLogOpen, setSideLogOpen] = useState(true)
+
+  const openPackDialog = (packId: string | null) => {
+    c.clearPackInstallResult()
+    setFocusPackId(packId)
+    setPacksOpen(true)
+  }
 
   const l2Items = L2_BY_L1[c.l1Id]
   const resolvedL2 = l2Items.includes(c.l2Id) ? c.l2Id : l2Items[0]!
@@ -127,8 +137,11 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
     [probeNodes],
   )
 
-  const errorText = c.error ? t(c.error.key, { defaultValue: c.error.fallback }) : null
   const offlineSub = c.offlineSub
+  const errorText =
+    c.error && isNetworkProbeErrorVisible(c.error, c.l1Id, resolvedL2, offlineSub)
+      ? t(c.error.key, { defaultValue: c.error.fallback })
+      : null
   const panelTitle = t(`networkProbe.l2.${resolvedL2}`)
   const crumbOffline =
     c.l1Id === "basic" && resolvedL2 === "offline" && offlineSub !== "all"
@@ -267,10 +280,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
             variant="outline"
             size="sm"
             className="h-8 shrink-0"
-            onClick={() => {
-              setFocusPackId(null)
-              setPacksOpen(true)
-            }}
+            onClick={() => openPackDialog(null)}
           >
             {t("networkProbe.packs.manage")}
           </Button>
@@ -319,8 +329,27 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
               </div>
 
               {errorText ? (
-                <div className="border-destructive/40 bg-destructive/5 text-destructive shrink-0 rounded-md border px-3 py-2 text-sm">
-                  {errorText}
+                <div
+                  className="border-destructive/40 bg-destructive/5 text-destructive flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                  role="alert"
+                >
+                  <span>{errorText}</span>
+                  {c.error?.key === "networkProbe.errors.icmpUnavailable" &&
+                  c.capabilities?.platform === "macos" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={c.openingPrivacySettings}
+                      onClick={c.openLocalNetworkPrivacySettings}
+                    >
+                      {t(
+                        c.openingPrivacySettings
+                          ? "networkProbe.ping.openingPrivacySettings"
+                          : "networkProbe.ping.openPrivacySettings",
+                      )}
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -341,6 +370,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     summary={c.summary}
                     firewall={c.firewall}
                     hostsSuspiciousCount={hostsSuspicious}
+                    openingSettings={c.openingSystemNetworkSettings}
                     onRefresh={c.refreshOverview}
                     onOpenSettings={c.openSystemNetworkSettings}
                   />
@@ -352,6 +382,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     result={c.healthResult}
                     streamingItems={c.healthStreamingItems}
                     canCancel={Boolean(activeSessionIdByKind.health)}
+                    cancelling={c.cancellingByKind.health}
                     onRun={c.runHealthScan}
                     onCancel={() => c.cancelScan("health")}
                   />
@@ -365,6 +396,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <SitesProbePanel
                     loading={c.loadingSites}
                     canCancel={Boolean(activeSessionIdByKind.sites) && c.loadingSites}
+                    cancelling={c.cancellingByKind.sites}
                     result={c.sitesResult}
                     streaming={c.sitesStreaming}
                     sparklines={c.siteSparklineById}
@@ -381,9 +413,10 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <OfficialSitesPanel
                     loading={c.loadingSites}
                     canCancel={Boolean(activeSessionIdByKind.sites) && c.loadingSites}
+                    cancelling={c.cancellingByKind.sites}
                     presets={officialPresets}
+                    latestByTarget={c.siteLatestByTarget}
                     result={c.sitesResult}
-                    streaming={c.sitesStreaming}
                     toolEnabled={c.toolEnabled.sitesProbe}
                     toolStatus={c.toolStatus.sitesProbe}
                     onTestAll={() => c.runSitesProbe(OFFICIAL_PACK_ID)}
@@ -449,6 +482,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                           <MtuPanel
                             loading={c.loadingMtu || c.loadingOffline}
                             result={c.mtuResult}
+                            hasError={Boolean(errorText)}
                             onRun={c.probePathMtu}
                             dualFrom="offline"
                           />
@@ -458,6 +492,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                           <EgressPanel
                             loading={c.loadingOffline}
                             result={c.publicIpInfo}
+                            hasError={Boolean(errorText)}
                             onRun={c.refreshPublicIp}
                             dualFrom="offline"
                           />
@@ -470,6 +505,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 {showFix ? (
                   <FixPanel
                     loading={c.loadingFix}
+                    loadingServices={c.loadingNetworkServices}
+                    openingSettings={c.openingSystemNetworkSettings}
                     services={c.networkServices}
                     dnsPresets={c.defaults?.dnsPresets ?? []}
                     lastResult={c.fixResult}
@@ -497,9 +534,20 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <PingPanel
                     loading={c.loadingPing}
                     result={c.pingResult}
+                    streamingSamples={c.pingStreamingSamples}
+                    hasError={Boolean(errorText)}
                     toolEnabled={c.toolEnabled.ping}
                     toolStatus={c.toolStatus.ping}
+                    canCancel={Boolean(activeSessionIdByKind.ping) && c.loadingPing}
+                    cancelling={c.cancellingByKind.ping}
+                    openingPrivacySettings={c.openingPrivacySettings}
                     onRun={c.runPing}
+                    onCancel={() => c.cancelScan("ping")}
+                    onOpenPrivacySettings={
+                      c.capabilities?.platform === "macos"
+                        ? c.openLocalNetworkPrivacySettings
+                        : undefined
+                    }
                   />
                 ) : null}
 
@@ -507,6 +555,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <DnsLookupPanel
                     loading={c.loadingDns}
                     result={c.dnsResult}
+                    hasError={Boolean(errorText)}
                     dnsPresets={c.defaults?.dnsPresets}
                     onRun={c.runDnsLookup}
                   />
@@ -516,6 +565,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <TcpConnectPanel
                     loading={c.loadingTcp}
                     result={c.tcpResult}
+                    hasError={Boolean(errorText)}
                     onRun={c.runTcpConnect}
                   />
                 ) : null}
@@ -524,6 +574,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <ProbeTargetPanel
                     loading={c.loadingProbe}
                     result={c.probeResult}
+                    hasError={Boolean(errorText)}
                     onRun={c.runProbeTarget}
                   />
                 ) : null}
@@ -532,7 +583,9 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <TraceroutePanel
                     loading={c.loadingTraceroute}
                     canCancel={Boolean(activeSessionIdByKind.traceroute) && c.loadingTraceroute}
+                    cancelling={c.cancellingByKind.traceroute}
                     result={c.tracerouteResult}
+                    hasError={Boolean(errorText)}
                     streamingHops={c.tracerouteStreamingHops}
                     toolEnabled={c.toolEnabled.traceroute}
                     toolStatus={c.toolStatus.traceroute}
@@ -545,6 +598,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <MtuPanel
                     loading={c.loadingMtu}
                     result={c.mtuResult}
+                    hasError={Boolean(errorText)}
                     onRun={c.probePathMtu}
                     dualFrom="test"
                   />
@@ -554,6 +608,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <EgressPanel
                     loading={c.loadingOffline}
                     result={c.publicIpInfo}
+                    hasError={Boolean(errorText)}
                     onRun={c.refreshPublicIp}
                     dualFrom="test"
                   />
@@ -563,8 +618,10 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <SpeedPanel
                     loading={c.loadingSpeed}
                     canCancel={c.loadingSpeed && Boolean(activeSessionIdByKind.speed)}
+                    cancelling={c.cancellingByKind.speed}
                     sources={c.speedSources}
                     result={c.speedResult}
+                    hasError={Boolean(errorText)}
                     sample={c.speedSample}
                     cooldownUntil={c.speedCooldownUntil}
                     toolEnabled={c.toolEnabled.speedTest}
@@ -579,6 +636,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <PortScanPanel
                     loading={c.loadingPorts}
                     canCancel={c.loadingPorts && Boolean(activeSessionIdByKind.ports)}
+                    cancelling={c.cancellingByKind.ports}
                     result={c.portScanResult}
                     streaming={c.portScanStreaming}
                     toolEnabled={c.toolEnabled.portScan}
@@ -625,12 +683,10 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     toolEnabled={c.toolEnabled.pcap}
                     toolStatus={c.toolStatus.pcap}
                     canCancel={c.loadingPcap && Boolean(activeSessionIdByKind.pcap)}
+                    cancelling={c.cancellingByKind.pcap}
                     onRun={() => c.runPcapDiag(5)}
                     onCancel={() => c.cancelScan("pcap")}
-                    onManagePacks={() => {
-                      setFocusPackId("pcap-diag")
-                      setPacksOpen(true)
-                    }}
+                    onManagePacks={() => openPackDialog("pcap-diag")}
                   />
                 ) : null}
 
@@ -641,6 +697,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     toolEnabled={c.toolEnabled.arp}
                     toolStatus={c.toolStatus.arp}
                     canCancel={c.loadingLan && Boolean(activeSessionIdByKind.lan)}
+                    cancelling={c.cancellingByKind.lan}
                     onRun={c.discoverLan}
                     onCancel={() => c.cancelScan("lan")}
                     onOpenSettings={c.openSystemNetworkSettings}
@@ -685,7 +742,10 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     nodes={c.probeNodes}
                     toolEnabled={c.toolEnabled.multiNode}
                     toolStatus={c.toolStatus.multiNode}
+                    canCancel={c.loadingMultiNode && Boolean(activeSessionIdByKind.multiNode)}
+                    cancelling={c.cancellingByKind.multiNode}
                     onCompare={c.compareDnsMulti}
+                    onCancel={() => c.cancelScan("multiNode")}
                     onRefreshNodes={c.refreshProbeNodes}
                     onAddAgent={c.addAgent}
                     onRemoveAgent={c.removeAgent}
@@ -698,10 +758,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     l2={resolvedL2}
                     toolStatus={c.capabilities?.tools}
                     externalTools={c.capabilities?.externalTools}
-                    onManagePacks={(packId) => {
-                      setFocusPackId(packId ?? null)
-                      setPacksOpen(true)
-                    }}
+                    onManagePacks={(packId) => openPackDialog(packId ?? null)}
                   />
                 ) : null}
               </div>
@@ -754,17 +811,25 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
           packs={c.capabilityPacks}
           busy={packsBusy}
           progressText={c.packProgressText}
+          installResult={c.packInstallResult}
           focusPackId={focusPackId}
-          onOpenChange={setPacksOpen}
+          onOpenChange={(open) => {
+            c.clearPackInstallResult()
+            setPacksOpen(open)
+          }}
           onRefresh={() => void c.refreshCapabilityPacks()}
           onInstall={(packId) => {
             setPacksBusy(true)
             void c.installCapabilityPack(packId).finally(() => setPacksBusy(false))
           }}
-          onVerifyFail={(packId) => {
-            setPacksBusy(true)
-            void c.installCapabilityPackVerifyFail(packId).finally(() => setPacksBusy(false))
-          }}
+          onVerifyFail={
+            showPackVerifyTestControl
+              ? (packId) => {
+                  setPacksBusy(true)
+                  void c.installCapabilityPackVerifyFail(packId).finally(() => setPacksBusy(false))
+                }
+              : undefined
+          }
           onUninstall={(packId) => {
             setPacksBusy(true)
             void c.uninstallCapabilityPack(packId).finally(() => setPacksBusy(false))

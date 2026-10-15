@@ -89,6 +89,7 @@ pub struct SpeedSource {
     pub dl_path: String,
     pub ul_path: String,
     pub ping_path: String,
+    pub max_upload_mb: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -254,7 +255,27 @@ pub struct PingSample {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rtt_ms: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
+    pub error: Option<PingSampleError>,
+}
+
+/// Stable IPC error code for a failed Ping packet; never expose a dependency's
+/// locale-specific diagnostic as user-facing text.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PingSampleError {
+    Timeout,
+    PermissionDenied,
+    NetworkError,
+}
+
+impl PingSampleError {
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Timeout => "timeout",
+            Self::PermissionDenied => "permission_denied",
+            Self::NetworkError => "network_error",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -274,7 +295,16 @@ pub struct PingProbeResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stddev_rtt_ms: Option<f64>,
     pub samples: Vec<PingSample>,
+    pub session_id: String,
+    pub cancelled: bool,
     pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PingSampleEvent {
+    pub session_id: String,
+    pub sample: PingSample,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -583,6 +613,8 @@ pub struct PathMtuResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PollutionFinding {
+    /// Stable localization key for the finding. Raw diagnostics stay in `evidence`.
+    pub code: String,
     pub kind: String,
     /// info | warn | high
     pub severity: String,
@@ -766,6 +798,8 @@ pub struct NodeDnsAnswer {
     pub answers: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_kind: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -774,5 +808,7 @@ pub struct MultiNodeDnsResult {
     pub domain: String,
     pub answers: Vec<NodeDnsAnswer>,
     pub elapsed_ms: f64,
+    pub session_id: String,
+    pub cancelled: bool,
     pub command_hint: String,
 }
