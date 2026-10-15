@@ -6,6 +6,7 @@ import { type NetworkProbeKind, useNetworkProbeStore } from "@/features/network-
 import { TAURI_EVENTS } from "@/lib/tauri/contracts"
 import { getErrorCode, getErrorMessage } from "@/lib/tauri/errors"
 import type {
+  CapabilityPackInstallResult,
   CapabilityPackProgress,
   HealthCheckItem,
   PingSampleEvent,
@@ -61,6 +62,16 @@ function pingErrorKey(error: unknown): string {
   if (code === "ICMP_UNAVAILABLE") return "networkProbe.errors.icmpUnavailable"
   if (code === "DNS_RESOLUTION_FAILED") return "networkProbe.errors.pingDnsResolutionFailed"
   return "networkProbe.errors.pingFailed"
+}
+
+function packFailureResult(packId: string, message: string): CapabilityPackInstallResult {
+  return {
+    packId,
+    ok: false,
+    mode: "failed",
+    message,
+    commandHint: `installCapabilityPack('${packId}') // failed`,
+  }
 }
 
 export const networkProbeUseCases = {
@@ -644,6 +655,7 @@ export const networkProbeUseCases = {
   async installCapabilityPack(packId: string) {
     const store = useNetworkProbeStore.getState()
     store.setError(null)
+    store.setPackInstallResult(null)
     store.setPackProgressText(null)
     store.appendCommandLog(`installCapabilityPack('${packId}')`)
     let unlisten: (() => void) | undefined
@@ -658,9 +670,12 @@ export const networkProbeUseCases = {
         },
       )
       const result = await networkProbeRepository.installCapabilityPack(packId)
+      store.setPackInstallResult(result)
       store.appendCommandLog(result.commandHint)
+      if (!result.ok) store.appendCommandLog(`pack install failed: ${result.mode}`)
       await networkProbeUseCases.refreshCapabilityPacks()
     } catch (error) {
+      store.setPackInstallResult(packFailureResult(packId, getErrorMessage(error)))
       store.setError({
         key: "networkProbe.errors.packsFailed",
         fallback: getErrorMessage(error),
@@ -674,11 +689,20 @@ export const networkProbeUseCases = {
   async uninstallCapabilityPack(packId: string) {
     const store = useNetworkProbeStore.getState()
     store.setError(null)
+    store.setPackInstallResult(null)
     store.appendCommandLog(`uninstallCapabilityPack('${packId}')`)
     try {
       await networkProbeRepository.uninstallCapabilityPack(packId)
+      store.setPackInstallResult({
+        packId,
+        ok: true,
+        mode: "uninstalled",
+        message: "",
+        commandHint: `uninstallCapabilityPack('${packId}')`,
+      })
       await networkProbeUseCases.refreshCapabilityPacks()
     } catch (error) {
+      store.setPackInstallResult(packFailureResult(packId, getErrorMessage(error)))
       store.setError({
         key: "networkProbe.errors.packsFailed",
         fallback: getErrorMessage(error),
@@ -1088,14 +1112,17 @@ export const networkProbeUseCases = {
   async installCapabilityPackVerifyFail(packId: string) {
     const store = useNetworkProbeStore.getState()
     store.setError(null)
+    store.setPackInstallResult(null)
+    store.setPackProgressText(null)
     store.appendCommandLog(`installCapabilityPack('${packId}') // hash-mismatch test`)
     try {
       const result = await networkProbeRepository.installCapabilityPackVerifyFail(packId)
-      store.setPackProgressText(result.message)
+      store.setPackInstallResult(result)
       if (!result.ok) {
         store.appendCommandLog(`pack verify fail: ${result.mode}`)
       }
     } catch (error) {
+      store.setPackInstallResult(packFailureResult(packId, getErrorMessage(error)))
       store.setError({
         key: "networkProbe.errors.packsFailed",
         fallback: getErrorMessage(error),

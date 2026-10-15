@@ -2409,6 +2409,12 @@
       "installing": "安装中…",
       "uninstall": "卸载",
       "verifyFail": "测试哈希失败",
+      "installSuccess": "能力包已安装。",
+      "uninstallSuccess": "能力包已卸载。",
+      "installFailed": "能力包安装失败。",
+      "hashMismatch": "SHA-256 校验失败，能力包未安装。",
+      "markerInstalled": "当前仅创建本机安装标记；组件制品尚未发布，相关工具仍处于降级状态。",
+      "resultDetails": "详细信息",
       "manage": "管理组件",
       "missingHint": "该工具需要可选能力包（{{packId}}）。",
       "desc": {

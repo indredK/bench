@@ -7,6 +7,7 @@ import type { LocalizedError } from "@/lib/errors"
 import type {
   CaptivePortalResult,
   CapabilityPackInfo,
+  CapabilityPackInstallResult,
   DnsLookupResult,
   FirewallStatus,
   FixResult,
@@ -120,6 +121,7 @@ interface NetworkProbeState {
   capabilities: NetworkProbeCapabilities | null
   capabilityPacks: CapabilityPackInfo[]
   packProgressText: string | null
+  packInstallResult: CapabilityPackInstallResult | null
   defaults: NetworkProbeDefaultsCatalog | null
   summary: LocalNetworkSummary | null
   firewall: FirewallStatus | null
@@ -202,6 +204,7 @@ interface NetworkProbeState {
   setCapabilities: (capabilities: NetworkProbeCapabilities | null) => void
   setCapabilityPacks: (capabilityPacks: CapabilityPackInfo[]) => void
   setPackProgressText: (packProgressText: string | null) => void
+  setPackInstallResult: (packInstallResult: CapabilityPackInstallResult | null) => void
   setDefaults: (defaults: NetworkProbeDefaultsCatalog | null) => void
   setSummary: (summary: LocalNetworkSummary | null) => void
   setFirewall: (firewall: FirewallStatus | null) => void
@@ -382,6 +385,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   capabilities: null,
   capabilityPacks: [],
   packProgressText: null,
+  packInstallResult: null,
   defaults: null,
   summary: null,
   firewall: null,
@@ -483,6 +487,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setCapabilities: (capabilities) => set({ capabilities }),
   setCapabilityPacks: (capabilityPacks) => set({ capabilityPacks }),
   setPackProgressText: (packProgressText) => set({ packProgressText }),
+  setPackInstallResult: (packInstallResult) => set({ packInstallResult }),
   setDefaults: (defaults) => set({ defaults }),
   setSummary: (summary) => set({ summary }),
   setFirewall: (firewall) => set({ firewall }),

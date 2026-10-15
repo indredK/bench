@@ -128,7 +128,7 @@ MVP（Post 能力同理标 `U`/`D`/`missing_pack`）
 ### 步骤
 
 1. 触发缺包功能 → 安装向导
-2. 校验失败（故意坏 hash 的测试通道或 mock）→ 安装失败且不执行二进制
+2. 校验失败（后端返回真实 hash 错误或开发验证通道）→ 对话框显示本地化失败状态，原始诊断默认收起，能力包仍为未安装且不执行二进制
 3. 安装成功 → 功能可用
 4. 「管理组件」卸载 → capabilities 回到 `missing_pack`
 5. 确认 MVP 工具（体检/Ping）**从不**走安装墙
@@ -138,6 +138,8 @@ MVP（Post 能力同理标 `U`/`D`/`missing_pack`）
 - `installCapabilityPack(packId)` 无 URL 参数
 - Gatekeeper/ad-hoc 提示符合 D-010
 - 与 app-manager 更新安全同级：canonical manifest
+- 失败反馈必须区分 `hash-mismatch` 与普通失败；关闭并重开管理对话框后不残留旧结果
+- 哈希失败测试按钮仅开发构建或显式 QA 构建可见，普通发布构建不显示
 
 ### 档位
 

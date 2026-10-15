@@ -190,7 +190,7 @@ L1 → L2 映射：
 ## 8. 能力包（D-017 packs）
 
 - **能力包**：`adv-scanner`（SYN 扫描）、`pcap-diag`（诊断抓包）、`priv-helper`（特权 helper）。内置 manifest（packId / version / hash / 签名来源）。
-- PackInstallDialog：pack 列表（version / sizeMB / status / markerOnly 提示 / 描述），安装 / 卸载 / 刷新；安装走后端（**禁止前端传 URL**，marker + hash 校验，测试通道可强制 hash-fail）；进度事件 `pack-progress` 实时显示 `packId phase bytes/totalBytes`。
+- PackInstallDialog：pack 列表（version / sizeMB / status / markerOnly 提示 / 描述），安装 / 卸载 / 刷新；安装走后端（**禁止前端传 URL**，marker + hash 校验，测试通道可强制 hash-fail）；进度事件 `pack-progress` 实时显示 `packId phase bytes/totalBytes`。操作结果用本地化状态显示，失败提供 alert，原始后端诊断默认收起；对话框关闭或新开时清除旧结果。
 - 安装/卸载后自动刷新 capabilities 与 packs 列表；capabilities 中 `tools.<key>` 可反映 `missing_pack`（缺能力包时面板显示缺失提示并可跳转安装）。
 
 **交互细节**：
@@ -200,7 +200,7 @@ L1 → L2 映射：
 - `busy` 为真时**全部按钮禁用**（刷新/安装/卸载/测试哈希失败），安装按钮文案切为「安装中…」；进度文本 `packId phase bytes/totalBytes` 实时刷新，安装完成/失败后清除。
 - **能力包刷新防重入由对话框承载**：`refreshCapabilityPacks` 用例**没有**自身 loading 标志（连续调用会并发重读），其防重入依赖 PackInstallDialog 的页面级 `busy` 状态（`onRefresh/onInstall/onUninstall/onVerifyFail` 均以 `busy` 包裹，执行中按钮全部禁用）。
 - 已安装 pack 显示「卸载」（destructive 样式）；未安装显示「安装」；`markerOnly`（制品未发布）显示标记提示。
-- 「测试哈希失败」按钮（验证通道）仅用于开发验证：安装强制返回 hash 不匹配并写入命令日志，不实际安装。
+- 「测试哈希失败」按钮（验证通道）仅用于开发验证：开发构建默认可见，普通发布构建隐藏；显式 QA 构建可通过 `VITE_BENCH_ENABLE_PACK_VERIFY_TEST=1` 开启。安装强制返回 hash 不匹配并写入命令日志，不实际安装。
 
 ## 9. 快捷键
 

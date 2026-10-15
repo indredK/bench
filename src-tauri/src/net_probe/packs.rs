@@ -122,6 +122,14 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
+fn install_failure_mode(error: &AppError) -> &'static str {
+    if error.code == "PACK_HASH_MISMATCH" {
+        "hash-mismatch"
+    } else {
+        "failed"
+    }
+}
+
 pub fn list_capability_packs(app: &AppHandle<impl Runtime>) -> AppResult<Vec<CapabilityPackInfo>> {
     let dir = packs_dir(app)?;
     let platform = platform_id();
@@ -211,10 +219,11 @@ pub async fn install_capability_pack<R: Runtime>(
         match download_and_verify(app, &entry).await {
             Ok(()) => "sidecar",
             Err(e) => {
+                let mode = install_failure_mode(&e);
                 return Ok(CapabilityPackInstallResult {
                     pack_id: pack_id.clone(),
                     ok: false,
-                    mode: "failed".into(),
+                    mode: mode.into(),
                     message: e.to_string(),
                     command_hint: format!("installCapabilityPack('{pack_id}') // failed"),
                 });
@@ -426,7 +435,8 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
 
 #[cfg(test)]
 mod tests {
-    use super::optional_tool_statuses;
+    use super::{install_failure_mode, optional_tool_statuses};
+    use crate::error::AppError;
     use std::collections::HashMap;
 
     fn status_map(
@@ -461,6 +471,18 @@ mod tests {
         assert_eq!(packs.get("arp"), Some(&"degraded"));
         assert_eq!(packs.get("pcap"), Some(&"supported"));
         assert_eq!(packs.get("fingerprint"), Some(&"degraded"));
+    }
+
+    #[test]
+    fn distinguishes_hash_verification_failure_from_other_install_errors() {
+        assert_eq!(
+            install_failure_mode(&AppError::new("PACK_HASH_MISMATCH", "mismatch")),
+            "hash-mismatch"
+        );
+        assert_eq!(
+            install_failure_mode(&AppError::new("PACK_DOWNLOAD", "offline")),
+            "failed"
+        );
     }
 }
 

@@ -25,6 +25,7 @@ export function useNetworkProbeController() {
   const capabilities = useNetworkProbeStore((s) => s.capabilities)
   const capabilityPacks = useNetworkProbeStore((s) => s.capabilityPacks)
   const packProgressText = useNetworkProbeStore((s) => s.packProgressText)
+  const packInstallResult = useNetworkProbeStore((s) => s.packInstallResult)
   const defaults = useNetworkProbeStore((s) => s.defaults)
   const summary = useNetworkProbeStore((s) => s.summary)
   const firewall = useNetworkProbeStore((s) => s.firewall)
@@ -231,6 +232,10 @@ export function useNetworkProbeController() {
     () => networkProbeUseCases.refreshCapabilityPacks(),
     [],
   )
+  const clearPackInstallResult = useCallback(
+    () => useNetworkProbeStore.getState().setPackInstallResult(null),
+    [],
+  )
   const installCapabilityPack = useCallback(
     (packId: string) => networkProbeUseCases.installCapabilityPack(packId),
     [],
@@ -293,6 +298,7 @@ export function useNetworkProbeController() {
     capabilities,
     capabilityPacks,
     packProgressText,
+    packInstallResult,
     toolEnabled: {
       ping: toolEnabled(tools, "ping"),
       traceroute: toolEnabled(tools, "traceroute"),
@@ -424,6 +430,7 @@ export function useNetworkProbeController() {
     openSystemNetworkSettings,
     openLocalNetworkPrivacySettings,
     refreshCapabilityPacks,
+    clearPackInstallResult,
     installCapabilityPack,
     uninstallCapabilityPack,
     loadSpeedSources,

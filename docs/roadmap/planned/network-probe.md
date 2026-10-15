@@ -38,7 +38,7 @@
 - [x] 测速源不可用 / 超时 → 30s 冷却倒计时在真机可用；取消测速可立即重跑。
 - [x] 真机：测速在请求等待响应或下载正文时可取消并及时结束；下载按流计量不超过 32 MiB，上行服从源上限且全局不超过 8 MiB。
 - [ ] `priv-helper` 提权路径（Wave 1 pack）在真实系统上可安装、触发提权、自动降级文案正确。
-- [ ] 能力包 hash 校验失败通道（`installCapabilityPackVerifyFail`）行为符合预期。
+- [x] 能力包 hash 校验失败通道（`installCapabilityPackVerifyFail`）显示明确本地化失败状态，不安装 pack；发布构建隐藏验证按钮。
 - [ ] Windows 降级路径：各工具 `unsupported`/`degraded` 状态与按钮禁用一致，不误报。
 
 ## 远期（Vision P5–P7 · Wave 6）
@@ -110,3 +110,4 @@
 - 2026-10-15：代码审查发现 DNS 刷新只要两个系统命令任一成功就返回 `ok=true`，第二步失败会在 UI 主结果上误报整体成功。现要求 `dscacheutil -flushcache` 与 `killall -HUP mDNSResponder` 均成功才报告成功；仍会尝试两步并保留各自反馈，新增 S-X-29 及 Rust 回归用例。macOS 27.0.1 arm64 隔离 QA app `com.bench.qa.dnsflush20261015` 通过真机 UI 验证：shim 让缓存刷新成功、mDNS 通知失败时，主卡显示「刷新 DNS：失败」，展开后显示两步结果；切换为双成功后主卡显示「刷新 DNS：成功」。`dscacheutil` 与 `killall` 均被 shim 接管，未改动真实 DNS；网络调用日志只含两次预期命令。Rust 665 项（2 项既有 skip）、`lint:fe`、`check:be-cfg`、Clippy、Rust 格式、Prettier、`git diff --check` 与 QA `.app` codesign 验证通过。Tauri bundle 命令在缺少本机 `TAURI_SIGNING_PRIVATE_KEY` 时于 updater 压缩包签名步骤返回非零；已签名 `.app` 可正常运行。QA app 已退出并确认只剩原有 `bench-host`；QA `.app`、updater archive、`dist`、扩展 staging、临时配置与 shim 已移入废纸篓，共享 Rust target、`node_modules` 保留。Windows 真机回归依用户安排延后。
 - 2026-10-15：首次补齐 S-X-15 测速取消真机复验。macOS 27.0.1 arm64 已安装 Bench 1.37.0 使用 LibreSpeed.org 两轮测速，分别在采样阶段与上传阶段点击取消；两轮均显示「已取消」且没有 30 秒冷却，开始按钮恢复可用。上传阶段取消后 AX 界面短暂仍显示「上传中」和「取消」，约 1.7 秒后返回取消结果；当轮慢响应取消未验证，隔离 QA 包启动崩溃且延迟服务未收到请求，后续修复与验证见下条。30 秒失败冷却已由 10/14 真机记录验证；本次确认取消结果不阻止再次运行。
 - 2026-10-15：修复测速取消与 macOS 启动崩溃，并复核公共节点。macOS 27.0.1 arm64 隔离 QA：对暂停在下载响应正文的回环服务点取消，AX 界面约 0.7 秒内返回且服务端观察到连接关闭；真实 LibreSpeed Sharktech 完整测速为 40.1/9.9 Mbps，下载阶段取消不进入冷却、按钮可立即重跑。LibreSpeed 官方 [server-list.json](https://github.com/librespeed/speedtest/blob/master/server-list.json) 中的 Sharktech、Clouvider 端点均以真机 HTTP 200 校验，完整真机测速分别为 40.1/9.9 Mbps 与 48.4/21.8 Mbps。Clouvider 拒绝 8 MiB 上传（413），接受 4 MiB；测速源现声明各自上传上限并由后端统一限制在 8 MiB，界面中英文显示所选源上限。macOS 原生遍历现只对真正的 `NSScrollView` 调用 AppKit 弹性属性；避免把选择器发给 WebKit 的 `_NSScrollViewContentBackgroundView`，隔离 QA 启动稳定。UI 已退出，Windows 真机验证仍依用户安排延后。
+- 2026-10-15：修复 S-X-05 能力包 hash 校验失败反馈。安装命令返回 `ok=false` 时现保留结构化结果；中英文界面显示明确失败告警，原始诊断默认折叠；关闭并重新打开管理对话框会清除旧结果；验证按钮仅在开发构建或显式 QA 构建标记下出现。macOS 27.0.1 arm64 隔离 QA `.app` 真机验证中文/英文错误文案、展开诊断、重开后无陈旧状态、能力包目录未写入文件；普通无 QA 标记构建的界面不显示测试按钮。前端回归、Rust hash 错误码回归、`lint:fe`、关键测试、Clippy、Rust 测试与配置门禁通过；`.app` 已签名并启动，Tauri 最后因本机缺少 `TAURI_SIGNING_PRIVATE_KEY` 未能签 updater archive。QA app 已退出，专属数据及 QA 构建产物已移入废纸篓，共享 Rust target 与 `node_modules` 保留。

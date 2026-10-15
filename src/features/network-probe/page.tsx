@@ -82,6 +82,9 @@ const POST_L2 = new Set([
   "nodes",
 ])
 
+const showPackVerifyTestControl =
+  import.meta.env.DEV || import.meta.env.VITE_BENCH_ENABLE_PACK_VERIFY_TEST === "1"
+
 export default function NetworkProbePage({ feature }: { feature?: FeatureDescriptor }) {
   const { t } = useTranslation()
   const c = useNetworkProbeController()
@@ -89,6 +92,12 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   const [focusPackId, setFocusPackId] = useState<string | null>(null)
   const [packsBusy, setPacksBusy] = useState(false)
   const [sideLogOpen, setSideLogOpen] = useState(true)
+
+  const openPackDialog = (packId: string | null) => {
+    c.clearPackInstallResult()
+    setFocusPackId(packId)
+    setPacksOpen(true)
+  }
 
   const l2Items = L2_BY_L1[c.l1Id]
   const resolvedL2 = l2Items.includes(c.l2Id) ? c.l2Id : l2Items[0]!
@@ -271,10 +280,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
             variant="outline"
             size="sm"
             className="h-8 shrink-0"
-            onClick={() => {
-              setFocusPackId(null)
-              setPacksOpen(true)
-            }}
+            onClick={() => openPackDialog(null)}
           >
             {t("networkProbe.packs.manage")}
           </Button>
@@ -680,10 +686,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     cancelling={c.cancellingByKind.pcap}
                     onRun={() => c.runPcapDiag(5)}
                     onCancel={() => c.cancelScan("pcap")}
-                    onManagePacks={() => {
-                      setFocusPackId("pcap-diag")
-                      setPacksOpen(true)
-                    }}
+                    onManagePacks={() => openPackDialog("pcap-diag")}
                   />
                 ) : null}
 
@@ -755,10 +758,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     l2={resolvedL2}
                     toolStatus={c.capabilities?.tools}
                     externalTools={c.capabilities?.externalTools}
-                    onManagePacks={(packId) => {
-                      setFocusPackId(packId ?? null)
-                      setPacksOpen(true)
-                    }}
+                    onManagePacks={(packId) => openPackDialog(packId ?? null)}
                   />
                 ) : null}
               </div>
@@ -811,17 +811,25 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
           packs={c.capabilityPacks}
           busy={packsBusy}
           progressText={c.packProgressText}
+          installResult={c.packInstallResult}
           focusPackId={focusPackId}
-          onOpenChange={setPacksOpen}
+          onOpenChange={(open) => {
+            c.clearPackInstallResult()
+            setPacksOpen(open)
+          }}
           onRefresh={() => void c.refreshCapabilityPacks()}
           onInstall={(packId) => {
             setPacksBusy(true)
             void c.installCapabilityPack(packId).finally(() => setPacksBusy(false))
           }}
-          onVerifyFail={(packId) => {
-            setPacksBusy(true)
-            void c.installCapabilityPackVerifyFail(packId).finally(() => setPacksBusy(false))
-          }}
+          onVerifyFail={
+            showPackVerifyTestControl
+              ? (packId) => {
+                  setPacksBusy(true)
+                  void c.installCapabilityPackVerifyFail(packId).finally(() => setPacksBusy(false))
+                }
+              : undefined
+          }
           onUninstall={(packId) => {
             setPacksBusy(true)
             void c.uninstallCapabilityPack(packId).finally(() => setPacksBusy(false))

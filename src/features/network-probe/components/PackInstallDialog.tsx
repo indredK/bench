@@ -13,13 +13,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import type { CapabilityPackInfo } from "@/lib/tauri/types/network-probe"
+import { cn } from "@/lib/utils"
+import type {
+  CapabilityPackInfo,
+  CapabilityPackInstallResult,
+} from "@/lib/tauri/types/network-probe"
 
 interface PackInstallDialogProps {
   open: boolean
   packs: CapabilityPackInfo[]
   busy: boolean
   progressText?: string | null
+  installResult?: CapabilityPackInstallResult | null
   focusPackId?: string | null
   onOpenChange: (open: boolean) => void
   onInstall: (packId: string) => void
@@ -33,6 +38,7 @@ export function PackInstallDialog({
   packs,
   busy,
   progressText,
+  installResult,
   focusPackId,
   onOpenChange,
   onInstall,
@@ -90,7 +96,43 @@ export function PackInstallDialog({
               <p className="text-muted-foreground text-xs">
                 {t("networkProbe.packs.gatekeeperNote")}
               </p>
-              {progressText ? <p className="font-mono text-xs">{progressText}</p> : null}
+              {installResult?.packId === current.id ? (
+                <div
+                  role={installResult.ok ? "status" : "alert"}
+                  aria-live="polite"
+                  className={cn(
+                    "space-y-1 rounded-md border px-3 py-2 text-xs",
+                    installResult.ok
+                      ? "border-primary/30 bg-primary/5 text-foreground"
+                      : "border-destructive/40 bg-destructive/5 text-destructive",
+                  )}
+                >
+                  <p className="font-medium">
+                    {installResult.mode === "hash-mismatch"
+                      ? t("networkProbe.packs.hashMismatch")
+                      : installResult.mode === "uninstalled"
+                        ? t("networkProbe.packs.uninstallSuccess")
+                        : installResult.ok
+                          ? t("networkProbe.packs.installSuccess")
+                          : t("networkProbe.packs.installFailed")}
+                  </p>
+                  {installResult.ok && installResult.mode === "marker" ? (
+                    <p>{t("networkProbe.packs.markerInstalled")}</p>
+                  ) : null}
+                  {installResult.message ? (
+                    <details className="text-muted-foreground">
+                      <summary className="cursor-pointer">
+                        {t("networkProbe.packs.resultDetails")}
+                      </summary>
+                      <p className="mt-1 break-words">{installResult.message}</p>
+                    </details>
+                  ) : null}
+                </div>
+              ) : progressText ? (
+                <p role="status" aria-live="polite" className="font-mono text-xs">
+                  {progressText}
+                </p>
+              ) : null}
             </div>
           ) : (
             <p className="text-muted-foreground text-sm">{t("networkProbe.packs.empty")}</p>
