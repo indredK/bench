@@ -209,7 +209,13 @@ describe("MultiNodePanel agent endpoints", () => {
       domain: "example.com",
       answers: [
         { nodeId: "local", nodeLabel: "This Mac", ok: true, answers: ["192.0.2.1"] },
-        { nodeId: "remote-1", nodeLabel: "London", ok: false, answers: [] },
+        {
+          nodeId: "remote-1",
+          nodeLabel: "London",
+          ok: false,
+          answers: [],
+          failureKind: "noAnswers",
+        },
       ],
       elapsedMs: 42,
       sessionId: "session-1",
@@ -220,6 +226,7 @@ describe("MultiNodePanel agent endpoints", () => {
 
     expect(screen.getByText("networkProbe.nodes.answerStatus.success")).toBeInTheDocument()
     expect(screen.getByText("networkProbe.nodes.answerStatus.failed")).toBeInTheDocument()
+    expect(screen.getByText("networkProbe.nodes.failures.noAnswers")).toBeInTheDocument()
     expect(screen.getAllByText("networkProbe.nodes.labels.local")).toHaveLength(2)
     expect(screen.queryByText("This Mac")).not.toBeInTheDocument()
     expect(screen.queryByText("OK")).not.toBeInTheDocument()

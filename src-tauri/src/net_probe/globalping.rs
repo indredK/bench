@@ -383,15 +383,24 @@ fn append_measurement_results(answers: &mut Vec<NodeDnsAnswer>, result: GpResult
                 }
             })
             .collect();
-        let ok = probe_result.result.status == "finished" || !vals.is_empty();
+        let (ok, failure_kind) =
+            classify_probe_result(&probe_result.result.status, !vals.is_empty());
         answers.push(NodeDnsAnswer {
             node_id: format!("gp-{idx}"),
             node_label: label,
             ok,
             answers: vals,
             detail: probe_result.result.raw_output,
-            failure_kind: (!ok).then_some("measurement".into()),
+            failure_kind: failure_kind.map(str::to_owned),
         });
+    }
+}
+
+fn classify_probe_result(status: &str, has_answers: bool) -> (bool, Option<&'static str>) {
+    match (status, has_answers) {
+        ("finished", true) => (true, None),
+        ("finished", false) => (false, Some("noAnswers")),
+        _ => (false, Some("measurement")),
     }
 }
 
@@ -449,7 +458,10 @@ async fn wait_for_cancellation(session_id: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{compare_dns_multi_with_session, is_measurement_terminal, next_poll_wakeup};
+    use super::{
+        classify_probe_result, compare_dns_multi_with_session, is_measurement_terminal,
+        next_poll_wakeup,
+    };
     use crate::net_probe::session::{cancel_scan, clear_session, new_session_id};
     use std::time::Duration;
     use tokio::time::Instant;
@@ -460,6 +472,27 @@ mod tests {
         assert!(is_measurement_terminal("finished"));
         assert!(is_measurement_terminal("failed"));
         assert!(is_measurement_terminal("unknown-future-status"));
+    }
+
+    #[test]
+    fn only_finished_probes_with_dns_answers_are_successful() {
+        assert_eq!(classify_probe_result("finished", true), (true, None));
+        assert_eq!(
+            classify_probe_result("finished", false),
+            (false, Some("noAnswers"))
+        );
+        assert_eq!(
+            classify_probe_result("failed", true),
+            (false, Some("measurement"))
+        );
+        assert_eq!(
+            classify_probe_result("offline", false),
+            (false, Some("measurement"))
+        );
+        assert_eq!(
+            classify_probe_result("unknown-future-status", true),
+            (false, Some("measurement"))
+        );
     }
 
     #[test]

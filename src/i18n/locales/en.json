@@ -2235,7 +2235,8 @@
         "quota": "Globalping quota or rate limit reached.",
         "timeout": "Timed out; this app waits up to 20 seconds.",
         "request": "The Globalping request could not be completed.",
-        "measurement": "This probe returned no DNS answer."
+        "measurement": "This probe could not complete the DNS measurement.",
+        "noAnswers": "This probe returned no DNS answer."
       },
       "working": "Working…",
       "refresh": "Refresh nodes",

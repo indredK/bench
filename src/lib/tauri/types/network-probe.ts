@@ -529,7 +529,7 @@ export interface NodeDnsAnswer {
   ok: boolean
   answers: string[]
   detail?: string
-  failureKind?: "quota" | "timeout" | "request" | "measurement"
+  failureKind?: "quota" | "timeout" | "request" | "measurement" | "noAnswers"
 }
 
 export interface MultiNodeDnsResult {

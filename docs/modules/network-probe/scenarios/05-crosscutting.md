@@ -450,6 +450,38 @@ Post-C（多节点结果可读性与响应式布局）
 
 ---
 
+## S-X-26 · Globalping 空答案不得误报成功
+
+### 背景
+
+Globalping 测量可以正常结束，但探点没有返回 DNS 答案。仅凭测量状态 `finished` 就显示绿色成功会让用户把无记录误认为解析正常。
+
+### 步骤
+
+1. 对保留域名 `bench-qa-no-such-host.invalid` 运行多节点 DNS 对比。
+2. 查看本机和 Globalping 各探点的答案、状态及失败说明。
+3. 使用有答案的域名（如 `example.com`）重新对比作正向校验。
+
+### 期望
+
+- 仅当 Globalping 探点状态为 `finished` 且至少返回一条 DNS 答案时标为成功。
+- 已完成但无 DNS 答案的探点显示本地化「无 DNS 答案」，不得显示成功；`failed`、`offline` 和未知状态显示测量失败。
+- 无答案与测量执行失败使用不同的本地化说明，保留原始诊断供折叠详情查看。
+- 其他探点和本机结果继续显示，不因单个探点无答案中断整组结果。
+
+### 映射
+
+- UI：`MultiNodePanel`
+- 后端：`append_measurement_results`
+- IPC：`compareDnsMulti`
+- 产品规格：§7 `nodes`
+
+### 档位
+
+Post-C（远端 DNS 结果准确性）
+
+---
+
 ## S-X-13 · 错误反馈归属触发它的工具面板
 
 ### 背景
