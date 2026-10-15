@@ -1967,7 +1967,7 @@
       }
     },
     "offline": {
-      "hint": "跑 Captive、公网出口 IP、代理/VPN 检查，用于「上不了网」分诊。",
+      "hint": "运行 Captive、代理/VPN、IPv6、路径 MTU 与公网出口检查，用于「上不了网」分诊。",
       "run": "运行上不了网诊断",
       "running": "诊断中…",
       "pending": "尚未运行。",

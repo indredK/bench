@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { DnsLookupPanel } from "@/features/network-probe/components/DnsLookupPanel"
 import { EgressPanel } from "@/features/network-probe/components/EgressPanel"
 import { MtuPanel } from "@/features/network-probe/components/MtuPanel"
+import { OfflinePanel } from "@/features/network-probe/components/OfflinePanel"
 import { PingPanel } from "@/features/network-probe/components/PingPanel"
 import { ProbeTargetPanel } from "@/features/network-probe/components/ProbeTargetPanel"
 import { SpeedPanel } from "@/features/network-probe/components/SpeedPanel"
@@ -146,6 +147,25 @@ function renderTestPanel(
 }
 
 describe("network-probe result empty states", () => {
+  it("shows the complete diagnostics hint only in the all offline view", () => {
+    const props = {
+      loading: false,
+      captive: null,
+      publicIp: null,
+      proxyVpn: null,
+      ipv6: null,
+      mtu: null,
+      onRunAll: vi.fn(),
+      onOpenMtu: vi.fn(),
+    }
+    const { rerender } = render(<OfflinePanel {...props} focus="all" />)
+
+    expect(screen.getByText("networkProbe.offline.hint")).toBeInTheDocument()
+
+    rerender(<OfflinePanel {...props} focus="ipv6" />)
+    expect(screen.queryByText("networkProbe.offline.hint")).not.toBeInTheDocument()
+  })
+
   it.each(["ping", "dns", "tcp", "custom", "speed"] as const)(
     "%s explains where results will appear before the first run",
     (panel) => {

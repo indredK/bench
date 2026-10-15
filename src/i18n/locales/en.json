@@ -1967,7 +1967,7 @@
       }
     },
     "offline": {
-      "hint": "Run captive portal, public egress IP, and proxy/VPN checks for “can't connect” triage.",
+      "hint": "Run captive portal, proxy/VPN, IPv6, path MTU, and public egress checks to triage connection issues.",
       "run": "Run offline diagnostics",
       "running": "Running…",
       "pending": "Not run yet.",

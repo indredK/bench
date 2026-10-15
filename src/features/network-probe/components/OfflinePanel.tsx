@@ -45,7 +45,9 @@ export function OfflinePanel({
       embedded
       toolbar={
         <>
-          <p className="text-muted-foreground text-sm">{t("networkProbe.offline.hint")}</p>
+          {focus === "all" ? (
+            <p className="text-muted-foreground text-sm">{t("networkProbe.offline.hint")}</p>
+          ) : null}
           <CommandHint hint={t("networkProbe.cmd.offlineBundle")}>
             <Button type="button" disabled={loading} onClick={onRunAll}>
               {loading ? t("networkProbe.offline.running") : t("networkProbe.offline.run")}

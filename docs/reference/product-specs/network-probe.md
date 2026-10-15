@@ -76,6 +76,7 @@ L1 → L2 映射：
 ### 3.4 上不了网 offline（子导航 captive/proxy/ipv6/mtu/egress/diff）
 
 - 子导航胶囊：全部 / 强制门户 / 代理·VPN / IPv6 / MTU / 公网出口 / 对比。
+- 全部视图显示完整诊断说明；聚焦单项子视图时隐藏整包说明，避免提示与当前内容不符；子导航选中项须与当前 `offlineSub` 和面包屑同步。
 - 「一键诊断」并发执行：检测强制门户（CaptivePortal）、公网 IP（egress）、代理/VPN 状态、IPv6 栈、路径 MTU。
 - **一键诊断为 all-or-nothing**（`runOfflineDiagnostics` 内 `Promise.all` 并发 5 项）：任一子项失败即整体失败，错误横幅 `networkProbe.errors.offlineFailed`，已成功的子项结果**不落 store**；要逐项结果可改用各子面板单独运行（refreshPublicIp / checkIpv6Stack / probePathMtu 各自独立错误码与 loading，与「一键诊断」互不抢占 `loadingOffline`——注意 refreshPublicIp 与 runOfflineDiagnostics 共用 `loadingOffline`，同一时刻不可并行）。
 - 各子区块（依焦点显示）：
