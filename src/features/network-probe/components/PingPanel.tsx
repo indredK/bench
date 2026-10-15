@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
 import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { getPingSampleErrorKey } from "@/features/network-probe/ping-sample-error"
 import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
 import type { PingProbeResult, PingSample } from "@/lib/tauri/types/network-probe"
 
@@ -184,7 +185,7 @@ export function PingPanel({
                   })
                 : t("networkProbe.ping.sampleFail", {
                     seq: s.seq,
-                    error: s.error ?? "timeout",
+                    error: t(getPingSampleErrorKey(s.error)),
                   })}
             </li>
           ))}

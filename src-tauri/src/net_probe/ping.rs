@@ -1,4 +1,6 @@
-use super::types::{PingProbeResult, PingSample, PingSampleEvent, ScanSessionEvent};
+use super::types::{
+    PingProbeResult, PingSample, PingSampleError, PingSampleEvent, ScanSessionEvent,
+};
 use super::validate::validate_host;
 use crate::error::{AppError, AppResult};
 use std::net::IpAddr;
@@ -161,7 +163,7 @@ async fn ping_host_with_sample(
                 seq,
                 ok: false,
                 rtt_ms: None,
-                error: Some(e.to_string()),
+                error: Some(classify_sample_error(e)),
             },
         };
         on_sample(&sample);
@@ -176,6 +178,21 @@ async fn ping_host_with_sample(
         samples,
         cancelled,
     ))
+}
+
+fn classify_sample_error(error: surge_ping::SurgeError) -> PingSampleError {
+    match error {
+        surge_ping::SurgeError::Timeout { .. } => PingSampleError::Timeout,
+        surge_ping::SurgeError::IOError(error) if error.kind() == std::io::ErrorKind::TimedOut => {
+            PingSampleError::Timeout
+        }
+        surge_ping::SurgeError::IOError(error)
+            if error.kind() == std::io::ErrorKind::PermissionDenied =>
+        {
+            PingSampleError::PermissionDenied
+        }
+        _ => PingSampleError::NetworkError,
+    }
 }
 
 async fn wait_for_cancellation(session_id: &str) {
@@ -254,8 +271,30 @@ pub(crate) async fn resolve_target_ip(target: &str) -> AppResult<IpAddr> {
 
 #[cfg(test)]
 mod tests {
-    use super::ping_host_with_sample;
+    use super::{classify_sample_error, ping_host_with_sample};
     use crate::net_probe::session::{cancel_scan, clear_session, new_session_id};
+    use crate::net_probe::types::PingSampleError;
+
+    #[test]
+    fn ping_sample_errors_are_stable_codes_instead_of_dependency_messages() {
+        assert_eq!(
+            classify_sample_error(surge_ping::SurgeError::Timeout {
+                seq: surge_ping::PingSequence(2),
+            }),
+            PingSampleError::Timeout
+        );
+        assert_eq!(
+            classify_sample_error(surge_ping::SurgeError::IOError(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "localized by the OS",
+            ))),
+            PingSampleError::PermissionDenied
+        );
+        assert_eq!(
+            serde_json::to_string(&PingSampleError::Timeout).unwrap(),
+            "\"timeout\""
+        );
+    }
 
     #[tokio::test]
     async fn a_cancelled_session_stops_before_resolving_or_sending_packets() {

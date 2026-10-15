@@ -124,16 +124,16 @@ L1 → L2 映射：
 
 ## 5. 测试（test）L1
 
-| 面板       | 输入                                                                                     | 输出 / 行为                                                                                                                                                                                    |
-| ---------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ping       | 目标 + 次数（默认 1.1.1.1 / 4）                                                          | ICMP ping；按 `sessionId` 流式 `ping-sample` 逐包并显示进度；运行期间锁定输入，可取消并查看已完成样本汇总；解析 IP / 收发 / 丢包 / min-avg-max-jitter；全丢包提示「可能需 Local Network 权限」 |
-| dns        | 域名 + RR 类型（A/AAAA/CNAME/MX/TXT）+ 解析器（可选，datalist 联想 defaults.dnsPresets） | 解析记录表（RR / data / TTL）、耗时、使用的 resolver                                                                                                                                           |
-| tcp        | host + port（+ 超时）                                                                    | TCP 连接结果：本地化 status / rttMs / 可展开的系统错误详情                                                                                                                                     |
-| custom     | 目标串                                                                                   | 综合探测：ICMP + HTTP（状态/TTFB/吞吐/下载字节）+ 轻量 TLS（证书存在/握手）                                                                                                                    |
-| traceroute | 目标 + maxTtl（默认 20）+ rounds（默认 3）                                               | 逐跳流式 `traceroute-hop`；跳点表（TTL / 地址 / ASN+AS名 / 丢包率[>50% 红、>0 琥珀] / avg-best-worst RTT）；显示解析 IP、privilegeMode、耗时；可取消                                           |
-| mtu        | 目标（默认 1.1.1.1）                                                                     | 路径 MTU 探测：状态 / pathMtu / message                                                                                                                                                        |
-| egress     | —                                                                                        | 公网出口：IP、来源、ASN/org（复用 offline.egress）                                                                                                                                             |
-| speed      | 测速源下拉（LibreSpeed 公共源）                                                          | **带宽测速**：流式 `speed-sample` 阶段（ping/jitter/download/upload）；结果卡：ping / jitter / download / upload Mbps；**失败/源不可用进入 30s 冷却**（倒计时禁用）；可取消                    |
+| 面板       | 输入                                                                                     | 输出 / 行为                                                                                                                                                                                                            |
+| ---------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ping       | 目标 + 次数（默认 1.1.1.1 / 4）                                                          | ICMP ping；按 `sessionId` 流式 `ping-sample` 逐包并显示进度；运行期间锁定输入，可取消并查看已完成样本汇总；解析 IP / 收发 / 丢包 / min-avg-max-jitter；单包错误按稳定码本地化；全丢包提示「可能需 Local Network 权限」 |
+| dns        | 域名 + RR 类型（A/AAAA/CNAME/MX/TXT）+ 解析器（可选，datalist 联想 defaults.dnsPresets） | 解析记录表（RR / data / TTL）、耗时、使用的 resolver                                                                                                                                                                   |
+| tcp        | host + port（+ 超时）                                                                    | TCP 连接结果：本地化 status / rttMs / 可展开的系统错误详情                                                                                                                                                             |
+| custom     | 目标串                                                                                   | 综合探测：ICMP + HTTP（状态/TTFB/吞吐/下载字节）+ 轻量 TLS（证书存在/握手）；协议失败状态本地化，原始 ICMP/HTTP/TLS 错误默认收在折叠的系统详情中                                                                       |
+| traceroute | 目标 + maxTtl（默认 20）+ rounds（默认 3）                                               | 逐跳流式 `traceroute-hop`；跳点表（TTL / 地址 / ASN+AS名 / 丢包率[>50% 红、>0 琥珀] / avg-best-worst RTT）；显示解析 IP、privilegeMode、耗时；可取消                                                                   |
+| mtu        | 目标（默认 1.1.1.1）                                                                     | 路径 MTU 探测：状态 / pathMtu / message                                                                                                                                                                                |
+| egress     | —                                                                                        | 公网出口：IP、来源、ASN/org（复用 offline.egress）                                                                                                                                                                     |
+| speed      | 测速源下拉（LibreSpeed 公共源）                                                          | **带宽测速**：流式 `speed-sample` 阶段（ping/jitter/download/upload）；结果卡：ping / jitter / download / upload Mbps；**失败/源不可用进入 30s 冷却**（倒计时禁用）；可取消                                            |
 
 - 所有探测按钮带 CommandHint（真实命令预览）；`toolEnabled=false` 时显示 toolDisabled 提示。
 
@@ -143,6 +143,8 @@ L1 → L2 映射：
 - **单工具防重入与取消反馈**：ping / dns / tcp / custom / traceroute / mtu / egress / speed 各自独立 loading，运行中不可重复触发；Ping 按包显示进度，运行期间锁定目标与次数，并可取消；health / 站点探测 / Ping / traceroute / speed / 端口扫描 / 抓包诊断 / ARP 发现等可取消任务共用取消按钮。请求发出后按钮禁用并显示本地化「正在取消…」，任务结束后显示取消结果；取消 IPC 失败时恢复按钮，允许重试。
 - **单次探测重跑状态**：Ping / TCP / DNS / 自定义目标 / MTU，以及污染检测、WHOIS、DNSSEC、NAT、NTP、ARP 发现、局域网服务浏览、抓包诊断和多节点 DNS 的新请求开始时，先清除对应上次结果；若本轮请求失败，展示本次错误，不将上次成功结果留作当前结果。离线完整诊断启动时同步清空 Captive、公网 IP、代理/VPN、IPv6 和 MTU 五项；公网 IP 单项刷新只清空旧 IP。
 - **TCP 终态本地化**：`ok`、`refused`、`unreachable`、`dns_failed`、`timeout` 和 `error` 按当前语言显示；操作系统 `message` 收在默认折叠的「系统诊断详情」中，便于需要时查看原始诊断。
+- **Ping 单包失败本地化**：IPC 返回稳定错误码（`timeout` / `permission_denied` / `network_error`），界面按当前语言显示，不直出 Rust/操作系统依赖的自由文本，避免中英文混排。
+- **自定义目标失败本地化**：HTTP 传输失败、HTTP 状态码失败和 TLS 握手失败均显示本地化状态；ICMP 未识别错误、HTTP 错误与 TLS 握手诊断只在默认折叠的系统详情中显示。
 - **错误反馈归属**：错误横幅按错误 key 映射到所属 L1/L2 工具面板；取消失败按探测会话种类定位。切换面板或离线子视图时清除已显示的错误，晚到的旧请求错误仍归属原工具，不显示在当前无关面板；若当前面板已有可见错误，其他面板迟到的失败不得覆盖它；未分类的模块级初始化错误保持全局可见。
 - **ping 全丢包提示**：`packetsReceived === 0` 时命令日志追加「可能需 Local Network 权限」提示（不静默）。
 - **测速冷却**：测速源失败/不可达时 `speedCooldownUntil = now + 30s`，期间「开始测速」禁用并倒计时提示（`测速源失败 — {{seconds}} 秒后可重试`），冷却结束自动恢复；取消成功不计入冷却。

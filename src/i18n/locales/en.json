@@ -1687,7 +1687,13 @@
       "summary": "Sent {{sent}} · received {{received}} · loss {{loss}}%",
       "rttSummary": "RTT min/avg/max/jitter: {{min}} / {{avg}} / {{max}} / {{jitter}} ms",
       "sampleOk": "#{{seq}} {{ms}} ms",
-      "sampleFail": "#{{seq}} fail — {{error}}"
+      "sampleFail": "#{{seq}} fail — {{error}}",
+      "sampleError": {
+        "timeout": "Request timed out",
+        "permissionDenied": "Permission denied",
+        "networkError": "Network error",
+        "unknown": "Probe failed"
+      }
     },
     "dns": {
       "hint": "Query DNS records via system resolver or a custom resolver IP.",
@@ -1710,12 +1716,14 @@
       "icmp": "ICMP",
       "icmpOk": "ok · {{ms}} ms · {{ip}}",
       "icmpFail": "fail — {{error}}",
+      "systemDetail": "System details",
       "http": "HTTP",
       "httpOk": "{{status}} · TTFB {{ms}} ms",
-      "httpFail": "fail — {{error}}",
+      "httpStatusFail": "fail — HTTP {{status}}",
+      "httpRequestFail": "fail — request failed",
       "tls": "TLS",
       "tlsOk": "handshake ok",
-      "tlsFail": "fail — {{detail}}"
+      "tlsFail": "fail — handshake incomplete"
     },
     "sites": {
       "hint": "Probe a built-in site pack with ICMP/HTTP latency and bounded download throughput. Custom hosts stream in with sparklines; cancel stops mid-run.",

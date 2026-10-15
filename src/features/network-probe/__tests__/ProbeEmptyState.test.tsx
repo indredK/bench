@@ -11,7 +11,17 @@ import { TcpConnectPanel } from "@/features/network-probe/components/TcpConnectP
 import { TraceroutePanel } from "@/features/network-probe/components/TraceroutePanel"
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, options?: { error?: string; status?: number }) => {
+      if (["networkProbe.ping.sampleFail", "networkProbe.probe.icmpFail"].includes(key)) {
+        return `${key} — ${options?.error ?? ""}`
+      }
+      if (key === "networkProbe.probe.httpStatusFail") {
+        return `${key} — ${options?.status ?? ""}`
+      }
+      return key
+    },
+  }),
 }))
 
 vi.mock("@/components/common/CommandHint", () => ({
@@ -186,6 +196,92 @@ describe("network-probe result empty states", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "networkProbe.ping.cancel" }))
     expect(onCancel).toHaveBeenCalledOnce()
+  })
+
+  it("maps ping sample error codes to localized keys instead of backend messages", () => {
+    render(
+      <PingPanel
+        loading={false}
+        result={{
+          target: "192.0.2.1",
+          resolvedIp: "192.0.2.1",
+          packetsSent: 1,
+          packetsReceived: 0,
+          lossPercent: 100,
+          samples: [{ seq: 0, ok: false, error: "timeout" }],
+          sessionId: "ping-session",
+          cancelled: false,
+          commandHint: "pingHost(...) ",
+        }}
+        streamingSamples={[]}
+        toolEnabled
+        canCancel={false}
+        cancelling={false}
+        onRun={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.getByText("networkProbe.ping.sampleFail — networkProbe.ping.sampleError.timeout"),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Request timeout for icmp_seq/)).not.toBeInTheDocument()
+  })
+
+  it("localizes protocol failures and keeps raw diagnostics collapsed", () => {
+    const rawError = "Request timeout for icmp_seq 0"
+    const rawHttpError = "error sending request for url (https://192.0.2.1/)"
+    const rawTlsError = "TLS handshake failed: protocol error"
+    render(
+      <ProbeTargetPanel
+        loading={false}
+        result={{
+          input: "192.0.2.1",
+          kind: "host",
+          icmp: { ok: false, resolvedIp: "192.0.2.1", error: rawError },
+          http: { ok: false, error: rawHttpError },
+          tls: { present: true, handshakeOk: false, detail: rawTlsError },
+          commandHint: "probeTarget(...) ",
+        }}
+        onRun={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.getByText(/networkProbe\.probe\.icmpFail — networkProbe\.ping\.sampleError\.unknown/),
+    ).toBeInTheDocument()
+    const httpStatus = screen.getByText(/networkProbe\.probe\.httpRequestFail/)
+    const tlsStatus = screen.getByText(/networkProbe\.probe\.tlsFail/)
+    expect(httpStatus).not.toHaveTextContent(rawHttpError)
+    expect(tlsStatus).not.toHaveTextContent(rawTlsError)
+    const details = screen.getByText("networkProbe.probe.systemDetail").closest("details")
+    expect(details).not.toHaveAttribute("open")
+    expect(details).toHaveTextContent(rawError)
+    expect(details).toHaveTextContent(rawHttpError)
+    expect(details).toHaveTextContent(rawTlsError)
+    expect(screen.getByText(rawHttpError)).not.toBeVisible()
+    expect(screen.getByText(rawTlsError)).not.toBeVisible()
+  })
+
+  it("shows an HTTP status without exposing transport diagnostics", () => {
+    render(
+      <ProbeTargetPanel
+        loading={false}
+        result={{
+          input: "https://example.com",
+          kind: "url",
+          http: { ok: false, status: 503, error: "upstream returned 503" },
+          commandHint: "probeTarget(...) ",
+        }}
+        onRun={vi.fn()}
+      />,
+    )
+
+    const httpStatus = screen.getByText(/networkProbe\.probe\.httpStatusFail — 503/)
+    expect(httpStatus).not.toHaveTextContent("upstream returned 503")
+    const details = screen.getByText("networkProbe.probe.systemDetail").closest("details")
+    expect(details).not.toHaveAttribute("open")
+    expect(details).toHaveTextContent("upstream returned 503")
   })
 
   it("does not show the speed result prompt without a usable source", () => {

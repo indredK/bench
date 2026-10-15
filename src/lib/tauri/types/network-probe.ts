@@ -89,7 +89,7 @@ export interface PingSample {
   seq: number
   ok: boolean
   rttMs?: number
-  error?: string
+  error?: "timeout" | "permission_denied" | "network_error"
 }
 
 export interface PingProbeResult {

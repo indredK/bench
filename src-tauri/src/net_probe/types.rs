@@ -254,7 +254,27 @@ pub struct PingSample {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rtt_ms: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
+    pub error: Option<PingSampleError>,
+}
+
+/// Stable IPC error code for a failed Ping packet; never expose a dependency's
+/// locale-specific diagnostic as user-facing text.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PingSampleError {
+    Timeout,
+    PermissionDenied,
+    NetworkError,
+}
+
+impl PingSampleError {
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Timeout => "timeout",
+            Self::PermissionDenied => "permission_denied",
+            Self::NetworkError => "network_error",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
