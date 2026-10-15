@@ -232,4 +232,58 @@ describe("MultiNodePanel agent endpoints", () => {
     expect(screen.queryByText("OK")).not.toBeInTheDocument()
     expect(screen.queryByText("FAIL")).not.toBeInTheDocument()
   })
+
+  it.each([
+    ["request", "networkProbe.nodes.failures.localRequest", "networkProbe.nodes.failures.request"],
+    ["timeout", "networkProbe.nodes.failures.localTimeout", "networkProbe.nodes.failures.timeout"],
+  ] as const)(
+    "uses local DNS copy for local %s failures",
+    (failureKind, localKey, globalpingKey) => {
+      const props = createProps()
+      props.result = {
+        domain: "bench-qa-no-such-host.invalid",
+        answers: [
+          {
+            nodeId: "local",
+            nodeLabel: "This Mac",
+            ok: false,
+            answers: [],
+            failureKind,
+          },
+        ],
+        elapsedMs: 5,
+        sessionId: "session-1",
+        cancelled: false,
+        commandHint: "",
+      }
+      render(<MultiNodePanel {...props} />)
+
+      expect(screen.getByText(localKey)).toBeInTheDocument()
+      expect(screen.queryByText(globalpingKey)).not.toBeInTheDocument()
+    },
+  )
+
+  it("keeps Globalping request failures attributed to Globalping", () => {
+    const props = createProps()
+    props.result = {
+      domain: "example.com",
+      answers: [
+        {
+          nodeId: "globalping",
+          nodeLabel: "Globalping",
+          ok: false,
+          answers: [],
+          failureKind: "request",
+        },
+      ],
+      elapsedMs: 8,
+      sessionId: "session-1",
+      cancelled: false,
+      commandHint: "",
+    }
+    render(<MultiNodePanel {...props} />)
+
+    expect(screen.getByText("networkProbe.nodes.failures.request")).toBeInTheDocument()
+    expect(screen.queryByText("networkProbe.nodes.failures.localRequest")).not.toBeInTheDocument()
+  })
 })

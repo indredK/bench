@@ -2233,10 +2233,12 @@
       "technicalDetails": "Technical details",
       "failures": {
         "quota": "Globalping quota or rate limit reached.",
-        "timeout": "Timed out; this app waits up to 20 seconds.",
+        "timeout": "The Globalping measurement timed out; this app waits up to 20 seconds.",
         "request": "The Globalping request could not be completed.",
         "measurement": "This probe could not complete the DNS measurement.",
-        "noAnswers": "This probe returned no DNS answer."
+        "noAnswers": "This probe returned no DNS answer.",
+        "localRequest": "The local DNS lookup failed.",
+        "localTimeout": "The local DNS lookup exceeded the 5-second wait limit."
       },
       "working": "Working…",
       "refresh": "Refresh nodes",

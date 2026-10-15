@@ -482,6 +482,36 @@ Post-C（远端 DNS 结果准确性）
 
 ---
 
+## S-X-27 · 多节点 DNS 错误说明归属到对应探点
+
+### 背景
+
+本机解析失败与 Globalping 请求失败都可能带有 `request` / `timeout` 错误码，但错误发生在不同节点。把本机错误显示为 Globalping 请求失败会误导用户判断故障位置。
+
+### 步骤
+
+1. 对保留域名 `bench-qa-no-such-host-20261015.invalid` 运行多节点 DNS 对比。
+2. 分别查看本机 DNS 请求失败 / 超时与 Globalping 探点无答案或请求失败的说明。
+3. 查看本机 DNS 超时说明中的等待上限，并确认 Globalping 总超时说明是 20 秒。
+
+### 期望
+
+- 本机 `request` 与 `timeout` 分别显示本机 DNS 查询失败和本机 5 秒等待超时。
+- Globalping `request` 与 `timeout` 保留 Globalping 归属，远端总超时显示 20 秒上限。
+- 同一结果中的错误说明按 `nodeId` 选择，不把本机错误归因到远端服务。
+
+### 映射
+
+- UI：`MultiNodePanel`
+- IPC：`compareDnsMulti`
+- 产品规格：§7 `nodes`
+
+### 档位
+
+Post-C（多节点错误反馈准确性）
+
+---
+
 ## S-X-13 · 错误反馈归属触发它的工具面板
 
 ### 背景

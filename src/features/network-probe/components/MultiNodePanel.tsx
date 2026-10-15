@@ -51,6 +51,14 @@ function getDnsAnswerNodeLabel(
   return nodeId === "local" ? t("networkProbe.nodes.labels.local") : nodeLabel
 }
 
+function getDnsFailureTranslationKey(nodeId: string, failureKind: string) {
+  if (nodeId === "local") {
+    if (failureKind === "request") return "networkProbe.nodes.failures.localRequest"
+    if (failureKind === "timeout") return "networkProbe.nodes.failures.localTimeout"
+  }
+  return `networkProbe.nodes.failures.${failureKind}`
+}
+
 function getAgentEndpointError(endpoint: string): AgentEndpointError {
   const value = endpoint.trim()
   if (!value) return null
@@ -307,7 +315,7 @@ export function MultiNodePanel({
                 ) : null}
                 {a.failureKind ? (
                   <p className="text-muted-foreground mt-1 text-xs">
-                    {t(`networkProbe.nodes.failures.${a.failureKind}`)}
+                    {t(getDnsFailureTranslationKey(a.nodeId, a.failureKind))}
                   </p>
                 ) : null}
                 {a.detail ? (

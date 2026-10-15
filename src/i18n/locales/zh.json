@@ -2233,10 +2233,12 @@
       "technicalDetails": "技术详情",
       "failures": {
         "quota": "Globalping 额度或速率限制已用尽。",
-        "timeout": "等待超时；本机最长等待 20 秒。",
+        "timeout": "Globalping 远端测量超时；最长等待 20 秒。",
         "request": "无法完成 Globalping 请求。",
         "measurement": "该探点未能完成 DNS 测量。",
-        "noAnswers": "该探点未返回 DNS 答案。"
+        "noAnswers": "该探点未返回 DNS 答案。",
+        "localRequest": "本机 DNS 查询失败。",
+        "localTimeout": "本机 DNS 查询超过 5 秒等待上限。"
       },
       "working": "处理中…",
       "refresh": "刷新节点",
