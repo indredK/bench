@@ -2096,11 +2096,45 @@
       }
     },
     "pollution": {
-      "hint": "Compare DNS answers across resolvers, scan hosts overrides, and probe HTTPS trust (corporate middleboxes vs failures).",
+      "hint": "Compare DNS answers across resolvers, inspect hosts overrides, and verify HTTPS trust. A network failure alone is not evidence of interception.",
       "domain": "Domain",
       "run": "Run pollution check",
       "running": "Checking…",
-      "meta": "{{domain}} · {{count}} findings · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} findings · {{ms}} ms",
+      "kind": {
+        "dns": "DNS",
+        "hosts": "Hosts file",
+        "tls": "HTTPS / TLS",
+        "route": "Route",
+        "arp": "ARP",
+        "unknown": "Other"
+      },
+      "severity": {
+        "info": "Info",
+        "warn": "Warning",
+        "high": "High",
+        "unknown": "Unknown severity"
+      },
+      "finding": {
+        "dnsResolverFailed": "A DNS resolver did not respond",
+        "dnsAnswersDisagree": "DNS resolvers returned different answers",
+        "dnsResolversAgree": "DNS resolvers returned matching answers",
+        "hostsClean": "No suspicious hosts override was found",
+        "hostsOverride": "The hosts file contains a suspicious override",
+        "hostsReadFailed": "The hosts file could not be inspected",
+        "tlsClientSetupFailed": "HTTPS verification could not start",
+        "tlsProbeSucceeded": "HTTPS connected and the certificate chain was accepted",
+        "tlsProbeFailed": "HTTPS could not be verified; this alone does not indicate interception",
+        "routeTunnelDetected": "The default route uses a tunnel",
+        "routeProxyEnabled": "A system proxy is enabled",
+        "arpCheckFailed": "The ARP cache could not be inspected",
+        "arpGatewayMissing": "The gateway is not yet in the ARP cache",
+        "arpGatewayIncomplete": "The gateway ARP entry is incomplete",
+        "arpSharedMac": "The gateway MAC also appears on another IP; this can be normal on shared devices",
+        "arpGatewayBound": "The gateway has one MAC binding in the current cache",
+        "arpNoGateway": "No default gateway; the ARP check was skipped",
+        "unknown": "Unknown finding. See technical details."
+      }
     },
     "whois": {
       "hint": "RDAP lookup via rdap.org (WHOIS fallback not required for this build). Output may be truncated.",

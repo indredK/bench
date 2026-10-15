@@ -401,6 +401,7 @@ export interface NetworkProbeDefaultsCatalog {
 }
 
 export interface PollutionFinding {
+  code: string
   kind: string
   severity: string
   evidence: string

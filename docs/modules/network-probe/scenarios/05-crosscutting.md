@@ -387,6 +387,39 @@ MVP + Post-MVP-Adv（横切本地化与反馈一致性）
 
 ---
 
+## S-X-24 · 污染检测结果本地化与风险置信度
+
+### 背景
+
+污染检测汇总 DNS、hosts、HTTPS、路由和 ARP 线索。网络库原文和后端 enum 不适合作为主结果；单次网络失败或共享 MAC 也不足以构成攻击结论。
+
+### 步骤
+
+1. 受控返回 DNS resolver 失败、hosts 覆盖、HTTPS 成功/失败、代理路由和共享 ARP MAC 等发现，分别检查中英文主结果。
+2. 让 HTTPS 请求因超时、DNS、代理和证书错误失败，确认均显示“无法验证”警告，不能显示高危或断言拦截。
+3. 受控返回未知 finding code、kind 和 severity，确认主卡使用本地化兜底。
+4. 检查每条原始 evidence 与 command hint 均默认折叠，展开后可供排障。
+
+### 期望
+
+- finding code、种类和严重级别均显示本地化文案；未知值不泄漏 backend 字符串。
+- HTTPS 请求失败统一说明单凭该失败不能证明 TLS 拦截，风险级别不高于 warn。
+- ARP 快照中同 MAC 被多个 IP 使用仅作为 info 线索，不称为欺骗；单次缓存不声称检测了随时间漂移。
+- 原始证据和命令提示默认折叠；产品规格明确 HTTPS / ARP 置信度边界。
+
+### 映射
+
+- UI：`PollutionPanel` / `ProbeSystemDetails`
+- IPC：`runPollutionCheck`
+- 后端：`PollutionFinding` / `check_ssl_light` / `detect_arp_spoofing_hints`
+- 产品规格：§6
+
+### 档位
+
+Post-Adv（安全诊断准确性与结果可读性）
+
+---
+
 ## S-X-13 · 错误反馈归属触发它的工具面板
 
 ### 背景

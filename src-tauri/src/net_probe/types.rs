@@ -612,6 +612,8 @@ pub struct PathMtuResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PollutionFinding {
+    /// Stable localization key for the finding. Raw diagnostics stay in `evidence`.
+    pub code: String,
     pub kind: String,
     /// info | warn | high
     pub severity: String,

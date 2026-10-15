@@ -2096,11 +2096,45 @@
       }
     },
     "pollution": {
-      "hint": "对比多 resolver DNS 答案、检查 hosts 异常，并探测 HTTPS 信任（企业中间盒 vs 失败）。",
+      "hint": "对比多个 DNS 解析器、检查 hosts 覆盖并验证 HTTPS 信任。单纯网络失败不能证明存在流量拦截。",
       "domain": "域名",
       "run": "开始污染检测",
       "running": "检测中…",
-      "meta": "{{domain}} · {{count}} 条发现 · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} 条发现 · {{ms}} ms",
+      "kind": {
+        "dns": "DNS",
+        "hosts": "Hosts 文件",
+        "tls": "HTTPS / TLS",
+        "route": "路由",
+        "arp": "ARP",
+        "unknown": "其他"
+      },
+      "severity": {
+        "info": "提示",
+        "warn": "警告",
+        "high": "高危",
+        "unknown": "未知等级"
+      },
+      "finding": {
+        "dnsResolverFailed": "DNS 解析器没有响应",
+        "dnsAnswersDisagree": "不同 DNS 解析器返回的结果不一致",
+        "dnsResolversAgree": "不同 DNS 解析器返回的结果一致",
+        "hostsClean": "未发现可疑的 hosts 覆盖",
+        "hostsOverride": "hosts 文件包含可疑覆盖项",
+        "hostsReadFailed": "无法检查 hosts 文件",
+        "tlsClientSetupFailed": "HTTPS 验证无法启动",
+        "tlsProbeSucceeded": "HTTPS 连接成功，证书链通过客户端校验",
+        "tlsProbeFailed": "无法验证 HTTPS；单凭此失败不能判断存在流量拦截",
+        "routeTunnelDetected": "默认路由经过隧道",
+        "routeProxyEnabled": "系统代理已启用",
+        "arpCheckFailed": "无法检查 ARP 缓存",
+        "arpGatewayMissing": "网关暂未出现在 ARP 缓存中",
+        "arpGatewayIncomplete": "网关 ARP 记录不完整",
+        "arpSharedMac": "网关 MAC 也出现在其他 IP 上；共享设备中可能是正常情况",
+        "arpGatewayBound": "当前缓存中网关只对应一个 MAC 地址",
+        "arpNoGateway": "没有默认网关，已跳过 ARP 检查",
+        "unknown": "未知发现项，请查看技术详情。"
+      }
     },
     "whois": {
       "hint": "经 rdap.org 做 RDAP 查询（本构建不强制 WHOIS 文本协议）。输出可能截断。",
