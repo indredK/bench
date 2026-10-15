@@ -9,8 +9,8 @@ vi.mock("react-i18next", () => ({
     t: (key: string, options?: Record<string, unknown>) => {
       if (key === "networkProbe.nodes.meta") {
         const count = Number(options?.count ?? 0)
-        const answerNoun = count === 1 ? "answer" : "answers"
-        return `${options?.domain} · ${count} ${answerNoun} · ${options?.ms} ms`
+        const resultNoun = count === 1 ? "node result" : "node results"
+        return `${options?.domain} · ${count} ${resultNoun} · ${options?.ms} ms`
       }
       return key
     },
@@ -68,7 +68,7 @@ describe("MultiNodePanel agent endpoints", () => {
     expect(screen.getByPlaceholderText("networkProbe.nodes.domainPlaceholder")).toBeDisabled()
   })
 
-  it("uses singular metadata when exactly one node returns an answer", () => {
+  it("uses singular metadata when there is exactly one node result", () => {
     const props = createProps()
     props.result = {
       domain: "example.com",
@@ -87,7 +87,39 @@ describe("MultiNodePanel agent endpoints", () => {
     }
     render(<MultiNodePanel {...props} />)
 
-    expect(screen.getByText("example.com · 1 answer · 12 ms")).toBeInTheDocument()
+    expect(screen.getByText("example.com · 1 node result · 12 ms")).toBeInTheDocument()
+  })
+
+  it("counts node result rows instead of DNS records in the summary", () => {
+    const props = createProps()
+    props.result = {
+      domain: "example.com",
+      answers: [
+        {
+          nodeId: "local",
+          nodeLabel: "This Mac",
+          ok: true,
+          answers: ["192.0.2.1", "2001:db8::1"],
+        },
+        {
+          nodeId: "globalping",
+          nodeLabel: "Globalping",
+          ok: false,
+          answers: [],
+          failureKind: "request",
+        },
+      ],
+      elapsedMs: 25,
+      sessionId: "session-1",
+      cancelled: false,
+      commandHint: "",
+    }
+    render(<MultiNodePanel {...props} />)
+
+    expect(screen.getByText("example.com · 2 node results · 25 ms")).toBeInTheDocument()
+    expect(screen.getByText(/192\.0\.2\.1/)).toBeInTheDocument()
+    expect(screen.getByText("networkProbe.nodes.failures.request")).toBeInTheDocument()
+    expect(screen.queryByText(/3 answers/)).not.toBeInTheDocument()
   })
 
   it("accepts WSS and submits the self-hosted endpoint", () => {

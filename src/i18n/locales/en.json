@@ -2274,9 +2274,9 @@
       },
       "addAgent": "Add agent",
       "removeAgent": "Remove",
-      "meta": "{{domain}} · {{count}} answers · {{ms}} ms",
-      "meta_one": "{{domain}} · {{count}} answer · {{ms}} ms",
-      "meta_other": "{{domain}} · {{count}} answers · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} node results · {{ms}} ms",
+      "meta_one": "{{domain}} · {{count}} node result · {{ms}} ms",
+      "meta_other": "{{domain}} · {{count}} node results · {{ms}} ms"
     },
     "nat": {
       "hint": "STUN Binding against a public server to learn your mapped address / NAT exposure.",

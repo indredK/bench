@@ -2274,9 +2274,9 @@
       },
       "addAgent": "添加 agent",
       "removeAgent": "移除",
-      "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms",
-      "meta_one": "{{domain}} · {{count}} 条答案 · {{ms}} ms",
-      "meta_other": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} 个探点结果 · {{ms}} ms",
+      "meta_one": "{{domain}} · {{count}} 个探点结果 · {{ms}} ms",
+      "meta_other": "{{domain}} · {{count}} 个探点结果 · {{ms}} ms"
     },
     "nat": {
       "hint": "对公网 STUN 服务器做 Binding，查看映射地址 / NAT 暴露情况。",
