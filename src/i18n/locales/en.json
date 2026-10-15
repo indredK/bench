@@ -1575,6 +1575,7 @@
     "subtitle": "First-aid diagnostics and targeted probes (module 1.0 / MVP A+B).",
     "cancelling": "Cancelling…",
     "resultEmpty": "Run a probe to see its results here.",
+    "systemDetail": "System feedback details",
     "nav": {
       "l1": "Primary sections",
       "l2": "Tools",
@@ -1669,7 +1670,6 @@
         "error": "Connection failed",
         "unknown": "Unknown status"
       },
-      "systemDetail": "System details",
       "rtt": "RTT",
       "rttValue": "RTT: {{ms}} ms"
     },
@@ -1716,7 +1716,6 @@
       "icmp": "ICMP",
       "icmpOk": "ok · {{ms}} ms · {{ip}}",
       "icmpFail": "fail — {{error}}",
-      "systemDetail": "System details",
       "http": "HTTP",
       "httpOk": "{{status}} · TTFB {{ms}} ms",
       "httpStatusFail": "fail — HTTP {{status}}",
@@ -1933,7 +1932,6 @@
       "ok": "ok",
       "failed": "failed",
       "unknownAction": "Network repair action",
-      "systemDetail": "System response details",
       "confirm": {
         "cancel": "Cancel",
         "confirm": "Confirm",
@@ -2165,7 +2163,13 @@
       "run": "Browse LAN services",
       "running": "Browsing…",
       "empty": "No mDNS/SSDP responses in the listen window.",
-      "meta": "{{count}} services · {{ms}} ms"
+      "meta": "{{count}} services · {{ms}} ms",
+      "protocolError": "{{protocol}} discovery failed",
+      "protocol": {
+        "mdns": "mDNS",
+        "ssdp": "SSDP",
+        "unknown": "Other protocol"
+      }
     },
     "pcap": {
       "hint": "Short counter-only packet sample (RST / retransmit hints). Full pcap write stays opt-in.",
@@ -2173,7 +2177,18 @@
       "run": "Sample packet counters",
       "running": "Capturing…",
       "mode": "Mode",
-      "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
+      "stats": "Packets={{packets}} · RST={{rst}} · Retransmits≈{{retrans}} · Out of order≈{{ooo}}",
+      "modeValue": {
+        "tcpdumpCounters": "tcpdump counters (degraded)",
+        "unavailable": "Unavailable",
+        "unknown": "Unknown mode"
+      },
+      "resultStatus": {
+        "cancelled": "Capture was cancelled.",
+        "unavailable": "Packet capture is unavailable.",
+        "degraded": "Counter sample completed; packet contents were not saved.",
+        "unknown": "Capture status is unknown."
+      }
     },
     "nodes": {
       "hint": "Compare DNS answers from this Mac and Globalping locations. HTTPS/WSS agents currently report reachability only; remote probes are not available yet.",
@@ -2220,8 +2235,15 @@
       "hint": "Query pool.ntp.org for clock offset. Large skew can break TLS and auth.",
       "run": "Probe NTP",
       "running": "Probing…",
-      "offset": "Offset {{seconds}} s ({{severity}})",
-      "fail": "NTP probe failed"
+      "offset": "Offset {{seconds}} s",
+      "fail": "NTP probe failed",
+      "severity": {
+        "ok": "Normal",
+        "info": "Info",
+        "warn": "Warning",
+        "fail": "Failed",
+        "unknown": "Unknown status"
+      }
     },
     "report": {
       "hint": "Export the latest health scan and browse the session command log.",
@@ -2263,11 +2285,14 @@
       "cancelled": "cancelled",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "No hops yet. Run a trace to populate the table.",
+      "unavailableResult": "Traceroute is unavailable; no path hops could be collected.",
+      "noHopsResult": "No path hops were received in this run.",
       "mode": {
         "privileged": "privileged ICMP",
         "unprivileged": "unprivileged UDP",
         "unavailable": "unavailable",
-        "cancelled": "cancelled"
+        "cancelled": "cancelled",
+        "unknown": "Unknown mode"
       },
       "col": {
         "ttl": "TTL",

@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbeSystemDetails } from "@/features/network-probe/components/ProbeSystemDetails"
 import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import {
@@ -113,11 +114,8 @@ export function ProbeTargetPanel({
             </div>
           ) : null}
           {hasSystemDetails ? (
-            <details className="text-xs">
-              <summary className="text-muted-foreground cursor-pointer">
-                {t("networkProbe.probe.systemDetail")}
-              </summary>
-              <div className="mt-1 space-y-1">
+            <ProbeSystemDetails>
+              <div className="space-y-1">
                 {result.icmp?.error && !isKnownPingSampleError(result.icmp.error) ? (
                   <p>
                     <span className="text-muted-foreground">{t("networkProbe.probe.icmp")}: </span>
@@ -143,7 +141,7 @@ export function ProbeTargetPanel({
                   </p>
                 ) : null}
               </div>
-            </details>
+            </ProbeSystemDetails>
           ) : null}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>

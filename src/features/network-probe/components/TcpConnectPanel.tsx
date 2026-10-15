@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ProbeSystemDetails } from "@/features/network-probe/components/ProbeSystemDetails"
 import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
@@ -116,14 +117,11 @@ export function TcpConnectPanel({
             <div>{t("networkProbe.tcp.rttValue", { ms: result.rttMs.toFixed(1) })}</div>
           ) : null}
           {result.message ? (
-            <details className="text-xs">
-              <summary className="text-muted-foreground cursor-pointer">
-                {t("networkProbe.tcp.systemDetail")}
-              </summary>
-              <p className="text-muted-foreground mt-1 font-mono break-all" dir="ltr">
+            <ProbeSystemDetails>
+              <p className="font-mono break-all" dir="ltr">
                 {result.message}
               </p>
-            </details>
+            </ProbeSystemDetails>
           ) : null}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>

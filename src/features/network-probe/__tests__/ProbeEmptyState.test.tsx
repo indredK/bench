@@ -274,7 +274,7 @@ describe("network-probe result empty states", () => {
     const tlsStatus = screen.getByText(/networkProbe\.probe\.tlsFail/)
     expect(httpStatus).not.toHaveTextContent(rawHttpError)
     expect(tlsStatus).not.toHaveTextContent(rawTlsError)
-    const details = screen.getByText("networkProbe.probe.systemDetail").closest("details")
+    const details = screen.getByText("networkProbe.systemDetail").closest("details")
     expect(details).not.toHaveAttribute("open")
     expect(details).toHaveTextContent(rawError)
     expect(details).toHaveTextContent(rawHttpError)
@@ -299,7 +299,7 @@ describe("network-probe result empty states", () => {
 
     const httpStatus = screen.getByText(/networkProbe\.probe\.httpStatusFail — 503/)
     expect(httpStatus).not.toHaveTextContent("upstream returned 503")
-    const details = screen.getByText("networkProbe.probe.systemDetail").closest("details")
+    const details = screen.getByText("networkProbe.systemDetail").closest("details")
     expect(details).not.toHaveAttribute("open")
     expect(details).toHaveTextContent("upstream returned 503")
   })

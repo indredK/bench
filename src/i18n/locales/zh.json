@@ -1575,6 +1575,7 @@
     "subtitle": "急救诊断与主动探测（模块 1.0 / MVP A+B）。",
     "cancelling": "正在取消…",
     "resultEmpty": "运行探测后，结果会显示在这里。",
+    "systemDetail": "系统反馈详情",
     "nav": {
       "l1": "一级分区",
       "l2": "工具",
@@ -1669,7 +1670,6 @@
         "error": "连接失败",
         "unknown": "未知状态"
       },
-      "systemDetail": "系统诊断详情",
       "rtt": "RTT",
       "rttValue": "RTT: {{ms}} ms"
     },
@@ -1716,7 +1716,6 @@
       "icmp": "ICMP",
       "icmpOk": "成功 · {{ms}} ms · {{ip}}",
       "icmpFail": "失败 — {{error}}",
-      "systemDetail": "系统诊断详情",
       "http": "HTTP",
       "httpOk": "{{status}} · TTFB {{ms}} ms",
       "httpStatusFail": "失败 — HTTP {{status}}",
@@ -1933,7 +1932,6 @@
       "ok": "成功",
       "failed": "失败",
       "unknownAction": "网络修复操作",
-      "systemDetail": "系统反馈详情",
       "confirm": {
         "cancel": "取消",
         "confirm": "确认",
@@ -2165,7 +2163,13 @@
       "run": "浏览局域网服务",
       "running": "浏览中…",
       "empty": "监听窗口内无 mDNS/SSDP 响应。",
-      "meta": "{{count}} 个服务 · {{ms}} ms"
+      "meta": "{{count}} 个服务 · {{ms}} ms",
+      "protocolError": "{{protocol}} 发现失败",
+      "protocol": {
+        "mdns": "mDNS",
+        "ssdp": "SSDP",
+        "unknown": "其他协议"
+      }
     },
     "pcap": {
       "hint": "短时只计计数器的抓包采样（RST / 重传提示）。完整 pcap 落盘保持可选。",
@@ -2173,7 +2177,18 @@
       "run": "采样包计数",
       "running": "采集中…",
       "mode": "模式",
-      "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
+      "stats": "数据包={{packets}} · RST={{rst}} · 重传≈{{retrans}} · 乱序≈{{ooo}}",
+      "modeValue": {
+        "tcpdumpCounters": "tcpdump 计数（降级）",
+        "unavailable": "不可用",
+        "unknown": "未知模式"
+      },
+      "resultStatus": {
+        "cancelled": "采样已取消。",
+        "unavailable": "抓包采样不可用。",
+        "degraded": "已完成计数采样，未保存数据包内容。",
+        "unknown": "采样状态未知。"
+      }
     },
     "nodes": {
       "hint": "对比本机与 Globalping 多地的 DNS 答案。HTTPS/WSS agent 当前仅检查可达性，尚不能执行远程探测。",
@@ -2220,8 +2235,15 @@
       "hint": "查询 pool.ntp.org 时钟偏移。过大偏差可能影响 TLS 与鉴权。",
       "run": "探测 NTP",
       "running": "探测中…",
-      "offset": "偏移 {{seconds}} 秒（{{severity}}）",
-      "fail": "NTP 探测失败"
+      "offset": "偏移 {{seconds}} 秒",
+      "fail": "NTP 探测失败",
+      "severity": {
+        "ok": "正常",
+        "info": "信息",
+        "warn": "警告",
+        "fail": "失败",
+        "unknown": "未知状态"
+      }
     },
     "report": {
       "hint": "导出最近一次体检，并浏览本会话命令日志。",
@@ -2263,11 +2285,14 @@
       "cancelled": "已取消",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "尚无跳点。运行追踪以填充表格。",
+      "unavailableResult": "Traceroute 不可用，无法收集路径跳点。",
+      "noHopsResult": "本轮没有收到任何路径跳点。",
       "mode": {
         "privileged": "特权 ICMP",
         "unprivileged": "无特权 UDP",
         "unavailable": "不可用",
-        "cancelled": "已取消"
+        "cancelled": "已取消",
+        "unknown": "未知模式"
       },
       "col": {
         "ttl": "TTL",

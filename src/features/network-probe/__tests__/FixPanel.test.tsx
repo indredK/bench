@@ -62,7 +62,7 @@ describe("network-probe quick-fix service controls", () => {
 
     expect(screen.getByText("networkProbe.fix.flush")).toBeTruthy()
     expect(screen.getByText("networkProbe.fix.ok")).toBeTruthy()
-    const details = screen.getByText("networkProbe.fix.systemDetail").closest("details")
+    const details = screen.getByText("networkProbe.systemDetail").closest("details")
     expect(details?.open).toBe(false)
     expect(details?.querySelector("p")?.textContent).toBe(systemMessage)
     expect(screen.getByText("flushDns()")).toBeTruthy()
@@ -84,7 +84,7 @@ describe("network-probe quick-fix service controls", () => {
     expect(screen.getByText(/networkProbe\.fix\.unknownAction/)).toBeTruthy()
     expect(screen.getByText("networkProbe.fix.failed")).toBeTruthy()
     expect(screen.queryByText("futureAction:")).toBeNull()
-    expect(screen.getByText("networkProbe.fix.systemDetail").closest("details")?.open).toBe(false)
+    expect(screen.getByText("networkProbe.systemDetail").closest("details")?.open).toBe(false)
   })
 
   it("shows a retry action and an explicit empty state when no service is loaded", () => {

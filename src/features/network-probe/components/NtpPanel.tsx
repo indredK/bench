@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeSystemDetails } from "@/features/network-probe/components/ProbeSystemDetails"
 import type { NtpProbeResult } from "@/lib/tauri/types/network-probe"
 
 interface NtpPanelProps {
@@ -17,6 +18,20 @@ interface NtpPanelProps {
 
 export function NtpPanel({ loading, result, toolEnabled, toolStatus, onRun }: NtpPanelProps) {
   const { t } = useTranslation()
+  const severityKey = (() => {
+    switch (result?.severity) {
+      case "ok":
+        return "networkProbe.ntp.severity.ok"
+      case "info":
+        return "networkProbe.ntp.severity.info"
+      case "warn":
+        return "networkProbe.ntp.severity.warn"
+      case "fail":
+        return "networkProbe.ntp.severity.fail"
+      default:
+        return "networkProbe.ntp.severity.unknown"
+    }
+  })()
   return (
     <ProbePanelShell
       toolbar={
@@ -41,17 +56,19 @@ export function NtpPanel({ loading, result, toolEnabled, toolStatus, onRun }: Nt
       {result ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div className="font-mono text-xs">{result.server}</div>
-          {result.offsetSeconds != null ? (
+          {result.ok && result.offsetSeconds != null ? (
             <div>
-              {t("networkProbe.ntp.offset", {
-                seconds: result.offsetSeconds.toFixed(3),
-                severity: result.severity,
-              })}
+              {t("networkProbe.ntp.offset", { seconds: result.offsetSeconds.toFixed(3) })} (
+              {t(severityKey)})
             </div>
           ) : (
             <div>{t("networkProbe.ntp.fail")}</div>
           )}
-          {result.detail ? <p className="text-muted-foreground text-xs">{result.detail}</p> : null}
+          {result.detail ? (
+            <ProbeSystemDetails>
+              <p className="font-mono break-all">{result.detail}</p>
+            </ProbeSystemDetails>
+          ) : null}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}

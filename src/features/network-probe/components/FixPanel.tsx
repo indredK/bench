@@ -7,6 +7,7 @@ import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirm
 import { TripleDestructiveConfirm } from "@/components/common/TripleDestructiveConfirm"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeSystemDetails } from "@/features/network-probe/components/ProbeSystemDetails"
 import type { DnsPreset, FixResult } from "@/lib/tauri/types/network-probe"
 
 interface FixPanelProps {
@@ -234,14 +235,9 @@ export function FixPanel({
             </span>
           </div>
           {lastResult.message ? (
-            <details className="text-xs">
-              <summary className="text-muted-foreground cursor-pointer">
-                {t("networkProbe.fix.systemDetail")}
-              </summary>
-              <p className="text-muted-foreground mt-1 font-mono break-all" dir="auto">
-                {lastResult.message}
-              </p>
-            </details>
+            <ProbeSystemDetails>
+              <p className="font-mono break-all">{lastResult.message}</p>
+            </ProbeSystemDetails>
           ) : null}
           <div className="text-muted-foreground font-mono text-xs">{lastResult.commandHint}</div>
         </div>

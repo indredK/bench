@@ -58,9 +58,9 @@ describe("TcpConnectPanel terminal feedback", () => {
     const details = message.closest("details")
 
     expect(details).not.toHaveAttribute("open")
-    expect(screen.getByText("networkProbe.tcp.systemDetail")).toBeInTheDocument()
+    expect(screen.getByText("networkProbe.systemDetail")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText("networkProbe.tcp.systemDetail"))
+    fireEvent.click(screen.getByText("networkProbe.systemDetail"))
 
     expect(details).toHaveAttribute("open")
   })

@@ -354,6 +354,39 @@ MVP（P0-1 失败态与本地化一致性）
 
 ---
 
+## S-X-23 · 诊断结果状态本地化与系统反馈折叠
+
+### 背景
+
+Traceroute、NTP、局域网服务发现和包级诊断会返回稳定状态与操作系统/网络库自由文本，主结果需要能被普通用户理解，并保留可选排障信息。
+
+### 步骤
+
+1. 受控让 Traceroute 返回 `unavailable` 且没有跳点，确认显示不可用状态而不是“尚无跳点”的初始空态。
+2. 受控返回 NTP `warn` 和原始 DNS / 超时详情，确认等级本地化、底层诊断默认折叠。
+3. 让 mDNS 浏览返回绑定错误，确认协议错误主状态本地化、原始错误在详情中。
+4. 受控返回抓包 `unavailable`，确认模式与状态本地化，tcpdump 原文默认折叠。
+5. 展开各面板系统反馈详情，确认排障文本可读；输入未知状态时确认使用本地化兜底。
+
+### 期望
+
+- 未运行的 Traceroute 才显示初始空态；已运行但不可用、取消或无跳点时显示对应终态。
+- NTP 严重级别、Traceroute privilege mode、抓包 mode/status 和局域网协议错误按当前语言呈现。
+- Rust / OS / 网络库原始输出默认折叠，展开后可查看；固定只读说明只保留一份本地化提示。
+- 未知 enum 不直接泄漏 backend 字符串。
+
+### 映射
+
+- UI：`TraceroutePanel` / `NtpPanel` / `LanServicesPanel` / `PcapDiagPanel` / `ProbeSystemDetails`
+- IPC：`startTraceroute` / `probeNtp` / `browseLanServices` / `runPcapDiag`
+- 产品规格：§2 / §5 / §6 / §7
+
+### 档位
+
+MVP + Post-MVP-Adv（横切本地化与反馈一致性）
+
+---
+
 ## S-X-13 · 错误反馈归属触发它的工具面板
 
 ### 背景

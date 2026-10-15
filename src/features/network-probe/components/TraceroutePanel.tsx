@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
 import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeSystemDetails } from "@/features/network-probe/components/ProbeSystemDetails"
 import { parseBoundedIntegerInput } from "@/features/network-probe/integer-input"
 import type { TracerouteHop, TracerouteResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
@@ -49,9 +50,20 @@ export function TraceroutePanel({
 
   // 跑动中只渲染本轮 streaming 跳数: 旧 result 优先会遮蔽新一轮逐跳进度。
   const hops = loading ? streamingHops : result?.hops?.length ? result.hops : streamingHops
-  const modeKey = result?.privilegeMode
-    ? `networkProbe.traceroute.mode.${result.privilegeMode}`
-    : null
+  const modeKey = (() => {
+    switch (result?.privilegeMode) {
+      case "privileged":
+        return "networkProbe.traceroute.mode.privileged"
+      case "unprivileged":
+        return "networkProbe.traceroute.mode.unprivileged"
+      case "unavailable":
+        return "networkProbe.traceroute.mode.unavailable"
+      case "cancelled":
+        return "networkProbe.traceroute.mode.cancelled"
+      default:
+        return "networkProbe.traceroute.mode.unknown"
+    }
+  })()
 
   return (
     <ProbePanelShell
@@ -166,19 +178,36 @@ export function TraceroutePanel({
           <div>
             {t("networkProbe.traceroute.meta", {
               ip: result.resolvedIp,
-              mode: modeKey ? t(modeKey, { defaultValue: result.privilegeMode }) : "—",
+              mode: t(modeKey),
               ms: result.elapsedMs.toFixed(0),
             })}
             {result.cancelled ? (
               <span className="ml-2">{t("networkProbe.traceroute.cancelled")}</span>
             ) : null}
           </div>
-          {result.message ? <div>{result.message}</div> : null}
+          {result.message ? (
+            <ProbeSystemDetails>
+              <p className="font-mono break-all">{result.message}</p>
+            </ProbeSystemDetails>
+          ) : null}
         </div>
       ) : null}
 
-      {hops.length === 0 && !loading && !hasError ? (
+      {hops.length === 0 && !loading && !hasError && !result ? (
         <ProbeEmptyState>{t("networkProbe.traceroute.empty")}</ProbeEmptyState>
+      ) : null}
+      {hops.length === 0 && !loading && !hasError && result && !result.cancelled ? (
+        <p
+          className={cn(
+            "text-sm",
+            result.privilegeMode === "unavailable" ? "text-destructive" : "text-muted-foreground",
+          )}
+          role={result.privilegeMode === "unavailable" ? "alert" : "status"}
+        >
+          {result.privilegeMode === "unavailable"
+            ? t("networkProbe.traceroute.unavailableResult")
+            : t("networkProbe.traceroute.noHopsResult")}
+        </p>
       ) : null}
 
       {hops.length > 0 ? (

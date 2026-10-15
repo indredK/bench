@@ -16,49 +16,50 @@
 
 ## 场景一览
 
-| ID       | 标题                                | 主文件 | 档位     |
-| -------- | ----------------------------------- | ------ | -------- |
-| S-FA-01  | 家里突然上不了网（急救主路径）      | 01     | MVP      |
-| S-FA-02  | DNS 坏了但公网 IP 通                | 01     | MVP      |
-| S-FA-03  | 咖啡店 Captive Portal               | 01     | MVP      |
-| S-FA-04  | 站点延迟看板抽查 + 自定义站         | 01     | MVP      |
-| S-FA-05  | 导出健康报告                        | 01     | MVP      |
-| S-TT-01  | 开发者验证 `api.example.com:443`    | 02     | MVP      |
-| S-TT-02  | Traceroute / MTR 看路径             | 02     | MVP-B    |
-| S-TT-03  | 测试入口测 MTU / 公网出口（双入口） | 02     | MVP-B    |
-| S-TT-04  | 带宽测速（librespeed）              | 02     | Post-C   |
-| S-SEC-01 | 首次进入安全 Tab：授权声明          | 03     | Post-Adv |
-| S-SEC-02 | 怀疑 DNS/hosts/证书污染             | 03     | Post-Adv |
-| S-SEC-03 | 扫描自有 NAS 端口（含缺包安装）     | 03     | Post-Adv |
-| S-SEC-04 | 包级诊断看 RST/重传                 | 03     | Post-Adv |
-| S-SEC-05 | DNSSEC / DoH 与 WHOIS               | 03     | Post-Adv |
-| S-DIS-01 | 看看局域网有谁                      | 04     | Post-Adv |
-| S-DIS-02 | 浏览 mDNS / SSDP 服务               | 04     | Post-Adv |
-| S-DIS-03 | NAT 类型 + NTP 偏移                 | 04     | Post-Adv |
-| S-DIS-04 | 多地对比同一域名 DNS                | 04     | Post-C   |
-| S-DIS-05 | 添加自有 agent 节点                 | 04     | Post-C   |
-| S-X-01   | L1/L2 导航记忆与结果保留            | 05     | MVP      |
-| S-X-02   | 命令透明（hover + 日志）            | 05     | MVP      |
-| S-X-03   | 高危重置网络栈三次确认              | 05     | MVP      |
-| S-X-04   | 无特权 / 本地网络权限降级           | 05     | MVP      |
-| S-X-05   | 可选能力包安装与卸载（D-017）       | 05     | Post-Adv |
-| S-X-06   | 硬红线负向：不出现攻击能力          | 05     | 全程     |
-| S-X-07   | 与 port-manager / diagnostics 边界  | 05     | MVP      |
-| S-X-08   | 总览加载失败后手动恢复              | 05     | MVP      |
-| S-X-09   | 体检项双语标签                      | 05     | MVP      |
-| S-X-10   | 清空体检历史前确认                  | 05     | MVP      |
-| S-X-11   | 报告页清空命令日志前确认            | 05     | MVP      |
-| S-X-12   | 单次探测失败重跑不保留旧结果        | 05     | MVP      |
-| S-X-13   | 错误反馈归属触发它的工具面板        | 05     | MVP      |
-| S-X-14   | 主动探测面板初始空态                | 05     | MVP      |
-| S-X-15   | 测速失败与取消反馈双语一致          | 05     | Post-C   |
-| S-X-16   | TCP 终态本地化与系统详情按需显示    | 05     | MVP      |
-| S-X-17   | Ping 实时进度、取消与目标锁定       | 05     | MVP      |
-| S-X-18   | Quick Fix 服务加载重试与操作防重入  | 05     | MVP      |
-| S-X-19   | 自定义目标协议失败本地化与诊断折叠  | 05     | MVP      |
-| S-X-20   | Ping 单包系统错误本地化             | 05     | MVP      |
-| S-X-21   | Quick Fix 失败重跑清除旧操作结果    | 05     | MVP      |
-| S-X-22   | Quick Fix 结果本地化与系统详情折叠  | 05     | MVP      |
+| ID       | 标题                                | 主文件 | 档位       |
+| -------- | ----------------------------------- | ------ | ---------- |
+| S-FA-01  | 家里突然上不了网（急救主路径）      | 01     | MVP        |
+| S-FA-02  | DNS 坏了但公网 IP 通                | 01     | MVP        |
+| S-FA-03  | 咖啡店 Captive Portal               | 01     | MVP        |
+| S-FA-04  | 站点延迟看板抽查 + 自定义站         | 01     | MVP        |
+| S-FA-05  | 导出健康报告                        | 01     | MVP        |
+| S-TT-01  | 开发者验证 `api.example.com:443`    | 02     | MVP        |
+| S-TT-02  | Traceroute / MTR 看路径             | 02     | MVP-B      |
+| S-TT-03  | 测试入口测 MTU / 公网出口（双入口） | 02     | MVP-B      |
+| S-TT-04  | 带宽测速（librespeed）              | 02     | Post-C     |
+| S-SEC-01 | 首次进入安全 Tab：授权声明          | 03     | Post-Adv   |
+| S-SEC-02 | 怀疑 DNS/hosts/证书污染             | 03     | Post-Adv   |
+| S-SEC-03 | 扫描自有 NAS 端口（含缺包安装）     | 03     | Post-Adv   |
+| S-SEC-04 | 包级诊断看 RST/重传                 | 03     | Post-Adv   |
+| S-SEC-05 | DNSSEC / DoH 与 WHOIS               | 03     | Post-Adv   |
+| S-DIS-01 | 看看局域网有谁                      | 04     | Post-Adv   |
+| S-DIS-02 | 浏览 mDNS / SSDP 服务               | 04     | Post-Adv   |
+| S-DIS-03 | NAT 类型 + NTP 偏移                 | 04     | Post-Adv   |
+| S-DIS-04 | 多地对比同一域名 DNS                | 04     | Post-C     |
+| S-DIS-05 | 添加自有 agent 节点                 | 04     | Post-C     |
+| S-X-01   | L1/L2 导航记忆与结果保留            | 05     | MVP        |
+| S-X-02   | 命令透明（hover + 日志）            | 05     | MVP        |
+| S-X-03   | 高危重置网络栈三次确认              | 05     | MVP        |
+| S-X-04   | 无特权 / 本地网络权限降级           | 05     | MVP        |
+| S-X-05   | 可选能力包安装与卸载（D-017）       | 05     | Post-Adv   |
+| S-X-06   | 硬红线负向：不出现攻击能力          | 05     | 全程       |
+| S-X-07   | 与 port-manager / diagnostics 边界  | 05     | MVP        |
+| S-X-08   | 总览加载失败后手动恢复              | 05     | MVP        |
+| S-X-09   | 体检项双语标签                      | 05     | MVP        |
+| S-X-10   | 清空体检历史前确认                  | 05     | MVP        |
+| S-X-11   | 报告页清空命令日志前确认            | 05     | MVP        |
+| S-X-12   | 单次探测失败重跑不保留旧结果        | 05     | MVP        |
+| S-X-13   | 错误反馈归属触发它的工具面板        | 05     | MVP        |
+| S-X-14   | 主动探测面板初始空态                | 05     | MVP        |
+| S-X-15   | 测速失败与取消反馈双语一致          | 05     | Post-C     |
+| S-X-16   | TCP 终态本地化与系统详情按需显示    | 05     | MVP        |
+| S-X-17   | Ping 实时进度、取消与目标锁定       | 05     | MVP        |
+| S-X-18   | Quick Fix 服务加载重试与操作防重入  | 05     | MVP        |
+| S-X-19   | 自定义目标协议失败本地化与诊断折叠  | 05     | MVP        |
+| S-X-20   | Ping 单包系统错误本地化             | 05     | MVP        |
+| S-X-21   | Quick Fix 失败重跑清除旧操作结果    | 05     | MVP        |
+| S-X-22   | Quick Fix 结果本地化与系统详情折叠  | 05     | MVP        |
+| S-X-23   | 诊断结果状态本地化与系统反馈折叠    | 05     | MVP + Post |
 
 ## 功能覆盖矩阵（L2 → 场景）
 
