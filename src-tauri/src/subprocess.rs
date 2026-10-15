@@ -271,6 +271,36 @@ mod tests {
         assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "ready");
     }
 
+    #[test]
+    fn abort_terminates_and_reaps_a_running_process() {
+        #[cfg(unix)]
+        let mut command = {
+            let mut command = Command::new("sh");
+            command.args(["-c", "sleep 30"]);
+            command
+        };
+        #[cfg(windows)]
+        let mut command = {
+            let mut command = Command::new("cmd");
+            command.args(["/C", "ping -n 30 127.0.0.1 >NUL"]);
+            command
+        };
+
+        let abort = Arc::new(AtomicBool::new(false));
+        let abort_after_start = abort.clone();
+        let cancel = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            abort_after_start.store(true, Ordering::SeqCst);
+        });
+        let started_at = Instant::now();
+        let error = run_output_with_timeout(&mut command, Duration::from_secs(10), Some(abort))
+            .expect_err("aborting should stop the running process");
+        cancel.join().unwrap();
+
+        assert_eq!(error.kind, SubprocessErrorKind::Aborted);
+        assert!(started_at.elapsed() < Duration::from_secs(3));
+    }
+
     #[cfg(unix)]
     #[test]
     fn caps_captured_output_at_the_per_stream_limit() {

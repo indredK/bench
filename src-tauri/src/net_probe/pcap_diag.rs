@@ -14,7 +14,7 @@ pub async fn run_pcap_diag<R: Runtime>(
     duration_secs: u32,
 ) -> AppResult<PcapDiagResult> {
     let duration_secs = duration_secs.clamp(1, 15);
-    let session_id = super::session::new_session_id();
+    let (session_id, abort) = super::session::new_session_with_abort_token();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -28,13 +28,13 @@ pub async fn run_pcap_diag<R: Runtime>(
         "startPacketCapture(local, {{secs:{duration_secs}}}) // degraded: tcpdump counters; sessionId={session_id}"
     );
     let started = Instant::now();
-
-    let result = tauri::async_runtime::spawn_blocking(move || run_tcpdump_sample(duration_secs))
-        .await
-        .map_err(|e| AppError::task_failed(format!("pcap join: {e}")))?;
+    let result =
+        tauri::async_runtime::spawn_blocking(move || run_tcpdump_sample(duration_secs, abort))
+            .await;
 
     let cancelled = super::session::is_cancelled(&session_id);
     super::session::clear_session(&session_id);
+    let result = result.map_err(|e| AppError::task_failed(format!("pcap join: {e}")))?;
 
     match result {
         Ok(mut stats) => {
@@ -55,14 +55,21 @@ pub async fn run_pcap_diag<R: Runtime>(
             out_of_order_hint: 0,
             cancelled,
             session_id,
-            message: Some(e.to_string()),
+            message: Some(if cancelled {
+                "Capture cancelled.".into()
+            } else {
+                e.to_string()
+            }),
             elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
             command_hint,
         }),
     }
 }
 
-fn run_tcpdump_sample(duration_secs: u32) -> AppResult<PcapDiagResult> {
+fn run_tcpdump_sample(
+    duration_secs: u32,
+    abort: std::sync::Arc<std::sync::atomic::AtomicBool>,
+) -> AppResult<PcapDiagResult> {
     // tcpdump -c limits packets; -tttt for timestamps. No payload dump to disk by default.
     let count = (duration_secs * 40).clamp(40, 400);
     // `-c` 只封顶**包数**：网络空闲时永远凑不满，tcpdump 会一直挂着。必须另外给
@@ -77,8 +84,8 @@ fn run_tcpdump_sample(duration_secs: u32) -> AppResult<PcapDiagResult> {
         "tcp or udp or icmp",
     ]);
     let budget = std::time::Duration::from_secs(u64::from(duration_secs) + 10);
-    let output = crate::subprocess::run_output_with_timeout(&mut command, budget, None).map_err(
-        |error| match error.kind {
+    let output = crate::subprocess::run_output_with_timeout(&mut command, budget, Some(abort))
+        .map_err(|error| match error.kind {
             crate::subprocess::SubprocessErrorKind::Spawn => AppError::new(
                 "PCAP_NO_TCPDUMP",
                 format!("tcpdump unavailable or not permitted: {error:?}"),
@@ -87,9 +94,11 @@ fn run_tcpdump_sample(duration_secs: u32) -> AppResult<PcapDiagResult> {
                 "PCAP_TIMEOUT",
                 format!("tcpdump did not finish within {}s", duration_secs + 10),
             ),
+            crate::subprocess::SubprocessErrorKind::Aborted => {
+                AppError::new("PCAP_CANCELLED", "Capture cancelled.")
+            }
             other => AppError::new("PCAP_FAILED", format!("tcpdump failed: {other:?}")),
-        },
-    )?;
+        })?;
 
     let text = String::from_utf8_lossy(&output.stderr).to_string()
         + &String::from_utf8_lossy(&output.stdout);

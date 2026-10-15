@@ -254,4 +254,32 @@ describe("network-probe system result panels", () => {
     expect(screen.queryByText("unavailable")).not.toBeInTheDocument()
     expect(screen.getByText(systemMessage).closest("details")).not.toHaveAttribute("open")
   })
+
+  it("gives a cancelled packet sample the localized cancelled status", () => {
+    render(
+      <PcapDiagPanel
+        loading={false}
+        result={{
+          mode: "unavailable",
+          packets: 0,
+          tcpRst: 0,
+          retransHint: 0,
+          outOfOrderHint: 0,
+          cancelled: true,
+          sessionId: "pcap-cancelled",
+          message: "Capture cancelled.",
+          elapsedMs: 160,
+          commandHint: "startPacketCapture(local)",
+        }}
+        toolEnabled
+        canCancel={false}
+        cancelling={false}
+        onRun={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("networkProbe.pcap.resultStatus.cancelled")).toBeInTheDocument()
+    expect(screen.queryByText("networkProbe.pcap.resultStatus.unavailable")).not.toBeInTheDocument()
+  })
 })
