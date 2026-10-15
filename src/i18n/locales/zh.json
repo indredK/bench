@@ -2245,8 +2245,25 @@
       "labelPlaceholder": "名称",
       "domainPlaceholder": "example.com",
       "endpointPlaceholder": "https:// 或 wss://agent.example:8443",
+      "kind": {
+        "local": "本机",
+        "remoteProxy": "Globalping 节点",
+        "remoteAgent": "自有 agent",
+        "unknown": "未知节点类型"
+      },
+      "labels": {
+        "local": "本机",
+        "globalpingWorld": "Globalping · 全球",
+        "globalpingUs": "Globalping · 美国",
+        "globalpingEurope": "Globalping · 欧洲",
+        "globalpingAsia": "Globalping · 亚洲"
+      },
       "agentReachable": "可达",
       "agentUnreachable": "暂不可达",
+      "answerStatus": {
+        "success": "成功",
+        "failed": "失败"
+      },
       "endpointError": {
         "invalid": "请输入有效的 HTTPS 或 WSS 地址。",
         "scheme": "端点必须使用 HTTPS 或 WSS，明文连接不受支持。",

@@ -165,4 +165,64 @@ describe("MultiNodePanel agent endpoints", () => {
     expect(screen.getByText("networkProbe.nodes.agentReachable")).toBeInTheDocument()
     expect(screen.getByText("networkProbe.nodes.agentUnreachable")).toBeInTheDocument()
   })
+
+  it("localizes node kinds and keeps long endpoints within the node list", () => {
+    const endpoint = `wss://agent.example.test/${"long-segment/".repeat(30)}`
+    const props = createProps([
+      localNode,
+      {
+        id: "globalping-us",
+        kind: "remote-proxy",
+        label: "US",
+        endpoint: "globalping:US",
+        reachable: true,
+      },
+      {
+        id: "agent-1",
+        kind: "remote-agent",
+        label: "Lab",
+        endpoint,
+        reachable: true,
+      },
+      {
+        id: "unknown-1",
+        kind: "future-node-kind",
+        label: "Unknown",
+        reachable: false,
+      },
+    ])
+    render(<MultiNodePanel {...props} />)
+
+    expect(screen.getByText("networkProbe.nodes.labels.local")).toBeInTheDocument()
+    expect(screen.getByText(/networkProbe\.nodes\.kind\.remoteProxy/)).toBeInTheDocument()
+    expect(screen.getByText(/networkProbe\.nodes\.kind\.remoteAgent/)).toBeInTheDocument()
+    expect(screen.getByText(/networkProbe\.nodes\.kind\.unknown/)).toBeInTheDocument()
+    expect(screen.queryByText("remote-agent")).not.toBeInTheDocument()
+    expect(screen.queryByText("globalping:US")).not.toBeInTheDocument()
+    expect(screen.getByText(endpoint)).toHaveAttribute("title", endpoint)
+    expect(screen.getByText(endpoint)).toHaveClass("truncate")
+  })
+
+  it("localizes successful and failed multi-node result states", () => {
+    const props = createProps()
+    props.result = {
+      domain: "example.com",
+      answers: [
+        { nodeId: "local", nodeLabel: "This Mac", ok: true, answers: ["192.0.2.1"] },
+        { nodeId: "remote-1", nodeLabel: "London", ok: false, answers: [] },
+      ],
+      elapsedMs: 42,
+      sessionId: "session-1",
+      cancelled: false,
+      commandHint: "",
+    }
+    render(<MultiNodePanel {...props} />)
+
+    expect(screen.getByText("networkProbe.nodes.answerStatus.success")).toBeInTheDocument()
+    expect(screen.getByText("networkProbe.nodes.answerStatus.failed")).toBeInTheDocument()
+    expect(screen.getAllByText("networkProbe.nodes.labels.local")).toHaveLength(2)
+    expect(screen.queryByText("This Mac")).not.toBeInTheDocument()
+    expect(screen.queryByText("OK")).not.toBeInTheDocument()
+    expect(screen.queryByText("FAIL")).not.toBeInTheDocument()
+  })
 })

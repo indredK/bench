@@ -8,9 +8,48 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { cn } from "@/lib/utils"
 import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
 
 type AgentEndpointError = "invalid" | "scheme" | "credentials" | null
+
+function getProbeNodeKindLabel(kind: string, t: ReturnType<typeof useTranslation>["t"]) {
+  switch (kind) {
+    case "local":
+      return t("networkProbe.nodes.kind.local")
+    case "remote-proxy":
+      return t("networkProbe.nodes.kind.remoteProxy")
+    case "remote-agent":
+      return t("networkProbe.nodes.kind.remoteAgent")
+    default:
+      return t("networkProbe.nodes.kind.unknown")
+  }
+}
+
+function getProbeNodeLabel(node: ProbeNode, t: ReturnType<typeof useTranslation>["t"]) {
+  switch (node.id) {
+    case "local":
+      return t("networkProbe.nodes.labels.local")
+    case "gp-world":
+      return t("networkProbe.nodes.labels.globalpingWorld")
+    case "gp-us":
+      return t("networkProbe.nodes.labels.globalpingUs")
+    case "gp-eu":
+      return t("networkProbe.nodes.labels.globalpingEurope")
+    case "gp-asia":
+      return t("networkProbe.nodes.labels.globalpingAsia")
+    default:
+      return `${node.label} · ${getProbeNodeKindLabel(node.kind, t)}`
+  }
+}
+
+function getDnsAnswerNodeLabel(
+  nodeId: string,
+  nodeLabel: string,
+  t: ReturnType<typeof useTranslation>["t"],
+) {
+  return nodeId === "local" ? t("networkProbe.nodes.labels.local") : nodeLabel
+}
 
 function getAgentEndpointError(endpoint: string): AgentEndpointError {
   const value = endpoint.trim()
@@ -133,11 +172,17 @@ export function MultiNodePanel({
             <p className="text-sm font-medium">{t("networkProbe.nodes.listTitle")}</p>
             <ul className="space-y-1 font-mono text-xs">
               {nodes.map((n) => (
-                <li key={n.id} className="flex flex-wrap items-center gap-2">
-                  <span>
-                    {n.label} · {n.kind}
-                    {n.endpoint ? ` · ${n.endpoint}` : ""}
-                  </span>
+                <li key={n.id} className="flex min-w-0 flex-wrap items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate" title={getProbeNodeLabel(n, t)}>
+                      {getProbeNodeLabel(n, t)}
+                    </p>
+                    {n.kind === "remote-agent" && n.endpoint ? (
+                      <p className="text-muted-foreground truncate" title={n.endpoint}>
+                        {n.endpoint}
+                      </p>
+                    ) : null}
+                  </div>
                   {n.kind === "remote-agent" ? (
                     <span
                       role="status"
@@ -243,7 +288,17 @@ export function MultiNodePanel({
             {result.answers.map((a) => (
               <li key={a.nodeId} className="rounded-md border px-3 py-2">
                 <div className="font-medium">
-                  {a.nodeLabel} <span className="font-mono text-xs">{a.ok ? "OK" : "FAIL"}</span>
+                  {getDnsAnswerNodeLabel(a.nodeId, a.nodeLabel, t)}{" "}
+                  <span
+                    className={cn(
+                      "font-mono text-xs",
+                      a.ok ? "text-emerald-700 dark:text-emerald-400" : "text-destructive",
+                    )}
+                  >
+                    {a.ok
+                      ? t("networkProbe.nodes.answerStatus.success")
+                      : t("networkProbe.nodes.answerStatus.failed")}
+                  </span>
                 </div>
                 {a.answers.length > 0 ? (
                   <pre className="text-muted-foreground mt-1 overflow-auto font-mono text-xs">

@@ -2245,8 +2245,25 @@
       "labelPlaceholder": "Label",
       "domainPlaceholder": "example.com",
       "endpointPlaceholder": "https:// or wss://agent.example:8443",
+      "kind": {
+        "local": "This device",
+        "remoteProxy": "Globalping node",
+        "remoteAgent": "Self-hosted agent",
+        "unknown": "Unknown node type"
+      },
+      "labels": {
+        "local": "This device",
+        "globalpingWorld": "Globalping · World",
+        "globalpingUs": "Globalping · United States",
+        "globalpingEurope": "Globalping · Europe",
+        "globalpingAsia": "Globalping · Asia"
+      },
       "agentReachable": "Reachable",
       "agentUnreachable": "Unavailable",
+      "answerStatus": {
+        "success": "Success",
+        "failed": "Failed"
+      },
       "endpointError": {
         "invalid": "Enter a valid HTTPS or WSS URL.",
         "scheme": "Use HTTPS or WSS; plaintext connections are not supported.",
