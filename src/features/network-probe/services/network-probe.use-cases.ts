@@ -56,6 +56,13 @@ function upsertProbeNode(nodes: ProbeNode[], updatedNode: ProbeNode): ProbeNode[
   return nextNodes
 }
 
+function pingErrorKey(error: unknown): string {
+  const code = getErrorCode(error)
+  if (code === "ICMP_UNAVAILABLE") return "networkProbe.errors.icmpUnavailable"
+  if (code === "DNS_RESOLUTION_FAILED") return "networkProbe.errors.pingDnsResolutionFailed"
+  return "networkProbe.errors.pingFailed"
+}
+
 export const networkProbeUseCases = {
   async bootstrap() {
     const store = useNetworkProbeStore.getState()
@@ -158,10 +165,7 @@ export const networkProbeUseCases = {
       }
     } catch (error) {
       store.setError({
-        key:
-          getErrorCode(error) === "ICMP_UNAVAILABLE"
-            ? "networkProbe.errors.icmpUnavailable"
-            : "networkProbe.errors.pingFailed",
+        key: pingErrorKey(error),
         fallback: getErrorMessage(error),
       })
     } finally {

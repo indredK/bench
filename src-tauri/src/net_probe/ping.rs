@@ -261,12 +261,16 @@ pub(crate) async fn resolve_target_ip(target: &str) -> AppResult<IpAddr> {
     })
     .await
     .map_err(|e| AppError::task_failed(format!("resolve: {e}")))?
-    .map_err(|e| AppError::invalid_input(format!("DNS resolve failed: {e}")))?;
+    .map_err(|e| dns_resolution_error(format!("DNS resolve failed: {e}")))?;
 
     addrs
         .into_iter()
         .next()
-        .ok_or_else(|| AppError::invalid_input("No addresses resolved for target"))
+        .ok_or_else(|| dns_resolution_error("No addresses resolved for target"))
+}
+
+fn dns_resolution_error(message: impl Into<String>) -> AppError {
+    AppError::new("DNS_RESOLUTION_FAILED", message)
 }
 
 #[cfg(test)]
@@ -294,6 +298,13 @@ mod tests {
             serde_json::to_string(&PingSampleError::Timeout).unwrap(),
             "\"timeout\""
         );
+    }
+
+    #[test]
+    fn dns_resolution_errors_have_a_stable_code() {
+        let error = super::dns_resolution_error("DNS resolve failed: name not found");
+        assert_eq!(error.code, "DNS_RESOLUTION_FAILED");
+        assert_eq!(error.message, "DNS resolve failed: name not found");
     }
 
     #[tokio::test]

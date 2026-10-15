@@ -113,6 +113,21 @@ describe("network-probe ping run state", () => {
     expect(state.error?.fallback).toBe("Failed to open ICMP socket")
   })
 
+  it("explains hostname resolution failures separately from ICMP failures", async () => {
+    pingHost.mockRejectedValue({
+      code: "DNS_RESOLUTION_FAILED",
+      message: "DNS resolve failed: name not found",
+    })
+
+    await networkProbeUseCases.runPing("not-a-host.invalid", 1)
+
+    const state = useNetworkProbeStore.getState()
+    expect(state.pingResult).toBeNull()
+    expect(state.error?.key).toBe("networkProbe.errors.pingDnsResolutionFailed")
+    expect(state.error?.fallback).toBe("DNS resolve failed: name not found")
+    expect(state.loadingPing).toBe(false)
+  })
+
   it("only stores samples from the active ping session", async () => {
     const activeSample = { seq: 0, ok: true, rttMs: 1.2 }
     pingHost.mockImplementation(async () => {

@@ -22,6 +22,7 @@ const ERROR_ROUTES: Record<string, readonly ErrorRoute[]> = {
   "networkProbe.errors.overviewFailed": [route("basic", "overview")],
   "networkProbe.errors.tcpFailed": [route("test", "tcp")],
   "networkProbe.errors.pingFailed": [route("test", "ping")],
+  "networkProbe.errors.pingDnsResolutionFailed": [route("test", "ping")],
   "networkProbe.errors.icmpUnavailable": [route("test", "ping")],
   "networkProbe.errors.dnsFailed": [route("test", "dns")],
   "networkProbe.errors.probeFailed": [route("test", "custom")],

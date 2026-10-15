@@ -19,6 +19,7 @@
 
 1. L1「测试」→「DNS」：查 A/AAAA（可选对比 1.1.1.1）
 2. 「Ping」：对解析出的 IP 与域名各跑若干包，看 RTT/丢包
+   - 将目标改为 `not-a-host.invalid`，确认显示专用的域名解析提示，而不是 ICMP 权限或报文失败提示
 3. 「TCP 连通」：`api.example.com:443`，确认 ok/timeout/refused
 4. 「自定义目标」：输入 `https://api.example.com/health`，看状态码/TTFB/证书过期摘要
 5. 切到「基础视角」再切回「测试」，确认上次结果仍在（导航记忆）
@@ -27,6 +28,7 @@
 
 - 各工具结果分槽互不覆盖
 - TCP 四态清晰；timeout 遵守硬顶
+- Ping 域名解析错误可操作、按当前语言显示，且与 ICMP socket / 报文错误区分
 - HTTPS 轻量 TLS 摘要可见；完整 MITM 链分析不在本场景强求（属安全 Tab）
 - HTTP 探测按操作系统代理配置发起；代理开启时，结果衡量应用实际请求路径而非强制直连。
 - hover 显示真实 IPC 名与参数
