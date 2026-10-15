@@ -607,6 +607,23 @@ export const networkProbeUseCases = {
     }
   },
 
+  async openLocalNetworkPrivacySettings() {
+    const store = useNetworkProbeStore.getState()
+    if (store.openingPrivacySettings) return
+    store.setOpeningPrivacySettings(true)
+    store.setError(null)
+    try {
+      await networkProbeRepository.openPrivacySecuritySettings()
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.openSettingsFailed",
+        fallback: getErrorMessage(error),
+      })
+    } finally {
+      useNetworkProbeStore.getState().setOpeningPrivacySettings(false)
+    }
+  },
+
   async refreshCapabilityPacks() {
     const store = useNetworkProbeStore.getState()
     try {

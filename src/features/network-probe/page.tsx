@@ -328,14 +328,20 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   role="alert"
                 >
                   <span>{errorText}</span>
-                  {c.error?.key === "networkProbe.errors.icmpUnavailable" ? (
+                  {c.error?.key === "networkProbe.errors.icmpUnavailable" &&
+                  c.capabilities?.platform === "macos" ? (
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={c.openSystemNetworkSettings}
+                      disabled={c.openingPrivacySettings}
+                      onClick={c.openLocalNetworkPrivacySettings}
                     >
-                      {t("networkProbe.overview.openSettings")}
+                      {t(
+                        c.openingPrivacySettings
+                          ? "networkProbe.ping.openingPrivacySettings"
+                          : "networkProbe.ping.openPrivacySettings",
+                      )}
                     </Button>
                   ) : null}
                 </div>
@@ -528,8 +534,14 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     toolStatus={c.toolStatus.ping}
                     canCancel={Boolean(activeSessionIdByKind.ping) && c.loadingPing}
                     cancelling={c.cancellingByKind.ping}
+                    openingPrivacySettings={c.openingPrivacySettings}
                     onRun={c.runPing}
                     onCancel={() => c.cancelScan("ping")}
+                    onOpenPrivacySettings={
+                      c.capabilities?.platform === "macos"
+                        ? c.openLocalNetworkPrivacySettings
+                        : undefined
+                    }
                   />
                 ) : null}
 

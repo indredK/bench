@@ -2,6 +2,7 @@
  * Repository / 仓储: adapt IPC boundary; 只做 IPC 适配.
  */
 import * as commands from "@/lib/tauri/commands/network-probe"
+import { openPrivacySecuritySettings } from "@/lib/tauri/commands/system-settings"
 
 export const networkProbeRepository = {
   getCapabilities: commands.getNetworkProbeCapabilities,
@@ -36,6 +37,7 @@ export const networkProbeRepository = {
   checkHostsOverrides: commands.checkHostsOverrides,
   getFirewallStatus: commands.getFirewallStatus,
   openSystemNetworkSettings: commands.openSystemNetworkSettings,
+  openPrivacySecuritySettings,
   listSpeedSources: commands.listSpeedSources,
   runSpeedTest: commands.runSpeedTest,
   runPollutionCheck: commands.runPollutionCheck,

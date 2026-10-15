@@ -1688,6 +1688,9 @@
       "rttSummary": "RTT min/avg/max/jitter: {{min}} / {{avg}} / {{max}} / {{jitter}} ms",
       "sampleOk": "#{{seq}} {{ms}} ms",
       "sampleFail": "#{{seq}} fail — {{error}}",
+      "privacySettingsHint": "In System Settings, open Privacy & Security > Local Network and allow Bench.",
+      "openPrivacySettings": "Open privacy settings",
+      "openingPrivacySettings": "Opening settings…",
       "sampleError": {
         "timeout": "Request timed out",
         "permissionDenied": "Permission denied",

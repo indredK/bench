@@ -100,13 +100,15 @@ MVP
 1. `getNetworkProbeCapabilities()` 记录 privilege 与各 tool 状态
 2. Ping 局域网主机、Traceroute、（若有）SYN/ARP
 3. 观察 UI 灰显与文案；引导系统设置隐私项
+4. Ping 样本为 `permission_denied` 时打开权限入口，确认进入“隐私与安全性”；普通超时不提供该入口
 
 ### 期望
 
 - 矩阵驱动，禁止硬编码全绿
 - traceroute 无特权不假装成功
 - Ping 失败时提示本地网络权限可能性（不误报为「网络已断」唯一结论）
-- ICMP socket 初始化失败时显示本地化权限说明，并提供打开系统网络设置的入口
+- ICMP socket 初始化失败时显示本地化权限说明，并提供打开“系统设置 → 隐私与安全性”的入口；Ping 单包为 `permission_denied` 时显示相同入口，普通超时不显示权限操作
+- macOS Local Network 使用说明随应用 Info.plist 提供中英文版本；用户自行进入“本地网络”检查 Bench 授权
 - HTTP/TCP/DNS 等免特权路径仍可用
 
 ### 档位

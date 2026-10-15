@@ -128,6 +128,7 @@ export function useNetworkProbeController() {
   const loadingNodes = useNetworkProbeStore((s) => s.loadingNodes)
   const loadingNetworkServices = useNetworkProbeStore((s) => s.loadingNetworkServices)
   const openingSystemNetworkSettings = useNetworkProbeStore((s) => s.openingSystemNetworkSettings)
+  const openingPrivacySettings = useNetworkProbeStore((s) => s.openingPrivacySettings)
   const error = useNetworkProbeStore((s) => s.error)
   const setL1 = useNetworkProbeStore((s) => s.setL1)
   const setL2 = useNetworkProbeStore((s) => s.setL2)
@@ -220,6 +221,10 @@ export function useNetworkProbeController() {
   const refreshPublicIp = useCallback(() => networkProbeUseCases.refreshPublicIp(), [])
   const openSystemNetworkSettings = useCallback(
     () => networkProbeUseCases.openSystemNetworkSettings(),
+    [],
+  )
+  const openLocalNetworkPrivacySettings = useCallback(
+    () => networkProbeUseCases.openLocalNetworkPrivacySettings(),
     [],
   )
   const refreshCapabilityPacks = useCallback(
@@ -391,6 +396,7 @@ export function useNetworkProbeController() {
     loadingNodes,
     loadingNetworkServices,
     openingSystemNetworkSettings,
+    openingPrivacySettings,
     error,
     selectL1,
     selectL2,
@@ -416,6 +422,7 @@ export function useNetworkProbeController() {
     probePathMtu,
     refreshPublicIp,
     openSystemNetworkSettings,
+    openLocalNetworkPrivacySettings,
     refreshCapabilityPacks,
     installCapabilityPack,
     uninstallCapabilityPack,

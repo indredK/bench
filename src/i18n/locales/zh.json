@@ -1688,6 +1688,9 @@
       "rttSummary": "RTT 最小/平均/最大/抖动: {{min}} / {{avg}} / {{max}} / {{jitter}} ms",
       "sampleOk": "#{{seq}} {{ms}} ms",
       "sampleFail": "#{{seq}} 失败 — {{error}}",
+      "privacySettingsHint": "请在“系统设置 > 隐私与安全性 > 本地网络”中允许 Bench。",
+      "openPrivacySettings": "打开隐私设置",
+      "openingPrivacySettings": "正在打开设置…",
       "sampleError": {
         "timeout": "请求超时",
         "permissionDenied": "权限不足",

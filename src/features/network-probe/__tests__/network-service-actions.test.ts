@@ -1,14 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { listNetworkServices, openSystemNetworkSettings } = vi.hoisted(() => ({
-  listNetworkServices: vi.fn(),
-  openSystemNetworkSettings: vi.fn(),
-}))
+const { listNetworkServices, openSystemNetworkSettings, openPrivacySecuritySettings } = vi.hoisted(
+  () => ({
+    listNetworkServices: vi.fn(),
+    openSystemNetworkSettings: vi.fn(),
+    openPrivacySecuritySettings: vi.fn(),
+  }),
+)
 
 vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
   networkProbeRepository: {
     listNetworkServices,
     openSystemNetworkSettings,
+    openPrivacySecuritySettings,
   },
 }))
 
@@ -26,9 +30,11 @@ function deferred<T>() {
 beforeEach(() => {
   listNetworkServices.mockReset()
   openSystemNetworkSettings.mockReset()
+  openPrivacySecuritySettings.mockReset()
   useNetworkProbeStore.setState({
     loadingNetworkServices: false,
     openingSystemNetworkSettings: false,
+    openingPrivacySettings: false,
     networkServices: [],
     error: null,
   })
@@ -85,5 +91,29 @@ describe("network-probe quick-fix service actions", () => {
     await firstOpen
 
     expect(useNetworkProbeStore.getState().openingSystemNetworkSettings).toBe(false)
+  })
+
+  it("opens Privacy & Security for local-network permission guidance", async () => {
+    const opening = deferred<void>()
+    openPrivacySecuritySettings.mockReturnValue(opening.promise)
+    const firstOpen = networkProbeUseCases.openLocalNetworkPrivacySettings()
+    expect(useNetworkProbeStore.getState().openingPrivacySettings).toBe(true)
+    await networkProbeUseCases.openLocalNetworkPrivacySettings()
+    expect(openPrivacySecuritySettings).toHaveBeenCalledTimes(1)
+
+    opening.resolve()
+    await firstOpen
+    expect(useNetworkProbeStore.getState().openingPrivacySettings).toBe(false)
+  })
+
+  it("reports Privacy & Security launch failure and restores the action", async () => {
+    openPrivacySecuritySettings.mockRejectedValueOnce(new Error("settings unavailable"))
+
+    await networkProbeUseCases.openLocalNetworkPrivacySettings()
+
+    expect(useNetworkProbeStore.getState().openingPrivacySettings).toBe(false)
+    expect(useNetworkProbeStore.getState().error?.key).toBe(
+      "networkProbe.errors.openSettingsFailed",
+    )
   })
 })

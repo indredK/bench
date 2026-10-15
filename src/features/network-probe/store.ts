@@ -138,6 +138,7 @@ interface NetworkProbeState {
   networkServices: string[]
   loadingNetworkServices: boolean
   openingSystemNetworkSettings: boolean
+  openingPrivacySettings: boolean
   fixResult: FixResult | null
   captiveResult: CaptivePortalResult | null
   publicIpInfo: PublicIpInfo | null
@@ -222,6 +223,7 @@ interface NetworkProbeState {
   setNetworkServices: (services: string[]) => void
   setLoadingNetworkServices: (loading: boolean) => void
   setOpeningSystemNetworkSettings: (opening: boolean) => void
+  setOpeningPrivacySettings: (opening: boolean) => void
   setFixResult: (fixResult: FixResult | null) => void
   setCaptiveResult: (captiveResult: CaptivePortalResult | null) => void
   setPublicIpInfo: (publicIpInfo: PublicIpInfo | null) => void
@@ -398,6 +400,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   networkServices: [],
   loadingNetworkServices: false,
   openingSystemNetworkSettings: false,
+  openingPrivacySettings: false,
   fixResult: null,
   captiveResult: null,
   publicIpInfo: null,
@@ -550,6 +553,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLoadingNetworkServices: (loadingNetworkServices) => set({ loadingNetworkServices }),
   setOpeningSystemNetworkSettings: (openingSystemNetworkSettings) =>
     set({ openingSystemNetworkSettings }),
+  setOpeningPrivacySettings: (openingPrivacySettings) => set({ openingPrivacySettings }),
   setFixResult: (fixResult) => set({ fixResult }),
   setCaptiveResult: (captiveResult) => set({ captiveResult }),
   setPublicIpInfo: (publicIpInfo) => set({ publicIpInfo }),

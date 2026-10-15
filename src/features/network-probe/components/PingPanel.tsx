@@ -22,8 +22,10 @@ interface PingPanelProps {
   toolStatus?: string
   canCancel: boolean
   cancelling: boolean
+  openingPrivacySettings?: boolean
   onRun: (target: string, count: number) => void
   onCancel: () => void
+  onOpenPrivacySettings?: () => void
 }
 
 export function PingPanel({
@@ -35,8 +37,10 @@ export function PingPanel({
   toolStatus,
   canCancel,
   cancelling,
+  openingPrivacySettings = false,
   onRun,
   onCancel,
+  onOpenPrivacySettings,
 }: PingPanelProps) {
   const { t } = useTranslation()
   const [target, setTarget] = useState("1.1.1.1")
@@ -46,6 +50,9 @@ export function PingPanel({
   const showLocalNetworkHint =
     result != null && result.packetsSent > 0 && result.packetsReceived === 0
   const samples = result?.samples ?? streamingSamples
+  const hasPermissionDeniedSample = samples.some(
+    (sample) => !sample.ok && sample.error === "permission_denied",
+  )
 
   return (
     <ProbePanelShell
@@ -129,6 +136,26 @@ export function PingPanel({
         <p className="text-xs text-amber-700 dark:text-amber-400">
           {t("networkProbe.caps.localNetworkHint")}
         </p>
+      ) : null}
+      {hasPermissionDeniedSample && onOpenPrivacySettings ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            {t("networkProbe.ping.privacySettingsHint")}
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={openingPrivacySettings}
+            onClick={onOpenPrivacySettings}
+          >
+            {t(
+              openingPrivacySettings
+                ? "networkProbe.ping.openingPrivacySettings"
+                : "networkProbe.ping.openPrivacySettings",
+            )}
+          </Button>
+        </div>
       ) : null}
       {!loading && !result && !hasError && toolEnabled ? (
         <ProbeEmptyState>{t("networkProbe.resultEmpty")}</ProbeEmptyState>
