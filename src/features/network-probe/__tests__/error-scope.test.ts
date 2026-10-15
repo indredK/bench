@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { isNetworkProbeErrorVisible } from "@/features/network-probe/error-scope"
+import { useNetworkProbeStore } from "@/features/network-probe/store"
 
 describe("network-probe error panel scope", () => {
   it("keeps a Ping failure off the DNS panel", () => {
@@ -47,5 +48,29 @@ describe("network-probe error panel scope", () => {
     const error = { key: "networkProbe.errors.bootstrapFailed" }
 
     expect(isNetworkProbeErrorVisible(error, "test", "dns", "all")).toBe(true)
+  })
+
+  it("preserves a visible TCP failure when a late DNS failure arrives", () => {
+    const previous = useNetworkProbeStore.getState()
+    const nav = {
+      ...previous.nav,
+      l1Id: "test" as const,
+      l2ByL1: { ...previous.nav.l2ByL1, test: "tcp" },
+    }
+
+    useNetworkProbeStore.setState({ nav, error: null })
+
+    try {
+      const store = useNetworkProbeStore.getState()
+      store.setError({ key: "networkProbe.errors.tcpFailed", fallback: "Connection refused" })
+      store.setError({ key: "networkProbe.errors.dnsFailed", fallback: "DNS timeout" })
+
+      expect(useNetworkProbeStore.getState().error).toMatchObject({
+        key: "networkProbe.errors.tcpFailed",
+        fallback: "Connection refused",
+      })
+    } finally {
+      useNetworkProbeStore.setState({ nav: previous.nav, error: previous.error })
+    }
   })
 })
