@@ -99,7 +99,7 @@ available ──▶ downloading ──▶ installFailed（下载完成但安装�
 - **IPC 命令**：checkForAppUpdate / downloadAndInstallAppUpdate / cancelAppUpdateDownload / restartAfterUpdate / getCurrentAppVersion。
 - **事件**：`app-updater-download`（`AppUpdateDownloadEvent`）。
 - **依赖**：`tauri-plugin-updater`（UpdaterExt）。manifest 来自发布供应链生成的 `latest.json`；更新包用 minisign 私钥签名（.sig）。
-- **安全**：后端错误映射把原始 URL/query（可能含 token）替换为脱敏 public message（有测试保证）；取消/失败均保留缓存 update 供重试；progress 载荷做 `isFinite` 守卫避免 NaN 渲染。
+- **安全**：后端错误映射把原始 URL/query（可能含 token）替换为脱敏 public message（有测试保证）；取消/失败均保留缓存 update 供重试；progress 载荷做 `isFinite` 守卫避免 NaN 渲染；Tauri updater 与 Windows bundle 均拒绝安装低于当前版本的更新。
 - **持久化**：policy 存 localStorage；其余状态为内存态，重启后回到 `idle`。
 - **i18n**：zh/en 双语；每个错误 kind 有独立标题/描述文案。
 

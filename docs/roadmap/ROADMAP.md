@@ -170,6 +170,7 @@ pnpm run test:critical
 2. provider contract test 断言稳定 `appId`、source evidence、LaunchTarget、图标、去重、warning、revision 和 partial merge。
 3. 在 Windows 验证 EXE/AUMID 启动、图标、winget/MSI、timeout 进程树回收、取消和权限拒绝。
 4. 在 macOS 验证 `.app` 启动、Finder reveal、临时签名身份拒绝、ZIP/DMG 取消和 journal 恢复。
+   - ZIP 安装器解压只保留普通 rwx 权限位；setuid / setgid / sticky 等特殊位必须剥除。
 5. 用 0/1/50/500/2000 应用 fixture 验证虚拟 DOM 上限、搜索输入延迟、滚动、按需图标、刷新保留旧数据和取消。
 6. 将平台行为测试接入对应 CI runner。
 
@@ -255,7 +256,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 2. 为 workflow 增加不会创建/更新 GitHub Release 的 RC dry-run 入口；只有正式 tag 且 R10 获批才允许发布副作用。
 3. 使用真实 Tauri updater 私钥构建 macOS arm64/x64、Windows x64；聚合三目标 manifest 后生成并验证 `latest.json`。
 4. 验证 installer、updater bundle、`.sig`、`OS-SIGNING-NOTICE.txt`、`SHA256SUMS` 数量与内容；任一缺失 fail-closed。
-5. 保持 `BENCH_OS_SIGNING_MODE=unsigned`；不得要求不存在的 Apple/Windows 证书。
+5. 保持 `BENCH_OS_SIGNING_MODE=unsigned`；不得要求不存在的 Apple/Windows 证书。Tauri updater 禁止降级安装（`plugins.updater.allowDowngrades=false`）。
 
 **禁止**：把私钥/PFX 写入仓库或日志；复用 updater 私钥做 OS 签名；签名失败后发布；RC dry-run 修改 GitHub Release。
 

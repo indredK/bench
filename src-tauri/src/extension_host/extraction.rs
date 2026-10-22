@@ -113,7 +113,14 @@ pub fn extract_extension_zip(
         let entry = archive
             .by_index(index)
             .map_err(|e| AppError::forbidden_path(format!("zip entry {index}: {e}")))?;
-        let name = entry.name().to_string();
+        let name = entry
+            .name()
+            .map_err(|e| {
+                AppError::forbidden_path(format!(
+                    "plugin archive entry {index} has an invalid name: {e}"
+                ))
+            })?
+            .into_owned();
         // unix_mode 在 take() 消耗 entry 前捕获。
         #[cfg(unix)]
         let unix_mode = entry.unix_mode();
@@ -193,12 +200,11 @@ pub fn extract_extension_zip(
             }
         }
 
-        // 保留 unix 权限（可执行位等；symlink 已被上面拒绝，set_permissions
-        // 只会作用于常规文件/目录）。
+        // 只保留 rwx 权限；ZIP 的外部属性不可信，必须丢弃 setuid/setgid/sticky 位。
         #[cfg(unix)]
         if let Some(mode) = unix_mode {
             use std::os::unix::fs::PermissionsExt;
-            let _ = fs::set_permissions(&out_path, fs::Permissions::from_mode(mode));
+            let _ = fs::set_permissions(&out_path, fs::Permissions::from_mode(mode & 0o777));
         }
     }
     Ok(())
@@ -335,6 +341,34 @@ mod tests {
             .expect("valid archive extracts");
         assert!(target.join("manifest.json").is_file());
         assert!(target.join("assets/app.js").is_file());
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn strips_privileged_mode_bits_and_preserves_executable_permission() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = temp_root("unsafe-mode");
+        let zip_path = root.join("plugin.zip");
+        {
+            let file = fs::File::create(&zip_path).expect("create zip");
+            let mut writer = zip::ZipWriter::new(file);
+            add_entry(&mut writer, "bin/tool", b"#!/bin/sh\n", Some(0o6755));
+            writer.finish().expect("finish zip");
+        }
+        let target = root.join("target");
+
+        extract_extension_zip(&zip_path, &target, &ExtractLimits::default())
+            .expect("archive with regular executable extracts");
+
+        let mode = fs::metadata(target.join("bin/tool"))
+            .expect("extracted file metadata")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o7000, 0, "special permission bits are stripped");
+        assert_eq!(mode & 0o777, 0o755, "ordinary executable bits remain");
+
         fs::remove_dir_all(&root).ok();
     }
 

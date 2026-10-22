@@ -19,3 +19,4 @@
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
 - 2026-09-03：生成产品说明与规划功能文档（依据 `src/features/updater/`、`src/components/common/UpdateDialog.tsx`、`src-tauri/src/app_updater/`、`docs/modules/updater/` 与 ROADMAP R05）。
+- 2026-10-22：Updater 拒绝降级安装；ZIP 解压器升级并剥除 Unix 特殊权限位，macOS 本机烟雾验证与 CI 双平台构建通过；签名安装仍待私钥环境验证。
