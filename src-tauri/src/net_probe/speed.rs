@@ -52,6 +52,10 @@ fn join_url(base: &str, path: &str) -> String {
     format!("{base}/{path}")
 }
 
+fn has_bandwidth_sample(download_mbps: Option<f64>, upload_mbps: Option<f64>) -> bool {
+    download_mbps.is_some() || upload_mbps.is_some()
+}
+
 async fn cancellable<T>(
     cancellation: &mut tokio::sync::watch::Receiver<bool>,
     operation: impl Future<Output = T>,
@@ -209,7 +213,7 @@ pub async fn run_speed_test<R: Runtime>(
     }
 
     cancelled = cancelled || super::session::is_cancelled(&session_id);
-    let ok = ping_ms.is_some() || download_mbps.is_some() || upload_mbps.is_some();
+    let ok = has_bandwidth_sample(download_mbps, upload_mbps);
     Ok(SpeedTestResult {
         source_id: source.id,
         source_name: source.name,
@@ -223,10 +227,7 @@ pub async fn run_speed_test<R: Runtime>(
         message: if cancelled {
             Some("Speed test cancelled.".into())
         } else if !ok {
-            Some(
-                "Speed source unreachable or returned no usable samples. Wait before retrying (cooldown)."
-                    .into(),
-            )
+            Some("Speed source returned no usable bandwidth samples. Wait before retrying (cooldown).".into())
         } else {
             None
         },
@@ -237,6 +238,13 @@ pub async fn run_speed_test<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn speed_test_requires_a_bandwidth_sample_to_succeed() {
+        assert!(!has_bandwidth_sample(None, None));
+        assert!(has_bandwidth_sample(Some(0.0), None));
+        assert!(has_bandwidth_sample(None, Some(12.5)));
+    }
 
     #[tokio::test]
     async fn cancellation_interrupts_a_pending_phase() {

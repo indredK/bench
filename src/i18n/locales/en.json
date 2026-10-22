@@ -2025,7 +2025,13 @@
       "cancel": "Cancel",
       "cancelled": "cancelled",
       "cooldown": "Source failed — retry in {{seconds}}s",
-      "sourceUnavailable": "This speed source looks unreachable. Try another source after the cooldown.",
+      "sourceUnavailable": "This source returned no usable bandwidth results. Try another source after the cooldown.",
+      "partialResult": "Only part of the bandwidth result is available; the source may not support the missing direction.",
+      "sources": {
+        "libreSpeedOrg": "LibreSpeed.org",
+        "libreSpeedAmsterdam": "LibreSpeed (Amsterdam mirror)",
+        "selfHostedTemplate": "Self-hosted template (often offline)"
+      },
       "ping": "Ping",
       "jitter": "Jitter",
       "download": "Download",

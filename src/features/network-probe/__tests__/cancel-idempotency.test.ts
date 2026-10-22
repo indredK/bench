@@ -226,4 +226,25 @@ describe("network-probe cancel idempotency (A4-4)", () => {
     expect(runSpeedTest).toHaveBeenCalledTimes(2)
     expect(useNetworkProbeStore.getState().speedResult?.sessionId).toBe("speed-retry")
   })
+
+  it("cools down when ping works but neither bandwidth direction returns data", async () => {
+    runSpeedTest.mockResolvedValueOnce({
+      ...speedResult("speed-ping-only", false),
+      ok: false,
+      pingMs: 12,
+    })
+    const startedAt = Date.now()
+
+    await act(async () => {
+      await networkProbeUseCases.runSpeedTest("self-hosted")
+    })
+
+    expect(useNetworkProbeStore.getState().speedResult?.pingMs).toBe(12)
+    expect(useNetworkProbeStore.getState().speedCooldownUntil).toBeGreaterThanOrEqual(
+      Date.now() + 29_000,
+    )
+    expect(useNetworkProbeStore.getState().speedCooldownUntil).toBeLessThanOrEqual(
+      startedAt + 31_000,
+    )
+  })
 })

@@ -2025,7 +2025,13 @@
       "cancel": "取消",
       "cancelled": "已取消",
       "cooldown": "测速源失败 — {{seconds}} 秒后可重试",
-      "sourceUnavailable": "该测速源似乎不可达。冷却结束后可换源再试。",
+      "sourceUnavailable": "该测速源未返回有效的上下行带宽数据。冷却结束后可换源再试。",
+      "partialResult": "仅获得部分带宽结果，缺失方向可能是测速源未提供数据。",
+      "sources": {
+        "libreSpeedOrg": "LibreSpeed.org",
+        "libreSpeedAmsterdam": "LibreSpeed（阿姆斯特丹镜像）",
+        "selfHostedTemplate": "自托管模板（通常离线）"
+      },
       "ping": "延迟",
       "jitter": "抖动",
       "download": "下载",
