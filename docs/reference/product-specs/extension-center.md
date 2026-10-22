@@ -80,7 +80,7 @@
 - 后端：`src-tauri/src/extension_host/`（manifest / acl / assets / signature / commands / url / mod）。
 - 契约：`ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall`，三张表双写（`src/lib/tauri/contracts.ts`）。
 - 插件产物：`extensions/<id>/`（仓库）→ `scripts/plugins/sync-extensions.mjs` → `$APPDATA/extensions/<id>/`（运行时）。
-- 安全：deny-by-default 命令网关 + manifest fail-closed + 逐文件 hash 校验 + minisign 验签（[../extension-spec.md](../extension-spec.md)）。
+- 安全：deny-by-default 命令网关 + manifest fail-closed + 逐文件 hash 校验 + minisign 验签（[../extension-spec.md](../extension-spec.md)）；ZIP 解压拒绝 symlink、路径越界与资源超限，并剥除 Unix setuid / setgid / sticky 特殊权限位（保留普通 rwx 权限）。
 
 ## 7. 数据模型
 

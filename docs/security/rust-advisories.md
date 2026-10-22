@@ -22,6 +22,4 @@
 
 ## 附带记录 — unmaintained 提示（informational）
 
-`cargo audit` 另报 7 条 unmaintained 警告（paste / proc-macro-error / unic-*），
-均为构建期 proc-macro 或字符属性库，不进入发布二进制的运行时攻击面；随上游
-（tauri/tauri-build）迁移统一处理，不逐条立记录。
+2026-10-22 的 `cargo audit` 结果：0 条可利用 vulnerability；另有 6 条 unmaintained 提示（paste、proc-macro-error、unsafe-libyaml、zbus_names、zvariant、zvariant_derive）及本表记录的 glib unsound warning。它们均按现有平台范围接受；随上游迁移统一复查，不逐条立记录。启用 Linux 发布前仍须先完成 glib 迁移评估。

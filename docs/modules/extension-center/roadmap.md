@@ -159,7 +159,8 @@ pnpm run test:critical       # ✓ 145 passed
 - [x] 逐 entry 解析 **canonical** 路径，以目标目录 canonical 根为基座前缀校验，越界即**整包拒绝**（不是跳过；注意基座必须是 canonical 根本身——target 路径可能含符号链接）
 - [x] 显式拒绝绝对路径、`..`、反斜杠（覆盖 `C:\` 与 UNC）、内部空段、`.` 段；**盘符判断用跨平台字符串实现，禁用 `Component::Prefix`**（铁律 3）
 - [x] zip bomb 防护：entry ≤ 4096、单文件 ≤ 64MB、总量 ≤ 256MB；流式解压边写边累计并提前中断（不信任 zip header 声明值）
-- [x] 拒绝档案内的 symlink entry（`is_symlink`；测试用 zip 8 `add_symlink` 构造）
+- [x] 拒绝档案内的 symlink entry（`is_symlink`；测试用 zip 9 `add_symlink` 构造）
+- [x] 解压时屏蔽 Unix setuid / setgid / sticky 特殊权限位，同时保留普通读写执行位
 - [x] 解压前目标目录必须全新或为空
 - [x] 原子性：P4 管线先解压到预览目录 → 全量校验通过 → `promote_staged_bundle` 原子 rename；失败即清理，不留半成品
 - [x] 攻击向量单测全通过：`../evil.js`、`/abs/path.js`、`C:\Windows\evil.js`（两种斜杠形式）、`\\server\share\x.js`、symlink entry、超限体积（单文件/总体积）、超限条目数、非空目标目录（`extraction.rs` 12 项测试）

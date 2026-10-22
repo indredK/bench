@@ -121,11 +121,12 @@ pub fn extract_zip_with_cancel(
             extracted_bytes = extracted_bytes.saturating_add(written);
         }
 
-        // Preserve unix permissions so executables stay executable.
+        // Keep ordinary rwx bits but discard untrusted setuid/setgid/sticky bits.
         #[cfg(unix)]
         if let Some(mode) = entry.unix_mode() {
             use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&outpath, std::fs::Permissions::from_mode(mode));
+            let _ =
+                std::fs::set_permissions(&outpath, std::fs::Permissions::from_mode(mode & 0o777));
         }
     }
 
@@ -293,6 +294,44 @@ mod tests {
         assert!(app.ends_with("Demo.app"));
         assert!(app.join("Contents/Info.plist").exists());
         assert!(app.join("Contents/MacOS/Demo").exists());
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn extract_zip_strips_privileged_mode_bits_and_keeps_executable_bit() {
+        use std::{io::Write, os::unix::fs::PermissionsExt};
+        use zip::write::SimpleFileOptions;
+
+        let root = temp_subdir("bench-zip-mode-mask");
+        let zip_path = root.join("demo.zip");
+        {
+            let file = std::fs::File::create(&zip_path).unwrap();
+            let mut writer = zip::ZipWriter::new(file);
+            writer
+                .start_file("Demo.app/Contents/Info.plist", SimpleFileOptions::default())
+                .unwrap();
+            writer.write_all(b"<plist/>").unwrap();
+            writer
+                .start_file(
+                    "Demo.app/Contents/MacOS/Demo",
+                    SimpleFileOptions::default().unix_permissions(0o6755),
+                )
+                .unwrap();
+            writer.write_all(b"#!/bin/sh\n").unwrap();
+            writer.finish().unwrap();
+        }
+
+        let work = root.join("work");
+        std::fs::create_dir_all(&work).unwrap();
+        let app = extract_zip_with_cancel(&zip_path, &work, None).unwrap();
+        let mode = std::fs::metadata(app.join("Contents/MacOS/Demo"))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o7000, 0, "special permission bits are stripped");
+        assert_eq!(mode & 0o111, 0o111, "executable bits remain");
 
         let _ = std::fs::remove_dir_all(&root);
     }

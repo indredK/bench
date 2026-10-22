@@ -28,6 +28,8 @@
 - [§7/§9] 持久化与 updater - 持久化 schema 清单已建立（[persistence-schema.md](../reference/persistence-schema.md)），1.23.0 脱敏 fixture 与迁移幂等测试已入 `cargo test`；真机升级/回滚演练未执行 - 执行 [R06](../roadmap/ROADMAP.md#r06-1230-升级迁移与回滚) - **强制** - 状态：代码已修复/待验收
 - [§7/§9] `src-tauri/tauri.conf.json` - `com.bench.app` 后缀警告已接受；D-011 要求 2.0 保留，不得直接改字符串 - **建议** - 状态：接受风险
 
+- [§7/§9] updater 与 ZIP 解包 — [High] WebView 曾拥有 `updater:default` 直接调用权限，而 UI 实际只走 Bench 的类型化更新命令；[Tauri updater 2.12.0](https://github.com/tauri-apps/plugins-workspace/releases/tag/updater-v2.12.0) 将降级策略移入应用配置，renderer 无法再覆盖。升级到官方稳定版 [updater 2.14.0](https://github.com/tauri-apps/plugins-workspace/releases/tag/updater-v2.14.0)，移除未使用的 JS updater 依赖和 capability，并显式关闭 `plugins.updater.allowDowngrades`；保留 `bundle.windows.allowDowngrades=false`（NSIS/MSI 安装器策略）。Rust Tauri、JS API 与 CLI 同步到 2.12 线（JS CLI 固定 2.12.2，遵守 24 小时最小发布观察期）。Bench 的 `createUpdaterArtifacts: true` 使用签名的原生安装包（[Tauri updater artifact 文档](https://v2.tauri.app/plugin/updater/)），因此关闭 updater 的旧版 ZIP 兼容 feature；依赖树不再含受影响的 ZIP 4。Bench 自有扩展/应用 ZIP 解包器升级到 zip 9.0.5，仅授予普通 rwx 权限并加入 setuid/setgid 回归。`quinn-proto` 0.11.18、`rustls` 0.23.46、`rustls-webpki` 与 `webpki-root-certs` 升至修复版本。macOS 隔离 QA bundle 已真机启动；两个恶意权限位解包回归通过。真实签名更新安装未演练（本机没有 `TAURI_SIGNING_PRIVATE_KEY`）；Windows 真机回归依用户安排延期 - **强制** - 状态：macOS 修复已验/Windows 与真实更新安装待验收。
+
 未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
 
 ## 记录格式
