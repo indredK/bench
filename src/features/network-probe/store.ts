@@ -159,6 +159,7 @@ interface NetworkProbeState {
   pcapResult: PcapDiagResult | null
   multiNodeDnsResult: MultiNodeDnsResult | null
   probeNodes: ProbeNode[]
+  probeNodesLoadError: string | null
   probeNodesRevision: number
   agentMutation: AgentMutation | null
   reportHistory: HealthScanResult[]
@@ -246,6 +247,7 @@ interface NetworkProbeState {
   setPcapResult: (pcapResult: PcapDiagResult | null) => void
   setMultiNodeDnsResult: (multiNodeDnsResult: MultiNodeDnsResult | null) => void
   setProbeNodes: (probeNodes: ProbeNode[]) => void
+  setProbeNodesLoadError: (error: string | null) => void
   setAgentMutation: (agentMutation: AgentMutation | null) => void
   pushReportHistory: (scan: HealthScanResult) => void
   clearReportHistory: () => void
@@ -395,6 +397,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   pcapResult: null,
   multiNodeDnsResult: null,
   probeNodes: [],
+  probeNodesLoadError: null,
   probeNodesRevision: 0,
   agentMutation: null,
   reportHistory: loadReportHistory(),
@@ -551,6 +554,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setMultiNodeDnsResult: (multiNodeDnsResult) => set({ multiNodeDnsResult }),
   setProbeNodes: (probeNodes) =>
     set((state) => ({ probeNodes, probeNodesRevision: state.probeNodesRevision + 1 })),
+  setProbeNodesLoadError: (probeNodesLoadError) => set({ probeNodesLoadError }),
   setAgentMutation: (agentMutation) => set({ agentMutation }),
   pushReportHistory: (scan) =>
     set((state) => {

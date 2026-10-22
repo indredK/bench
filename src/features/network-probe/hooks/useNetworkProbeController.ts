@@ -66,6 +66,7 @@ export function useNetworkProbeController() {
   const pcapResult = useNetworkProbeStore((s) => s.pcapResult)
   const multiNodeDnsResult = useNetworkProbeStore((s) => s.multiNodeDnsResult)
   const probeNodes = useNetworkProbeStore((s) => s.probeNodes)
+  const probeNodesLoadError = useNetworkProbeStore((s) => s.probeNodesLoadError)
   const agentMutation = useNetworkProbeStore((s) => s.agentMutation)
   const reportHistory = useNetworkProbeStore((s) => s.reportHistory)
   const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
@@ -332,6 +333,7 @@ export function useNetworkProbeController() {
     pcapResult,
     multiNodeDnsResult,
     probeNodes,
+    probeNodesLoadError,
     agentMutation,
     reportHistory,
     securityAuthorized,

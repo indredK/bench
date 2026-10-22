@@ -2120,9 +2120,11 @@
       "run": "多节点对比 DNS",
       "running": "对比中…",
       "refresh": "刷新节点",
+      "retryRefresh": "重试加载节点",
       "refreshing": "刷新中…",
       "listTitle": "探测节点",
       "checking": "正在检查 Agent 状态…",
+      "loadFailed": "探测节点列表加载失败，请点击刷新重试。",
       "empty": "当前没有可用的探测节点。",
       "kindLocal": "本机",
       "kindRemoteProxy": "Globalping 节点",
@@ -2282,7 +2284,7 @@
       "post": "设计已保留，属 Post-MVP，不在模块 1.0 交付范围。"
     },
     "errors": {
-      "bootstrapFailed": "加载网络探测能力失败。",
+      "bootstrapFailed": "部分网络探测数据加载失败，请在对应面板重试。",
       "overviewFailed": "加载网络概览失败。",
       "tcpFailed": "TCP 连通探测失败。",
       "pingFailed": "Ping 探测失败。",

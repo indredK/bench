@@ -29,6 +29,8 @@ function logCommand(commandName: string) {
   useNetworkProbeStore.getState().appendCommandLog(`${commandName}()`)
 }
 
+let bootstrapInFlight: Promise<void> | null = null
+
 /**
  * 订阅 scan-session 事件, 把后端回传的会话只写进「本类探测专属」的槽位。
  * 分槽的原因: 体检 / 端口扫描等可以并发跑, 共用一个槽会让 Cancel 打错目标,
@@ -61,33 +63,73 @@ function createScanSessionTracker(kind: NetworkProbeKind) {
 
 export const networkProbeUseCases = {
   async bootstrap() {
+    if (bootstrapInFlight) return bootstrapInFlight
+
     const store = useNetworkProbeStore.getState()
     const probeNodesRevision = store.probeNodesRevision
-    store.setError(null)
-    store.setLoadingNodes(true)
+    const shouldLoadNodes = !store.loadingNodes
+    const task = (async () => {
+      store.setError(null)
+      if (shouldLoadNodes) {
+        store.setLoadingNodes(true)
+        store.setProbeNodesLoadError(null)
+      }
+      try {
+        logCommand("getNetworkProbeCapabilities")
+        logCommand("getNetworkProbeDefaults")
+        logCommand("listCapabilityPacks")
+        if (shouldLoadNodes) logCommand("listProbeNodes")
+        const [capabilities, defaults, packs, nodes] = await Promise.all([
+          settle(() => networkProbeRepository.getCapabilities()),
+          settle(() => networkProbeRepository.getDefaults()),
+          settle(() => networkProbeRepository.listCapabilityPacks()),
+          shouldLoadNodes
+            ? settle(() => networkProbeRepository.listProbeNodes())
+            : Promise.resolve(null),
+        ])
+        const failures: string[] = []
+        if (capabilities.ok) store.setCapabilities(capabilities.value)
+        else failures.push(`getNetworkProbeCapabilities: ${capabilities.error}`)
+        if (defaults.ok) store.setDefaults(defaults.value)
+        else failures.push(`getNetworkProbeDefaults: ${defaults.error}`)
+        if (packs.ok) store.setCapabilityPacks(packs.value)
+        else failures.push(`listCapabilityPacks: ${packs.error}`)
+
+        if (nodes) {
+          const latest = useNetworkProbeStore.getState()
+          if (latest.probeNodesRevision === probeNodesRevision) {
+            if (nodes.ok) {
+              latest.setProbeNodes(nodes.value)
+              latest.setProbeNodesLoadError(null)
+            } else {
+              latest.setProbeNodesLoadError(nodes.error)
+              failures.push(`listProbeNodes: ${nodes.error}`)
+            }
+          } else {
+            latest.setProbeNodesLoadError(null)
+          }
+        }
+
+        if (failures.length > 0) {
+          store.setError({
+            key: "networkProbe.errors.bootstrapFailed",
+            fallback: failures.join(" · "),
+          })
+        }
+      } catch (error) {
+        store.setError({
+          key: "networkProbe.errors.bootstrapFailed",
+          fallback: getErrorMessage(error),
+        })
+      } finally {
+        if (shouldLoadNodes) useNetworkProbeStore.getState().setLoadingNodes(false)
+      }
+    })()
+    bootstrapInFlight = task
     try {
-      logCommand("getNetworkProbeCapabilities")
-      logCommand("getNetworkProbeDefaults")
-      logCommand("listCapabilityPacks")
-      logCommand("listProbeNodes")
-      const [capabilities, defaults, packs, nodes] = await Promise.all([
-        networkProbeRepository.getCapabilities(),
-        networkProbeRepository.getDefaults(),
-        networkProbeRepository.listCapabilityPacks(),
-        networkProbeRepository.listProbeNodes(),
-      ])
-      store.setCapabilities(capabilities)
-      store.setDefaults(defaults)
-      store.setCapabilityPacks(packs)
-      const latest = useNetworkProbeStore.getState()
-      if (latest.probeNodesRevision === probeNodesRevision) latest.setProbeNodes(nodes)
-    } catch (error) {
-      store.setError({
-        key: "networkProbe.errors.bootstrapFailed",
-        fallback: getErrorMessage(error),
-      })
+      await task
     } finally {
-      useNetworkProbeStore.getState().setLoadingNodes(false)
+      if (bootstrapInFlight === task) bootstrapInFlight = null
     }
   },
 
@@ -1024,17 +1066,21 @@ export const networkProbeUseCases = {
     if (store.loadingNodes || store.agentMutation) return
     const probeNodesRevision = store.probeNodesRevision
     store.setLoadingNodes(true)
+    store.setProbeNodesLoadError(null)
     store.setError(null)
     try {
       logCommand("listProbeNodes")
       const nodes = await networkProbeRepository.listProbeNodes()
       const latest = useNetworkProbeStore.getState()
       if (latest.probeNodesRevision === probeNodesRevision) latest.setProbeNodes(nodes)
+      latest.setProbeNodesLoadError(null)
     } catch (error) {
-      store.setError({
-        key: "networkProbe.errors.nodesFailed",
-        fallback: getErrorMessage(error),
-      })
+      const latest = useNetworkProbeStore.getState()
+      if (latest.probeNodesRevision === probeNodesRevision) {
+        const message = getErrorMessage(error)
+        latest.setProbeNodesLoadError(message)
+        latest.setError({ key: "networkProbe.errors.nodesFailed", fallback: message })
+      }
     } finally {
       useNetworkProbeStore.getState().setLoadingNodes(false)
     }
@@ -1076,6 +1122,7 @@ export const networkProbeUseCases = {
         ...latest.probeNodes.filter((existing) => existing.id !== node.id),
         node,
       ])
+      latest.setProbeNodesLoadError(null)
       return node
     } catch (error) {
       store.setError({
@@ -1098,6 +1145,7 @@ export const networkProbeUseCases = {
       await networkProbeRepository.removeAgent(agentId)
       const latest = useNetworkProbeStore.getState()
       latest.setProbeNodes(latest.probeNodes.filter((node) => node.id !== agentId))
+      latest.setProbeNodesLoadError(null)
       return true
     } catch (error) {
       store.setError({

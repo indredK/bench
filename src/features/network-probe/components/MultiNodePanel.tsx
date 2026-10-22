@@ -14,6 +14,7 @@ import { toast } from "sonner"
 interface MultiNodePanelProps {
   loading: boolean
   loadingNodes: boolean
+  nodesLoadError: string | null
   result: MultiNodeDnsResult | null
   nodes: ProbeNode[]
   agentMutation: AgentMutation | null
@@ -28,6 +29,7 @@ interface MultiNodePanelProps {
 export function MultiNodePanel({
   loading,
   loadingNodes,
+  nodesLoadError,
   result,
   nodes,
   agentMutation,
@@ -96,7 +98,9 @@ export function MultiNodePanel({
               >
                 {loadingNodes
                   ? t("networkProbe.nodes.refreshing")
-                  : t("networkProbe.nodes.refresh")}
+                  : nodesLoadError
+                    ? t("networkProbe.nodes.retryRefresh")
+                    : t("networkProbe.nodes.refresh")}
               </Button>
             </CommandHint>
           </div>
@@ -109,7 +113,12 @@ export function MultiNodePanel({
                   {t("networkProbe.nodes.checking")}
                 </li>
               ) : null}
-              {!loadingNodes && nodes.length === 0 ? (
+              {!loadingNodes && nodesLoadError ? (
+                <li role="alert" className="text-destructive text-xs">
+                  {t("networkProbe.nodes.loadFailed")}
+                </li>
+              ) : null}
+              {!loadingNodes && !nodesLoadError && nodes.length === 0 ? (
                 <li role="status" className="text-muted-foreground">
                   {t("networkProbe.nodes.empty")}
                 </li>

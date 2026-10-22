@@ -45,6 +45,7 @@ function renderPanel(overrides: Partial<ComponentProps<typeof MultiNodePanel>> =
   const props: ComponentProps<typeof MultiNodePanel> = {
     loading: false,
     loadingNodes: false,
+    nodesLoadError: null,
     result: null,
     nodes: [],
     agentMutation: null,
@@ -74,6 +75,15 @@ describe("MultiNodePanel agent registry UX", () => {
     expect(screen.getByRole("status")).toHaveTextContent("networkProbe.nodes.checking")
     expect(screen.queryByText("networkProbe.nodes.empty")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "networkProbe.nodes.refreshing" })).toBeDisabled()
+  })
+
+  it("shows a retryable load error instead of claiming the registry is empty", () => {
+    const props = renderPanel({ nodesLoadError: "agent registry unreadable" })
+
+    expect(screen.getByRole("alert")).toHaveTextContent("networkProbe.nodes.loadFailed")
+    expect(screen.queryByText("networkProbe.nodes.empty")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.retryRefresh" }))
+    expect(props.onRefreshNodes).toHaveBeenCalledOnce()
   })
 
   it("localizes node kinds and shows current reachability", () => {

@@ -54,6 +54,7 @@ beforeEach(() => {
   listProbeNodes.mockResolvedValue([])
   useNetworkProbeStore.setState({
     probeNodes: [],
+    probeNodesLoadError: null,
     probeNodesRevision: 0,
     agentMutation: null,
     loadingNodes: false,
@@ -63,6 +64,32 @@ beforeEach(() => {
 })
 
 describe("network-probe Agent registry mutations", () => {
+  it("keeps successful local bootstrap data when the Agent registry cannot be read", async () => {
+    const capabilities = { privilegeLevel: "user", tools: { ping: "supported" } }
+    const defaults = { dnsPresets: ["1.1.1.1"] }
+    const packs = [{ id: "adv-scanner" }]
+    useNetworkProbeStore.setState({
+      capabilities: null,
+      defaults: null,
+      capabilityPacks: [],
+      probeNodes: [],
+    })
+    getCapabilities.mockResolvedValueOnce(capabilities)
+    getDefaults.mockResolvedValueOnce(defaults)
+    listCapabilityPacks.mockResolvedValueOnce(packs)
+    listProbeNodes.mockRejectedValueOnce(new Error("agent registry unreadable"))
+
+    await networkProbeUseCases.bootstrap()
+
+    const state = useNetworkProbeStore.getState()
+    expect(state.capabilities).toBe(capabilities)
+    expect(state.defaults).toBe(defaults)
+    expect(state.capabilityPacks).toBe(packs)
+    expect(state.error?.key).toBe("networkProbe.errors.bootstrapFailed")
+    expect(state.probeNodesLoadError).toBe("agent registry unreadable")
+    expect(state.loadingNodes).toBe(false)
+  })
+
   it("serializes add/remove against refresh and keeps returned health state", async () => {
     const pendingAdd = deferred<ProbeNode>()
     addAgent.mockReturnValueOnce(pendingAdd.promise)
@@ -102,5 +129,22 @@ describe("network-probe Agent registry mutations", () => {
 
     expect(listProbeNodes).not.toHaveBeenCalled()
     expect(useNetworkProbeStore.getState().probeNodes).toEqual([])
+  })
+
+  it("exposes node refresh failures without replacing the current registry as empty", async () => {
+    const existing = agent("existing-agent")
+    useNetworkProbeStore.setState({
+      probeNodes: [existing],
+      probeNodesLoadError: null,
+    })
+    listProbeNodes.mockRejectedValueOnce(new Error("registry locked"))
+
+    await networkProbeUseCases.refreshProbeNodes()
+
+    const state = useNetworkProbeStore.getState()
+    expect(state.probeNodes).toEqual([existing])
+    expect(state.probeNodesLoadError).toBe("registry locked")
+    expect(state.loadingNodes).toBe(false)
+    expect(state.error?.key).toBe("networkProbe.errors.nodesFailed")
   })
 })

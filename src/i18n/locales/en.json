@@ -2120,9 +2120,11 @@
       "run": "Compare DNS (multi-node)",
       "running": "Comparing…",
       "refresh": "Refresh nodes",
+      "retryRefresh": "Retry loading nodes",
       "refreshing": "Refreshing…",
       "listTitle": "Probe nodes",
       "checking": "Checking agent health…",
+      "loadFailed": "The probe node list could not be loaded. Use refresh to retry.",
       "empty": "No probe nodes are available.",
       "kindLocal": "This device",
       "kindRemoteProxy": "Globalping location",
@@ -2282,7 +2284,7 @@
       "post": "Designed and reserved for Post-MVP. Not part of module 1.0 delivery."
     },
     "errors": {
-      "bootstrapFailed": "Failed to load network probe capabilities.",
+      "bootstrapFailed": "Some Network Probe data could not be loaded. Retry the affected section.",
       "overviewFailed": "Failed to load network overview.",
       "tcpFailed": "TCP connect failed.",
       "pingFailed": "Ping failed.",
