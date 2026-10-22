@@ -11,6 +11,10 @@ const {
   getLocalNetworkSummary,
   getFirewallStatus,
   checkHostsOverrides,
+  tcpConnect,
+  listCapabilityPacks,
+  getCapabilities,
+  installCapabilityPack,
 } = vi.hoisted(() => ({
   detectCaptivePortal: vi.fn(),
   getPublicIpInfo: vi.fn(),
@@ -21,6 +25,10 @@ const {
   getLocalNetworkSummary: vi.fn(),
   getFirewallStatus: vi.fn(),
   checkHostsOverrides: vi.fn(),
+  tcpConnect: vi.fn(),
+  listCapabilityPacks: vi.fn(),
+  getCapabilities: vi.fn(),
+  installCapabilityPack: vi.fn(),
 }))
 
 vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
@@ -34,7 +42,15 @@ vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
     getLocalNetworkSummary,
     getFirewallStatus,
     checkHostsOverrides,
+    tcpConnect,
+    listCapabilityPacks,
+    getCapabilities,
+    installCapabilityPack,
   },
+}))
+
+vi.mock("@/platform/events", () => ({
+  listenToPlatformEvent: vi.fn(async () => () => undefined),
 }))
 
 import { networkProbeUseCases } from "@/features/network-probe/services/network-probe.use-cases"
@@ -51,6 +67,10 @@ beforeEach(() => {
     getLocalNetworkSummary,
     getFirewallStatus,
     checkHostsOverrides,
+    tcpConnect,
+    listCapabilityPacks,
+    getCapabilities,
+    installCapabilityPack,
   ]) {
     mock.mockReset()
   }
@@ -103,6 +123,12 @@ describe("network-probe MVP failure and re-entry handling", () => {
     expect(state.offlineErrors).toEqual({ egress: "provider unavailable" })
     expect(state.error?.key).toBe("networkProbe.errors.offlinePartialFailed")
     expect(state.loadingOffline).toBe(false)
+    const log = state.commandLog.join("\n")
+    expect(log).toContain("detectCaptivePortal()")
+    expect(log).toContain("getPublicIpInfo()")
+    expect(log).toContain("getProxyVpnStatus()")
+    expect(log).toContain("checkIpv6Stack()")
+    expect(log).toContain("probePathMtu()")
   })
 
   it("keeps previous offline results visible while a refresh is running", async () => {
@@ -141,6 +167,10 @@ describe("network-probe MVP failure and re-entry handling", () => {
     expect(state.overviewErrors).toEqual({ firewall: "firewall query unavailable" })
     expect(state.error?.key).toBe("networkProbe.errors.overviewPartialFailed")
     expect(state.loadingSummary).toBe(false)
+    const log = state.commandLog.join("\n")
+    expect(log).toContain("getLocalNetworkSummary()")
+    expect(log).toContain("getFirewallStatus()")
+    expect(log).toContain("checkHostsOverrides()")
   })
 
   it("does not start a second bulk run while the first is active", async () => {
@@ -183,6 +213,38 @@ describe("network-probe MVP failure and re-entry handling", () => {
     await firstLoad
     expect(useNetworkProbeStore.getState().networkServices).toEqual([])
     expect(useNetworkProbeStore.getState().networkServicesStatus).toBe("ready")
+    expect(
+      useNetworkProbeStore
+        .getState()
+        .commandLog.filter((line) => line.endsWith("listNetworkServices()")),
+    ).toHaveLength(1)
+  })
+
+  it("logs command names without copying user-entered targets into the history", async () => {
+    tcpConnect.mockResolvedValue({ status: "ok" })
+
+    await networkProbeUseCases.runTcpConnect("private-token-looking-target", 443)
+
+    const log = useNetworkProbeStore.getState().commandLog.join("\n")
+    expect(log).toContain("tcpConnect()")
+    expect(log).not.toContain("private-token-looking-target")
+  })
+
+  it("keeps capability pack identifiers out of command history", async () => {
+    installCapabilityPack.mockResolvedValue({
+      ok: true,
+      mode: "marker",
+      commandHint: "installCapabilityPack('private-pack-id')",
+    })
+    listCapabilityPacks.mockResolvedValue([])
+    getCapabilities.mockResolvedValue(null)
+
+    await networkProbeUseCases.installCapabilityPack("private-pack-id")
+
+    const log = useNetworkProbeStore.getState().commandLog.join("\n")
+    expect(log).toContain("installCapabilityPack()")
+    expect(log).toContain("installCapabilityPack done ok=true mode=marker")
+    expect(log).not.toContain("private-pack-id")
   })
 
   it("exposes a failed network service load for retry", async () => {
