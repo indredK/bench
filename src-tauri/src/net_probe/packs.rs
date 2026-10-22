@@ -115,6 +115,32 @@ fn nmap_status() -> String {
     }
 }
 
+fn port_scan_status(nmap_found: bool, adv_installed: bool) -> &'static str {
+    if nmap_found || adv_installed {
+        "supported"
+    } else {
+        "degraded"
+    }
+}
+
+fn pcap_status(pcap_installed: bool) -> &'static str {
+    if pcap_installed {
+        "supported"
+    } else {
+        "degraded"
+    }
+}
+
+fn fingerprint_status(nmap_found: bool, adv_installed: bool) -> &'static str {
+    if adv_installed {
+        "degraded"
+    } else if nmap_found {
+        "unsupported"
+    } else {
+        "missing_pack"
+    }
+}
+
 fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -355,34 +381,21 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
         .map(|a| is_pack_installed(a, "pcap-diag"))
         .unwrap_or(false);
     let nmap = nmap_status();
+    let nmap_found = nmap == "found";
 
     // TCP connect always available (degraded); SYN when nmap found.
     tools.insert(
         "portScan".into(),
-        if nmap == "found" || adv_installed {
-            s("supported")
-        } else {
-            s("degraded")
-        },
+        s(port_scan_status(nmap_found, adv_installed)),
     );
     // ARP: cache read always; privileged sweep needs pack.
     tools.insert("arp".into(), s("degraded"));
     // Pcap: tcpdump counters always attempted; pack unlocks richer mode later.
+    tools.insert("pcap".into(), s(pcap_status(pcap_installed)));
     tools.insert(
-        "pcap".into(),
-        if pcap_installed {
-            s("supported")
-        } else {
-            s("degraded")
-        },
+        "fingerprint".into(),
+        s(fingerprint_status(nmap_found, adv_installed)),
     );
-    if adv_installed {
-        tools.insert("fingerprint".into(), s("degraded"));
-    } else if nmap == "found" {
-        tools.insert("fingerprint".into(), s("unsupported"));
-    } else {
-        tools.insert("fingerprint".into(), s("missing_pack"));
-    }
 
     let mut packs = HashMap::new();
     if let Some(app) = app {
@@ -506,4 +519,29 @@ pub async fn install_capability_pack_verify_fail<R: Runtime>(
                 .into(),
         command_hint: format!("installCapabilityPack('{pack_id}') // hash-mismatch test"),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_privileged_tools_remain_degraded_or_pack_gated() {
+        assert_eq!(port_scan_status(false, false), "degraded");
+        assert_eq!(pcap_status(false), "degraded");
+        assert_eq!(fingerprint_status(false, false), "missing_pack");
+    }
+
+    #[test]
+    fn installed_scanner_does_not_claim_full_fingerprint_support() {
+        assert_eq!(port_scan_status(false, true), "supported");
+        assert_eq!(fingerprint_status(false, true), "degraded");
+    }
+
+    #[test]
+    fn external_nmap_enables_port_scan_but_does_not_fake_pack_features() {
+        assert_eq!(port_scan_status(true, false), "supported");
+        assert_eq!(fingerprint_status(true, false), "unsupported");
+        assert_eq!(pcap_status(false), "degraded");
+    }
 }

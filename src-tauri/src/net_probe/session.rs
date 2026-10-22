@@ -37,3 +37,28 @@ pub fn clear_session(session_id: &str) {
         guard.remove(session_id);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cancel_is_idempotent_and_session_cleanup_allows_reuse() {
+        let session_id = format!("test-{}", Uuid::new_v4());
+        assert!(!is_cancelled(&session_id));
+
+        cancel_scan(session_id.clone());
+        cancel_scan(session_id.clone());
+        assert!(is_cancelled(&session_id));
+
+        clear_session(&session_id);
+        assert!(!is_cancelled(&session_id));
+    }
+
+    #[test]
+    fn blank_session_ids_are_ignored() {
+        cancel_scan(" \t ".into());
+        assert!(!is_cancelled(""));
+        assert!(!is_cancelled(" \t "));
+    }
+}
