@@ -62,7 +62,11 @@ export function SpeedPanel({
 
   useEffect(() => {
     if (cooldownUntil == null || cooldownUntil <= Date.now()) return
-    const id = window.setInterval(() => setNow(Date.now()), 500)
+    const id = window.setInterval(() => {
+      const currentTime = Date.now()
+      setNow(currentTime)
+      if (currentTime >= cooldownUntil) window.clearInterval(id)
+    }, 500)
     return () => window.clearInterval(id)
   }, [cooldownUntil])
 

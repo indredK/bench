@@ -187,7 +187,7 @@ L1 → L2 映射：
 - pack 列表为单选项列表（点击选中高亮），选中后右侧描述区展示 pack 描述 + Gatekeeper 说明；安装/卸载按钮带 CommandHint 包裹（hover 显示真实命令）。
 - **focusPackId 自动聚焦**：从 pcap 面板「管理能力包」入口进入时自动选中 `pcap-diag`、从端口/ARP 面板进入时自动选中 `adv-scanner`（`focusPackId → setSelected`）；pack 列表为空时右侧显示 `packs.empty` 占位。
 - `busy` 为真时**全部按钮禁用**（刷新/安装/卸载/测试哈希失败），安装按钮文案切为「安装中…」；进度文本 `packId phase bytes/totalBytes` 实时刷新，安装完成/失败后清除。
-- **能力包刷新防重入由对话框承载**：`refreshCapabilityPacks` 用例**没有**自身 loading 标志（连续调用会并发重读），其防重入依赖 PackInstallDialog 的页面级 `busy` 状态（`onRefresh/onInstall/onUninstall/onVerifyFail` 均以 `busy` 包裹，执行中按钮全部禁用）。
+- **能力包刷新防重入与反馈**：`refreshCapabilityPacks` 在用例层 single-flight；页面显示 `packsRefreshing` 状态，刷新期间禁用刷新、安装、卸载与哈希校验入口，并显示“刷新中…”；刷新完成后恢复操作，失败时保留重试入口。
 - 已安装 pack 显示「卸载」（destructive 样式）；未安装显示「安装」；`markerOnly`（制品未发布）显示标记提示。
 - 「测试哈希失败」按钮（验证通道）仅用于开发验证：安装强制返回 hash 不匹配并写入命令日志，不实际安装。
 
@@ -279,7 +279,8 @@ L1 → L2 映射：
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
 - **单工具防重入**：每个 use-case 入口检查对应 loading；服务列表加载使用 `networkServicesStatus === "loading"` single-flight；批量离线诊断与 IPv6 / MTU / 公网出口单项检查互斥，同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
-- **single-flight 式刷新与 Agent 写入**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；节点刷新期间按钮禁用并显示进度，避免可点击但无操作；Agent 添加/移除共享 `agentMutation` single-flight，期间锁定两个写按钮与节点刷新；成功后直接更新当前节点列表，避免二次读取失败或并发旧响应覆盖。节点列表以 revision 丢弃过期 bootstrap/refresh 响应。**能力包刷新除外**——`refreshCapabilityPacks` 无 loading 标志，防重入由 PackInstallDialog 的 `busy` 提供（见 §8）。
+- **single-flight 式刷新与 Agent 写入**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；节点刷新期间按钮禁用并显示进度，避免可点击但无操作；Agent 添加/移除共享 `agentMutation` single-flight，期间锁定两个写按钮与节点刷新；成功后直接更新当前节点列表，避免二次读取失败或并发旧响应覆盖。节点列表以 revision 丢弃过期 bootstrap/refresh 响应。能力包刷新也由用例层 single-flight，并在页面显示刷新态、禁用冲突操作。
+- **测速冷却计时器生命周期**：冷却期间每 500ms 更新倒计时；达到 `cooldownUntil` 后清除 interval，卸载或冷却值变化时也清理，避免冷却结束后持续触发 React 重渲染。
 - **系统设置导航**：`openSystemNetworkSettings` 只打开操作系统网络设置，不改变网络配置；保持在探测/修复期间可用，不参与目标写入锁。
 - **Agent 注册与刷新安全**：HTTPS 健康检查请求 `<base>/v1/health` 并要求 2xx；WSS 输入完整健康检查地址，仅要求可信 TLS + WebSocket Upgrade 握手成功，连接后立即关闭且不发送消息。添加与刷新超时 5 秒、最多 8 个 Agent 并发，刷新保持注册顺序；不跟随 HTTP 重定向；不接受明文、URL 凭据、query 或 fragment；签名参数与 agent 凭据待 C2-3 的安全存储方案落地。
 
