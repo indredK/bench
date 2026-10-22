@@ -49,7 +49,7 @@ L1 → L2 映射：
 
 - **bootstrap 加载**：首次进入 `bootstrap()` 并行拉取 capabilities / defaults / packs / nodes；任一失败在顶部错误横幅展示 `networkProbe.errors.bootstrapFailed`（可重试，重进页面或刷新按钮触发），不阻断其余面板。
 - **错误横幅**：`error` 非空时面板上方红框展示，文案优先本地化 `networkProbe.errors.<tool>Failed`，兜底后端 `message`；每个操作开始前 `setError(null)`，结束（成功或失败）后由用例设置或清除，单条错误会随下一次操作被清掉。
-- **每工具 loading 独立 + 防重入**：`loading*`（每工具一个）为真时对应「运行」按钮禁用并显示运行中文案（如「Ping → 探测中…」）；use-case 入口统一 `if (store.loadingX) return` 短路，同一工具不可并发、不同工具可并行。无 loading 标志的动作（如刷新网络服务、打开系统设置）无禁用态。
+- **每工具 loading 独立 + 防重入**：`loading*`（每工具一个）为真时对应「运行」按钮禁用并显示运行中文案（如「Ping → 探测中…」）；use-case 入口统一 `if (store.loadingX) return` 短路，同一工具不可并发、不同工具可并行。网络服务枚举有独立 loading / single-flight；修复执行时锁定服务和 DNS 目标，并暂停服务刷新。打开系统设置不等待探测或修复。
 - **能力降级**：`toolEnabled=false`（status 为 `unsupported`/`missing_pack`）时按钮禁用并显示 toolDisabled 提示（`{{tool}} status={{status}} — 已按能力矩阵禁用`）；缺 pack 的工具给出「管理能力包」入口跳转 PackInstallDialog。
 - **命令日志侧栏**：每个探测命令追加一行时间戳日志（`appendCommandLog`），运行中/成功/失败/取消均有摘要；可折叠（sessionStorage 记忆）、清空需二次确认。
 - **键盘**：各面板均为表单 + 按钮触发（Enter 提交表单）；无全局快捷键（见 §9）。
@@ -95,7 +95,7 @@ L1 → L2 映射：
 **交互细节**：
 
 - 服务下拉自动优先 Wi-Fi → 有线 → 首个（正则匹配 `wi-?fi|wlan` → `ethernet|usb` → 首项），未加载完成前按钮 `disabled`；DNS 预设默认选中第一项。
-- **各修复按钮禁用条件细化**：刷新 DNS 仅需 `!loadingFix`；切换 DNS 需 `service` 非空**且** DNS 预设非空（`servers.length===0` 时禁用，如预设列表为空）；续租 DHCP / 重置网络栈需 `service` 非空；「打开系统设置」无 loading 标志、任何时刻可点。服务/DNS 预设用**原生 `<select>`**（非 shadcn Select），label 以 `htmlFor` 关联。
+- **各修复按钮禁用条件细化**：刷新 DNS 仅需 `!loadingFix`；切换 DNS 需服务枚举为 `ready`、`service` 非空**且** DNS 预设非空（`servers.length===0` 时禁用，如预设列表为空）；续租 DHCP / 重置网络栈需服务枚举为 `ready` 且 `service` 非空；修复执行期间锁定服务与 DNS 选择，服务刷新仅在无修复且未枚举时可点；「打开系统设置」无 loading 标志、任何时刻可点。服务/DNS 预设用**原生 `<select>`**（非 shadcn Select），label 以 `htmlFor` 关联。
 - 所有修复按钮共用 `loadingFix` 全局禁用（防重入）；刷新 DNS / 切换 DNS / 续租 DHCP / 重置网络栈任一执行中，其余全部按钮禁用。
 - 两步确认（切换 DNS / 续租 DHCP）：第 1 步「下一步」→ 延迟 320ms 弹第 2 步（确认服务与目标 DNS 服务器），任一步取消即中止；确认按钮在 `loadingFix` 时显示 loading。
 - 三步确认（重置网络栈）：step1 后果说明 → step2 核对参数 → step3 勾选风险确认框 + 手输 `RESET` 才能点「立即重置」；后端忽略前端任何「已确认」标志，每次调用重新校验服务白名单（幂等）。

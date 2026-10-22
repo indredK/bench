@@ -28,12 +28,16 @@ vi.mock("@/components/common/TripleDestructiveConfirm", () => ({
   TripleDestructiveConfirm: () => null,
 }))
 
-function renderFixPanel(servicesStatus: "idle" | "loading" | "ready" | "error") {
+function renderFixPanel(
+  servicesStatus: "idle" | "loading" | "ready" | "error",
+  loading = false,
+  services: string[] = [],
+) {
   const onLoadServices = vi.fn()
   render(
     <FixPanel
-      loading={false}
-      services={[]}
+      loading={loading}
+      services={services}
       servicesStatus={servicesStatus}
       dnsPresets={[]}
       lastResult={null}
@@ -74,5 +78,14 @@ describe("FixPanel network service state", () => {
 
     expect(screen.getByRole("button", { name: "networkProbe.fix.loadingServices" })).toBeDisabled()
     expect(screen.getByLabelText("networkProbe.fix.service")).toBeDisabled()
+  })
+
+  it("locks both targets and prevents service refresh during a repair", () => {
+    renderFixPanel("ready", true, ["Wi-Fi"])
+
+    expect(screen.getByLabelText("networkProbe.fix.service")).toBeDisabled()
+    expect(screen.getByLabelText("networkProbe.fix.dnsPreset")).toBeDisabled()
+    expect(screen.getByRole("button", { name: "networkProbe.fix.refreshServices" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "networkProbe.fix.flush" })).toBeDisabled()
   })
 })

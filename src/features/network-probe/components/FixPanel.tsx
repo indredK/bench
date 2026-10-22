@@ -95,7 +95,7 @@ export function FixPanel({
               <select
                 id="np-fix-service"
                 className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
-                disabled={servicesStatus !== "ready" || services.length === 0}
+                disabled={loading || servicesStatus !== "ready" || services.length === 0}
                 value={services.includes(service) ? service : ""}
                 onChange={(e) => setService(e.target.value)}
               >
@@ -116,6 +116,7 @@ export function FixPanel({
               <select
                 id="np-fix-dns"
                 className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+                disabled={loading}
                 value={presetId}
                 onChange={(e) => setPresetId(e.target.value)}
               >
@@ -133,7 +134,7 @@ export function FixPanel({
               type="button"
               variant="outline"
               size="sm"
-              disabled={servicesStatus === "loading"}
+              disabled={loading || servicesStatus === "loading"}
               onClick={onLoadServices}
             >
               {servicesStatus === "loading"
