@@ -5,6 +5,19 @@
 > **升级触发条件**。期限到期时安全 workflow 会提示复查；启用 Linux 发布前
 > 必须把标有 Linux 前置条件的条目全部清零。
 
+## 2026-10-22 扫描基线
+
+- `cargo audit` 当前有 **0 条 vulnerability**。`quinn-proto`、`rustls`、
+  `rustls-webpki`、`webpki-root-certs` 已更新到对应修复版本。
+- `zip` 的 RUSTSEC-2026-0367/0368/0369 已通过 `zip 9.0.5` 修复。Tauri 官方
+  updater 的 crates.io 版本仍依赖 `zip 4` 并调用 `ZipArchive::extract()`；宿主
+  因此固定使用官方 `plugins-workspace` v2 源码 revision
+  `df594206ce03f67e25da04283dea023815a45058`，该 revision 使用 `zip 9`。
+  Bench 自己的 app-manager 与 extension-center 解压路径也拒绝 symlink，并将
+  ZIP 权限限制为 `0o755` 掩码。
+- 仍有 1 条 unsound（glib，见 SEC01）和 6 条 unmaintained 提示；安全 workflow
+  会继续列出它们，不把 warning 误报成漏洞清零。
+
 ## SEC01 — glib 0.18.5（unsound）
 
 | 字段           | 值                                                                                                                                                                 |
@@ -22,6 +35,7 @@
 
 ## 附带记录 — unmaintained 提示（informational）
 
-`cargo audit` 另报 7 条 unmaintained 警告（paste / proc-macro-error / unic-*），
-均为构建期 proc-macro 或字符属性库，不进入发布二进制的运行时攻击面；随上游
-（tauri/tauri-build）迁移统一处理，不逐条立记录。
+`cargo audit` 另报 6 条 unmaintained 警告：`paste`、`proc-macro-error`、
+`unsafe-libyaml`、`zbus_names`、`zvariant`、`zvariant_derive`。其中 proc-macro
+与 Linux GTK/D-Bus 栈按上游迁移统一处理；`unsafe-libyaml` 属于现存 YAML 解析
+路径，后续评估迁移到维护中的兼容实现，不把它描述成仅构建期依赖。
