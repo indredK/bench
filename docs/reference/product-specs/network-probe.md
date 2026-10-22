@@ -276,6 +276,7 @@ L1 → L2 映射：
 ### 13.3 幂等 / 取消 / 并发保护
 
 - **会话取消幂等（前后端双保险）**：前端按 `kind` 保存 `cancelRequestedSessionIdByKind`，保证同一 `sessionId` 只发一次 `cancelScan`；取消 IPC 失败时，仅在该会话仍为活动会话且取消标记仍匹配时清除标记，允许重试；后端 `session.rs` 以 `HashSet` 记录已取消 id，重复取消为 no-op 成功。新会话（新 sessionId）自动重置取消标记（有单测 `cancel-idempotency.test.ts`）。
+- **测速及时取消**：测速会话额外持有 Tokio `watch` 取消信号；ping 请求、下载/上传请求、下载响应体读取与阶段间等待均通过 `select!` 与取消竞争。用户取消后后端立即结束当前请求并返回 `cancelled`，前端结束 loading、不启动 30 秒冷却，允许立即重跑；会话用 RAII 清理取消信号。
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
 - **单工具防重入**：每个 use-case 入口检查对应 loading；服务列表加载使用 `networkServicesStatus === "loading"` single-flight；批量离线诊断与 IPv6 / MTU / 公网出口单项检查互斥，同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
