@@ -57,7 +57,9 @@ function createScanSessionTracker(kind: NetworkProbeKind) {
 export const networkProbeUseCases = {
   async bootstrap() {
     const store = useNetworkProbeStore.getState()
+    const probeNodesRevision = store.probeNodesRevision
     store.setError(null)
+    store.setLoadingNodes(true)
     try {
       const [capabilities, defaults, packs, nodes] = await Promise.all([
         networkProbeRepository.getCapabilities(),
@@ -68,12 +70,15 @@ export const networkProbeUseCases = {
       store.setCapabilities(capabilities)
       store.setDefaults(defaults)
       store.setCapabilityPacks(packs)
-      store.setProbeNodes(nodes)
+      const latest = useNetworkProbeStore.getState()
+      if (latest.probeNodesRevision === probeNodesRevision) latest.setProbeNodes(nodes)
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.bootstrapFailed",
         fallback: getErrorMessage(error),
       })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingNodes(false)
     }
   },
 
@@ -986,12 +991,14 @@ export const networkProbeUseCases = {
 
   async refreshProbeNodes() {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingNodes) return
+    if (store.loadingNodes || store.agentMutation) return
+    const probeNodesRevision = store.probeNodesRevision
     store.setLoadingNodes(true)
     store.setError(null)
     try {
       const nodes = await networkProbeRepository.listProbeNodes()
-      store.setProbeNodes(nodes)
+      const latest = useNetworkProbeStore.getState()
+      if (latest.probeNodesRevision === probeNodesRevision) latest.setProbeNodes(nodes)
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.nodesFailed",
@@ -1027,33 +1034,48 @@ export const networkProbeUseCases = {
 
   async addAgent(label: string, endpoint: string) {
     const store = useNetworkProbeStore.getState()
+    if (store.agentMutation) return null
+    store.setAgentMutation({ kind: "add" })
     store.setError(null)
-    store.appendCommandLog(`addAgent('${label}', '${endpoint}')`)
+    store.appendCommandLog("addAgent()")
     try {
-      await networkProbeRepository.addAgent(label, endpoint)
-      const nodes = await networkProbeRepository.listProbeNodes()
-      store.setProbeNodes(nodes)
+      const node = await networkProbeRepository.addAgent(label, endpoint)
+      const latest = useNetworkProbeStore.getState()
+      latest.setProbeNodes([
+        ...latest.probeNodes.filter((existing) => existing.id !== node.id),
+        node,
+      ])
+      return node
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.agentFailed",
         fallback: getErrorMessage(error),
       })
+      return null
+    } finally {
+      useNetworkProbeStore.getState().setAgentMutation(null)
     }
   },
 
   async removeAgent(agentId: string) {
     const store = useNetworkProbeStore.getState()
+    if (store.agentMutation) return false
+    store.setAgentMutation({ kind: "remove", agentId })
     store.setError(null)
     store.appendCommandLog(`removeAgent('${agentId}')`)
     try {
       await networkProbeRepository.removeAgent(agentId)
-      const nodes = await networkProbeRepository.listProbeNodes()
-      store.setProbeNodes(nodes)
+      const latest = useNetworkProbeStore.getState()
+      latest.setProbeNodes(latest.probeNodes.filter((node) => node.id !== agentId))
+      return true
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.agentFailed",
         fallback: getErrorMessage(error),
       })
+      return false
+    } finally {
+      useNetworkProbeStore.getState().setAgentMutation(null)
     }
   },
 

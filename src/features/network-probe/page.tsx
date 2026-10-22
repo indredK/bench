@@ -596,6 +596,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     loadingNodes={c.loadingNodes}
                     result={c.multiNodeDnsResult}
                     nodes={c.probeNodes}
+                    agentMutation={c.agentMutation}
                     toolEnabled={c.toolEnabled.multiNode}
                     toolStatus={c.toolStatus.multiNode}
                     onCompare={c.compareDnsMulti}

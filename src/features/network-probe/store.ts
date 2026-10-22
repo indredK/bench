@@ -96,6 +96,8 @@ export type NetworkProbeL1 = "basic" | "sites" | "test" | "security" | "discover
 export type NetworkProbeKind =
   "health" | "sites" | "traceroute" | "speed" | "ports" | "pcap" | "lan"
 
+export type AgentMutation = { kind: "add" } | { kind: "remove"; agentId: string }
+
 export type NetworkProbeOfflineSub =
   "all" | "captive" | "proxy" | "ipv6" | "mtu" | "egress" | "diff"
 
@@ -157,6 +159,8 @@ interface NetworkProbeState {
   pcapResult: PcapDiagResult | null
   multiNodeDnsResult: MultiNodeDnsResult | null
   probeNodes: ProbeNode[]
+  probeNodesRevision: number
+  agentMutation: AgentMutation | null
   reportHistory: HealthScanResult[]
   securityAuthorized: boolean
   /** 按探测种类分槽的活动会话; 多类探测并发时取消目标各自独立, 不会互相抢占。 */
@@ -242,6 +246,7 @@ interface NetworkProbeState {
   setPcapResult: (pcapResult: PcapDiagResult | null) => void
   setMultiNodeDnsResult: (multiNodeDnsResult: MultiNodeDnsResult | null) => void
   setProbeNodes: (probeNodes: ProbeNode[]) => void
+  setAgentMutation: (agentMutation: AgentMutation | null) => void
   pushReportHistory: (scan: HealthScanResult) => void
   clearReportHistory: () => void
   setSecurityAuthorized: (securityAuthorized: boolean) => void
@@ -390,6 +395,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   pcapResult: null,
   multiNodeDnsResult: null,
   probeNodes: [],
+  probeNodesRevision: 0,
+  agentMutation: null,
   reportHistory: loadReportHistory(),
   securityAuthorized: loadSecurityAuthorized(),
   activeSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
@@ -542,7 +549,9 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLanServicesResult: (lanServicesResult) => set({ lanServicesResult }),
   setPcapResult: (pcapResult) => set({ pcapResult }),
   setMultiNodeDnsResult: (multiNodeDnsResult) => set({ multiNodeDnsResult }),
-  setProbeNodes: (probeNodes) => set({ probeNodes }),
+  setProbeNodes: (probeNodes) =>
+    set((state) => ({ probeNodes, probeNodesRevision: state.probeNodesRevision + 1 })),
+  setAgentMutation: (agentMutation) => set({ agentMutation }),
   pushReportHistory: (scan) =>
     set((state) => {
       const reportHistory = [scan, ...state.reportHistory].slice(0, 10)

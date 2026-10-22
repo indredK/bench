@@ -66,6 +66,7 @@ export function useNetworkProbeController() {
   const pcapResult = useNetworkProbeStore((s) => s.pcapResult)
   const multiNodeDnsResult = useNetworkProbeStore((s) => s.multiNodeDnsResult)
   const probeNodes = useNetworkProbeStore((s) => s.probeNodes)
+  const agentMutation = useNetworkProbeStore((s) => s.agentMutation)
   const reportHistory = useNetworkProbeStore((s) => s.reportHistory)
   const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
   // 会话按探测种类分槽: 面板只读自己那一槽, 决定 Cancel 目标与按钮可见性。
@@ -331,6 +332,7 @@ export function useNetworkProbeController() {
     pcapResult,
     multiNodeDnsResult,
     probeNodes,
+    agentMutation,
     reportHistory,
     securityAuthorized,
     activeSessionIdByKind,
