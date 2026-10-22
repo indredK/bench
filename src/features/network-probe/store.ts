@@ -3,6 +3,10 @@
  */
 import { create } from "zustand"
 import type { LocalizedError } from "@/lib/errors"
+import {
+  parseReportHistory,
+  type HealthReportSnapshot,
+} from "@/features/network-probe/report-history"
 import type {
   CaptivePortalResult,
   CapabilityPackInfo,
@@ -66,19 +70,17 @@ function persistSecurityAuthorized(value: boolean) {
   }
 }
 
-function loadReportHistory(): HealthScanResult[] {
+function loadReportHistory(): HealthReportSnapshot[] {
   if (typeof localStorage === "undefined") return []
   try {
     const raw = localStorage.getItem(REPORT_HISTORY_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as HealthScanResult[]
-    return Array.isArray(parsed) ? parsed.slice(0, 10) : []
+    return parseReportHistory(raw)
   } catch {
     return []
   }
 }
 
-function persistReportHistory(history: HealthScanResult[]) {
+function persistReportHistory(history: HealthReportSnapshot[]) {
   if (typeof localStorage === "undefined") return
   try {
     localStorage.setItem(REPORT_HISTORY_KEY, JSON.stringify(history.slice(0, 10)))
@@ -162,7 +164,7 @@ interface NetworkProbeState {
   probeNodesLoadError: string | null
   probeNodesRevision: number
   agentMutation: AgentMutation | null
-  reportHistory: HealthScanResult[]
+  reportHistory: HealthReportSnapshot[]
   securityAuthorized: boolean
   /** 按探测种类分槽的活动会话; 多类探测并发时取消目标各自独立, 不会互相抢占。 */
   activeSessionIdByKind: Record<NetworkProbeKind, string | null>
@@ -558,7 +560,10 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setAgentMutation: (agentMutation) => set({ agentMutation }),
   pushReportHistory: (scan) =>
     set((state) => {
-      const reportHistory = [scan, ...state.reportHistory].slice(0, 10)
+      const reportHistory = [
+        { ...scan, savedAt: new Date().toISOString() },
+        ...state.reportHistory,
+      ].slice(0, 10)
       persistReportHistory(reportHistory)
       return { reportHistory }
     }),

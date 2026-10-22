@@ -103,8 +103,9 @@ L1 → L2 映射：
 
 ### 3.6 报告 report
 
-- 当前体检结果导出：**JSON**（整份 `HealthScanResult`）与 **Markdown**（含每个检查项与建议）浏览器下载；隐私提示文案。
-- **历史快照**：最近 10 次未取消体检（localStorage `network-probe:report-history`），显示 sessionId/项数/耗时/建议数；清空前二次确认。
+- 当前体检结果导出：**JSON**（整份 `HealthScanResult`，附导出时间；历史中能匹配到快照时附保存时间）与 **Markdown**（含每个检查项、建议和时间）浏览器下载；隐私提示文案。
+- **历史快照**：最近 10 次未取消体检（localStorage `network-probe:report-history`），本地记录保存时间并显示 sessionId/项数/耗时/建议数；旧快照没有保存时间时显示“时间未知”，不丢弃历史；清空前二次确认。
+- **跨次对比**：可分别选择两次快照，比较检查项状态（按 key 匹配），显示状态变化、未记录项及建议数变化；诊断详情不参与对比，避免 IP 等动态本机信息制造噪声。少于两条历史时说明需要保存第二次体检。
 - **命令透明**：探测、修复、摘要/服务/Agent/能力包刷新及系统设置等 IPC 操作按钮均提供 hover 命令预览；组合操作列出全部子命令，契约标识保持原名。
 - **命令日志**：保留最近 200 条本模块 IPC 命令名与可安全展示的状态摘要，不把用户输入参数或凭据写入日志；有记录时可清空，清空前二次确认。
 
@@ -211,7 +212,7 @@ L1 → L2 映射：
 - `NetworkProbeCapabilities`：platform / privilegeLevel / tools / packs / externalTools。
 - `CapabilityPackInfo` / `CapabilityPackInstallResult` / `CapabilityPackProgress`。
 - `LocalNetworkSummary`：interfaces / primaryIpv4·6 / gateway / dnsServers / wifiSsid / wifiSignalDbm。macOS Wi‑Fi 信息经共享的 CoreWLAN helper 读取；SSID 未连接或受系统隐私授权限制时不返回，应用不主动申请定位授权。
-- `HealthCheckItem`（key/layer/status/detail/commandHint）、`HealthOpinion`（id/severity/relatedKeys/titleKey/bodyKey）、`HealthScanResult`（items/opinions/elapsedMs/sessionId/cancelled/commandHint）。
+- `HealthCheckItem`（key/layer/status/detail/commandHint）、`HealthOpinion`（id/severity/relatedKeys/titleKey/bodyKey）、IPC `HealthScanResult`（items/opinions/elapsedMs/sessionId/cancelled/commandHint）；前端本地 `HealthReportSnapshot` 另含可选 `savedAt`，不改变 IPC 契约。
 - `PingProbeResult` / `PingSample`；`DnsLookupResult` / `DnsRecordItem`；`TcpConnectResult`；`ProbeTargetResult`（icmp/http/tls）；`TracerouteHop` / `TracerouteResult`；`PathMtuResult`；`SpeedTestResult` / `SpeedSampleEvent` / `SpeedSource`。
 - `SitesProbeResult` / `SiteSampleResult`；`FixResult`；`CaptivePortalResult`；`PublicIpInfo`；`ProxyVpnStatus`；`Ipv6StackResult`。
 - `PortScanResult` / `PortSampleEvent`；`PollutionReport`；`WhoisInfo`；`DnsSecCheckResult`；`PcapDiagResult`。
