@@ -128,7 +128,7 @@
 
 | L1           | 用户心智                  | 放什么                                                                           |
 | ------------ | ------------------------- | -------------------------------------------------------------------------------- |
-| **基础视角** | 「正不正常？怎么修？」    | 急救箱：概览、体检、意见、站点、上不了网、修复、报告                             |
+| **基础视角** | 「正不正常？怎么修？」    | 急救箱：概览、体检、意见、上不了网、修复、报告；站点延迟为独立 L1                |
 | **测试**     | 「对某个目标测一下」      | 主动探测：Ping/DNS/TCP/自定义/Traceroute；MTU·公网出口（与上不了网双入口）；测速 |
 | **安全**     | 「有没有暴露 / 被劫持？」 | 端口扫描、污染（DNS/hosts/证书）、抓包诊断、DNSSEC/DoH、WHOIS                    |
 | **发现**     | 「周围有什么 / 从哪测？」 | ARP 发现、局域网服务、NAT、NTP、多节点对比（Globalping/agent）                   |
@@ -167,15 +167,15 @@
 
 #### L2 全表（原型与实现对齐）
 
-| L1       | L2                                                                                |
+| L1       | L2 / 页面组织                                                                     |
 | -------- | --------------------------------------------------------------------------------- |
-| 基础视角 | 概览 · 一键体检 · 扫描意见 · 上不了网 · 一键修复 · 报告                           |
+| 基础视角 | 同页六区：概览 · 一键体检 · 扫描意见 · 上不了网 · 一键修复 · 报告                 |
 | 站点延迟 | 常用官网（卡片+吞吐） · 区域站点包（global/cn/dev + 自定义）                      |
 | 测试     | Ping · DNS · TCP · 自定义目标 · Traceroute · MTU · 公网出口 · 带宽测速(Post)      |
 | 安全     | 端口扫描(Post) · 污染检测(Post) · 包级诊断(Post) · DNSSEC/DoH(Post) · WHOIS(Post) |
 | 发现     | ARP 发现(Post) · 局域网服务(Post) · NAT(Post) · NTP(Post) · 多节点对比(Post)      |
 
-组件：`FeatureTreeL1`（4 项）· `FeatureTreeL2` · 各 L3 面板（`OfflineSuite` 含子路由；`MtuPanel`/`EgressPanel` 双入口）。命令透明见 §3.5。
+组件：`FeatureTreeL1`（4 项）· 其他 L1 的 `FeatureTreeL2` · 各 L3 面板（`OfflineSuite` 含子路由；`MtuPanel`/`EgressPanel` 双入口）。基础视角用 BasicView 六区与页首锚点导航，不显示 L2 底栏；命令透明见 §3.5。
 
 ### 3.2 安全 / 发现面板（原 AdvancedView · Post-MVP 为主）
 
@@ -476,7 +476,8 @@ src/features/network-probe/
     network-probe.sites.ts
   components/
     NodeSelector.tsx
-    BasicView/{NetworkSummaryHeader,SiteLatencyBoard,HealthTree,ScanOpinion,ComprehensiveScan,QuickTools}.tsx
+    BasicView.tsx                        # 六区组合 + 区块跳转
+    {OverviewPanel,HealthTreePanel,ScanOpinionPanel,OfflinePanel,FixPanel,ReportPanel}.tsx
     AdvancedView/...
     HealthReport.tsx
     TripleDestructiveConfirm.tsx   // 或 shared/common

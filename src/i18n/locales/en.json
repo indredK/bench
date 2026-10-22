@@ -1578,6 +1578,9 @@
       "l2": "Tools",
       "l2Short": "L2"
     },
+    "basicView": {
+      "hint": "Start with this device's status, then run a health scan or targeted diagnostics. Results stay available as you browse."
+    },
     "nodeSelect": {
       "label": "Probe origin",
       "local": "This Mac",

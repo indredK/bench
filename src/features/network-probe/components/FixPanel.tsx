@@ -20,6 +20,7 @@ interface FixPanelProps {
   onRenewDhcp: (service: string) => Promise<void>
   onResetNetworkStack: (service: string) => Promise<void>
   onOpenSettings: () => void
+  embedded?: boolean
 }
 
 type PendingAction =
@@ -44,6 +45,7 @@ export function FixPanel({
   onRenewDhcp,
   onResetNetworkStack,
   onOpenSettings,
+  embedded = false,
 }: FixPanelProps) {
   const { t } = useTranslation()
   const [service, setService] = useState("")
@@ -73,6 +75,7 @@ export function FixPanel({
 
   return (
     <ProbePanelShell
+      embedded={embedded}
       toolbar={
         <>
           <p className="text-muted-foreground text-sm">{t("networkProbe.fix.hint")}</p>

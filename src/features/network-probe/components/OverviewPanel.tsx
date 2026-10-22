@@ -22,6 +22,7 @@ interface OverviewPanelProps {
   hostsSuspiciousCount: number
   onRefresh: () => void
   onOpenSettings: () => void
+  embedded?: boolean
 }
 
 export function OverviewPanel({
@@ -31,6 +32,7 @@ export function OverviewPanel({
   hostsSuspiciousCount,
   onRefresh,
   onOpenSettings,
+  embedded = false,
 }: OverviewPanelProps) {
   const { t } = useTranslation()
 
@@ -40,6 +42,7 @@ export function OverviewPanel({
 
   return (
     <ProbePanelShell
+      embedded={embedded}
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" onClick={onRefresh} disabled={loading}>

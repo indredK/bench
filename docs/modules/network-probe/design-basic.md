@@ -22,21 +22,24 @@
 
 > **站点延迟**已提升为独立 L1（`sites`：常用官网卡片 + 区域站点包），不再挂在基础视角下。
 
-导航记忆：`nav.l1Id = basic` + `l2ByL1.basic` + `offlineSub`（见 design §3.1）。
+P5-4 将基础视角合并为一个纵向滚动页，按「概览 → 体检 → 扫描建议 → 上不了网 → 修复 → 报告」顺序展示六个区块。页首提供区块跳转；每区复用原面板、同一 feature store 与既有动作，切换区块不清除结果。站点延迟仍是独立 L1；区块共用页面滚动容器，不增加嵌套滚动。
+
+导航记忆：`nav.l1Id = basic` + `offlineSub`（见 design §3.1）；旧版本的 `l2ByL1.basic` 值仍可读取，但基础页不再依赖单区 L2 路由。
 
 ---
 
 ## 2. 架构落点
 
 ```text
-components/BasicView/
-  NetworkSummaryHeader.tsx   # overview
-  HealthTree.tsx             # tree
-  ScanOpinion.tsx            # opinion
-  SiteLatencyBoard.tsx       # sites
-  OfflineSuite.tsx           # offline + 子路由
-  QuickFixPanel.tsx          # fix
-  HealthReport.tsx           # report（可上提 shared）
+components/
+  BasicView.tsx              # 六区组合 + 区块跳转
+  OverviewPanel.tsx          # overview
+  HealthTreePanel.tsx        # tree
+  ScanOpinionPanel.tsx       # opinion
+  OfflinePanel.tsx           # offline + 子路由摘要
+  FixPanel.tsx               # fix
+  ReportPanel.tsx            # report
+  SitesProbePanel.tsx        # 独立 sites L1
 
 src-tauri/src/net_probe/
   summary.rs      # LocalNetworkSummary / DefaultRoute / hosts / firewall
@@ -221,6 +224,7 @@ Advisor：前端 `network-probe.advisor.ts` 与后端 `advisor_rules.rs` **共�
 - [ ] 上不了网五项 + 与测试双入口不双实现
 - [x] 高危修复三次确认 + 后端复核
 - [ ] 能力矩阵驱动灰显；无特权不伪装 traceroute 成功（traceroute 属测试 Tab，但体检不假填跳点）
+- [x] 基础视角六区同页、区块跳转可键盘操作；站点延迟仍为独立 L1；区块无嵌套滚动
 - [ ] `lint:fe` / `test:critical`；相关 Rust 测试通过
 
 ---

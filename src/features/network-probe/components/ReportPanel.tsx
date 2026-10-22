@@ -14,6 +14,7 @@ interface ReportPanelProps {
   onClearLog: () => void
   onClearHistory: () => void
   onGoTree: () => void
+  embedded?: boolean
 }
 
 function toMarkdown(result: HealthScanResult, tTitle: string): string {
@@ -63,12 +64,14 @@ export function ReportPanel({
   onClearLog,
   onClearHistory,
   onGoTree,
+  embedded = false,
 }: ReportPanelProps) {
   const { t } = useTranslation()
   const stamp = useMemo(() => new Date().toISOString().replace(/[:.]/g, "-"), [health])
 
   return (
     <ProbePanelShell
+      embedded={embedded}
       toolbar={
         <>
           <p className="text-muted-foreground text-sm">{t("networkProbe.report.hint")}</p>

@@ -11,7 +11,7 @@
 - 平台：macOS 主路径（Local Network / 系统能力）；Windows 降级；Linux 非目标。
 - 状态口径：模块 1.0 / MVP A+B 已闭环；Post-MVP（测速 · 多节点 · 安全 · 发现）主路径已交付，指纹增强与特权 helper 仍待（见 planned）。
 
-## 2. 界面总览（L1×5 壳 + L2 底栏）
+## 2. 界面总览（L1×5 壳 + 基础视角同页分区）
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -20,7 +20,7 @@
 │ 面板区（L2 内容，依 L1 而定）               │ 命令日志侧栏        │
 │                                          │ (280px, 可折叠)    │
 ├──────────────────────────────────────────┴───────────────────┤
-│ L2 底栏（当前 L1 的子面板切换，带 Post 徽标）                   │
+│ L2 底栏（其他 L1 的子面板切换，带 Post 徽标）                    │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -29,19 +29,20 @@
 - **错误横幅**：`error` 非空时在面板上方显示（红框）。
 - **安全授权条（SecurityAuthGate）**：仅 L1=security 时显示——未授权时琥珀色提示 +「确认」按钮；已授权显示「已授权」+「撤销」；授权状态持久化于 localStorage（`network-probe:security-authorized`）。
 - **命令日志侧栏**：右侧 280px（折叠为 2.25rem 窄条），滚动展示每次探测的 `invoke` 命令文本 + 结果/取消/耗时摘要（时间戳前缀），可清空（二次确认）；开合状态持久化于 sessionStorage（`network-probe:side-log-open`）。
-- **L2 底栏**：当前 L1 的子面板按钮列表（见下表），Post-MVP 面板带「Post」徽标。
+- **基础视角**：不显示 L2 底栏；同一可滚动页面按概览、一键体检、扫描建议、上不了网、一键修复、报告六区展示，页首按钮可跳到对应区块。各区复用现有面板、状态与动作，不清空运行结果；离开基础视角后再回来仍可继续查看。
+- **其他 L1 的 L2 底栏**：当前 L1 的子面板按钮列表（见下表），Post-MVP 面板带「Post」徽标。
 
 L1 → L2 映射：
 
-| L1       | L2（子面板）                                                  |
-| -------- | ------------------------------------------------------------- |
-| basic    | overview · tree · opinion · offline · fix · report            |
-| sites    | official · packs                                              |
-| test     | ping · dns · tcp · custom · traceroute · mtu · egress · speed |
-| security | ports · pollution · pcap · dnssec · whois                     |
-| discover | arp · lan-svc · nat · ntp · nodes                             |
+| L1       | L2（子面板）                                                   |
+| -------- | -------------------------------------------------------------- |
+| basic    | overview · tree · opinion · offline · fix · report（同页六区） |
+| sites    | official · packs                                               |
+| test     | ping · dns · tcp · custom · traceroute · mtu · egress · speed  |
+| security | ports · pollution · pcap · dnssec · whois                      |
+| discover | arp · lan-svc · nat · ntp · nodes                              |
 
-- 导航状态（当前 l1 / 各 l1 的 l2 / offline 子项）持久化于 sessionStorage（`network-probe:nav`）。
+- 导航状态（当前 L1 / 其他 L1 的 L2 / offline 子项）持久化于 sessionStorage（`network-probe:nav`）；基础视角的旧 L2 值兼容读取，不参与区块选择。
 - 未实现面板统一显示 ComingSoon 占位：显示当前工具 status（如 `portScan=missing_pack`）、外部工具（nmap）是否存在、能力包缺失提示与「管理能力包」按钮。
 
 ### 全局交互与反馈细节
@@ -54,6 +55,8 @@ L1 → L2 映射：
 - **键盘**：各面板均为表单 + 按钮触发（Enter 提交表单）；无全局快捷键（见 §9）。
 
 ## 3. 基础（basic）L1
+
+基础视角由单页六区组成，区块跳转支持鼠标与键盘；每个区块使用页面级滚动，不在内部创建独立滚动区。站点延迟继续作为独立 L1。
 
 ### 3.1 网络概览 overview
 
