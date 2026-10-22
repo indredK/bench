@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import type { ComponentProps, ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { OverviewPanel } from "@/features/network-probe/components/OverviewPanel"
@@ -54,5 +54,30 @@ describe("OverviewPanel Wi-Fi summary", () => {
     renderOverview({ wifiSsid: "Office", wifiSignalDbm: -48 })
 
     expect(screen.getByText("Office (-48 dBm)")).toBeInTheDocument()
+  })
+
+  it("stops automatic refresh retries after failure but keeps manual retry available", () => {
+    const onRefresh = vi.fn()
+    const props: ComponentProps<typeof OverviewPanel> = {
+      loading: false,
+      summary: null,
+      firewall: null,
+      errors: {},
+      hostsSuspiciousCount: 0,
+      onRefresh,
+      onOpenSettings: vi.fn(),
+    }
+    const view = render(<OverviewPanel {...props} />)
+
+    expect(onRefresh).toHaveBeenCalledOnce()
+
+    view.rerender(<OverviewPanel {...props} loading />)
+    view.rerender(
+      <OverviewPanel {...props} loading={false} errors={{ summary: "Network unavailable" }} />,
+    )
+
+    expect(onRefresh).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.overview.refresh" }))
+    expect(onRefresh).toHaveBeenCalledTimes(2)
   })
 })

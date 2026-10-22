@@ -40,8 +40,8 @@ export function OverviewPanel({
   const { t } = useTranslation()
 
   useEffect(() => {
-    if (!summary && !loading) onRefresh()
-  }, [summary, loading, onRefresh])
+    if (!summary && !loading && !errors.summary) onRefresh()
+  }, [summary, loading, errors.summary, onRefresh])
 
   return (
     <ProbePanelShell

@@ -61,7 +61,7 @@ L1 → L2 映射：
 ### 3.1 网络概览 overview
 
 - 首次进入自动拉取；信息卡网格：IPv4 / IPv6 / 网关 / DNS 服务器 / Wi-Fi（SSID + dBm）/ 防火墙状态 / hosts 可疑条目数 / 非回环接口数。
-- 按钮：刷新、打开系统网络设置。数据源 `getLocalNetworkSummary` + `getFirewallStatus` + `checkHostsOverrides` 并行加载；单项失败在对应卡片显示可读错误，其他成功数据照常呈现，刷新期间保留上一份数据。
+- 按钮：刷新、打开系统网络设置。数据源 `getLocalNetworkSummary` + `getFirewallStatus` + `checkHostsOverrides` 并行加载；单项失败在对应卡片显示可读错误，其他成功数据照常呈现，刷新期间保留上一份数据。概览加载失败后停止自动重试，错误态保留并允许用户手动刷新恢复。
 
 ### 3.2 体检树 tree（L0–L3 健康扫描）
 
