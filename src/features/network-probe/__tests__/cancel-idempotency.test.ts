@@ -85,6 +85,38 @@ describe("network-probe cancel idempotency (A4-4)", () => {
     expect(useNetworkProbeStore.getState().error).toBeNull()
   })
 
+  it("allows retrying cancellation after the IPC request fails", async () => {
+    cancelScan.mockRejectedValueOnce(new Error("IPC unavailable")).mockResolvedValueOnce(true)
+    useNetworkProbeStore.setState({
+      activeSessionIdByKind: {
+        health: "session-retry",
+        sites: null,
+        traceroute: null,
+        speed: null,
+        ports: null,
+        pcap: null,
+        lan: null,
+      },
+    })
+
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("health")
+    })
+
+    expect(useNetworkProbeStore.getState().cancelRequestedSessionIdByKind.health).toBeNull()
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.cancelFailed")
+
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("health")
+    })
+
+    expect(cancelScan).toHaveBeenCalledTimes(2)
+    expect(cancelScan).toHaveBeenLastCalledWith("session-retry")
+    expect(useNetworkProbeStore.getState().cancelRequestedSessionIdByKind.health).toBe(
+      "session-retry",
+    )
+  })
+
   it("cancels the active session exactly once and is idempotent afterwards", async () => {
     let resolveScan: (value: unknown) => void = () => {}
     runHealthScan.mockImplementation(

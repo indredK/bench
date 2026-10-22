@@ -99,6 +99,11 @@ export type NetworkProbeKind =
 export type NetworkProbeOfflineSub =
   "all" | "captive" | "proxy" | "ipv6" | "mtu" | "egress" | "diff"
 
+export type NetworkProbeOfflineCheck = "captive" | "egress" | "proxy" | "ipv6" | "mtu"
+export type NetworkProbeOfflineErrors = Partial<Record<NetworkProbeOfflineCheck, string>>
+export type NetworkProbeOverviewErrors = Partial<Record<"summary" | "firewall" | "hosts", string>>
+export type NetworkServicesStatus = "idle" | "loading" | "ready" | "error"
+
 export type NetworkProbeL2ByL1 = Record<NetworkProbeL1, string>
 
 interface NetworkProbeState {
@@ -114,6 +119,7 @@ interface NetworkProbeState {
   summary: LocalNetworkSummary | null
   firewall: FirewallStatus | null
   hosts: HostsOverride[] | null
+  overviewErrors: NetworkProbeOverviewErrors
   tcpResult: TcpConnectResult | null
   pingResult: PingProbeResult | null
   pingStreamingSamples: PingSample[]
@@ -125,6 +131,7 @@ interface NetworkProbeState {
   healthResult: HealthScanResult | null
   healthStreamingItems: HealthCheckItem[]
   networkServices: string[]
+  networkServicesStatus: NetworkServicesStatus
   fixResult: FixResult | null
   captiveResult: CaptivePortalResult | null
   publicIpInfo: PublicIpInfo | null
@@ -133,6 +140,7 @@ interface NetworkProbeState {
   tracerouteStreamingHops: TracerouteHop[]
   ipv6Result: Ipv6StackResult | null
   mtuResult: PathMtuResult | null
+  offlineErrors: NetworkProbeOfflineErrors
   speedSources: SpeedSource[]
   speedResult: SpeedTestResult | null
   speedSample: SpeedSampleEvent | null
@@ -192,6 +200,7 @@ interface NetworkProbeState {
   setSummary: (summary: LocalNetworkSummary | null) => void
   setFirewall: (firewall: FirewallStatus | null) => void
   setHosts: (hosts: HostsOverride[] | null) => void
+  setOverviewErrors: (errors: NetworkProbeOverviewErrors) => void
   setTcpResult: (tcpResult: TcpConnectResult | null) => void
   setPingResult: (pingResult: PingProbeResult | null) => void
   resetPingStreaming: () => void
@@ -205,6 +214,7 @@ interface NetworkProbeState {
   resetHealthStreaming: () => void
   upsertHealthStreamingItem: (item: HealthCheckItem) => void
   setNetworkServices: (services: string[]) => void
+  setNetworkServicesStatus: (status: NetworkServicesStatus) => void
   setFixResult: (fixResult: FixResult | null) => void
   setCaptiveResult: (captiveResult: CaptivePortalResult | null) => void
   setPublicIpInfo: (publicIpInfo: PublicIpInfo | null) => void
@@ -214,6 +224,7 @@ interface NetworkProbeState {
   upsertTracerouteHop: (hop: TracerouteHop) => void
   setIpv6Result: (ipv6Result: Ipv6StackResult | null) => void
   setMtuResult: (mtuResult: PathMtuResult | null) => void
+  setOfflineErrors: (errors: NetworkProbeOfflineErrors) => void
   setSpeedSources: (speedSources: SpeedSource[]) => void
   setSpeedResult: (speedResult: SpeedTestResult | null) => void
   setSpeedSample: (speedSample: SpeedSampleEvent | null) => void
@@ -341,6 +352,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   summary: null,
   firewall: null,
   hosts: null,
+  overviewErrors: {},
   tcpResult: null,
   pingResult: null,
   pingStreamingSamples: [],
@@ -352,6 +364,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   healthResult: null,
   healthStreamingItems: [],
   networkServices: [],
+  networkServicesStatus: "idle",
   fixResult: null,
   captiveResult: null,
   publicIpInfo: null,
@@ -360,6 +373,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   tracerouteStreamingHops: [],
   ipv6Result: null,
   mtuResult: null,
+  offlineErrors: {},
   speedSources: [],
   speedResult: null,
   speedSample: null,
@@ -433,6 +447,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setSummary: (summary) => set({ summary }),
   setFirewall: (firewall) => set({ firewall }),
   setHosts: (hosts) => set({ hosts }),
+  setOverviewErrors: (overviewErrors) => set({ overviewErrors }),
   setTcpResult: (tcpResult) => set({ tcpResult }),
   setPingResult: (pingResult) => set({ pingResult }),
   resetPingStreaming: () => set({ pingStreamingSamples: [] }),
@@ -478,6 +493,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
       return { healthStreamingItems: next }
     }),
   setNetworkServices: (networkServices) => set({ networkServices }),
+  setNetworkServicesStatus: (networkServicesStatus) => set({ networkServicesStatus }),
   setFixResult: (fixResult) => set({ fixResult }),
   setCaptiveResult: (captiveResult) => set({ captiveResult }),
   setPublicIpInfo: (publicIpInfo) => set({ publicIpInfo }),
@@ -500,6 +516,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     }),
   setIpv6Result: (ipv6Result) => set({ ipv6Result }),
   setMtuResult: (mtuResult) => set({ mtuResult }),
+  setOfflineErrors: (offlineErrors) => set({ offlineErrors }),
   setSpeedSources: (speedSources) => set({ speedSources }),
   setSpeedResult: (speedResult) => set({ speedResult }),
   setSpeedSample: (speedSample) => set({ speedSample }),

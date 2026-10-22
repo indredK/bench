@@ -16,6 +16,14 @@ import type {
 } from "@/lib/tauri/types/network-probe"
 import { listenToPlatformEvent } from "@/platform/events"
 
+async function settle<T>(operation: () => Promise<T>) {
+  try {
+    return { ok: true as const, value: await operation() }
+  } catch (error) {
+    return { ok: false as const, error: getErrorMessage(error) }
+  }
+}
+
 /**
  * 订阅 scan-session 事件, 把后端回传的会话只写进「本类探测专属」的槽位。
  * 分槽的原因: 体检 / 端口扫描等可以并发跑, 共用一个槽会让 Cancel 打错目标,
@@ -73,16 +81,28 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingSummary) return
     store.setLoadingSummary(true)
+    store.setOverviewErrors({})
     store.setError(null)
     try {
       const [summary, firewall, hosts] = await Promise.all([
-        networkProbeRepository.getLocalNetworkSummary(),
-        networkProbeRepository.getFirewallStatus(),
-        networkProbeRepository.checkHostsOverrides(),
+        settle(() => networkProbeRepository.getLocalNetworkSummary()),
+        settle(() => networkProbeRepository.getFirewallStatus()),
+        settle(() => networkProbeRepository.checkHostsOverrides()),
       ])
-      store.setSummary(summary)
-      store.setFirewall(firewall)
-      store.setHosts(hosts)
+      const errors: NonNullable<typeof store.overviewErrors> = {}
+      if (summary.ok) store.setSummary(summary.value)
+      else errors.summary = summary.error
+      if (firewall.ok) store.setFirewall(firewall.value)
+      else errors.firewall = firewall.error
+      if (hosts.ok) store.setHosts(hosts.value)
+      else errors.hosts = hosts.error
+      store.setOverviewErrors(errors)
+      if (Object.keys(errors).length > 0) {
+        store.setError({
+          key: "networkProbe.errors.overviewPartialFailed",
+          fallback: Object.values(errors).join(" · "),
+        })
+      }
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.overviewFailed",
@@ -312,6 +332,13 @@ export const networkProbeUseCases = {
     try {
       await networkProbeRepository.cancelScan(sessionId)
     } catch (error) {
+      const latest = useNetworkProbeStore.getState()
+      if (
+        latest.activeSessionIdByKind[kind] === sessionId &&
+        latest.cancelRequestedSessionIdByKind[kind] === sessionId
+      ) {
+        latest.setCancelRequestedSessionId(kind, null)
+      }
       store.setError({
         key: "networkProbe.errors.cancelFailed",
         fallback: getErrorMessage(error),
@@ -321,10 +348,15 @@ export const networkProbeUseCases = {
 
   async loadNetworkServices() {
     const store = useNetworkProbeStore.getState()
+    if (store.networkServicesStatus === "loading") return
+    store.setNetworkServicesStatus("loading")
+    store.setError(null)
     try {
       const services = await networkProbeRepository.listNetworkServices()
       store.setNetworkServices(services)
+      useNetworkProbeStore.getState().setNetworkServicesStatus("ready")
     } catch (error) {
+      useNetworkProbeStore.getState().setNetworkServicesStatus("error")
       store.setError({
         key: "networkProbe.errors.servicesFailed",
         fallback: getErrorMessage(error),
@@ -446,13 +478,22 @@ export const networkProbeUseCases = {
 
   async checkIpv6Stack() {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingIpv6) return
+    if (store.loadingIpv6 || store.loadingOffline) return
     store.setLoadingIpv6(true)
+    const offlineErrors = { ...store.offlineErrors }
+    delete offlineErrors.ipv6
+    store.setOfflineErrors(offlineErrors)
     store.setError(null)
     try {
       const result = await networkProbeRepository.checkIpv6Stack()
       store.setIpv6Result(result)
     } catch (error) {
+      const latest = useNetworkProbeStore.getState()
+      latest.setIpv6Result(null)
+      latest.setOfflineErrors({
+        ...latest.offlineErrors,
+        ipv6: getErrorMessage(error),
+      })
       store.setError({
         key: "networkProbe.errors.ipv6Failed",
         fallback: getErrorMessage(error),
@@ -464,13 +505,22 @@ export const networkProbeUseCases = {
 
   async probePathMtu(target: string) {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingMtu) return
+    if (store.loadingMtu || store.loadingOffline) return
     store.setLoadingMtu(true)
+    const offlineErrors = { ...store.offlineErrors }
+    delete offlineErrors.mtu
+    store.setOfflineErrors(offlineErrors)
     store.setError(null)
     try {
       const result = await networkProbeRepository.probePathMtu(target.trim() || "1.1.1.1")
       store.setMtuResult(result)
     } catch (error) {
+      const latest = useNetworkProbeStore.getState()
+      latest.setMtuResult(null)
+      latest.setOfflineErrors({
+        ...latest.offlineErrors,
+        mtu: getErrorMessage(error),
+      })
       store.setError({
         key: "networkProbe.errors.mtuFailed",
         fallback: getErrorMessage(error),
@@ -482,22 +532,52 @@ export const networkProbeUseCases = {
 
   async runOfflineDiagnostics() {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingOffline) return
+    if (store.loadingOffline || store.loadingIpv6 || store.loadingMtu) return
     store.setLoadingOffline(true)
+    store.setOfflineErrors({})
     store.setError(null)
     try {
       const [captive, publicIp, proxyVpn, ipv6, mtu] = await Promise.all([
-        networkProbeRepository.detectCaptivePortal(),
-        networkProbeRepository.getPublicIpInfo(),
-        networkProbeRepository.getProxyVpnStatus(),
-        networkProbeRepository.checkIpv6Stack(),
-        networkProbeRepository.probePathMtu("1.1.1.1"),
+        settle(() => networkProbeRepository.detectCaptivePortal()),
+        settle(() => networkProbeRepository.getPublicIpInfo()),
+        settle(() => networkProbeRepository.getProxyVpnStatus()),
+        settle(() => networkProbeRepository.checkIpv6Stack()),
+        settle(() => networkProbeRepository.probePathMtu("1.1.1.1")),
       ])
-      store.setCaptiveResult(captive)
-      store.setPublicIpInfo(publicIp)
-      store.setProxyVpnStatus(proxyVpn)
-      store.setIpv6Result(ipv6)
-      store.setMtuResult(mtu)
+      const errors: NonNullable<typeof store.offlineErrors> = {}
+      const latest = useNetworkProbeStore.getState()
+      if (captive.ok) store.setCaptiveResult(captive.value)
+      else {
+        latest.setCaptiveResult(null)
+        errors.captive = captive.error
+      }
+      if (publicIp.ok) store.setPublicIpInfo(publicIp.value)
+      else {
+        latest.setPublicIpInfo(null)
+        errors.egress = publicIp.error
+      }
+      if (proxyVpn.ok) store.setProxyVpnStatus(proxyVpn.value)
+      else {
+        latest.setProxyVpnStatus(null)
+        errors.proxy = proxyVpn.error
+      }
+      if (ipv6.ok) store.setIpv6Result(ipv6.value)
+      else {
+        latest.setIpv6Result(null)
+        errors.ipv6 = ipv6.error
+      }
+      if (mtu.ok) store.setMtuResult(mtu.value)
+      else {
+        latest.setMtuResult(null)
+        errors.mtu = mtu.error
+      }
+      store.setOfflineErrors(errors)
+      if (Object.keys(errors).length > 0) {
+        store.setError({
+          key: "networkProbe.errors.offlinePartialFailed",
+          fallback: Object.values(errors).join(" · "),
+        })
+      }
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.offlineFailed",
@@ -512,11 +592,20 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingOffline) return
     store.setLoadingOffline(true)
+    const offlineErrors = { ...store.offlineErrors }
+    delete offlineErrors.egress
+    store.setOfflineErrors(offlineErrors)
     store.setError(null)
     try {
       const publicIp = await networkProbeRepository.getPublicIpInfo()
       store.setPublicIpInfo(publicIp)
     } catch (error) {
+      const latest = useNetworkProbeStore.getState()
+      latest.setPublicIpInfo(null)
+      latest.setOfflineErrors({
+        ...latest.offlineErrors,
+        egress: getErrorMessage(error),
+      })
       store.setError({
         key: "networkProbe.errors.offlineFailed",
         fallback: getErrorMessage(error),

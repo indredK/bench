@@ -315,6 +315,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                       loading: c.loadingSummary,
                       summary: c.summary,
                       firewall: c.firewall,
+                      errors: c.overviewErrors,
                       hostsSuspiciousCount: hostsSuspicious,
                       onRefresh: c.refreshOverview,
                       onOpenSettings: c.openSystemNetworkSettings,
@@ -324,6 +325,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                       result: c.healthResult,
                       streamingItems: c.healthStreamingItems,
                       canCancel: Boolean(activeSessionIdByKind.health),
+                      cancelling: c.healthCancelRequested,
                       onRun: c.runHealthScan,
                       onCancel: () => c.cancelScan("health"),
                     }}
@@ -333,6 +335,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                       loadingMtu: c.loadingMtu,
                       loadingEgress: c.loadingOffline,
                       focus: c.offlineSub,
+                      errors: c.offlineErrors,
                       captive: c.captiveResult,
                       publicIp: c.publicIpInfo,
                       proxyVpn: c.proxyVpnStatus,
@@ -347,10 +350,12 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                         c.selectL1("test")
                         c.selectL2("mtu")
                       },
+                      busy: c.loadingOffline || c.loadingIpv6 || c.loadingMtu,
                     }}
                     fix={{
                       loading: c.loadingFix,
                       services: c.networkServices,
+                      servicesStatus: c.networkServicesStatus,
                       dnsPresets: c.defaults?.dnsPresets ?? [],
                       lastResult: c.fixResult,
                       onLoadServices: c.loadNetworkServices,

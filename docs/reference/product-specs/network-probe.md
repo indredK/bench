@@ -61,7 +61,7 @@ L1 → L2 映射：
 ### 3.1 网络概览 overview
 
 - 首次进入自动拉取；信息卡网格：IPv4 / IPv6 / 网关 / DNS 服务器 / Wi-Fi（SSID + dBm）/ 防火墙状态 / hosts 可疑条目数 / 非回环接口数。
-- 按钮：刷新、打开系统网络设置。数据源 `getLocalNetworkSummary` + `getFirewallStatus` + `checkHostsOverrides`。
+- 按钮：刷新、打开系统网络设置。数据源 `getLocalNetworkSummary` + `getFirewallStatus` + `checkHostsOverrides` 并行加载；单项失败在对应卡片显示可读错误，其他成功数据照常呈现，刷新期间保留上一份数据。
 
 ### 3.2 体检树 tree（L0–L3 健康扫描）
 
@@ -77,7 +77,7 @@ L1 → L2 映射：
 
 - 子导航胶囊：全部 / 强制门户 / 代理·VPN / IPv6 / MTU / 公网出口 / 对比。
 - 「一键诊断」并发执行：检测强制门户（CaptivePortal）、公网 IP（egress）、代理/VPN 状态、IPv6 栈、路径 MTU。
-- **一键诊断为 all-or-nothing**（`runOfflineDiagnostics` 内 `Promise.all` 并发 5 项）：任一子项失败即整体失败，错误横幅 `networkProbe.errors.offlineFailed`，已成功的子项结果**不落 store**；要逐项结果可改用各子面板单独运行（refreshPublicIp / checkIpv6Stack / probePathMtu 各自独立错误码与 loading，与「一键诊断」互不抢占 `loadingOffline`——注意 refreshPublicIp 与 runOfflineDiagnostics 共用 `loadingOffline`，同一时刻不可并行）。
+- **一键诊断为部分成功**：5 项并发执行，各自独立汇报结果；刷新期间保留上一次结果并显示运行态，完成后成功项写入 store，失败项清除过期结果、在对应区块显示错误并汇总到 `networkProbe.errors.offlinePartialFailed`。失败区块不同时显示“待运行”；再次运行或单项重试时清除本轮错误。批量诊断与 IPv6 / MTU / 公网出口单项检查互斥；同类请求 single-flight，避免重复执行。
 - 各子区块（依焦点显示）：
   - captive：状态（normal/captive/…）、detail、commandHint。
   - egress：公网 IP、来源、ASN/org、detail。
@@ -90,7 +90,7 @@ L1 → L2 映射：
 
 - 操作对象：网络服务下拉（自动优先 Wi-Fi → 有线 → 首个） + DNS 预设下拉（来自 defaults）。
 - 操作按钮：**刷新 DNS**（DestructiveConfirm 一次确认）、**切换 DNS**（两步确认，第 2 步展示服务与目标 DNS 服务器）、**续租 DHCP**（两步确认）、**重置网络栈**（**TripleDestructiveConfirm 三步确认 + 手输 `RESET`**，最高危）、打开系统网络设置。
-- 所有修复需加载网络服务列表；完成后展示结果（action / ok / message / commandHint）。
+- 服务列表有 idle/loading/ready/error 状态；失败可重试，服务依赖型的切换 DNS、续租 DHCP、重置网络栈仅在成功加载列表且选中服务后启用。刷新 DNS 不依赖服务列表，可单独使用。完成后展示结果（action / ok / message / commandHint）。
 
 **交互细节**：
 
@@ -216,7 +216,7 @@ L1 → L2 映射：
 - `PortScanResult` / `PortSampleEvent`；`PollutionReport`；`WhoisInfo`；`DnsSecCheckResult`；`PcapDiagResult`。
 - `LanDiscoveryResult`（neighbors/mode/cidr/emptyReason）、`LanServicesResult`；`NatProbeResult`；`NtpProbeResult`；`MultiNodeDnsResult` / `ProbeNode`。
 - `NetworkProbeDefaultsCatalog` / `DefaultsOverride`；`HostsOverride`；`FirewallStatus`。
-- store 关键状态：nav、capabilities、capabilityPacks、defaults、各结果/流式数组、loading*（每工具独立）、error、securityAuthorized、activeSessionId、cancelRequestedSessionId、commandLog、reportHistory。
+- store 关键状态：nav、capabilities、capabilityPacks、defaults、各结果/流式数组、overviewErrors / offlineErrors、networkServicesStatus、loading*（每工具独立）、error、securityAuthorized、activeSessionIdByKind、cancelRequestedSessionIdByKind、commandLog、reportHistory。
 
 ## 12. 边界与限制
 
@@ -257,25 +257,27 @@ L1 → L2 映射：
 
 ### 13.2 常见失败场景与行为
 
-| 场景                                     | 行为/提示                                                  | 恢复/降级                                                                                    |
-| ---------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 网络断开/超时                            | 各探测命令返回对应错误码 → 错误横幅                        | 重试；`caps.localNetworkHint` 提示「全部探测丢失可能是权限/防火墙/真实断网，不要当唯一结论」 |
-| 权限拒绝（Local Network / TCC / 无特权） | `ICMP_UNAVAILABLE`、arp `emptyPermission`、pcap 无特权     | 降级到 tcpdump 计数 / ARP 缓存读取；给出「打开系统网络设置」入口，不静默                     |
-| 平台不支持（Windows/Linux）              | `UNSUPPORTED` 或能力矩阵 `unsupported`                     | 面板隐藏/禁用 + toolDisabled 提示；firewall 返回 status=unsupported + detail                 |
-| 能力包缺失                               | `tools.<key> = missing_pack`                               | 面板禁用 + 「管理能力包」入口跳转安装；安装后自动刷新                                        |
-| 外部工具缺失（如 nmap）                  | externalTools 反映                                         | 端口扫描降级为 TCP connect（degraded），提示安装 adv-scanner/nmap 可启用 SYN                 |
-| 测速源不可达                             | `!result.ok && !cancelled`                                 | 30s 冷却倒计时禁用，可换源；取消成功不计冷却                                                 |
-| 取消命令本身失败                         | `cancelFailed`                                             | 错误横幅提示；会话取消在前后端均幂等                                                         |
-| 一键诊断部分子项失败                     | `runOfflineDiagnostics` 用 `Promise.all`，任一失败整体失败 | `offlineFailed` 错误横幅、已成功子项不落 store；改用各子面板单独运行可逐项定位               |
+| 场景                                     | 行为/提示                                              | 恢复/降级                                                                                    |
+| ---------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| 网络断开/超时                            | 各探测命令返回对应错误码 → 错误横幅                    | 重试；`caps.localNetworkHint` 提示「全部探测丢失可能是权限/防火墙/真实断网，不要当唯一结论」 |
+| 权限拒绝（Local Network / TCC / 无特权） | `ICMP_UNAVAILABLE`、arp `emptyPermission`、pcap 无特权 | 降级到 tcpdump 计数 / ARP 缓存读取；给出「打开系统网络设置」入口，不静默                     |
+| 平台不支持（Windows/Linux）              | `UNSUPPORTED` 或能力矩阵 `unsupported`                 | 面板隐藏/禁用 + toolDisabled 提示；firewall 返回 status=unsupported + detail                 |
+| 能力包缺失                               | `tools.<key> = missing_pack`                           | 面板禁用 + 「管理能力包」入口跳转安装；安装后自动刷新                                        |
+| 外部工具缺失（如 nmap）                  | externalTools 反映                                     | 端口扫描降级为 TCP connect（degraded），提示安装 adv-scanner/nmap 可启用 SYN                 |
+| 测速源不可达                             | `!result.ok && !cancelled`                             | 30s 冷却倒计时禁用，可换源；取消成功不计冷却                                                 |
+| 取消命令本身失败                         | `cancelFailed`                                         | 错误横幅提示；仅清除仍处于活动状态的该会话取消标记，允许重试，不影响新会话                   |
+| 一键诊断部分子项失败                     | `runOfflineDiagnostics` 各项独立结算                   | 成功项保留，失败项在对应区块显示错误并汇总为 `offlinePartialFailed`；可单项重试或重跑        |
+| 概览单项加载失败                         | 概览三项并行、逐项结算                                 | 已成功卡片继续呈现；失败卡片显示错误，刷新后可恢复                                           |
+| 网络服务枚举失败                         | `networkServicesStatus = error`                        | 显示重试入口；切换 DNS、续租 DHCP、重置网络栈保持禁用，DNS 刷新仍可单独使用                  |
 
 ### 13.3 幂等 / 取消 / 并发保护
 
-- **会话取消幂等（前后端双保险）**：前端 `cancelRequestedSessionId` 保证同一 `sessionId` 只发一次 `cancelScan`；后端 `session.rs` 以 `HashSet` 记录已取消 id，重复取消为 no-op 成功。新会话（新 sessionId）自动重置取消标记（有单测 `cancel-idempotency.test.ts`）。
+- **会话取消幂等（前后端双保险）**：前端按 `kind` 保存 `cancelRequestedSessionIdByKind`，保证同一 `sessionId` 只发一次 `cancelScan`；取消 IPC 失败时，仅在该会话仍为活动会话且取消标记仍匹配时清除标记，允许重试；后端 `session.rs` 以 `HashSet` 记录已取消 id，重复取消为 no-op 成功。新会话（新 sessionId）自动重置取消标记（有单测 `cancel-idempotency.test.ts`）。
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
-- **单工具防重入**：每个 use-case 入口 `if (store.loadingX) return`；同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
+- **单工具防重入**：每个 use-case 入口检查对应 loading；服务列表加载使用 `networkServicesStatus === "loading"` single-flight；批量离线诊断与 IPv6 / MTU / 公网出口单项检查互斥，同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
 - **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；**能力包刷新除外**——`refreshCapabilityPacks` 无 loading 标志，防重入由 PackInstallDialog 的 `busy` 提供（见 §8）。
-- **无 loading 标志的写操作（防重入缺口）**：`addAgent` / `removeAgent` / `loadNetworkServices` / `openSystemNetworkSettings` 均无 loading 短路与禁用态，快速连点会重复提交/重复打开（标记为已知并发边界，未见修复实现）。
+- **剩余防重入边界**：`addAgent` / `removeAgent` / `openSystemNetworkSettings` 仍无 loading 短路与禁用态；服务列表加载已有 single-flight 保护。需在对应交互具备异步提交状态后再评估是否纳入 P0-1。
 
 ### 13.4 数据与安全
 

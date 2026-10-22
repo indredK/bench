@@ -29,6 +29,7 @@ export function useNetworkProbeController() {
   const summary = useNetworkProbeStore((s) => s.summary)
   const firewall = useNetworkProbeStore((s) => s.firewall)
   const hosts = useNetworkProbeStore((s) => s.hosts)
+  const overviewErrors = useNetworkProbeStore((s) => s.overviewErrors)
   const tcpResult = useNetworkProbeStore((s) => s.tcpResult)
   const pingResult = useNetworkProbeStore((s) => s.pingResult)
   const dnsResult = useNetworkProbeStore((s) => s.dnsResult)
@@ -39,6 +40,7 @@ export function useNetworkProbeController() {
   const healthResult = useNetworkProbeStore((s) => s.healthResult)
   const healthStreamingItems = useNetworkProbeStore((s) => s.healthStreamingItems)
   const networkServices = useNetworkProbeStore((s) => s.networkServices)
+  const networkServicesStatus = useNetworkProbeStore((s) => s.networkServicesStatus)
   const fixResult = useNetworkProbeStore((s) => s.fixResult)
   const captiveResult = useNetworkProbeStore((s) => s.captiveResult)
   const publicIpInfo = useNetworkProbeStore((s) => s.publicIpInfo)
@@ -47,6 +49,7 @@ export function useNetworkProbeController() {
   const tracerouteStreamingHops = useNetworkProbeStore((s) => s.tracerouteStreamingHops)
   const ipv6Result = useNetworkProbeStore((s) => s.ipv6Result)
   const mtuResult = useNetworkProbeStore((s) => s.mtuResult)
+  const offlineErrors = useNetworkProbeStore((s) => s.offlineErrors)
   const speedSources = useNetworkProbeStore((s) => s.speedSources)
   const speedResult = useNetworkProbeStore((s) => s.speedResult)
   const speedSample = useNetworkProbeStore((s) => s.speedSample)
@@ -67,6 +70,9 @@ export function useNetworkProbeController() {
   const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
   // 会话按探测种类分槽: 面板只读自己那一槽, 决定 Cancel 目标与按钮可见性。
   const activeSessionIdByKind = useNetworkProbeStore((s) => s.activeSessionIdByKind)
+  const cancelRequestedSessionIdByKind = useNetworkProbeStore(
+    (s) => s.cancelRequestedSessionIdByKind,
+  )
   const commandLog = useNetworkProbeStore((s) => s.commandLog)
   const loadingSummary = useNetworkProbeStore((s) => s.loadingSummary)
   const loadingTcp = useNetworkProbeStore((s) => s.loadingTcp)
@@ -288,6 +294,7 @@ export function useNetworkProbeController() {
     summary,
     firewall,
     hosts,
+    overviewErrors,
     tcpResult,
     pingResult,
     dnsResult,
@@ -298,6 +305,7 @@ export function useNetworkProbeController() {
     healthResult,
     healthStreamingItems,
     networkServices,
+    networkServicesStatus,
     fixResult,
     captiveResult,
     publicIpInfo,
@@ -306,6 +314,7 @@ export function useNetworkProbeController() {
     tracerouteStreamingHops,
     ipv6Result,
     mtuResult,
+    offlineErrors,
     speedSources,
     speedResult,
     speedSample,
@@ -325,6 +334,9 @@ export function useNetworkProbeController() {
     reportHistory,
     securityAuthorized,
     activeSessionIdByKind,
+    healthCancelRequested:
+      activeSessionIdByKind.health !== null &&
+      cancelRequestedSessionIdByKind.health === activeSessionIdByKind.health,
     commandLog,
     loadingSummary,
     loadingTcp,

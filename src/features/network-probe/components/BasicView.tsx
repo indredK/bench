@@ -15,7 +15,11 @@ import { OfflinePanel } from "@/features/network-probe/components/OfflinePanel"
 import { OverviewPanel } from "@/features/network-probe/components/OverviewPanel"
 import { ReportPanel } from "@/features/network-probe/components/ReportPanel"
 import { ScanOpinionPanel } from "@/features/network-probe/components/ScanOpinionPanel"
-import { OFFLINE_SUBS, type NetworkProbeOfflineSub } from "@/features/network-probe/store"
+import {
+  OFFLINE_SUBS,
+  type NetworkProbeOfflineErrors,
+  type NetworkProbeOfflineSub,
+} from "@/features/network-probe/store"
 import { cn } from "@/lib/utils"
 
 type SectionId = "overview" | "tree" | "opinion" | "offline" | "fix" | "report"
@@ -31,6 +35,7 @@ interface OfflineProps {
   loadingMtu: boolean
   loadingEgress: boolean
   focus: NetworkProbeOfflineSub
+  errors: NetworkProbeOfflineErrors
   captive: ComponentProps<typeof OfflinePanel>["captive"]
   publicIp: ComponentProps<typeof OfflinePanel>["publicIp"]
   proxyVpn: ComponentProps<typeof OfflinePanel>["proxyVpn"]
@@ -42,6 +47,7 @@ interface OfflineProps {
   onProbeMtu: ComponentProps<typeof MtuPanel>["onRun"]
   onRefreshEgress: () => void
   onOpenMtu: () => void
+  busy: boolean
 }
 
 interface BasicViewProps {
@@ -143,6 +149,8 @@ export function BasicView({ overview, health, offline, fix, report }: BasicViewP
               <OfflinePanel
                 loading={offline.loading}
                 focus={offline.focus}
+                errors={offline.errors}
+                busy={offline.busy}
                 captive={offline.captive}
                 publicIp={offline.publicIp}
                 proxyVpn={offline.proxyVpn}

@@ -15,6 +15,7 @@ interface HealthTreePanelProps {
   result: HealthScanResult | null
   streamingItems: HealthCheckItem[]
   canCancel: boolean
+  cancelling: boolean
   onRun: () => void
   onCancel: () => void
   embedded?: boolean
@@ -25,6 +26,7 @@ export function HealthTreePanel({
   result,
   streamingItems,
   canCancel,
+  cancelling,
   onRun,
   onCancel,
   embedded = false,
@@ -47,8 +49,15 @@ export function HealthTreePanel({
             </CommandHint>
             {loading ? (
               <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" disabled={!canCancel} onClick={onCancel}>
-                  {t("networkProbe.health.cancel")}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!canCancel || cancelling}
+                  onClick={onCancel}
+                >
+                  {cancelling
+                    ? t("networkProbe.health.cancelling")
+                    : t("networkProbe.health.cancel")}
                 </Button>
               </CommandHint>
             ) : null}
