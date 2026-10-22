@@ -65,15 +65,15 @@ UI → controller → use-case → repository → typed IPC → net_probe::*
 
 ### 3.1 本机摘要（`getLocalNetworkSummary` / `getDefaultRoute`）
 
-| 数据                    | 推荐路径                                                              | 备选 / 注意                                                                                  |
-| ----------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 接口 up/down、地址、MAC | `netdev` + `if-addrs`                                                 | 不解析 `ifconfig` 人类表格（coding-standards §7.4）                                          |
-| 默认路由 / 网关         | `netdev` 路由表或 `SCDynamicStore` / `route get default` 结构化解析   | 优先库；子进程须固定 locale、timeout、输出上限                                               |
-| DNS 服务器              | `system-configuration` crate → `SCDynamicStoreCopyValue` / DNS entity | 对齐 `scutil --dns` 语义；取**当前生效** resolver，非仅「网络服务」配置页                    |
-| 系统代理 / PAC          | `SCDynamicStore` Proxies 字典（HTTP/HTTPS/SOCKS/PAC URL）             | 对齐 `scutil --proxy`；企业 VPN 下勿只信 System Settings UI                                  |
-| 活动接口排序            | `scutil --nwi` 等价信息（Primary + REACH）                            | VPN `utun*` 可能抢主键；摘要须同时列出 primary + 隧道                                        |
-| Wi‑Fi SSID / 信号       | CoreWLAN（`CWInterface`）或既有 `get_wifi_info` 迁入                  | **macOS Local Network / Wi‑Fi 隐私**：首次可能弹授权；失败标 `partial`/`unsupported`，不伪装 |
-| hosts                   | 只读 `/etc/hosts`                                                     | 解析异常行记 warn；**不自动改写**                                                            |
+| 数据                    | 推荐路径                                                                                       | 备选 / 注意                                                                                                            |
+| ----------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 接口 up/down、地址、MAC | `netdev` + `if-addrs`                                                                          | 不解析 `ifconfig` 人类表格（coding-standards §7.4）                                                                    |
+| 默认路由 / 网关         | `netdev` 路由表或 `SCDynamicStore` / `route get default` 结构化解析                            | 优先库；子进程须固定 locale、timeout、输出上限                                                                         |
+| DNS 服务器              | `system-configuration` crate → `SCDynamicStoreCopyValue` / DNS entity                          | 对齐 `scutil --dns` 语义；取**当前生效** resolver，非仅「网络服务」配置页                                              |
+| 系统代理 / PAC          | `SCDynamicStore` Proxies 字典（HTTP/HTTPS/SOCKS/PAC URL）                                      | 对齐 `scutil --proxy`；企业 VPN 下勿只信 System Settings UI                                                            |
+| 活动接口排序            | `scutil --nwi` 等价信息（Primary + REACH）                                                     | VPN `utun*` 可能抢主键；摘要须同时列出 primary + 隧道                                                                  |
+| Wi‑Fi SSID / 信号       | CoreWLAN（`CWWiFiClient` / `CWInterface`），由 `system_settings::network::read_wifi_info` 共享 | SSID 受 macOS「定位服务」授权限制；本应用只读、不申请授权；未连接或系统不返回 SSID 时字段留空，信号仅接受有效负 dBm 值 |
+| hosts                   | 只读 `/etc/hosts`                                                                              | 解析异常行记 warn；**不自动改写**                                                                                      |
 
 参考实践：
 

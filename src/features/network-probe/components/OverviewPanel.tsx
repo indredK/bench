@@ -80,13 +80,7 @@ export function OverviewPanel({
           />
           <InfoCard
             label={t("networkProbe.overview.wifi")}
-            value={
-              summary.wifiSsid
-                ? `${summary.wifiSsid}${
-                    summary.wifiSignalDbm != null ? ` (${summary.wifiSignalDbm} dBm)` : ""
-                  }`
-                : "—"
-            }
+            value={formatWifiSummary(summary.wifiSsid, summary.wifiSignalDbm)}
           />
           <InfoCard
             label={t("networkProbe.overview.firewall")}
@@ -120,6 +114,12 @@ export function OverviewPanel({
       ) : null}
     </ProbePanelShell>
   )
+}
+
+function formatWifiSummary(ssid?: string, signalDbm?: number) {
+  const normalizedSsid = ssid?.trim()
+  if (!normalizedSsid) return signalDbm != null ? `${signalDbm} dBm` : "—"
+  return `${normalizedSsid}${signalDbm != null ? ` (${signalDbm} dBm)` : ""}`
 }
 
 function InfoCard({ label, value, error }: { label: string; value: string; error?: string }) {

@@ -166,13 +166,13 @@ L1 → L2 映射：
 
 ## 7. 发现（discover）L1
 
-| 面板    | 说明                                                                                                                                                                                                                                  |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| arp     | 局域网发现：ARP 缓存 + TCP /24 扫（degraded；特权 RAW 扫待 helper）；输出邻居表（ip/mac/iface/source）；空态区分 权限不足（引导开 Local Network 权限）/隔离/安静；可取消                                                              |
-| lan-svc | mDNS/DNS-SD + SSDP/UPnP 服务浏览（只读），输出 `LanServicesResult`                                                                                                                                                                    |
-| nat     | NAT 类型（多 STUN），输出 `NatProbeResult`                                                                                                                                                                                            |
-| ntp     | NTP 时间偏移（多源中位数），输出 `NtpProbeResult`                                                                                                                                                                                     |
-| nodes   | **多节点 DNS 对比 + agent 注册**：域名对比（local + 各节点 DNS 结果按节点列出）；节点列表（local / Globalping 区域 / remote-agent）；注册 agent（label + https endpoint）→ `addAgent`（HTTPS 注册/健康检查/白名单），可移除；刷新节点 |
+| 面板    | 说明                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| arp     | 局域网发现：ARP 缓存 + TCP /24 扫（degraded；特权 RAW 扫待 helper）；输出邻居表（ip/mac/iface/source）；空态区分 权限不足（引导开 Local Network 权限）/隔离/安静；可取消                                                                                                                                                                                                                 |
+| lan-svc | mDNS/DNS-SD + SSDP/UPnP 服务浏览（只读），输出 `LanServicesResult`                                                                                                                                                                                                                                                                                                                       |
+| nat     | NAT 类型（多 STUN），输出 `NatProbeResult`                                                                                                                                                                                                                                                                                                                                               |
+| ntp     | NTP 时间偏移（多源中位数），输出 `NtpProbeResult`                                                                                                                                                                                                                                                                                                                                        |
+| nodes   | **多节点 DNS 对比 + agent 注册**：域名对比（local + 各节点 DNS 结果按节点列出）；节点列表（local / Globalping 区域 / remote-agent）；注册 agent（label + HTTPS 基础地址或完整 WSS 健康检查地址）→ `addAgent`（HTTPS `GET <base>/v1/health` 或 WSS TLS/Upgrade 握手；健康检查不发送 WebSocket 消息），可移除；刷新节点时最多 8 个并发重查健康状态、保持注册顺序，并显示已本地化的可达状态 |
 
 ## 8. 能力包（D-017 packs）
 
@@ -209,7 +209,7 @@ L1 → L2 映射：
 
 - `NetworkProbeCapabilities`：platform / privilegeLevel / tools / packs / externalTools。
 - `CapabilityPackInfo` / `CapabilityPackInstallResult` / `CapabilityPackProgress`。
-- `LocalNetworkSummary`：interfaces / primaryIpv4·6 / gateway / dnsServers / wifiSsid / wifiSignalDbm。
+- `LocalNetworkSummary`：interfaces / primaryIpv4·6 / gateway / dnsServers / wifiSsid / wifiSignalDbm。macOS Wi‑Fi 信息经共享的 CoreWLAN helper 读取；SSID 未连接或受系统隐私授权限制时不返回，应用不主动申请定位授权。
 - `HealthCheckItem`（key/layer/status/detail/commandHint）、`HealthOpinion`（id/severity/relatedKeys/titleKey/bodyKey）、`HealthScanResult`（items/opinions/elapsedMs/sessionId/cancelled/commandHint）。
 - `PingProbeResult` / `PingSample`；`DnsLookupResult` / `DnsRecordItem`；`TcpConnectResult`；`ProbeTargetResult`（icmp/http/tls）；`TracerouteHop` / `TracerouteResult`；`PathMtuResult`；`SpeedTestResult` / `SpeedSampleEvent` / `SpeedSource`。
 - `SitesProbeResult` / `SiteSampleResult`；`FixResult`；`CaptivePortalResult`；`PublicIpInfo`；`ProxyVpnStatus`；`Ipv6StackResult`。
@@ -276,8 +276,9 @@ L1 → L2 映射：
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
 - **单工具防重入**：每个 use-case 入口检查对应 loading；服务列表加载使用 `networkServicesStatus === "loading"` single-flight；批量离线诊断与 IPv6 / MTU / 公网出口单项检查互斥，同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
-- **single-flight 式刷新**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；**能力包刷新除外**——`refreshCapabilityPacks` 无 loading 标志，防重入由 PackInstallDialog 的 `busy` 提供（见 §8）。
-- **剩余防重入边界**：`addAgent` / `removeAgent` / `openSystemNetworkSettings` 仍无 loading 短路与禁用态；服务列表加载已有 single-flight 保护。需在对应交互具备异步提交状态后再评估是否纳入 P0-1。
+- **single-flight 式刷新与 Agent 写入**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；节点刷新期间按钮禁用并显示进度，避免可点击但无操作；Agent 添加/移除共享 `agentMutation` single-flight，期间锁定两个写按钮与节点刷新；成功后直接更新当前节点列表，避免二次读取失败或并发旧响应覆盖。节点列表以 revision 丢弃过期 bootstrap/refresh 响应。**能力包刷新除外**——`refreshCapabilityPacks` 无 loading 标志，防重入由 PackInstallDialog 的 `busy` 提供（见 §8）。
+- **系统设置导航**：`openSystemNetworkSettings` 只打开操作系统网络设置，不改变网络配置；保持在探测/修复期间可用，不参与目标写入锁。
+- **Agent 注册与刷新安全**：HTTPS 健康检查请求 `<base>/v1/health` 并要求 2xx；WSS 输入完整健康检查地址，仅要求可信 TLS + WebSocket Upgrade 握手成功，连接后立即关闭且不发送消息。添加与刷新超时 5 秒、最多 8 个 Agent 并发，刷新保持注册顺序；不跟随 HTTP 重定向；不接受明文、URL 凭据、query 或 fragment；签名参数与 agent 凭据待 C2-3 的安全存储方案落地。
 
 ### 13.4 数据与安全
 

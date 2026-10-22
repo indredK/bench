@@ -17,6 +17,10 @@
 
 ## 当前风险
 
+- [前端 / UX] `src/features/network-probe/components/MultiNodePanel.tsx` — 节点刷新期间按钮显示“刷新中”但仍可点击，而 use-case 会直接忽略重复请求，形成无反馈点击。现与 loading 状态同步禁用并补充回归测试；critical suite 与静态文档/i18n门禁通过，真机已验证节点面板和整体交互，但刷新瞬态响应过快，按钮 loading 禁用仅由回归测试覆盖；远程 CI 待运行 — **低** — 状态：代码已修复/远程 CI 待验证
+- [§3.3/§5/§7.2] `src-tauri/src/net_probe/agent.rs` — 2026-10-22 复查发现：登记表读-改-写无锁且直接 `fs::write`，并发 add/remove 可丢更新或留下截断 JSON；WSS 被输入校验接受但健康检查仍走 HTTP `reqwest`；节点读取错误被 `unwrap_or_default()` 折叠为空列表；前端写操作无 single-flight，添加后再拉列表可丢失健康状态；列表刷新曾将所有 Agent 固定标为不可达。已改为原子串行写、WSS Upgrade 健康检查、错误向 UI 传播、revision 防陈旧响应、有界并发重查、稳定顺序及双语类型/状态反馈；Rust/前端门禁通过，隔离 macOS QA bundle 已验证 BasicView 与公开 WSS 握手/刷新；远程 CI 待运行 — **强制** — 状态：代码与 macOS 验证已完成/远程 CI 待验证
+- [§6/§7.4/§5] `src-tauri/src/system_settings/network.rs`、`src-tauri/src/net_probe/summary.rs`、`src/features/network-probe/components/OverviewPanel.tsx` — macOS 15.4+ 已移除私有 `airport` 工具；两个入口改用共享 CoreWLAN helper。真机确认系统未返回 SSID、但返回信号与信道且没有权限弹窗；此前概览只渲染 SSID，导致可用信号被显示为破折号，现改为 SSID 缺失时显示 dBm 且隔离 QA bundle 已真机显示 `-60 dBm`。frequency/security 暂无 CoreWLAN 映射；SSID 正向路径与远端构建待验证 — **中** — 状态：macOS 已验证/远端 CI 待验证
+
 - [§7/§8/§4] `src/features/photo-triage/`、`src-tauri/src/photo_triage/` - 2026-09-03 复查发现并已修复：11 处 IPC 路径 `lock().unwrap()`（Mutex 中毒回归）、阻塞 I/O 未 `spawn_blocking`（7 命令）、sips/ffmpeg/qlmanage 无超时未复用 `subprocess.rs`、`prune` 源目录不可达时静默清除引用、`move_items` 部分失败不回滚、`ConfirmSheet` 硬编码中文插值、`window.confirm` 原生弹窗、文档注册三缺口（modules/README 索引、check-docs 豁免、D-020 决策）与持久化治理（config.json schema v1 + manifest 256MB 上限 + persistence-schema 登记） - 均已修复；`trash/restore/move/prune` 补 5 个 Rust 行为测试待验证链执行 - **强制** - 状态：代码已修复/待验证
 - [§3/§5/§6/§9] `src/features/account-manager/` - 缺区域 error/retry 与大文件分层；Keyring/WebView/Deep Link 双平台行为未验收 - 区域 error/retry、分层拆分与错误统一已由 R01 关闭；真机部分执行 [R04](../roadmap/ROADMAP.md#r04-account-manager-双平台真机矩阵) - **强制** - 状态：代码已修复/待验收
 - [§3.3/§7/§8] `src-tauri/src/account_manager/` - 同源 Web Storage/IndexedDB、canonical Cookie expiry、single-flight、Deep Link inbox 和 capability 已实现；partition key 不可用且目标平台行为未验收 - 保持 partitioned Cookie fail-closed，执行 [R04](../roadmap/ROADMAP.md#r04-account-manager-双平台真机矩阵) - **强制** - 状态：代码已修复/待验收
