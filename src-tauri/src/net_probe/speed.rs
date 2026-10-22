@@ -3,6 +3,8 @@
 
 use super::types::{ScanSessionEvent, SpeedSampleEvent, SpeedSource, SpeedTestResult};
 use crate::error::{AppError, AppResult};
+use futures_util::{Stream, StreamExt};
+use std::future::Future;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Runtime};
 
@@ -15,24 +17,73 @@ const MAX_UPLOAD_MB: u64 = 8;
 const MAX_PHASE_SECS: u64 = 45;
 const PING_COUNT: u32 = 8;
 
+fn upload_limit_mb(source_limit_mb: u64) -> u64 {
+    source_limit_mb.clamp(1, MAX_UPLOAD_MB)
+}
+
+/// Bound response-body consumption even when a source ignores `ckSize`.
+/// Only byte counts are needed for the speed result, so keep no body buffer.
+async fn count_stream_capped<S, B, E>(stream: S, max_bytes: usize) -> Result<usize, E>
+where
+    S: Stream<Item = Result<B, E>>,
+    B: AsRef<[u8]>,
+{
+    if max_bytes == 0 {
+        return Ok(0);
+    }
+    futures_util::pin_mut!(stream);
+    let mut total = 0usize;
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk?;
+        let remaining = max_bytes.saturating_sub(total);
+        total += chunk.as_ref().len().min(remaining);
+        if total == max_bytes {
+            break;
+        }
+    }
+    Ok(total)
+}
+
+async fn await_or_cancel<F>(session_id: &str, request: F) -> Option<F::Output>
+where
+    F: Future,
+{
+    tokio::select! {
+        biased;
+        _ = wait_for_cancel(session_id) => None,
+        result = request => Some(result),
+    }
+}
+
+async fn wait_for_cancel(session_id: &str) {
+    loop {
+        if super::session::is_cancelled(session_id) {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+}
+
 pub fn builtin_sources() -> Vec<SpeedSource> {
-    // Public instances — verify ToS before shipping hard defaults; users may add self-hosted.
+    // Public instances from LibreSpeed's upstream server list; keep source transfer caps explicit.
     vec![
         SpeedSource {
-            id: "librespeed-org".into(),
-            name: "LibreSpeed.org".into(),
-            base_url: "https://librespeed.org/".into(),
+            id: "librespeed-sharktech".into(),
+            name: "LibreSpeed (Amsterdam · Sharktech)".into(),
+            base_url: "https://amsspeed.sharktech.net/".into(),
             dl_path: "backend/garbage.php".into(),
             ul_path: "backend/empty.php".into(),
             ping_path: "backend/empty.php".into(),
+            max_upload_mb: 8,
         },
         SpeedSource {
-            id: "librespeed-ams".into(),
-            name: "LibreSpeed (Amsterdam mirror)".into(),
-            base_url: "https://speedtest.online.net/".into(),
+            id: "librespeed-clouvider".into(),
+            name: "LibreSpeed (Amsterdam · Clouvider)".into(),
+            base_url: "https://ams.speedtest.clouvider.net/backend/".into(),
             dl_path: "garbage.php".into(),
             ul_path: "empty.php".into(),
             ping_path: "empty.php".into(),
+            max_upload_mb: 4,
         },
         SpeedSource {
             id: "librespeed-selfhost-template".into(),
@@ -41,6 +92,7 @@ pub fn builtin_sources() -> Vec<SpeedSource> {
             dl_path: "backend/garbage.php".into(),
             ul_path: "backend/empty.php".into(),
             ping_path: "backend/empty.php".into(),
+            max_upload_mb: 8,
         },
     ]
 }
@@ -94,7 +146,13 @@ pub async fn run_speed_test<R: Runtime>(
             break;
         }
         let t0 = Instant::now();
-        let res = client.get(&ping_url).send().await;
+        let res = match await_or_cancel(&session_id, client.get(&ping_url).send()).await {
+            Some(result) => result,
+            None => {
+                cancelled = true;
+                break;
+            }
+        };
         let ok = res.map(|r| r.status().is_success()).unwrap_or(false);
         if ok {
             let ms = t0.elapsed().as_secs_f64() * 1000.0;
@@ -129,19 +187,28 @@ pub async fn run_speed_test<R: Runtime>(
         );
         let t0 = Instant::now();
         let max_bytes = (MAX_DOWNLOAD_MB * 1024 * 1024) as usize;
-        match client.get(&dl_url).send().await {
-            Ok(resp) if resp.status().is_success() => match resp.bytes().await {
-                Ok(bytes) => {
-                    let capped = bytes.len().min(max_bytes);
-                    let secs = t0.elapsed().as_secs_f64().max(0.001);
-                    let mbps = (capped as f64 * 8.0) / (secs * 1_000_000.0);
-                    download_mbps = Some(mbps);
-                    emit_sample(app, "download", mbps, "done");
-                }
-                Err(e) => emit_sample(app, "download", 0.0, &format!("error:{e}")),
-            },
-            Ok(resp) => emit_sample(app, "download", 0.0, &format!("http:{}", resp.status())),
-            Err(e) => emit_sample(app, "download", 0.0, &format!("error:{e}")),
+        let download = async {
+            let response = client
+                .get(&dl_url)
+                .send()
+                .await
+                .map_err(|error| format!("error:{error}"))?;
+            if !response.status().is_success() {
+                return Err(format!("http:{}", response.status()));
+            }
+            count_stream_capped(response.bytes_stream(), max_bytes)
+                .await
+                .map_err(|error| format!("error:{error}"))
+        };
+        match await_or_cancel(&session_id, download).await {
+            Some(Ok(bytes)) => {
+                let secs = t0.elapsed().as_secs_f64().max(0.001);
+                let mbps = (bytes as f64 * 8.0) / (secs * 1_000_000.0);
+                download_mbps = Some(mbps);
+                emit_sample(app, "download", mbps, "done");
+            }
+            Some(Err(detail)) => emit_sample(app, "download", 0.0, &detail),
+            None => cancelled = true,
         }
     } else {
         cancelled = true;
@@ -151,17 +218,31 @@ pub async fn run_speed_test<R: Runtime>(
     if !cancelled && !super::session::is_cancelled(&session_id) {
         emit_sample(app, "upload", 0.0, "running");
         let ul_url = join_url(&source.base_url, &source.ul_path);
-        let payload = vec![0u8; (MAX_UPLOAD_MB.clamp(1, MAX_UPLOAD_MB) * 1024 * 1024) as usize];
+        let payload_bytes = (upload_limit_mb(source.max_upload_mb) * 1024 * 1024) as usize;
+        let payload = vec![0u8; payload_bytes];
         let t0 = Instant::now();
-        match client.post(&ul_url).body(payload.clone()).send().await {
-            Ok(resp) if resp.status().is_success() || resp.status().as_u16() == 200 => {
+        let upload = async {
+            let response = client
+                .post(&ul_url)
+                .body(payload)
+                .send()
+                .await
+                .map_err(|error| format!("error:{error}"))?;
+            if response.status().is_success() || response.status().as_u16() == 200 {
+                Ok(())
+            } else {
+                Err(format!("http:{}", response.status()))
+            }
+        };
+        match await_or_cancel(&session_id, upload).await {
+            Some(Ok(())) => {
                 let secs = t0.elapsed().as_secs_f64().max(0.001);
-                let mbps = (payload.len() as f64 * 8.0) / (secs * 1_000_000.0);
+                let mbps = (payload_bytes as f64 * 8.0) / (secs * 1_000_000.0);
                 upload_mbps = Some(mbps);
                 emit_sample(app, "upload", mbps, "done");
             }
-            Ok(resp) => emit_sample(app, "upload", 0.0, &format!("http:{}", resp.status())),
-            Err(e) => emit_sample(app, "upload", 0.0, &format!("error:{e}")),
+            Some(Err(detail)) => emit_sample(app, "upload", 0.0, &detail),
+            None => cancelled = true,
         }
     } else {
         cancelled = cancelled || super::session::is_cancelled(&session_id);
@@ -205,5 +286,69 @@ fn emit_sample<R: Runtime>(app: Option<&AppHandle<R>>, phase: &str, value: f64, 
                 detail: detail.into(),
             },
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{await_or_cancel, count_stream_capped, upload_limit_mb};
+    use crate::net_probe::session::{cancel_scan, clear_session, new_session_id};
+    use futures_util::stream;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn cancellation_drops_an_in_flight_request_future() {
+        struct DropSignal(Arc<AtomicBool>);
+
+        impl Drop for DropSignal {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let session_id = new_session_id();
+        let dropped = Arc::new(AtomicBool::new(false));
+        let request_dropped = Arc::clone(&dropped);
+        let request = async move {
+            let _signal = DropSignal(request_dropped);
+            std::future::pending::<()>().await
+        };
+        let cancel_id = session_id.clone();
+        let cancel_task = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(30)).await;
+            cancel_scan(cancel_id);
+        });
+
+        let result = tokio::time::timeout(
+            Duration::from_secs(1),
+            await_or_cancel(&session_id, request),
+        )
+        .await
+        .expect("an in-flight request should stop promptly after cancellation");
+
+        assert!(result.is_none());
+        assert!(dropped.load(Ordering::SeqCst));
+        cancel_task.await.expect("cancel task should finish");
+        clear_session(&session_id);
+    }
+
+    #[tokio::test]
+    async fn download_byte_count_never_exceeds_the_configured_cap() {
+        let chunks = stream::iter([Ok::<_, ()>(vec![1_u8; 4]), Ok(vec![2_u8; 5]), Err(())]);
+
+        let bytes = count_stream_capped(chunks, 6)
+            .await
+            .expect("in-memory chunks should be counted");
+
+        assert_eq!(bytes, 6);
+    }
+
+    #[test]
+    fn source_upload_limits_are_bounded_by_the_global_cap() {
+        assert_eq!(upload_limit_mb(0), 1);
+        assert_eq!(upload_limit_mb(4), 4);
+        assert_eq!(upload_limit_mb(32), 8);
     }
 }

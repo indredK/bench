@@ -124,7 +124,7 @@ macOS 允许非 root 使用 `SOCK_DGRAM` + `IPPROTO_ICMP`（与系统 `ping(8)` 
 ```
 
 - Fake-IP（`dns.fake_ip`）：系统 `getaddrinfo` / TUN 落在 `198.18.0.0/15` 时 warn；`reach.public_name` 跳过 ICMP。
-- 流式：`network-probe://health-item`，每项含 `key/status/evidence/commandHint`。
+- 流式：`network-probe://health-item`，每项含 `key/status/evidence/commandHint`；UI 根据稳定 `key` 显示本地化检查名称，并将原 key 保留为次要诊断标识。
 - `CancellationToken`：取消后不再 emit；`cancelScan` 幂等。
 - 阻塞 I/O：`spawn_blocking` 或独立 tokio 任务，不堵 IPC async 主路径。
 

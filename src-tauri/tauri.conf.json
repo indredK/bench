@@ -65,6 +65,10 @@
       "resources/extensions/": "extensions/"
     },
     "macOS": {
+      "files": {
+        "Resources/en.lproj/InfoPlist.strings": "infoplist/en.lproj/InfoPlist.strings",
+        "Resources/zh-Hans.lproj/InfoPlist.strings": "infoplist/zh-Hans.lproj/InfoPlist.strings"
+      },
       "minimumSystemVersion": "14.0",
       "signingIdentity": "-"
     },

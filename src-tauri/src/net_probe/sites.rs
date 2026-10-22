@@ -2,6 +2,8 @@ use super::defaults::get_defaults;
 use super::probe::{probe_http_target_with_throughput, probe_icmp_once};
 use super::types::{ScanSessionEvent, SiteSampleResult, SitesProbeResult};
 use crate::error::{AppError, AppResult};
+use std::future::Future;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Runtime};
 
 pub const SITE_SAMPLE_EVENT: &str = "network-probe:site-sample";
@@ -41,10 +43,22 @@ pub async fn sites_probe<R: Runtime>(
             cancelled = true;
             break;
         }
-        let sample = probe_site(site.id, site.target, site.channel).await;
+        let sample = match probe_site_cancellable(
+            &session_id,
+            probe_site(site.id, site.target, site.channel),
+        )
+        .await
+        {
+            Some(sample) => sample,
+            None => {
+                cancelled = true;
+                break;
+            }
+        };
         emit_sample(app, &sample);
         results.push(sample);
     }
+    cancelled |= super::session::is_cancelled(&session_id);
 
     super::session::clear_session(&session_id);
     Ok(SitesProbeResult {
@@ -97,10 +111,22 @@ pub async fn sites_probe_custom<R: Runtime>(
         } else {
             "both"
         };
-        let sample = probe_site(format!("custom-{idx}"), target, channel.into()).await;
+        let sample = match probe_site_cancellable(
+            &session_id,
+            probe_site(format!("custom-{idx}"), target, channel.into()),
+        )
+        .await
+        {
+            Some(sample) => sample,
+            None => {
+                cancelled = true;
+                break;
+            }
+        };
         emit_sample(app, &sample);
         results.push(sample);
     }
+    cancelled |= super::session::is_cancelled(&session_id);
 
     super::session::clear_session(&session_id);
     Ok(SitesProbeResult {
@@ -127,6 +153,25 @@ fn emit_session<R: Runtime>(app: Option<&AppHandle<R>>, session_id: &str) {
 fn emit_sample<R: Runtime>(app: Option<&AppHandle<R>>, sample: &SiteSampleResult) {
     if let Some(app) = app {
         let _ = app.emit(SITE_SAMPLE_EVENT, sample);
+    }
+}
+
+async fn probe_site_cancellable<F>(session_id: &str, probe: F) -> Option<SiteSampleResult>
+where
+    F: Future<Output = SiteSampleResult>,
+{
+    tokio::select! {
+        sample = probe => Some(sample),
+        _ = wait_for_cancel(session_id) => None,
+    }
+}
+
+async fn wait_for_cancel(session_id: &str) {
+    loop {
+        if super::session::is_cancelled(session_id) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
     }
 }
 
@@ -292,5 +337,29 @@ async fn probe_site(id: String, target: String, channel: String) -> SiteSampleRe
             download_bytes: None,
             error: Some(format!("Unsupported channel: {other}")),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn cancellation_interrupts_an_in_flight_site_probe() {
+        let session_id = super::super::session::new_session_id();
+        let task_session_id = session_id.clone();
+        let task = tokio::spawn(async move {
+            probe_site_cancellable(&task_session_id, std::future::pending()).await
+        });
+
+        tokio::task::yield_now().await;
+        super::super::session::cancel_scan(session_id.clone());
+        let result = tokio::time::timeout(Duration::from_secs(1), task)
+            .await
+            .expect("cancellation should interrupt the pending probe")
+            .expect("probe task should not panic");
+        super::super::session::clear_session(&session_id);
+
+        assert!(result.is_none());
     }
 }

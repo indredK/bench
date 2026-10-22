@@ -11,14 +11,19 @@
       // mode WebViews (#111) — without this the rest of the inline script
       // aborts and the splash stays blank forever.
       ;(function () {
+        var lang =
+          typeof navigator !== "undefined" &&
+          typeof navigator.language === "string" &&
+          navigator.language.toLowerCase().startsWith("zh")
+            ? "zh"
+            : "en"
         try {
-          var lang = localStorage.getItem("language")
-          if (lang) {
-            document.documentElement.lang = lang
-          }
+          var storedLanguage = localStorage.getItem("language")
+          if (storedLanguage === "zh" || storedLanguage === "en") lang = storedLanguage
         } catch (e) {
           /* private mode or storage disabled */
         }
+        document.documentElement.lang = lang
         try {
           var theme = localStorage.getItem("theme")
           if (

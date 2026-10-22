@@ -5,6 +5,8 @@ import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
+import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import {
   Select,
   SelectContent,
@@ -22,8 +24,10 @@ import type {
 interface SpeedPanelProps {
   loading: boolean
   canCancel: boolean
+  cancelling: boolean
   sources: SpeedSource[]
   result: SpeedTestResult | null
+  hasError?: boolean
   sample: SpeedSampleEvent | null
   cooldownUntil: number | null
   toolEnabled: boolean
@@ -36,8 +40,10 @@ interface SpeedPanelProps {
 export function SpeedPanel({
   loading,
   canCancel,
+  cancelling,
   sources,
   result,
+  hasError = false,
   sample,
   cooldownUntil,
   toolEnabled,
@@ -69,6 +75,7 @@ export function SpeedPanel({
   const cooldownSec =
     cooldownUntil != null && cooldownUntil > now ? Math.ceil((cooldownUntil - now) / 1000) : 0
   const coolingDown = cooldownSec > 0
+  const selectedSource = sources.find((source) => source.id === sourceId)
 
   const phaseLabel =
     sample?.phase != null
@@ -122,6 +129,11 @@ export function SpeedPanel({
                   ))}
                 </SelectContent>
               </Select>
+              {selectedSource ? (
+                <p className="text-muted-foreground text-xs">
+                  {t("networkProbe.speed.uploadLimit", { mb: selectedSource.maxUploadMb })}
+                </p>
+              ) : null}
             </div>
             <CommandHint hint={t("networkProbe.cmd.speedTest", { sourceId: sourceId || "…" })}>
               <Button
@@ -133,11 +145,11 @@ export function SpeedPanel({
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("networkProbe.speed.cancel")}
-                </Button>
-              </CommandHint>
+              <NetworkProbeCancelButton
+                label={t("networkProbe.speed.cancel")}
+                cancelling={cancelling}
+                onCancel={onCancel}
+              />
             ) : null}
           </div>
         </>
@@ -153,6 +165,9 @@ export function SpeedPanel({
               : null}
         </p>
       ) : null}
+      {!loading && !result && !hasError && toolEnabled && sources.length > 0 ? (
+        <ProbeEmptyState>{t("networkProbe.resultEmpty")}</ProbeEmptyState>
+      ) : null}
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div className="font-medium">
@@ -167,9 +182,6 @@ export function SpeedPanel({
             <p className="text-xs text-amber-700 dark:text-amber-400">
               {t("networkProbe.speed.sourceUnavailable")}
             </p>
-          ) : null}
-          {result.message ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
           ) : null}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Metric

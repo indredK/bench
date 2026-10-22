@@ -89,7 +89,7 @@ export interface PingSample {
   seq: number
   ok: boolean
   rttMs?: number
-  error?: string
+  error?: "timeout" | "permission_denied" | "network_error"
 }
 
 export interface PingProbeResult {
@@ -103,7 +103,14 @@ export interface PingProbeResult {
   maxRttMs?: number
   stddevRttMs?: number
   samples: PingSample[]
+  sessionId: string
+  cancelled: boolean
   commandHint: string
+}
+
+export interface PingSampleEvent {
+  sessionId: string
+  sample: PingSample
 }
 
 export interface SpeedSource {
@@ -113,6 +120,7 @@ export interface SpeedSource {
   dlPath: string
   ulPath: string
   pingPath: string
+  maxUploadMb: number
 }
 
 export interface SpeedSampleEvent {
@@ -394,6 +402,7 @@ export interface NetworkProbeDefaultsCatalog {
 }
 
 export interface PollutionFinding {
+  code: string
   kind: string
   severity: string
   evidence: string
@@ -521,11 +530,14 @@ export interface NodeDnsAnswer {
   ok: boolean
   answers: string[]
   detail?: string
+  failureKind?: "quota" | "timeout" | "request" | "measurement" | "noAnswers"
 }
 
 export interface MultiNodeDnsResult {
   domain: string
   answers: NodeDnsAnswer[]
   elapsedMs: number
+  sessionId: string
+  cancelled: boolean
   commandHint: string
 }

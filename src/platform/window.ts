@@ -12,6 +12,10 @@ interface AppWindow {
   hide: () => Promise<void>
   setFocus: () => Promise<void>
   startDragging: () => Promise<void>
+  startResizeDragging: (
+    direction:
+      "East" | "North" | "NorthEast" | "NorthWest" | "South" | "SouthEast" | "SouthWest" | "West",
+  ) => Promise<void>
   setAlwaysOnTop: (onTop: boolean) => Promise<void>
   isAlwaysOnTop: () => Promise<boolean>
 }

@@ -1573,6 +1573,9 @@
   "networkProbe": {
     "title": "网络探测",
     "subtitle": "急救诊断与主动探测（模块 1.0 / MVP A+B）。",
+    "cancelling": "正在取消…",
+    "resultEmpty": "运行探测后，结果会显示在这里。",
+    "systemDetail": "系统反馈详情",
     "nav": {
       "l1": "一级分区",
       "l2": "工具",
@@ -1633,6 +1636,7 @@
       "refresh": "刷新",
       "refreshing": "刷新中…",
       "openSettings": "打开系统网络设置",
+      "openingSettings": "正在打开设置…",
       "empty": "尚无摘要。点击刷新加载本机网络状态。",
       "ipv4": "IPv4",
       "ipv6": "IPv6",
@@ -1653,9 +1657,19 @@
       "hint": "探测 host:port 的 TCP 连通性（开发者刚需）。",
       "host": "主机",
       "port": "端口",
+      "portInvalid": "端口号必须是 1 到 65535 之间的整数。",
       "run": "连接",
       "running": "连接中…",
       "status": "状态",
+      "statusValue": {
+        "ok": "已连接",
+        "refused": "连接被拒绝",
+        "unreachable": "网络不可达",
+        "dnsFailed": "DNS 解析失败",
+        "timeout": "连接超时",
+        "error": "连接失败",
+        "unknown": "未知状态"
+      },
       "rtt": "RTT",
       "rttValue": "RTT: {{ms}} ms"
     },
@@ -1663,13 +1677,26 @@
       "hint": "ICMP Echo 探测延迟、抖动与丢包（macOS 需本地网络权限）。",
       "target": "目标",
       "count": "次数",
+      "countInvalid": "次数必须是 1 到 20 之间的整数。",
       "run": "Ping",
       "running": "探测中…",
+      "cancel": "取消探测",
+      "cancelled": "本次 Ping 已取消。",
+      "progress": "已完成 {{sent}} / {{total}} 个探测包",
       "resolved": "解析 IP",
       "summary": "发送 {{sent}} · 收到 {{received}} · 丢包 {{loss}}%",
       "rttSummary": "RTT 最小/平均/最大/抖动: {{min}} / {{avg}} / {{max}} / {{jitter}} ms",
       "sampleOk": "#{{seq}} {{ms}} ms",
-      "sampleFail": "#{{seq}} 失败 — {{error}}"
+      "sampleFail": "#{{seq}} 失败 — {{error}}",
+      "privacySettingsHint": "请在“系统设置 > 隐私与安全性 > 本地网络”中允许 Bench。",
+      "openPrivacySettings": "打开隐私设置",
+      "openingPrivacySettings": "正在打开设置…",
+      "sampleError": {
+        "timeout": "请求超时",
+        "permissionDenied": "权限不足",
+        "networkError": "网络错误",
+        "unknown": "探测失败"
+      }
     },
     "dns": {
       "hint": "通过系统解析器或指定 DNS IP 查询记录。",
@@ -1694,10 +1721,11 @@
       "icmpFail": "失败 — {{error}}",
       "http": "HTTP",
       "httpOk": "{{status}} · TTFB {{ms}} ms",
-      "httpFail": "失败 — {{error}}",
+      "httpStatusFail": "失败 — HTTP {{status}}",
+      "httpRequestFail": "失败 — 请求失败",
       "tls": "TLS",
       "tlsOk": "握手成功",
-      "tlsFail": "失败 — {{detail}}"
+      "tlsFail": "失败 — 握手未完成"
     },
     "sites": {
       "hint": "对内置站点包做 ICMP / HTTP 延迟与有界下载吞吐探测。自定义站流式采样并显示火花线；可中途取消。",
@@ -1733,7 +1761,6 @@
       "empty": "未加载官网站点包。",
       "summary": "成功 {{ok}} · 失败 {{fail}} · 共 {{total}}",
       "clickToTest": "点击测试",
-      "cardHint": "测试 {{host}}",
       "statusOk": "通",
       "statusFail": "不通",
       "statusIdle": "未测",
@@ -1780,6 +1807,37 @@
       "cancelled": "已取消",
       "empty": "尚无结果。运行体检以填充检查树。",
       "elapsed": "完成于 {{ms}} ms",
+      "items": {
+        "link": {
+          "iface": { "title": "网络接口" },
+          "wifi_or_wired": { "title": "连接类型" }
+        },
+        "addr": {
+          "ipv4": { "title": "IPv4 地址" },
+          "ipv6": { "title": "IPv6 地址" },
+          "dhcp_or_static": { "title": "地址配置方式" }
+        },
+        "route": { "default": { "title": "默认路由" } },
+        "dns": {
+          "servers": { "title": "DNS 服务器" },
+          "resolve_name": { "title": "域名解析" },
+          "fake_ip": { "title": "DNS 解析模式" }
+        },
+        "hosts": { "override": { "title": "hosts 覆盖项" } },
+        "proxy": { "system": { "title": "系统代理" } },
+        "vpn": { "tunnel": { "title": "VPN / 隧道" } },
+        "firewall": { "status": { "title": "防火墙状态" } },
+        "svc": { "network": { "title": "网络服务" } },
+        "reach": {
+          "gateway": { "title": "网关可达性" },
+          "public_ip": { "title": "公网 IP 可达性" },
+          "public_name": { "title": "公网域名可达性" },
+          "captive": { "title": "强制门户检测" },
+          "public_egress": { "title": "公网出口" },
+          "mtu": { "title": "路径 MTU" }
+        },
+        "diff": { "dns_vs_ip": { "title": "DNS 与 IP 对照" } }
+      },
       "layers": {
         "L0": "L0 · 链路",
         "L1": "L1 · 地址 / DNS / 策略",
@@ -1862,14 +1920,21 @@
     "fix": {
       "hint": "免特权自愈操作。后端会复核网络服务与 DNS 白名单。",
       "service": "网络服务",
+      "servicesEmpty": "未发现网络服务",
+      "loadingServices": "正在读取服务…",
+      "selectService": "请选择网络服务",
+      "loadServices": "读取网络服务",
+      "refreshServices": "刷新网络服务",
       "dnsPreset": "DNS 预设",
       "flush": "刷新 DNS",
       "switchDns": "切换 DNS",
       "renewDhcp": "续租 DHCP",
       "resetStack": "重置网络栈",
       "openSettings": "打开系统网络设置",
+      "openingSettings": "正在打开设置…",
       "ok": "成功",
       "failed": "失败",
+      "unknownAction": "网络修复操作",
       "confirm": {
         "cancel": "取消",
         "confirm": "确认",
@@ -1905,7 +1970,7 @@
       }
     },
     "offline": {
-      "hint": "跑 Captive、公网出口 IP、代理/VPN 检查，用于「上不了网」分诊。",
+      "hint": "运行 Captive、代理/VPN、IPv6、路径 MTU 与公网出口检查，用于「上不了网」分诊。",
       "run": "运行上不了网诊断",
       "running": "诊断中…",
       "pending": "尚未运行。",
@@ -2007,6 +2072,7 @@
       "hint": "兼容 LibreSpeed 的带宽测速（ping / 下载 / 上传）。可取消中途停止。",
       "source": "测速源",
       "sourcePlaceholder": "选择测速源",
+      "uploadLimit": "本次最多发送 {{mb}} MiB 上行数据",
       "emptySources": "暂无可用测速源。",
       "run": "开始测速",
       "running": "测速中…",
@@ -2034,11 +2100,45 @@
       }
     },
     "pollution": {
-      "hint": "对比多 resolver DNS 答案、检查 hosts 异常，并探测 HTTPS 信任（企业中间盒 vs 失败）。",
+      "hint": "对比多个 DNS 解析器、检查 hosts 覆盖并验证 HTTPS 信任。单纯网络失败不能证明存在流量拦截。",
       "domain": "域名",
       "run": "开始污染检测",
       "running": "检测中…",
-      "meta": "{{domain}} · {{count}} 条发现 · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} 条发现 · {{ms}} ms",
+      "kind": {
+        "dns": "DNS",
+        "hosts": "Hosts 文件",
+        "tls": "HTTPS / TLS",
+        "route": "路由",
+        "arp": "ARP",
+        "unknown": "其他"
+      },
+      "severity": {
+        "info": "提示",
+        "warn": "警告",
+        "high": "高危",
+        "unknown": "未知等级"
+      },
+      "finding": {
+        "dnsResolverFailed": "DNS 解析器没有响应",
+        "dnsAnswersDisagree": "不同 DNS 解析器返回的结果不一致",
+        "dnsResolversAgree": "不同 DNS 解析器返回的结果一致",
+        "hostsClean": "未发现可疑的 hosts 覆盖",
+        "hostsOverride": "hosts 文件包含可疑覆盖项",
+        "hostsReadFailed": "无法检查 hosts 文件",
+        "tlsClientSetupFailed": "HTTPS 验证无法启动",
+        "tlsProbeSucceeded": "HTTPS 连接成功，证书链通过客户端校验",
+        "tlsProbeFailed": "无法验证 HTTPS；单凭此失败不能判断存在流量拦截",
+        "routeTunnelDetected": "默认路由经过隧道",
+        "routeProxyEnabled": "系统代理已启用",
+        "arpCheckFailed": "无法检查 ARP 缓存",
+        "arpGatewayMissing": "网关暂未出现在 ARP 缓存中",
+        "arpGatewayIncomplete": "网关 ARP 记录不完整",
+        "arpSharedMac": "网关 MAC 也出现在其他 IP 上；共享设备中可能是正常情况",
+        "arpGatewayBound": "当前缓存中网关只对应一个 MAC 地址",
+        "arpNoGateway": "没有默认网关，已跳过 ARP 检查",
+        "unknown": "未知发现项，请查看技术详情。"
+      }
     },
     "whois": {
       "hint": "经 rdap.org 做 RDAP 查询（本构建不强制 WHOIS 文本协议）。输出可能截断。",
@@ -2067,6 +2167,14 @@
       "run": "扫描端口",
       "running": "扫描中…",
       "cancel": "取消",
+      "validation": {
+        "empty": "请输入至少一个端口或范围。",
+        "invalidFormat": "请按 80,443,8000-8010 的格式输入。",
+        "outOfRange": "端口号必须在 1 到 65535 之间。",
+        "reversedRange": "范围起始端口不能大于结束端口。",
+        "tooMany": "最多扫描 256 个不同端口。",
+        "tooLong": "端口输入过长（最多 2048 字节）。"
+      },
       "openList": "开放：{{ports}}",
       "confirmTitle": "确认端口扫描范围",
       "confirmDesc": "目标 {{target}} · 约 {{count}} 个端口。公网主机或较大范围需二次确认。",
@@ -2093,7 +2201,13 @@
       "run": "浏览局域网服务",
       "running": "浏览中…",
       "empty": "监听窗口内无 mDNS/SSDP 响应。",
-      "meta": "{{count}} 个服务 · {{ms}} ms"
+      "meta": "{{count}} 个服务 · {{ms}} ms",
+      "protocolError": "{{protocol}} 发现失败",
+      "protocol": {
+        "mdns": "mDNS",
+        "ssdp": "SSDP",
+        "unknown": "其他协议"
+      }
     },
     "pcap": {
       "hint": "短时只计计数器的抓包采样（RST / 重传提示）。完整 pcap 落盘保持可选。",
@@ -2101,22 +2215,72 @@
       "run": "采样包计数",
       "running": "采集中…",
       "mode": "模式",
-      "stats": "packets={{packets}} · RST={{rst}} · retrans≈{{retrans}} · OOO≈{{ooo}}"
+      "stats": "数据包={{packets}} · RST={{rst}} · 重传≈{{retrans}} · 乱序≈{{ooo}}",
+      "modeValue": {
+        "tcpdumpCounters": "tcpdump 计数（降级）",
+        "unavailable": "不可用",
+        "unknown": "未知模式"
+      },
+      "resultStatus": {
+        "cancelled": "采样已取消。",
+        "unavailable": "抓包采样不可用。",
+        "degraded": "已完成计数采样，未保存数据包内容。",
+        "unknown": "采样状态未知。"
+      }
     },
     "nodes": {
-      "hint": "对比本机与 Globalping 多地的 DNS 答案。可注册 HTTPS agent 作为自有探测节点。",
+      "hint": "对比本机与 Globalping 多地的 DNS 答案。HTTPS/WSS agent 当前仅检查可达性，尚不能执行远程探测。",
       "run": "多节点对比 DNS",
       "running": "对比中…",
+      "stopWaitingHint": "停止等待会结束本机轮询；已提交给 Globalping 的探测仍可能继续运行。",
+      "cancelled": "已停止等待，当前显示停止前已收到的结果。",
+      "technicalDetails": "技术详情",
+      "failures": {
+        "quota": "Globalping 额度或速率限制已用尽。",
+        "timeout": "Globalping 远端测量超时；最长等待 20 秒。",
+        "request": "无法完成 Globalping 请求。",
+        "measurement": "该探点未能完成 DNS 测量。",
+        "noAnswers": "该探点未返回 DNS 答案。",
+        "localRequest": "本机 DNS 查询失败。",
+        "localTimeout": "本机 DNS 查询超过 5 秒等待上限。"
+      },
+      "working": "处理中…",
       "refresh": "刷新节点",
       "listTitle": "探测节点",
       "addTitle": "添加 agent",
-      "addHint": "端点必须为 https:// 或 wss://。任意 shell 动作会被拒绝。",
+      "addHint": "端点必须为 HTTPS 或 WSS（https:// 或 wss://）。任意 shell 动作会被拒绝。",
       "labelPlaceholder": "名称",
       "domainPlaceholder": "example.com",
-      "endpointPlaceholder": "https://agent.example:8443",
+      "endpointPlaceholder": "https:// 或 wss://agent.example:8443",
+      "kind": {
+        "local": "本机",
+        "remoteProxy": "Globalping 节点",
+        "remoteAgent": "自有 agent",
+        "unknown": "未知节点类型"
+      },
+      "labels": {
+        "local": "本机",
+        "globalpingWorld": "Globalping · 全球",
+        "globalpingUs": "Globalping · 美国",
+        "globalpingEurope": "Globalping · 欧洲",
+        "globalpingAsia": "Globalping · 亚洲"
+      },
+      "agentReachable": "可达",
+      "agentUnreachable": "暂不可达",
+      "answerStatus": {
+        "success": "成功",
+        "failed": "失败"
+      },
+      "endpointError": {
+        "invalid": "请输入有效的 HTTPS 或 WSS 地址。",
+        "scheme": "端点必须使用 HTTPS 或 WSS，明文连接不受支持。",
+        "credentials": "端点 URL 暂不支持用户名/密码、查询参数或片段，请移除后重试。"
+      },
       "addAgent": "添加 agent",
       "removeAgent": "移除",
-      "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} 个探点结果 · {{ms}} ms",
+      "meta_one": "{{domain}} · {{count}} 个探点结果 · {{ms}} ms",
+      "meta_other": "{{domain}} · {{count}} 个探点结果 · {{ms}} ms"
     },
     "nat": {
       "hint": "对公网 STUN 服务器做 Binding，查看映射地址 / NAT 暴露情况。",
@@ -2129,8 +2293,15 @@
       "hint": "查询 pool.ntp.org 时钟偏移。过大偏差可能影响 TLS 与鉴权。",
       "run": "探测 NTP",
       "running": "探测中…",
-      "offset": "偏移 {{seconds}} 秒（{{severity}}）",
-      "fail": "NTP 探测失败"
+      "offset": "偏移 {{seconds}} 秒",
+      "fail": "NTP 探测失败",
+      "severity": {
+        "ok": "正常",
+        "info": "信息",
+        "warn": "警告",
+        "fail": "失败",
+        "unknown": "未知状态"
+      }
     },
     "report": {
       "hint": "导出最近一次体检，并浏览本会话命令日志。",
@@ -2149,6 +2320,13 @@
       "historyTitle": "近期体检快照",
       "historyEmpty": "尚无保存的体检。运行一次一键体检后会保留历史。",
       "clearHistory": "清空历史",
+      "clearHistoryConfirm": {
+        "title": "清空体检历史？",
+        "description": "将删除此设备上保存的近期体检快照。",
+        "consequence": "清空后无法恢复。当前报告和命令日志会保留。",
+        "confirm": "清空历史",
+        "cancel": "保留历史"
+      },
       "historyItem": "{{session}}… · {{count}} 项检查 · {{ms}} ms · {{opinions}} 条建议",
       "privacyHint": "导出内容可能含公网 IP、Wi‑Fi SSID、hosts 异常与本机地址。请仅分享给可信对象。"
     },
@@ -2156,18 +2334,23 @@
       "hint": "基于 trippy 的路径跳点表（优先特权 ICMP，不足时降级无特权 UDP）。丢包率着色。ASN 经 Team Cymru DNS（可空）。",
       "target": "目标",
       "maxTtl": "最大 TTL",
+      "maxTtlInvalid": "最大 TTL 必须是 1 到 32 之间的整数。",
       "rounds": "轮次",
+      "roundsInvalid": "轮次必须是 1 到 10 之间的整数。",
       "run": "追踪",
       "running": "追踪中…",
       "cancel": "取消",
       "cancelled": "已取消",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "尚无跳点。运行追踪以填充表格。",
+      "unavailableResult": "Traceroute 不可用，无法收集路径跳点。",
+      "noHopsResult": "本轮没有收到任何路径跳点。",
       "mode": {
         "privileged": "特权 ICMP",
         "unprivileged": "无特权 UDP",
         "unavailable": "不可用",
-        "cancelled": "已取消"
+        "cancelled": "已取消",
+        "unknown": "未知模式"
       },
       "col": {
         "ttl": "TTL",
@@ -2187,6 +2370,7 @@
       "probeTarget": "probeTarget(local, '{{input}}')",
       "sitesProbe": "startSitesProbe(local, '{{packId}}')",
       "sitesProbeCustom": "startSitesProbe(local, custom[{{n}}])",
+      "sitesProbeOne": "startSitesProbe(local, custom[1]) // target: '{{target}}'",
       "healthScan": "startHealthScan(local)",
       "cancelScan": "cancelScan(sessionId)",
       "flushDns": "flushDns()",
@@ -2225,6 +2409,12 @@
       "installing": "安装中…",
       "uninstall": "卸载",
       "verifyFail": "测试哈希失败",
+      "installSuccess": "能力包已安装。",
+      "uninstallSuccess": "能力包已卸载。",
+      "installFailed": "能力包安装失败。",
+      "hashMismatch": "SHA-256 校验失败，能力包未安装。",
+      "markerInstalled": "当前仅创建本机安装标记；组件制品尚未发布，相关工具仍处于降级状态。",
+      "resultDetails": "详细信息",
       "manage": "管理组件",
       "missingHint": "该工具需要可选能力包（{{packId}}）。",
       "desc": {
@@ -2252,6 +2442,8 @@
       "overviewFailed": "加载网络概览失败。",
       "tcpFailed": "TCP 连通探测失败。",
       "pingFailed": "Ping 探测失败。",
+      "pingDnsResolutionFailed": "无法解析目标域名。请检查域名拼写、DNS 设置或网络连接。",
+      "icmpUnavailable": "无法打开 ICMP 探测套接字。请检查 macOS「本地网络」权限、防火墙或系统限制；这不代表网络一定中断。",
       "dnsFailed": "DNS 查询失败。",
       "probeFailed": "自定义目标探测失败。",
       "sitesFailed": "站点包探测失败。",

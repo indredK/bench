@@ -23,14 +23,27 @@ function resolveInitialLanguage(): string {
   return detectSystemLanguage()
 }
 
-const initPromise = i18n.use(initReactI18next).init({
-  resources,
-  lng: resolveInitialLanguage(),
-  fallbackLng: "en",
-  interpolation: {
-    escapeValue: false,
-  },
-})
+function syncDocumentLanguage(language: string): void {
+  if (typeof document === "undefined") return
+  document.documentElement.lang = language.toLowerCase().startsWith("zh") ? "zh" : "en"
+}
+
+i18n.on("languageChanged", syncDocumentLanguage)
+
+const initPromise = i18n
+  .use(initReactI18next)
+  .init({
+    resources,
+    lng: resolveInitialLanguage(),
+    fallbackLng: "en",
+    interpolation: {
+      escapeValue: false,
+    },
+  })
+  .then((result) => {
+    syncDocumentLanguage(i18n.resolvedLanguage || i18n.language)
+    return result
+  })
 
 export { detectSystemLanguage, initPromise as i18nInitPromise }
 export default i18n

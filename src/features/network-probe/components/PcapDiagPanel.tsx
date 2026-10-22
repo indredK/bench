@@ -4,7 +4,9 @@
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ProbeSystemDetails } from "@/features/network-probe/components/ProbeSystemDetails"
 import type { PcapDiagResult } from "@/lib/tauri/types/network-probe"
 
 interface PcapDiagPanelProps {
@@ -13,6 +15,7 @@ interface PcapDiagPanelProps {
   toolEnabled: boolean
   toolStatus?: string
   canCancel: boolean
+  cancelling: boolean
   onRun: () => void
   onCancel: () => void
   onManagePacks?: () => void
@@ -24,11 +27,29 @@ export function PcapDiagPanel({
   toolEnabled,
   toolStatus,
   canCancel,
+  cancelling,
   onRun,
   onCancel,
   onManagePacks,
 }: PcapDiagPanelProps) {
   const { t } = useTranslation()
+  const modeKey = (() => {
+    switch (result?.mode) {
+      case "tcpdump-counters":
+        return "networkProbe.pcap.modeValue.tcpdumpCounters"
+      case "unavailable":
+        return "networkProbe.pcap.modeValue.unavailable"
+      default:
+        return "networkProbe.pcap.modeValue.unknown"
+    }
+  })()
+  const statusKey = result?.cancelled
+    ? "networkProbe.pcap.resultStatus.cancelled"
+    : result?.mode === "unavailable"
+      ? "networkProbe.pcap.resultStatus.unavailable"
+      : result?.mode === "tcpdump-counters"
+        ? "networkProbe.pcap.resultStatus.degraded"
+        : "networkProbe.pcap.resultStatus.unknown"
   return (
     <ProbePanelShell
       toolbar={
@@ -53,11 +74,11 @@ export function PcapDiagPanel({
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("common.cancel")}
-                </Button>
-              </CommandHint>
+              <NetworkProbeCancelButton
+                label={t("common.cancel")}
+                cancelling={cancelling}
+                onCancel={onCancel}
+              />
             ) : null}
             {onManagePacks ? (
               <Button type="button" variant="outline" onClick={onManagePacks}>
@@ -71,9 +92,9 @@ export function PcapDiagPanel({
       {result ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div>
-            {t("networkProbe.pcap.mode")}:{" "}
-            <span className="font-mono font-medium">{result.mode}</span>
+            {t("networkProbe.pcap.mode")}: <span className="font-medium">{t(modeKey)}</span>
           </div>
+          <p className="text-muted-foreground">{t(statusKey)}</p>
           <div className="font-mono text-xs">
             {t("networkProbe.pcap.stats", {
               packets: result.packets,
@@ -83,7 +104,9 @@ export function PcapDiagPanel({
             })}
           </div>
           {result.message ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
+            <ProbeSystemDetails>
+              <p className="font-mono break-all">{result.message}</p>
+            </ProbeSystemDetails>
           ) : null}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>

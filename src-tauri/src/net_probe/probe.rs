@@ -1,5 +1,7 @@
 use super::input::{looks_like_url, parse_http_url, validate_probe_input};
-use super::types::{HttpProbeDetail, IcmpProbeDetail, ProbeTargetResult, TlsLightDetail};
+use super::types::{
+    HttpProbeDetail, IcmpProbeDetail, PingSampleError, ProbeTargetResult, TlsLightDetail,
+};
 use crate::error::{AppError, AppResult};
 use futures_util::StreamExt;
 use reqwest::redirect::Policy;
@@ -92,13 +94,15 @@ pub async fn probe_icmp_once(target: &str) -> IcmpProbeDetail {
                 ok,
                 rtt_ms: sample.and_then(|s| s.rtt_ms),
                 resolved_ip: Some(result.resolved_ip),
-                error: sample.and_then(|s| s.error.clone()).or_else(|| {
-                    if ok {
-                        None
-                    } else {
-                        Some("icmp failed".into())
-                    }
-                }),
+                error: sample
+                    .and_then(|s| s.error.map(|error| error.code().to_string()))
+                    .or_else(|| {
+                        if ok {
+                            None
+                        } else {
+                            Some(PingSampleError::NetworkError.code().to_string())
+                        }
+                    }),
             }
         }
         Err(e) => IcmpProbeDetail {

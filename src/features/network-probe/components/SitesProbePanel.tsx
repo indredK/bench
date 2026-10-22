@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { SiteSampleResult, SitesProbeResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
@@ -22,6 +23,7 @@ const CUSTOM_SITES_KEY = "network-probe:custom-sites"
 interface SitesProbePanelProps {
   loading: boolean
   canCancel: boolean
+  cancelling: boolean
   result: SitesProbeResult | null
   streaming: SiteSampleResult[]
   sparklines: Record<string, number[]>
@@ -82,6 +84,7 @@ function Sparkline({ values }: { values: number[] }) {
 export function SitesProbePanel({
   loading,
   canCancel,
+  cancelling,
   result,
   streaming,
   sparklines,
@@ -160,11 +163,11 @@ export function SitesProbePanel({
               </Button>
             </CommandHint>
             {canCancel ? (
-              <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  {t("networkProbe.sites.cancel")}
-                </Button>
-              </CommandHint>
+              <NetworkProbeCancelButton
+                label={t("networkProbe.sites.cancel")}
+                cancelling={cancelling}
+                onCancel={onCancel}
+              />
             ) : null}
           </div>
 
@@ -298,6 +301,10 @@ export function SitesProbePanel({
             <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
           ) : null}
         </div>
+      ) : result?.cancelled ? (
+        <p role="status" className="text-muted-foreground text-sm">
+          {t("networkProbe.sites.cancelled")}
+        </p>
       ) : null}
     </ProbePanelShell>
   )
