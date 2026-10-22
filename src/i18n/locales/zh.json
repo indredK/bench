@@ -2208,7 +2208,13 @@
       }
     },
     "cmd": {
-      "summary": "getLocalNetworkSummary()",
+      "summary": "getLocalNetworkSummary() + getFirewallStatus() + checkHostsOverrides()",
+      "openSettings": "openSystemNetworkSettings()",
+      "listNetworkServices": "listNetworkServices()",
+      "refreshNodes": "listProbeNodes() + HTTPS/WSS health check",
+      "removeAgent": "removeAgent(agentId)",
+      "refreshPacks": "listCapabilityPacks() + getNetworkProbeCapabilities()",
+      "verifyFail": "installCapabilityPackVerifyFail(packId) // test-only hash mismatch",
       "tcpConnect": "tcpConnect(local, '{{host}}', {{port}})",
       "pingHost": "pingHost(local, '{{target}}', {count:{{count}}})",
       "dnsLookup": "dnsLookup(local, '{{domain}}', {rrType:'{{rrType}}',resolver:'{{resolver}}'})",

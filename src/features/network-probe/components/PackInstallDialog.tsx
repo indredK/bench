@@ -98,9 +98,11 @@ export function PackInstallDialog({
         </div>
 
         <DialogFooter className="flex-wrap gap-2">
-          <Button type="button" variant="outline" disabled={busy} onClick={onRefresh}>
-            {t("networkProbe.packs.refresh")}
-          </Button>
+          <CommandHint hint={t("networkProbe.cmd.refreshPacks")}>
+            <Button type="button" variant="outline" disabled={busy} onClick={onRefresh}>
+              {t("networkProbe.packs.refresh")}
+            </Button>
+          </CommandHint>
           {current?.status === "installed" ? (
             <CommandHint hint={t("networkProbe.cmd.uninstallPack", { packId: current.id })}>
               <Button
@@ -120,14 +122,16 @@ export function PackInstallDialog({
             </CommandHint>
           ) : null}
           {current && onVerifyFail ? (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={() => onVerifyFail(current.id)}
-            >
-              {t("networkProbe.packs.verifyFail")}
-            </Button>
+            <CommandHint hint={t("networkProbe.cmd.verifyFail")}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={() => onVerifyFail(current.id)}
+              >
+                {t("networkProbe.packs.verifyFail")}
+              </Button>
+            </CommandHint>
           ) : null}
         </DialogFooter>
       </DialogContent>

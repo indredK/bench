@@ -1,9 +1,16 @@
 import { fireEvent, render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { FixPanel } from "@/features/network-probe/components/FixPanel"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
+}))
+
+vi.mock("@/components/common/CommandHint", () => ({
+  CommandHint: ({ hint, children }: { hint: string; children: ReactNode }) => (
+    <span data-command-hint={hint}>{children}</span>
+  ),
 }))
 
 vi.mock("@/features/network-probe/components/ProbePanelShell", () => ({
@@ -87,5 +94,24 @@ describe("FixPanel network service state", () => {
     expect(screen.getByLabelText("networkProbe.fix.dnsPreset")).toBeDisabled()
     expect(screen.getByRole("button", { name: "networkProbe.fix.refreshServices" })).toBeDisabled()
     expect(screen.getByRole("button", { name: "networkProbe.fix.flush" })).toBeDisabled()
+  })
+
+  it("previews the IPC for service refresh and every repair action", () => {
+    renderFixPanel("ready", false, ["Wi-Fi"])
+
+    const expectedHints = [
+      ["networkProbe.fix.refreshServices", "networkProbe.cmd.listNetworkServices"],
+      ["networkProbe.fix.flush", "networkProbe.cmd.flushDns"],
+      ["networkProbe.fix.switchDns", "networkProbe.cmd.switchDns"],
+      ["networkProbe.fix.renewDhcp", "networkProbe.cmd.renewDhcp"],
+      ["networkProbe.fix.resetStack", "networkProbe.cmd.resetNetworkStack"],
+      ["networkProbe.fix.openSettings", "networkProbe.cmd.openSettings"],
+    ]
+
+    for (const [buttonName, commandName] of expectedHints) {
+      expect(
+        screen.getByRole("button", { name: buttonName }).closest("[data-command-hint]"),
+      ).toHaveAttribute("data-command-hint", commandName)
+    }
   })
 })

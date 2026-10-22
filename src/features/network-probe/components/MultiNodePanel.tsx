@@ -87,14 +87,18 @@ export function MultiNodePanel({
                 {loading ? t("networkProbe.nodes.running") : t("networkProbe.nodes.run")}
               </Button>
             </CommandHint>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={nodeListBusy}
-              onClick={onRefreshNodes}
-            >
-              {loadingNodes ? t("networkProbe.nodes.refreshing") : t("networkProbe.nodes.refresh")}
-            </Button>
+            <CommandHint hint={t("networkProbe.cmd.refreshNodes")}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={nodeListBusy}
+                onClick={onRefreshNodes}
+              >
+                {loadingNodes
+                  ? t("networkProbe.nodes.refreshing")
+                  : t("networkProbe.nodes.refresh")}
+              </Button>
+            </CommandHint>
           </div>
 
           <div className="space-y-2">
@@ -141,17 +145,19 @@ export function MultiNodePanel({
                       {statusLabel}
                     </span>
                     {n.kind === "remote-agent" ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={registryBusy}
-                        onClick={() => void removeAgent(n.id)}
-                      >
-                        {agentMutation?.kind === "remove" && agentMutation.agentId === n.id
-                          ? t("networkProbe.nodes.removingAgent")
-                          : t("networkProbe.nodes.removeAgent")}
-                      </Button>
+                      <CommandHint hint={t("networkProbe.cmd.removeAgent")}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={registryBusy}
+                          onClick={() => void removeAgent(n.id)}
+                        >
+                          {agentMutation?.kind === "remove" && agentMutation.agentId === n.id
+                            ? t("networkProbe.nodes.removingAgent")
+                            : t("networkProbe.nodes.removeAgent")}
+                        </Button>
+                      </CommandHint>
                     ) : null}
                   </li>
                 )

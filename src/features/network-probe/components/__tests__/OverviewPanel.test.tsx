@@ -7,6 +7,12 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }))
 
+vi.mock("@/components/common/CommandHint", () => ({
+  CommandHint: ({ hint, children }: { hint: string; children: ReactNode }) => (
+    <span data-command-hint={hint}>{children}</span>
+  ),
+}))
+
 vi.mock("@/features/network-probe/components/ProbePanelShell", () => ({
   ProbePanelShell: ({ children, toolbar }: { children: ReactNode; toolbar: ReactNode }) => (
     <div>
@@ -54,6 +60,21 @@ describe("OverviewPanel Wi-Fi summary", () => {
     renderOverview({ wifiSsid: "Office", wifiSignalDbm: -48 })
 
     expect(screen.getByText("Office (-48 dBm)")).toBeInTheDocument()
+  })
+
+  it("previews every overview IPC and the system-settings command on their buttons", () => {
+    renderOverview()
+
+    expect(
+      screen
+        .getByRole("button", { name: "networkProbe.overview.refresh" })
+        .closest("[data-command-hint]"),
+    ).toHaveAttribute("data-command-hint", "networkProbe.cmd.summary")
+    expect(
+      screen
+        .getByRole("button", { name: "networkProbe.overview.openSettings" })
+        .closest("[data-command-hint]"),
+    ).toHaveAttribute("data-command-hint", "networkProbe.cmd.openSettings")
   })
 
   it("stops automatic refresh retries after failure but keeps manual retry available", () => {

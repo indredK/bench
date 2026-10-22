@@ -69,9 +69,11 @@ export function ArpPanel({
               </CommandHint>
             ) : null}
             {onOpenSettings ? (
-              <Button type="button" variant="outline" onClick={onOpenSettings}>
-                {t("networkProbe.arp.openSettings")}
-              </Button>
+              <CommandHint hint={t("networkProbe.cmd.openSettings")}>
+                <Button type="button" variant="outline" onClick={onOpenSettings}>
+                  {t("networkProbe.arp.openSettings")}
+                </Button>
+              </CommandHint>
             ) : null}
           </div>
         </>
@@ -103,9 +105,11 @@ export function ArpPanel({
                 </p>
               ) : null}
               {result.emptyReason === "permission" && onOpenSettings ? (
-                <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
-                  {t("networkProbe.arp.openSettings")}
-                </Button>
+                <CommandHint hint={t("networkProbe.cmd.openSettings")}>
+                  <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
+                    {t("networkProbe.arp.openSettings")}
+                  </Button>
+                </CommandHint>
               ) : null}
             </div>
           ) : (

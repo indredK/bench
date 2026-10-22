@@ -105,6 +105,7 @@ L1 → L2 映射：
 
 - 当前体检结果导出：**JSON**（整份 `HealthScanResult`）与 **Markdown**（含每个检查项与建议）浏览器下载；隐私提示文案。
 - **历史快照**：最近 10 次未取消体检（localStorage `network-probe:report-history`），显示 sessionId/项数/耗时/建议数；清空前二次确认。
+- **命令透明**：探测、修复、摘要/服务/Agent/能力包刷新及系统设置等 IPC 操作按钮均提供 hover 命令预览；组合操作列出全部子命令，契约标识保持原名。
 - **命令日志**：保留最近 200 条本模块 IPC 命令名与可安全展示的状态摘要，不把用户输入参数或凭据写入日志；有记录时可清空，清空前二次确认。
 
 ## 4. 站点延迟（sites）L1
@@ -134,7 +135,7 @@ L1 → L2 映射：
 | egress     | —                                                                                        | 公网出口：IP、来源、ASN/org（复用 offline.egress）                                                                                                                          |
 | speed      | 测速源下拉（LibreSpeed 公共源）                                                          | **带宽测速**：流式 `speed-sample` 阶段（ping/jitter/download/upload）；结果卡：ping / jitter / download / upload Mbps；**失败/源不可用进入 30s 冷却**（倒计时禁用）；可取消 |
 
-- 所有探测按钮带 CommandHint（真实命令预览）；`toolEnabled=false` 时显示 toolDisabled 提示。
+- 所有探测和修复动作按钮带 CommandHint（真实命令预览）；`toolEnabled=false` 时显示 toolDisabled 提示。
 
 **交互细节**：
 
