@@ -20,8 +20,12 @@ type WindowControls = {
   toggleMaximize: () => Promise<void>
   close: () => Promise<void>
   startDragging: () => Promise<void>
+  startResizeDragging: (direction: WindowResizeDirection) => Promise<void>
   setAlwaysOnTop: (onTop: boolean) => Promise<void>
 }
+
+type WindowResizeDirection =
+  "East" | "North" | "NorthEast" | "NorthWest" | "South" | "SouthEast" | "SouthWest" | "West"
 
 let cachedControls: WindowControls | null = null
 
@@ -35,6 +39,7 @@ async function getWindowControls(): Promise<WindowControls> {
     toggleMaximize: () => win.toggleMaximize(),
     close: () => win.close(),
     startDragging: () => win.startDragging(),
+    startResizeDragging: (direction) => win.startResizeDragging(direction),
     setAlwaysOnTop: (onTop) => win.setAlwaysOnTop(onTop),
   }
 
@@ -112,6 +117,22 @@ export function CustomTitlebar({ className }: CustomTitlebarProps) {
     }
   }, [])
 
+  const handleResizeStart = useCallback(
+    async (event: ReactMouseEvent<HTMLDivElement>, direction: WindowResizeDirection) => {
+      if (!desktop || event.button !== 0) return
+      event.preventDefault()
+      event.stopPropagation()
+
+      try {
+        const ctrl = await getWindowControls()
+        await ctrl.startResizeDragging(direction)
+      } catch (e) {
+        console.error("Failed to start window resize dragging", e)
+      }
+    },
+    [],
+  )
+
   return (
     <div
       data-tauri-drag-region
@@ -180,6 +201,43 @@ export function CustomTitlebar({ className }: CustomTitlebarProps) {
           </>
         )}
       </div>
+
+      {desktop && (
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[40]">
+          <div
+            onMouseDown={(event) => void handleResizeStart(event, "NorthWest")}
+            className="pointer-events-auto absolute top-0 left-0 size-3 cursor-nwse-resize"
+          />
+          <div
+            onMouseDown={(event) => void handleResizeStart(event, "North")}
+            className="pointer-events-auto absolute top-0 right-3 left-3 h-1.5 cursor-ns-resize"
+          />
+          <div
+            onMouseDown={(event) => void handleResizeStart(event, "NorthEast")}
+            className="pointer-events-auto absolute top-0 right-0 size-3 cursor-nesw-resize"
+          />
+          <div
+            onMouseDown={(event) => void handleResizeStart(event, "West")}
+            className="pointer-events-auto absolute top-3 bottom-3 left-0 w-1.5 cursor-ew-resize"
+          />
+          <div
+            onMouseDown={(event) => void handleResizeStart(event, "East")}
+            className="pointer-events-auto absolute top-3 right-0 bottom-3 w-1.5 cursor-ew-resize"
+          />
+          <div
+            onMouseDown={(event) => void handleResizeStart(event, "SouthWest")}
+            className="pointer-events-auto absolute bottom-0 left-0 size-3 cursor-nesw-resize"
+          />
+          <div
+            onMouseDown={(event) => void handleResizeStart(event, "South")}
+            className="pointer-events-auto absolute right-3 bottom-0 left-3 h-1.5 cursor-ns-resize"
+          />
+          <div
+            onMouseDown={(event) => void handleResizeStart(event, "SouthEast")}
+            className="pointer-events-auto absolute right-0 bottom-0 size-3 cursor-nwse-resize"
+          />
+        </div>
+      )}
     </div>
   )
 }
