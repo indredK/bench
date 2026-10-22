@@ -60,7 +60,8 @@ async-trait = "0.1"
 quick-xml = { version = "0.42", features = ["serialize"] }
 serde_yaml = "0.9"
 semver = "1"
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "gzip", "brotli", "stream", "socks", "query", "json"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "gzip", "brotli", "stream", "socks", "query", "json", "system-proxy"] }
+reqwest-websocket = "0.6"
 sha2 = "0.11"
 md5 = "0.8"
 sha1 = "0.11"
@@ -84,6 +85,9 @@ tauri-plugin-updater = "2.10.1"
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10"
 window-vibrancy = "0.8"
+# CoreWLAN native Wi-Fi status API. SSID reads may be privacy-gated; the app
+# only reads current interface data and never requests Location Services access.
+objc2-core-wlan = { version = "=0.3.2", default-features = false, features = ["std", "CWChannel", "CWInterface", "CWWiFiClient"] }
 # 禁用 WKWebView 原生橡皮筋（overscroll bounce）时需要，版本与 Tauri 2.11.5 内部一致，
 # 精确锁定避免依赖树出现第二个 objc2 副本导致类型/链接冲突。
 # disable-encoding-assertions：objc2 0.6 的 msg_send! 在 debug 构建下会严格校验
