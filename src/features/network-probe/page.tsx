@@ -76,6 +76,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   const [packsOpen, setPacksOpen] = useState(false)
   const [focusPackId, setFocusPackId] = useState<string | null>(null)
   const [packsBusy, setPacksBusy] = useState(false)
+  const [packsRefreshing, setPacksRefreshing] = useState(false)
   const [sideLogOpen, setSideLogOpen] = useState(true)
 
   const l2Items = L2_BY_L1[c.l1Id]
@@ -669,10 +670,14 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
           open={packsOpen}
           packs={c.capabilityPacks}
           busy={packsBusy}
+          refreshing={packsRefreshing}
           progressText={c.packProgressText}
           focusPackId={focusPackId}
           onOpenChange={setPacksOpen}
-          onRefresh={() => void c.refreshCapabilityPacks()}
+          onRefresh={() => {
+            setPacksRefreshing(true)
+            void c.refreshCapabilityPacks().finally(() => setPacksRefreshing(false))
+          }}
           onInstall={(packId) => {
             setPacksBusy(true)
             void c.installCapabilityPack(packId).finally(() => setPacksBusy(false))

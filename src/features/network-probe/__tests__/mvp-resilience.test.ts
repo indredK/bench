@@ -247,6 +247,25 @@ describe("network-probe MVP failure and re-entry handling", () => {
     expect(log).not.toContain("private-pack-id")
   })
 
+  it("single-flights capability pack refreshes and allows a later retry", async () => {
+    let resolvePacks: (value: never[]) => void = () => {}
+    listCapabilityPacks.mockImplementation(() => new Promise((resolve) => (resolvePacks = resolve)))
+    getCapabilities.mockResolvedValue(null)
+
+    const firstRefresh = networkProbeUseCases.refreshCapabilityPacks()
+    const repeatedRefresh = networkProbeUseCases.refreshCapabilityPacks()
+
+    expect(listCapabilityPacks).toHaveBeenCalledTimes(1)
+    expect(getCapabilities).toHaveBeenCalledTimes(1)
+    resolvePacks([])
+    await Promise.all([firstRefresh, repeatedRefresh])
+
+    listCapabilityPacks.mockResolvedValueOnce([])
+    await networkProbeUseCases.refreshCapabilityPacks()
+    expect(listCapabilityPacks).toHaveBeenCalledTimes(2)
+    expect(getCapabilities).toHaveBeenCalledTimes(2)
+  })
+
   it("exposes a failed network service load for retry", async () => {
     listNetworkServices.mockRejectedValue(new Error("networksetup failed"))
 

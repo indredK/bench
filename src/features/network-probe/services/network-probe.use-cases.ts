@@ -30,6 +30,7 @@ function logCommand(commandName: string) {
 }
 
 let bootstrapInFlight: Promise<void> | null = null
+let capabilityPacksRefreshInFlight: Promise<void> | null = null
 
 /**
  * 订阅 scan-session 事件, 把后端回传的会话只写进「本类探测专属」的槽位。
@@ -703,21 +704,30 @@ export const networkProbeUseCases = {
   },
 
   async refreshCapabilityPacks() {
+    if (capabilityPacksRefreshInFlight) return capabilityPacksRefreshInFlight
     const store = useNetworkProbeStore.getState()
+    const task = (async () => {
+      try {
+        logCommand("listCapabilityPacks")
+        logCommand("getNetworkProbeCapabilities")
+        const [packs, capabilities] = await Promise.all([
+          networkProbeRepository.listCapabilityPacks(),
+          networkProbeRepository.getCapabilities(),
+        ])
+        store.setCapabilityPacks(packs)
+        store.setCapabilities(capabilities)
+      } catch (error) {
+        store.setError({
+          key: "networkProbe.errors.packsFailed",
+          fallback: getErrorMessage(error),
+        })
+      }
+    })()
+    capabilityPacksRefreshInFlight = task
     try {
-      logCommand("listCapabilityPacks")
-      logCommand("getNetworkProbeCapabilities")
-      const [packs, capabilities] = await Promise.all([
-        networkProbeRepository.listCapabilityPacks(),
-        networkProbeRepository.getCapabilities(),
-      ])
-      store.setCapabilityPacks(packs)
-      store.setCapabilities(capabilities)
-    } catch (error) {
-      store.setError({
-        key: "networkProbe.errors.packsFailed",
-        fallback: getErrorMessage(error),
-      })
+      await task
+    } finally {
+      if (capabilityPacksRefreshInFlight === task) capabilityPacksRefreshInFlight = null
     }
   },
 
