@@ -160,7 +160,7 @@ UI：测试入口与「上不了网」入口共用面板组件；面包屑标明
 - 目标输入：最近 N 条历史（本地，脱敏）；一键填 `1.1.1.1` / `cloudflare.com`。
 - 结果区下方固定 `CommandHint` + 写入命令日志。
 - Ping/Traceroute：实时表 + 停止按钮；离开面板**不**自动 clear 结果（导航记忆 §3.1）。
-- 长跳点表 >50：虚拟化（Polish 可延后，但接口预留）。
+- 长跳点表达到 50 跳时用 `@tanstack/react-virtual` 虚拟化，表格保留可访问的总行数、列标题和行/单元格语义；视口最高 320px，键盘可聚焦并滚动。
 - 测速面板标 `Post`，不进 MVP 验收。
 
 Store 建议：`testResults: { ping?, dns?, tcp?, custom?, traceroute?, mtu?, egress?, speed? }`，按工具分槽，互不覆盖。

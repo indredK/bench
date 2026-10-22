@@ -2086,6 +2086,16 @@
       "running": "扫描中…",
       "cancel": "取消",
       "openList": "开放：{{ports}}",
+      "openListMore": "还有 {{count}} 个",
+      "resultsLabel": "端口扫描结果",
+      "rttValue": "{{ms}} 毫秒",
+      "states": {
+        "open": "开放",
+        "closed": "关闭",
+        "filtered": "已过滤",
+        "error": "错误",
+        "unknown": "未知状态"
+      },
       "confirmTitle": "确认端口扫描范围",
       "confirmDesc": "目标 {{target}} · 约 {{count}} 个端口。公网主机或较大范围需二次确认。",
       "confirmConsequence": "仅扫描自有或已授权资产。当前为 TCP connect（无 SYN）。",
@@ -2100,6 +2110,8 @@
       "emptyQuiet": "未发现邻居 — 可能是静网，或探测被过滤。",
       "emptyIsolation": "仅网关有响应 — 可能是访客 Wi‑Fi / 客户端隔离。",
       "emptyPermission": "无可用 IPv4 — 请检查系统设置中的「本地网络」权限。",
+      "neighborsLabel": "发现的设备",
+      "incomplete": "未解析",
       "openSettings": "打开系统网络设置",
       "cidr": "扫描网段：{{cidr}}",
       "meta": "{{count}} 个邻居 · mode={{mode}} · {{ms}} ms",
@@ -2111,6 +2123,7 @@
       "run": "浏览局域网服务",
       "running": "浏览中…",
       "empty": "监听窗口内无 mDNS/SSDP 响应。",
+      "servicesLabel": "发现的局域网服务",
       "meta": "{{count}} 个服务 · {{ms}} ms"
     },
     "pcap": {
@@ -2214,6 +2227,7 @@
       "cancelled": "已取消",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "尚无跳点。运行追踪以填充表格。",
+      "hopsLabel": "Traceroute 跳点",
       "mode": {
         "privileged": "特权 ICMP",
         "unprivileged": "无特权 UDP",

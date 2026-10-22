@@ -8,7 +8,17 @@ import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirm
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { PortSampleEvent, PortScanResult } from "@/lib/tauri/types/network-probe"
+
+const PORT_STATE_LABELS = {
+  open: "networkProbe.ports.states.open",
+  closed: "networkProbe.ports.states.closed",
+  filtered: "networkProbe.ports.states.filtered",
+  error: "networkProbe.ports.states.error",
+} as const
+
+const OPEN_PORT_SUMMARY_LIMIT = 16
 
 interface PortScanPanelProps {
   loading: boolean
@@ -73,6 +83,15 @@ export function PortScanPanel({
   const open = result?.openPorts?.length
     ? result.openPorts
     : samples.filter((s) => s.state === "open").map((s) => s.port)
+  const visibleOpenPorts = open.slice(0, OPEN_PORT_SUMMARY_LIMIT)
+  const hiddenOpenPortCount = open.length - visibleOpenPorts.length
+
+  const getPortStateLabel = (state: string) => {
+    if (!Object.prototype.hasOwnProperty.call(PORT_STATE_LABELS, state)) {
+      return t("networkProbe.ports.states.unknown")
+    }
+    return t(PORT_STATE_LABELS[state as keyof typeof PORT_STATE_LABELS])
+  }
 
   const portCount = useMemo(() => estimatePortCount(ports), [ports])
   const needsConfirm = useMemo(() => {
@@ -158,22 +177,40 @@ export function PortScanPanel({
     >
       {open.length > 0 ? (
         <p className="text-sm font-medium">
-          {t("networkProbe.ports.openList", { ports: open.join(", ") })}
+          {t("networkProbe.ports.openList", { ports: visibleOpenPorts.join(", ") })}
+          {hiddenOpenPortCount > 0 ? (
+            <span className="text-muted-foreground ml-1 font-normal">
+              {t("networkProbe.ports.openListMore", { count: hiddenOpenPortCount })}
+            </span>
+          ) : null}
         </p>
       ) : null}
       {result?.message ? (
         <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
       ) : null}
       {samples.length > 0 ? (
-        <ul className="text-muted-foreground space-y-0.5 font-mono text-xs">
-          {samples.map((s) => (
-            <li key={`${s.port}-${s.state}`}>
-              {s.port}: {s.state}
-              {s.serviceHint ? ` (${s.serviceHint})` : ""}
-              {s.rttMs != null ? ` · ${s.rttMs.toFixed(0)} ms` : ""}
-            </li>
-          ))}
-        </ul>
+        <VirtualizedResultList
+          items={samples}
+          ariaLabel={t("networkProbe.ports.resultsLabel")}
+          dataList="port-samples"
+          getItemKey={(sample) => sample.port}
+          className="text-muted-foreground space-y-0.5 font-mono text-xs"
+          itemClassName="flex h-7 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap"
+          renderItem={(sample) => (
+            <>
+              <span className="w-12 shrink-0">{sample.port}:</span>
+              <span className="shrink-0">{getPortStateLabel(sample.state)}</span>
+              {sample.serviceHint ? (
+                <span className="min-w-0 truncate">({sample.serviceHint})</span>
+              ) : null}
+              {sample.rttMs != null ? (
+                <span className="shrink-0">
+                  · {t("networkProbe.ports.rttValue", { ms: sample.rttMs.toFixed(0) })}
+                </span>
+              ) : null}
+            </>
+          )}
+        />
       ) : null}
       {result?.commandHint ? (
         <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>

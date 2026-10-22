@@ -1,14 +1,21 @@
 /**
  * Feature UI / 功能界面: traceroute / MTR hop table.
  */
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { CommandHint } from "@/components/common/CommandHint"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { TracerouteHop, TracerouteResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
+
+const VIRTUALIZE_HOPS_AFTER = 50
+const ESTIMATED_HOP_ROW_HEIGHT = 36
+const HOP_GRID_COLUMNS =
+  "3.5rem minmax(12rem, 1.3fr) minmax(10rem, 1fr) repeat(4, minmax(4.5rem, 0.55fr))"
 
 interface TraceroutePanelProps {
   loading: boolean
@@ -38,6 +45,16 @@ export function TraceroutePanel({
 
   // 跑动中只渲染本轮 streaming 跳数: 旧 result 优先会遮蔽新一轮逐跳进度。
   const hops = loading ? streamingHops : result?.hops?.length ? result.hops : streamingHops
+  const hopScrollRef = useRef<HTMLDivElement>(null)
+  const virtualizedHops = hops.length >= VIRTUALIZE_HOPS_AFTER
+  const hopVirtualizer = useVirtualizer({
+    count: virtualizedHops ? hops.length : 0,
+    getScrollElement: () => hopScrollRef.current,
+    getItemKey: (index) => hops[index]?.ttl ?? index,
+    estimateSize: () => ESTIMATED_HOP_ROW_HEIGHT,
+    overscan: 8,
+    initialRect: { width: 1024, height: 284 },
+  })
   const modeKey = result?.privilegeMode
     ? `networkProbe.traceroute.mode.${result.privilegeMode}`
     : null
@@ -143,68 +160,130 @@ export function TraceroutePanel({
       ) : null}
 
       {hops.length > 0 ? (
-        <div className="overflow-auto rounded-lg border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted/50 text-muted-foreground text-xs">
-              <tr>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.ttl")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.addr")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.asn")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.loss")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.avg")}</th>
-                <th className="px-2 py-1.5 font-medium">{t("networkProbe.traceroute.col.best")}</th>
-                <th className="px-2 py-1.5 font-medium">
-                  {t("networkProbe.traceroute.col.worst")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {hops.map((hop) => (
-                <tr key={hop.ttl} className="border-t">
-                  <td className="px-2 py-1.5 font-mono text-xs">{hop.ttl}</td>
-                  <td className="max-w-[12rem] truncate px-2 py-1.5 font-mono text-xs">
-                    {hop.addrs.length > 0 ? hop.addrs.join(", ") : "*"}
-                  </td>
-                  <td
-                    className="max-w-[10rem] truncate px-2 py-1.5 text-xs"
-                    title={hop.asName ?? hop.asn}
-                  >
-                    {hop.asn ? (
-                      <span>
-                        <span className="font-mono">{hop.asn}</span>
-                        {hop.asName ? (
-                          <span className="text-muted-foreground"> {hop.asName}</span>
-                        ) : null}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td
+        <ScrollableArea
+          ref={hopScrollRef}
+          aria-label={t("networkProbe.traceroute.hopsLabel")}
+          tabIndex={0}
+          className="focus-visible:ring-ring max-h-80 overflow-x-auto rounded-lg border focus-visible:ring-2 focus-visible:outline-none"
+          data-traceroute-hop-list
+          data-virtualized={virtualizedHops ? "true" : "false"}
+          data-total-count={hops.length}
+        >
+          <div
+            role="table"
+            aria-label={t("networkProbe.traceroute.hopsLabel")}
+            aria-rowcount={hops.length + 1}
+            aria-colcount={7}
+            className="min-w-[50rem] text-left text-sm"
+          >
+            <div
+              role="rowgroup"
+              className="bg-muted/50 text-muted-foreground sticky top-0 z-10 text-xs"
+            >
+              <div
+                role="row"
+                className="grid h-9 items-center"
+                style={{ gridTemplateColumns: HOP_GRID_COLUMNS }}
+              >
+                {[
+                  t("networkProbe.traceroute.col.ttl"),
+                  t("networkProbe.traceroute.col.addr"),
+                  t("networkProbe.traceroute.col.asn"),
+                  t("networkProbe.traceroute.col.loss"),
+                  t("networkProbe.traceroute.col.avg"),
+                  t("networkProbe.traceroute.col.best"),
+                  t("networkProbe.traceroute.col.worst"),
+                ].map((label, index) => (
+                  <div key={index} role="columnheader" className="truncate px-2 font-medium">
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div
+              role="rowgroup"
+              style={
+                virtualizedHops
+                  ? { height: `${hopVirtualizer.getTotalSize()}px`, position: "relative" }
+                  : undefined
+              }
+            >
+              {(virtualizedHops
+                ? hopVirtualizer
+                    .getVirtualItems()
+                    .map((row) => ({ index: row.index, virtualRow: row }))
+                : hops.map((_, index) => ({ index, virtualRow: null }))
+              ).map(({ index, virtualRow }) => {
+                const hop = hops[index]
+                if (!hop) return null
+                return (
+                  <div
+                    key={hop.ttl}
+                    role="row"
+                    aria-rowindex={index + 2}
                     className={cn(
-                      "px-2 py-1.5 font-mono text-xs",
-                      hop.lossPercent >= 50 && "text-destructive",
-                      hop.lossPercent > 0 &&
-                        hop.lossPercent < 50 &&
-                        "text-amber-700 dark:text-amber-400",
+                      "grid h-9 items-center border-t",
+                      virtualRow && "absolute top-0 left-0 w-full",
                     )}
+                    style={{
+                      gridTemplateColumns: HOP_GRID_COLUMNS,
+                      ...(virtualRow
+                        ? {
+                            height: `${virtualRow.size}px`,
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }
+                        : {}),
+                    }}
                   >
-                    {hop.lossPercent.toFixed(0)}%
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs">
-                    {hop.avgRttMs != null ? hop.avgRttMs.toFixed(1) : "—"}
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs">
-                    {hop.bestRttMs != null ? hop.bestRttMs.toFixed(1) : "—"}
-                  </td>
-                  <td className="px-2 py-1.5 font-mono text-xs">
-                    {hop.worstRttMs != null ? hop.worstRttMs.toFixed(1) : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    <div role="cell" className="px-2 font-mono text-xs">
+                      {hop.ttl}
+                    </div>
+                    <div role="cell" className="truncate px-2 font-mono text-xs">
+                      {hop.addrs.length > 0 ? hop.addrs.join(", ") : "*"}
+                    </div>
+                    <div
+                      role="cell"
+                      className="truncate px-2 text-xs"
+                      title={hop.asName ?? hop.asn}
+                    >
+                      {hop.asn ? (
+                        <span>
+                          <span className="font-mono">{hop.asn}</span>
+                          {hop.asName ? (
+                            <span className="text-muted-foreground"> {hop.asName}</span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </div>
+                    <div
+                      role="cell"
+                      className={cn(
+                        "px-2 font-mono text-xs",
+                        hop.lossPercent >= 50 && "text-destructive",
+                        hop.lossPercent > 0 &&
+                          hop.lossPercent < 50 &&
+                          "text-amber-700 dark:text-amber-400",
+                      )}
+                    >
+                      {hop.lossPercent.toFixed(0)}%
+                    </div>
+                    <div role="cell" className="px-2 font-mono text-xs">
+                      {hop.avgRttMs != null ? hop.avgRttMs.toFixed(1) : "—"}
+                    </div>
+                    <div role="cell" className="px-2 font-mono text-xs">
+                      {hop.bestRttMs != null ? hop.bestRttMs.toFixed(1) : "—"}
+                    </div>
+                    <div role="cell" className="px-2 font-mono text-xs">
+                      {hop.worstRttMs != null ? hop.worstRttMs.toFixed(1) : "—"}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </ScrollableArea>
       ) : null}
 
       {result?.commandHint ? (

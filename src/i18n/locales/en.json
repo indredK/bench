@@ -2086,6 +2086,16 @@
       "running": "Scanning…",
       "cancel": "Cancel",
       "openList": "Open: {{ports}}",
+      "openListMore": "+{{count}} more",
+      "resultsLabel": "Port scan results",
+      "rttValue": "{{ms}} ms",
+      "states": {
+        "open": "Open",
+        "closed": "Closed",
+        "filtered": "Filtered",
+        "error": "Error",
+        "unknown": "Unknown"
+      },
       "confirmTitle": "Confirm port scan scope",
       "confirmDesc": "Target {{target}} · about {{count}} ports. Public hosts or large ranges need an extra confirm.",
       "confirmConsequence": "Only scan assets you own or are authorized to test. TCP connect only (no SYN).",
@@ -2100,6 +2110,8 @@
       "emptyQuiet": "No neighbors found — quiet network, or probes were filtered.",
       "emptyIsolation": "Only the gateway responded — guest Wi‑Fi / client isolation is likely.",
       "emptyPermission": "No usable IPv4 — check Local Network permission in System Settings.",
+      "neighborsLabel": "Discovered devices",
+      "incomplete": "incomplete",
       "openSettings": "Open system network settings",
       "cidr": "Sweep CIDR: {{cidr}}",
       "meta": "{{count}} neighbors · mode={{mode}} · {{ms}} ms",
@@ -2111,6 +2123,7 @@
       "run": "Browse LAN services",
       "running": "Browsing…",
       "empty": "No mDNS/SSDP responses in the listen window.",
+      "servicesLabel": "Discovered LAN services",
       "meta": "{{count}} services · {{ms}} ms"
     },
     "pcap": {
@@ -2214,6 +2227,7 @@
       "cancelled": "cancelled",
       "meta": "{{ip}} · {{mode}} · {{ms}} ms",
       "empty": "No hops yet. Run a trace to populate the table.",
+      "hopsLabel": "Traceroute hops",
       "mode": {
         "privileged": "privileged ICMP",
         "unprivileged": "unprivileged UDP",

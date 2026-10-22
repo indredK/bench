@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { LanDiscoveryResult } from "@/lib/tauri/types/network-probe"
 
 interface ArpPanelProps {
@@ -113,16 +114,26 @@ export function ArpPanel({
               ) : null}
             </div>
           ) : (
-            <ul className="space-y-1 font-mono text-xs">
-              {result.neighbors.map((n) => (
-                <li key={n.ip}>
-                  {n.ip}
-                  {n.mac ? ` · ${n.mac}` : " · (incomplete)"}
-                  {n.iface ? ` · ${n.iface}` : ""}
-                  {n.source ? ` · ${n.source}` : ""}
-                </li>
-              ))}
-            </ul>
+            <VirtualizedResultList
+              items={result.neighbors}
+              ariaLabel={t("networkProbe.arp.neighborsLabel")}
+              dataList="arp-neighbors"
+              getItemKey={(neighbor, index) =>
+                `${neighbor.ip}-${neighbor.mac ?? ""}-${neighbor.iface ?? ""}-${index}`
+              }
+              className="space-y-1 font-mono text-xs"
+              itemClassName="flex h-7 min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap"
+              renderItem={(neighbor) => (
+                <>
+                  <span className="shrink-0">{neighbor.ip}</span>
+                  <span className="shrink-0">
+                    {neighbor.mac ? `· ${neighbor.mac}` : `· ${t("networkProbe.arp.incomplete")}`}
+                  </span>
+                  {neighbor.iface ? <span className="shrink-0">· {neighbor.iface}</span> : null}
+                  {neighbor.source ? <span className="shrink-0">· {neighbor.source}</span> : null}
+                </>
+              )}
+            />
           )}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>

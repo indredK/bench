@@ -146,6 +146,7 @@ L1 → L2 映射：
 - **测速冷却**：下载与上传均未返回带宽样本时（即使 ping 有响应）`speedCooldownUntil = now + 30s`，期间「开始测速」禁用并倒计时提示（`测速源失败 — {{seconds}} 秒后可重试`），冷却结束自动恢复；取消成功不计入冷却。
 - **测速结果与冷却防护**：测速成功要求至少一个下/上行带宽样本；仅有 ping/jitter 时仍显示延迟，但标记测速源未返回带宽数据并进入冷却。仅有一个方向样本时标记为部分结果，不进入冷却。除按钮禁用外，`runSpeedTest` 用例入口 `if (speedCooldownUntil > now) return` 短路（连点/脚本调用也不触发）；冷却以 **500ms interval** 倒计时刷新；**源下拉在 `loading || coolingDown` 时同样 disabled**。内置测速源名称使用中英本地化，未知来源保留来源自身名称；结果卡不显示未经本地化的后端文本。
 - **重新运行前状态复位（流式状态机）**：所有可重复探测（health / sites / traceroute / speed / ports / lan / pcap）每次开始时先 `resetXxxStreaming()` 清空上次流式数据 + `setActiveSessionId(null)`；speed 额外 `setSpeedSample(null)` / `setSpeedResult(null)`、ports 额外 `setPortScanResult(null)`，**新一次探测不留旧结果混淆**；`finally` 里统一 `setActiveSessionId(null)` 复位取消可用性。
+- **长列表**：端口样本、Traceroute 跳点、ARP 邻居和局域网服务列表达到 50 项时启用虚拟化，保持滚动、列表/表格语义与总行数可访问；开放端口摘要只列前 16 个并显示剩余数量，完整结果仍可在列表中滚动查看。端口状态和缺失 MAC 的占位文案随界面语言显示。
 - **流式采样去重**：`site-sample` / `port-sample` 按 target/port 合并去重（`upsert*`），单卡多次测试保留历史并绘制近 20 次 Sparkline；完成后对未取消的站点包结果保留已测卡片（取消提示「已完成的卡片结果会保留」）。
 
 ## 6. 安全（security）L1（全部要求 SecurityAuthGate 已授权）
