@@ -132,7 +132,7 @@ export function PackInstallDialog({
               </Button>
             </CommandHint>
           ) : null}
-          {current && onVerifyFail ? (
+          {import.meta.env.DEV && current && onVerifyFail ? (
             <CommandHint hint={t("networkProbe.cmd.verifyFail")}>
               <Button
                 type="button"
