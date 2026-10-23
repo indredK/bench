@@ -65,7 +65,7 @@ src-tauri/src/net_probe/
 | 校验   | host 禁止 shell 元字符（对齐现有 `validate_host`）；拒绝空、过长、以 `-` 开头 |
 | 降级   | ICMP 不可用 → 返回 `degraded` 并建议改用 TCP/HTTP；UI 不显示假 0ms            |
 
-真机注意：macOS **本地网络**隐私权限会影响 LAN ping；能力矩阵标 `D/S`，UI 给设置跳转文案。
+真机注意：macOS **本地网络**隐私权限会影响 LAN ping；能力矩阵标 `D/S`。socket 不可用或全丢包时，UI 说明权限、防火墙与过滤等可能原因，并可打开系统设置「隐私与安全性」供用户查看「本地网络」；不自动修改权限。
 
 ### 3.2 DNS（`dnsLookup`）
 

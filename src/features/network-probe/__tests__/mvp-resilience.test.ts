@@ -12,6 +12,8 @@ const {
   getFirewallStatus,
   checkHostsOverrides,
   tcpConnect,
+  pingHost,
+  openLocalNetworkPrivacySettings,
   listCapabilityPacks,
   getCapabilities,
   installCapabilityPack,
@@ -26,6 +28,8 @@ const {
   getFirewallStatus: vi.fn(),
   checkHostsOverrides: vi.fn(),
   tcpConnect: vi.fn(),
+  pingHost: vi.fn(),
+  openLocalNetworkPrivacySettings: vi.fn(),
   listCapabilityPacks: vi.fn(),
   getCapabilities: vi.fn(),
   installCapabilityPack: vi.fn(),
@@ -43,6 +47,8 @@ vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
     getFirewallStatus,
     checkHostsOverrides,
     tcpConnect,
+    pingHost,
+    openLocalNetworkPrivacySettings,
     listCapabilityPacks,
     getCapabilities,
     installCapabilityPack,
@@ -68,6 +74,8 @@ beforeEach(() => {
     getFirewallStatus,
     checkHostsOverrides,
     tcpConnect,
+    pingHost,
+    openLocalNetworkPrivacySettings,
     listCapabilityPacks,
     getCapabilities,
     installCapabilityPack,
@@ -96,6 +104,49 @@ beforeEach(() => {
 })
 
 describe("network-probe MVP failure and re-entry handling", () => {
+  it("preserves the ICMP error code so Ping can show the Local Network settings guide", async () => {
+    useNetworkProbeStore.setState({
+      pingResult: {
+        target: "1.1.1.1",
+        resolvedIp: "1.1.1.1",
+        packetsSent: 4,
+        packetsReceived: 4,
+        lossPercent: 0,
+        samples: [],
+        commandHint: "previous ping",
+      },
+    })
+    pingHost.mockRejectedValue({
+      code: "ICMP_UNAVAILABLE",
+      message: "Failed to open ICMP socket",
+    })
+
+    await act(async () => {
+      await networkProbeUseCases.runPing("1.1.1.1", 4)
+    })
+
+    const state = useNetworkProbeStore.getState()
+    expect(state.error).toMatchObject({
+      key: "networkProbe.errors.pingFailed",
+      code: "ICMP_UNAVAILABLE",
+    })
+    expect(state.pingResult).toBeNull()
+    expect(state.loadingPing).toBe(false)
+  })
+
+  it("opens Privacy & Security through the local-network settings action", async () => {
+    openLocalNetworkPrivacySettings.mockResolvedValue(undefined)
+
+    await act(async () => {
+      await networkProbeUseCases.openLocalNetworkPrivacySettings()
+    })
+
+    expect(openLocalNetworkPrivacySettings).toHaveBeenCalledOnce()
+    expect(useNetworkProbeStore.getState().commandLog.join("\n")).toContain(
+      "openPrivacySecuritySettings()",
+    )
+  })
+
   it("keeps successful offline results and identifies failed checks", async () => {
     const captive = { status: "open" }
     const proxy = { proxyEnabled: false, vpnIfaces: [], defaultViaTunnel: false }

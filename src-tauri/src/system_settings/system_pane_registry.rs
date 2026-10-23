@@ -11,9 +11,7 @@ fn get_macos_major_version() -> Option<u32> {
     major.parse().ok()
 }
 
-fn get_pane_id(pane: &str) -> AppResult<String> {
-    let major_version = get_macos_major_version().unwrap_or(14);
-
+fn get_pane_id_for_version(pane: &str, major_version: u32) -> AppResult<String> {
     match pane {
         "battery" => Ok("com.apple.Battery-Settings.extension".to_string()),
         "control-center" => Ok("com.apple.ControlCenter-Settings.extension".to_string()),
@@ -24,7 +22,9 @@ fn get_pane_id(pane: &str) -> AppResult<String> {
         "login-items" => Ok("com.apple.LoginItems-Settings.extension".to_string()),
         "network" => Ok("com.apple.Network-Settings.extension".to_string()),
         "privacy-security" => {
-            if major_version >= 13 {
+            if major_version >= 26 {
+                Ok("com.apple.settings.PrivacySecurity.extension".to_string())
+            } else if major_version >= 13 {
                 Ok("com.apple.Privacy-Security.extension".to_string())
             } else {
                 Ok("com.apple.preference.security".to_string())
@@ -32,6 +32,10 @@ fn get_pane_id(pane: &str) -> AppResult<String> {
         }
         _ => Err(AppError::invalid_input(format!("Unknown pane: {pane}"))),
     }
+}
+
+fn get_pane_id(pane: &str) -> AppResult<String> {
+    get_pane_id_for_version(pane, get_macos_major_version().unwrap_or(14))
 }
 
 pub fn open_settings_pane(pane: String) -> AppResult<()> {
@@ -98,4 +102,29 @@ pub fn open_network_settings() -> AppResult<()> {
 #[tauri::command]
 pub fn open_privacy_security_settings() -> AppResult<()> {
     open_settings_pane("privacy-security".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::get_pane_id_for_version;
+
+    #[test]
+    fn privacy_security_uses_current_system_settings_identity_on_macos_26_and_newer() {
+        assert_eq!(
+            get_pane_id_for_version("privacy-security", 27).unwrap(),
+            "com.apple.settings.PrivacySecurity.extension"
+        );
+    }
+
+    #[test]
+    fn privacy_security_keeps_legacy_system_settings_identity() {
+        assert_eq!(
+            get_pane_id_for_version("privacy-security", 15).unwrap(),
+            "com.apple.Privacy-Security.extension"
+        );
+        assert_eq!(
+            get_pane_id_for_version("privacy-security", 12).unwrap(),
+            "com.apple.preference.security"
+        );
+    }
 }

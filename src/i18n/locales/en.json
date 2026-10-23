@@ -1673,7 +1673,9 @@
       "summary": "Sent {{sent}} · received {{received}} · loss {{loss}}%",
       "rttSummary": "RTT min/avg/max/jitter: {{min}} / {{avg}} / {{max}} / {{jitter}} ms",
       "sampleOk": "#{{seq}} {{ms}} ms",
-      "sampleFail": "#{{seq}} fail — {{error}}"
+      "sampleFail": "#{{seq}} fail — {{error}}",
+      "localNetworkHint": "Ping received no replies. Local Network access, a firewall, or network filtering may cause this. Review it in System Settings > Privacy & Security > Local Network.",
+      "openSettings": "Open Privacy & Security settings"
     },
     "dns": {
       "hint": "Query DNS records via system resolver or a custom resolver IP.",
@@ -2126,7 +2128,7 @@
       "emptyPermission": "No usable IPv4 — check Local Network permission in System Settings.",
       "neighborsLabel": "Discovered devices",
       "incomplete": "incomplete",
-      "openSettings": "Open system network settings",
+      "openSettings": "Open Privacy & Security settings",
       "cidr": "Sweep CIDR: {{cidr}}",
       "meta": "{{count}} neighbors · mode={{mode}} · {{ms}} ms",
       "cancelled": "LAN discovery was cancelled mid-sweep."
@@ -2263,6 +2265,7 @@
     "cmd": {
       "summary": "getLocalNetworkSummary() + getFirewallStatus() + checkHostsOverrides()",
       "openSettings": "openSystemNetworkSettings()",
+      "openPrivacySettings": "openPrivacySecuritySettings()",
       "listNetworkServices": "listNetworkServices()",
       "refreshNodes": "listProbeNodes() + HTTPS/WSS health check",
       "removeAgent": "removeAgent(agentId)",

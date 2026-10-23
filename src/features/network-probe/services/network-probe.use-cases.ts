@@ -4,7 +4,7 @@
 import { networkProbeRepository } from "@/features/network-probe/services/network-probe.repository"
 import { type NetworkProbeKind, useNetworkProbeStore } from "@/features/network-probe/store"
 import { TAURI_EVENTS } from "@/lib/tauri/contracts"
-import { getErrorMessage } from "@/lib/tauri/errors"
+import { getErrorCode, getErrorMessage } from "@/lib/tauri/errors"
 import type {
   CapabilityPackProgress,
   HealthCheckItem,
@@ -221,6 +221,7 @@ export const networkProbeUseCases = {
     if (store.loadingPing) return
     store.setLoadingPing(true)
     store.setError(null)
+    store.setPingResult(null)
     store.resetPingStreaming()
     let unlisten: (() => void) | undefined
     try {
@@ -241,6 +242,7 @@ export const networkProbeUseCases = {
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.pingFailed",
+        code: getErrorCode(error),
         fallback: getErrorMessage(error),
       })
     } finally {
@@ -726,6 +728,20 @@ export const networkProbeUseCases = {
     logCommand("openSystemNetworkSettings")
     try {
       await networkProbeRepository.openSystemNetworkSettings()
+    } catch (error) {
+      store.setError({
+        key: "networkProbe.errors.openSettingsFailed",
+        fallback: getErrorMessage(error),
+      })
+    }
+  },
+
+  async openLocalNetworkPrivacySettings() {
+    const store = useNetworkProbeStore.getState()
+    store.setError(null)
+    logCommand("openPrivacySecuritySettings")
+    try {
+      await networkProbeRepository.openLocalNetworkPrivacySettings()
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.openSettingsFailed",

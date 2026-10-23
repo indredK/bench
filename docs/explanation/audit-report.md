@@ -44,6 +44,7 @@
 - [§7/§9] `src-tauri/tauri.conf.json` - `com.bench.app` 后缀警告已接受；D-011 要求 2.0 保留，不得直接改字符串 - **建议** - 状态：接受风险
 
 - [前端 / §3.3 / UX] `src/features/network-probe/services/network-probe.use-cases.ts` — **Risk:** scan-session 事件已排队但 listener 被 tracker.stop() 卸载后仍可能回调并重填已结束的会话槽；同类重跑时取消目标可能短暂指向旧 session。**Severity:** Medium. **Refactor:** listener 回调首先检查 tracker 仍活动；回归测试在清理后触发已排队回调，修复前失败、修复后通过。`test:critical`（58 文件 / 323 项）与 `lint:fe` 通过。macOS 27.0.1 arm64 隔离 QA 真机验证两轮体检取消与立即重跑：均显示已取消、取消日志对应本轮 session ID、按钮恢复；未运行修复、安装或权限操作。QA app/产物已移入系统废纸篓，共享 Rust 缓存保留。状态：本地与 macOS 真机已验证；远程检查见 [PR #154](https://github.com/indredK/bench/pull/154)。
+- [前端 / §3.3 / §4 / UX] `src/features/network-probe/services/network-probe.use-cases.ts`、`src/features/network-probe/components/{PingPanel,ArpPanel}.tsx`、`src-tauri/src/system_settings/system_pane_registry.rs` — **Risk:** Ping 初始化错误没有把结构化 `ICMP_UNAVAILABLE` 传到界面，用户看不到本地网络权限排查入口；连续运行失败时旧成功结果仍留在面板，容易误读。**Severity: Medium.** **Refactor:** 保留可识别错误码、每轮开始清空旧结果；ICMP 不可用或全丢包时显示双语排查提示并提供 Privacy & Security 设置入口；ARP 只在权限空态显示该入口，macOS 26+ 使用当前设置 pane 标识。回归覆盖错误码、旧结果清理、命令调用与面板分支。`test:critical`（60 文件 / 330 项）、`lint:fe`、`clippy:be`、Rust 格式、Prettier 和 `git diff --check` 通过，系统设置映射单测 2 项通过。macOS 27.0.1 arm64 隔离 QA 真机对保留文档网段 `203.0.113.1` 确认提示和按钮；按钮打开「隐私与安全」，进入「本地网络」列表可见，未更改权限或触发 TCC 弹窗；先成功再用无效目标重跑确认旧结果消失。Local Network/TCC 拒绝场景仍待临时用户或 VM。状态：代码、本地回归与 macOS 真机已验证；本提交远程 CI 待验证
 
 未完成 R00-R08 前不得切换 2.0.0 版本；未完成目标平台行为测试前不得把对应能力标记为发布对等。
 

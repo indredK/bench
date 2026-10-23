@@ -194,6 +194,10 @@ export function useNetworkProbeController() {
     () => networkProbeUseCases.openSystemNetworkSettings(),
     [],
   )
+  const openLocalNetworkPrivacySettings = useCallback(
+    () => networkProbeUseCases.openLocalNetworkPrivacySettings(),
+    [],
+  )
   const refreshCapabilityPacks = useCallback(
     () => networkProbeUseCases.refreshCapabilityPacks(),
     [],
@@ -391,6 +395,7 @@ export function useNetworkProbeController() {
     probePathMtu,
     refreshPublicIp,
     openSystemNetworkSettings,
+    openLocalNetworkPrivacySettings,
     refreshCapabilityPacks,
     installCapabilityPack,
     uninstallCapabilityPack,

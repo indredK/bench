@@ -149,6 +149,10 @@ export function openSystemNetworkSettings() {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.openSystemNetworkSettings)
 }
 
+export function openLocalNetworkPrivacySettings() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openPrivacySecuritySettings)
+}
+
 export function listSpeedSources() {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.listSpeedSources)
 }

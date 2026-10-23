@@ -1673,7 +1673,9 @@
       "summary": "发送 {{sent}} · 收到 {{received}} · 丢包 {{loss}}%",
       "rttSummary": "RTT 最小/平均/最大/抖动: {{min}} / {{avg}} / {{max}} / {{jitter}} ms",
       "sampleOk": "#{{seq}} {{ms}} ms",
-      "sampleFail": "#{{seq}} 失败 — {{error}}"
+      "sampleFail": "#{{seq}} 失败 — {{error}}",
+      "localNetworkHint": "Ping 未收到回复。原因可能是「本地网络」权限、防火墙或网络过滤。可在系统设置 > 隐私与安全性 > 本地网络中查看。",
+      "openSettings": "打开「隐私与安全性」设置"
     },
     "dns": {
       "hint": "通过系统解析器或指定 DNS IP 查询记录。",
@@ -2126,7 +2128,7 @@
       "emptyPermission": "无可用 IPv4 — 请检查系统设置中的「本地网络」权限。",
       "neighborsLabel": "发现的设备",
       "incomplete": "未解析",
-      "openSettings": "打开系统网络设置",
+      "openSettings": "打开「隐私与安全性」设置",
       "cidr": "扫描网段：{{cidr}}",
       "meta": "{{count}} 个邻居 · mode={{mode}} · {{ms}} ms",
       "cancelled": "局域网发现已在扫描中取消。"
@@ -2263,6 +2265,7 @@
     "cmd": {
       "summary": "getLocalNetworkSummary() + getFirewallStatus() + checkHostsOverrides()",
       "openSettings": "openSystemNetworkSettings()",
+      "openPrivacySettings": "openPrivacySecuritySettings()",
       "listNetworkServices": "listNetworkServices()",
       "refreshNodes": "listProbeNodes() + HTTPS/WSS health check",
       "removeAgent": "removeAgent(agentId)",

@@ -36,6 +36,7 @@ export const networkProbeRepository = {
   checkHostsOverrides: commands.checkHostsOverrides,
   getFirewallStatus: commands.getFirewallStatus,
   openSystemNetworkSettings: commands.openSystemNetworkSettings,
+  openLocalNetworkPrivacySettings: commands.openLocalNetworkPrivacySettings,
   listSpeedSources: commands.listSpeedSources,
   runSpeedTest: commands.runSpeedTest,
   runPollutionCheck: commands.runPollutionCheck,

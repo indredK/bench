@@ -413,7 +413,9 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     result={c.pingResult}
                     toolEnabled={c.toolEnabled.ping}
                     toolStatus={c.toolStatus.ping}
+                    errorCode={c.error?.code}
                     onRun={c.runPing}
+                    onOpenLocalNetworkSettings={c.openLocalNetworkPrivacySettings}
                   />
                 ) : null}
 
@@ -557,7 +559,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     canCancel={c.loadingLan && Boolean(activeSessionIdByKind.lan)}
                     onRun={c.discoverLan}
                     onCancel={() => c.cancelScan("lan")}
-                    onOpenSettings={c.openSystemNetworkSettings}
+                    onOpenLocalNetworkSettings={c.openLocalNetworkPrivacySettings}
                   />
                 ) : null}
 

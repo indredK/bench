@@ -16,7 +16,7 @@ interface ArpPanelProps {
   canCancel?: boolean
   onRun: () => void
   onCancel?: () => void
-  onOpenSettings?: () => void
+  onOpenLocalNetworkSettings?: () => void
 }
 
 export function ArpPanel({
@@ -27,7 +27,7 @@ export function ArpPanel({
   canCancel,
   onRun,
   onCancel,
-  onOpenSettings,
+  onOpenLocalNetworkSettings,
 }: ArpPanelProps) {
   const { t } = useTranslation()
   const emptyKey =
@@ -69,13 +69,6 @@ export function ArpPanel({
                 </Button>
               </CommandHint>
             ) : null}
-            {onOpenSettings ? (
-              <CommandHint hint={t("networkProbe.cmd.openSettings")}>
-                <Button type="button" variant="outline" onClick={onOpenSettings}>
-                  {t("networkProbe.arp.openSettings")}
-                </Button>
-              </CommandHint>
-            ) : null}
           </div>
         </>
       }
@@ -105,9 +98,14 @@ export function ArpPanel({
                   {t("networkProbe.arp.cancelled")}
                 </p>
               ) : null}
-              {result.emptyReason === "permission" && onOpenSettings ? (
-                <CommandHint hint={t("networkProbe.cmd.openSettings")}>
-                  <Button type="button" variant="outline" size="sm" onClick={onOpenSettings}>
+              {result.emptyReason === "permission" && onOpenLocalNetworkSettings ? (
+                <CommandHint hint={t("networkProbe.cmd.openPrivacySettings")}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onOpenLocalNetworkSettings}
+                  >
                     {t("networkProbe.arp.openSettings")}
                   </Button>
                 </CommandHint>
