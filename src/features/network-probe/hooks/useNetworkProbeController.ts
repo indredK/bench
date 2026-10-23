@@ -65,6 +65,8 @@ export function useNetworkProbeController() {
   const lanServicesResult = useNetworkProbeStore((s) => s.lanServicesResult)
   const pcapResult = useNetworkProbeStore((s) => s.pcapResult)
   const multiNodeDnsResult = useNetworkProbeStore((s) => s.multiNodeDnsResult)
+  const globalpingMeasurementResult = useNetworkProbeStore((s) => s.globalpingMeasurementResult)
+  const globalpingTokenConfigured = useNetworkProbeStore((s) => s.globalpingTokenConfigured)
   const probeNodes = useNetworkProbeStore((s) => s.probeNodes)
   const probeNodesLoadError = useNetworkProbeStore((s) => s.probeNodesLoadError)
   const agentMutation = useNetworkProbeStore((s) => s.agentMutation)
@@ -99,6 +101,9 @@ export function useNetworkProbeController() {
   const loadingLanServices = useNetworkProbeStore((s) => s.loadingLanServices)
   const loadingPcap = useNetworkProbeStore((s) => s.loadingPcap)
   const loadingMultiNode = useNetworkProbeStore((s) => s.loadingMultiNode)
+  const loadingGlobalpingMeasurement = useNetworkProbeStore((s) => s.loadingGlobalpingMeasurement)
+  const loadingGlobalpingToken = useNetworkProbeStore((s) => s.loadingGlobalpingToken)
+  const savingGlobalpingToken = useNetworkProbeStore((s) => s.savingGlobalpingToken)
   const loadingNodes = useNetworkProbeStore((s) => s.loadingNodes)
   const error = useNetworkProbeStore((s) => s.error)
   const setL1 = useNetworkProbeStore((s) => s.setL1)
@@ -238,6 +243,20 @@ export function useNetworkProbeController() {
     (domain: string) => networkProbeUseCases.compareDnsMulti(domain),
     [],
   )
+  const runGlobalpingMeasurement = useCallback(
+    (kind: "ping" | "http", target: string, method?: string) =>
+      networkProbeUseCases.runGlobalpingMeasurement(kind, target, method),
+    [],
+  )
+  const refreshGlobalpingTokenStatus = useCallback(
+    () => networkProbeUseCases.refreshGlobalpingTokenStatus(),
+    [],
+  )
+  const saveGlobalpingToken = useCallback(
+    (token: string) => networkProbeUseCases.saveGlobalpingToken(token),
+    [],
+  )
+  const removeGlobalpingToken = useCallback(() => networkProbeUseCases.removeGlobalpingToken(), [])
   const addAgent = useCallback(
     (label: string, endpoint: string) => networkProbeUseCases.addAgent(label, endpoint),
     [],
@@ -336,6 +355,8 @@ export function useNetworkProbeController() {
     lanServicesResult,
     pcapResult,
     multiNodeDnsResult,
+    globalpingMeasurementResult,
+    globalpingTokenConfigured,
     probeNodes,
     probeNodesLoadError,
     agentMutation,
@@ -369,6 +390,9 @@ export function useNetworkProbeController() {
     loadingLanServices,
     loadingPcap,
     loadingMultiNode,
+    loadingGlobalpingMeasurement,
+    loadingGlobalpingToken,
+    savingGlobalpingToken,
     loadingNodes,
     error,
     selectL1,
@@ -412,6 +436,10 @@ export function useNetworkProbeController() {
     runPcapDiag,
     refreshProbeNodes,
     compareDnsMulti,
+    runGlobalpingMeasurement,
+    refreshGlobalpingTokenStatus,
+    saveGlobalpingToken,
+    removeGlobalpingToken,
     addAgent,
     removeAgent,
     installCapabilityPackVerifyFail,

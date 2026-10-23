@@ -1175,6 +1175,91 @@ export const networkProbeUseCases = {
     }
   },
 
+  async runGlobalpingMeasurement(kind: "ping" | "http", target: string, method?: string) {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingGlobalpingMeasurement) return
+    store.setLoadingGlobalpingMeasurement(true)
+    store.setGlobalpingMeasurementResult(null)
+    store.setError(null)
+    logCommand("runGlobalpingMeasurement")
+    try {
+      const result = await networkProbeRepository.runGlobalpingMeasurement(
+        kind,
+        target.trim(),
+        method,
+      )
+      useNetworkProbeStore.getState().setGlobalpingMeasurementResult(result)
+    } catch (error) {
+      const key =
+        getErrorCode(error) === "INVALID_INPUT"
+          ? "networkProbe.errors.globalpingInvalidTarget"
+          : "networkProbe.errors.globalpingFailed"
+      useNetworkProbeStore.getState().setError({ key, fallback: getErrorMessage(error) })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingGlobalpingMeasurement(false)
+    }
+  },
+
+  async refreshGlobalpingTokenStatus() {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingGlobalpingToken) return null
+    store.setLoadingGlobalpingToken(true)
+    store.setError(null)
+    try {
+      const configured = await networkProbeRepository.isGlobalpingTokenConfigured()
+      useNetworkProbeStore.getState().setGlobalpingTokenConfigured(configured)
+      return configured
+    } catch (error) {
+      useNetworkProbeStore.getState().setError({
+        key: "networkProbe.errors.globalpingTokenFailed",
+        fallback: getErrorMessage(error),
+      })
+      return null
+    } finally {
+      useNetworkProbeStore.getState().setLoadingGlobalpingToken(false)
+    }
+  },
+
+  async saveGlobalpingToken(token: string) {
+    const store = useNetworkProbeStore.getState()
+    if (store.savingGlobalpingToken) return false
+    store.setSavingGlobalpingToken(true)
+    store.setError(null)
+    try {
+      await networkProbeRepository.saveGlobalpingToken(token)
+      useNetworkProbeStore.getState().setGlobalpingTokenConfigured(true)
+      return true
+    } catch (error) {
+      useNetworkProbeStore.getState().setError({
+        key: "networkProbe.errors.globalpingTokenFailed",
+        fallback: getErrorMessage(error),
+      })
+      return false
+    } finally {
+      useNetworkProbeStore.getState().setSavingGlobalpingToken(false)
+    }
+  },
+
+  async removeGlobalpingToken() {
+    const store = useNetworkProbeStore.getState()
+    if (store.savingGlobalpingToken) return false
+    store.setSavingGlobalpingToken(true)
+    store.setError(null)
+    try {
+      await networkProbeRepository.removeGlobalpingToken()
+      useNetworkProbeStore.getState().setGlobalpingTokenConfigured(false)
+      return true
+    } catch (error) {
+      useNetworkProbeStore.getState().setError({
+        key: "networkProbe.errors.globalpingTokenFailed",
+        fallback: getErrorMessage(error),
+      })
+      return false
+    } finally {
+      useNetworkProbeStore.getState().setSavingGlobalpingToken(false)
+    }
+  },
+
   async addAgent(label: string, endpoint: string) {
     const store = useNetworkProbeStore.getState()
     if (store.agentMutation) return null

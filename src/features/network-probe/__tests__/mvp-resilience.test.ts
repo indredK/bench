@@ -18,6 +18,7 @@ const {
   getCapabilities,
   installCapabilityPack,
   installCapabilityPackVerifyFail,
+  runGlobalpingMeasurement,
 } = vi.hoisted(() => ({
   detectCaptivePortal: vi.fn(),
   getPublicIpInfo: vi.fn(),
@@ -35,6 +36,7 @@ const {
   getCapabilities: vi.fn(),
   installCapabilityPack: vi.fn(),
   installCapabilityPackVerifyFail: vi.fn(),
+  runGlobalpingMeasurement: vi.fn(),
 }))
 
 vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
@@ -55,6 +57,7 @@ vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
     getCapabilities,
     installCapabilityPack,
     installCapabilityPackVerifyFail,
+    runGlobalpingMeasurement,
   },
 }))
 
@@ -83,11 +86,14 @@ beforeEach(() => {
     getCapabilities,
     installCapabilityPack,
     installCapabilityPackVerifyFail,
+    runGlobalpingMeasurement,
   ]) {
     mock.mockReset()
   }
   useNetworkProbeStore.setState({
     loadingOffline: false,
+    loadingGlobalpingMeasurement: false,
+    globalpingMeasurementResult: null,
     loadingIpv6: false,
     loadingMtu: false,
     captiveResult: null,
@@ -108,6 +114,33 @@ beforeEach(() => {
 })
 
 describe("network-probe MVP failure and re-entry handling", () => {
+  it("clears a previous Globalping result before validating the next target", async () => {
+    useNetworkProbeStore.setState({
+      globalpingMeasurementResult: {
+        kind: "ping",
+        target: "example.com",
+        status: "finished",
+        probesCount: 1,
+        results: [],
+        elapsedMs: 100,
+        commandHint: "globalping ping example.com",
+      },
+    })
+    runGlobalpingMeasurement.mockRejectedValueOnce({
+      code: "INVALID_INPUT",
+      message: "Private target rejected",
+    })
+
+    await act(async () => {
+      await networkProbeUseCases.runGlobalpingMeasurement("ping", "127.0.0.1")
+    })
+
+    const state = useNetworkProbeStore.getState()
+    expect(state.globalpingMeasurementResult).toBeNull()
+    expect(state.error?.key).toBe("networkProbe.errors.globalpingInvalidTarget")
+    expect(state.loadingGlobalpingMeasurement).toBe(false)
+  })
+
   it("preserves the ICMP error code so Ping can show the Local Network settings guide", async () => {
     useNetworkProbeStore.setState({
       pingResult: {

@@ -40,6 +40,7 @@ import type {
   LanServicesResult,
   PcapDiagResult,
   MultiNodeDnsResult,
+  GlobalpingMeasurementResult,
   ProbeNode,
   TcpConnectResult,
   TracerouteHop,
@@ -160,6 +161,11 @@ interface NetworkProbeState {
   lanServicesResult: LanServicesResult | null
   pcapResult: PcapDiagResult | null
   multiNodeDnsResult: MultiNodeDnsResult | null
+  globalpingMeasurementResult: GlobalpingMeasurementResult | null
+  loadingGlobalpingMeasurement: boolean
+  globalpingTokenConfigured: boolean | null
+  loadingGlobalpingToken: boolean
+  savingGlobalpingToken: boolean
   probeNodes: ProbeNode[]
   probeNodesLoadError: string | null
   probeNodesRevision: number
@@ -248,6 +254,11 @@ interface NetworkProbeState {
   setLanServicesResult: (lanServicesResult: LanServicesResult | null) => void
   setPcapResult: (pcapResult: PcapDiagResult | null) => void
   setMultiNodeDnsResult: (multiNodeDnsResult: MultiNodeDnsResult | null) => void
+  setGlobalpingMeasurementResult: (result: GlobalpingMeasurementResult | null) => void
+  setLoadingGlobalpingMeasurement: (loading: boolean) => void
+  setGlobalpingTokenConfigured: (configured: boolean | null) => void
+  setLoadingGlobalpingToken: (loading: boolean) => void
+  setSavingGlobalpingToken: (saving: boolean) => void
   setProbeNodes: (probeNodes: ProbeNode[]) => void
   setProbeNodesLoadError: (error: string | null) => void
   setAgentMutation: (agentMutation: AgentMutation | null) => void
@@ -398,6 +409,11 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   lanServicesResult: null,
   pcapResult: null,
   multiNodeDnsResult: null,
+  globalpingMeasurementResult: null,
+  loadingGlobalpingMeasurement: false,
+  globalpingTokenConfigured: null,
+  loadingGlobalpingToken: false,
+  savingGlobalpingToken: false,
   probeNodes: [],
   probeNodesLoadError: null,
   probeNodesRevision: 0,
@@ -554,6 +570,13 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLanServicesResult: (lanServicesResult) => set({ lanServicesResult }),
   setPcapResult: (pcapResult) => set({ pcapResult }),
   setMultiNodeDnsResult: (multiNodeDnsResult) => set({ multiNodeDnsResult }),
+  setGlobalpingMeasurementResult: (globalpingMeasurementResult) =>
+    set({ globalpingMeasurementResult }),
+  setLoadingGlobalpingMeasurement: (loadingGlobalpingMeasurement) =>
+    set({ loadingGlobalpingMeasurement }),
+  setGlobalpingTokenConfigured: (globalpingTokenConfigured) => set({ globalpingTokenConfigured }),
+  setLoadingGlobalpingToken: (loadingGlobalpingToken) => set({ loadingGlobalpingToken }),
+  setSavingGlobalpingToken: (savingGlobalpingToken) => set({ savingGlobalpingToken }),
   setProbeNodes: (probeNodes) =>
     set((state) => ({ probeNodes, probeNodesRevision: state.probeNodesRevision + 1 })),
   setProbeNodesLoadError: (probeNodesLoadError) => set({ probeNodesLoadError }),

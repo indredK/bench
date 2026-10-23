@@ -1584,7 +1584,7 @@
     "nodeSelect": {
       "label": "Probe origin",
       "local": "This Mac",
-      "localOnlyHint": "Remote probe execution isn't implemented yet — every probe still runs on this Mac."
+      "localOnlyHint": "This selector controls local probes. Run Globalping DNS/Ping/HTTP in Discover → Multi-node."
     },
     "sideLog": {
       "title": "Command log",
@@ -2185,7 +2185,74 @@
       "removeAgent": "Remove",
       "removingAgent": "Removing…",
       "agentRemoved": "Agent removed.",
-      "meta": "{{domain}} · {{count}} answers · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} answers · {{ms}} ms",
+      "globalpingTitle": "Globalping remote tests",
+      "globalpingDisclosure": "The target, including URL query parameters, is sent to Globalping; measurements are typically retained for 6 months. Do not include secrets or private data. Each run uses up to 3 probes on public targets and can take about 55 seconds; it cannot be canceled after submission.",
+      "globalpingType": "Test type",
+      "globalpingTarget": "Public target",
+      "globalpingHttpPlaceholder": "https://example.com/",
+      "globalpingMethod": "HTTP method",
+      "globalpingRun": "Run remote test",
+      "globalpingRunning": "Testing…",
+      "globalpingResultMeta": "{{kind}} · {{target}} · {{count}} probes · {{ms}} ms",
+      "globalpingQuotaRemaining": "{{remaining}}/{{limit}} measurements remain in this window",
+      "globalpingQuotaConsumed": "{{consumed}} used by this request",
+      "globalpingQuotaReset": "Resets in about {{seconds}} seconds",
+      "globalpingCreditsRemaining": "{{credits}} credits remaining",
+      "globalpingCreditsConsumed": "{{credits}} credits used by this request",
+      "globalpingTypes": {
+        "ping": "Ping",
+        "http": "HTTP"
+      },
+      "globalpingMethods": {
+        "head": "HEAD (headers only)",
+        "get": "GET (read response)",
+        "options": "OPTIONS (check methods)"
+      },
+      "globalpingStatus": {
+        "finished": "Finished",
+        "failed": "Failed",
+        "partial": "Partial results",
+        "in-progress": "In progress"
+      },
+      "globalpingFailures": {
+        "rate_limited": "The Globalping anonymous or account quota is exhausted. Configure a token or retry later.",
+        "invalid_token": "The Globalping token is invalid or expired. Check it and retry.",
+        "network_error": "Cannot reach the Globalping API. Check your connection and retry.",
+        "timed_out": "The Globalping measurement timed out. Retry later.",
+        "invalid_request": "Globalping rejected the target or measurement options. Check them and retry.",
+        "service_error": "The Globalping API is temporarily unavailable. Retry later.",
+        "http_error": "The Globalping API returned an unexpected HTTP status. Retry later.",
+        "invalid_response": "Globalping returned a response Bench could not read.",
+        "terminal_failure": "Globalping could not complete this measurement.",
+        "no_results": "Globalping returned no usable probe results."
+      },
+      "globalpingFailureSources": {
+        "target": "The failure may be at the target or along its network path.",
+        "resolver": "The failure may be caused by DNS resolution.",
+        "internal": "The failure may be in a Globalping probe or service.",
+        "unknown": "The probe could not complete the measurement."
+      },
+      "globalpingResolved": "Resolved address: {{address}}",
+      "globalpingPingStats": "{{received}}/{{sent}} packets received · {{loss}}% loss · {{avg}} ms average RTT",
+      "globalpingHttpStats": "HTTP {{code}} · total {{total}} ms · DNS {{dns}} ms · TCP {{tcp}} ms · TLS {{tls}} ms · first byte {{firstByte}} ms · download {{download}} ms",
+      "globalpingNoTls": "n/a",
+      "globalpingTokenSettings": "Token settings",
+      "globalpingTokenClose": "Close token settings",
+      "globalpingTokenStatus": "Globalping API token",
+      "globalpingTokenChecking": "Checking secure storage…",
+      "globalpingTokenConfigured": "Saved in system secure storage",
+      "globalpingTokenMissing": "Not configured; anonymous use is available",
+      "globalpingTokenUnknown": "Status unknown",
+      "globalpingTokenHint": "A token can increase your quota. It stays in system secure storage and is never written to page storage, logs, or results.",
+      "globalpingTokenPlaceholder": "Paste a Globalping token",
+      "globalpingTokenSave": "Save securely",
+      "globalpingTokenSaving": "Saving…",
+      "globalpingTokenRemove": "Remove token",
+      "globalpingTokenRemoveTitle": "Remove the Globalping token?",
+      "globalpingTokenRemoveDescription": "This removes only the local secure-storage copy. You can still use Globalping anonymously or configure a token again.",
+      "globalpingTokenSaved": "Globalping token saved securely.",
+      "globalpingTokenRemoved": "Globalping token removed from local secure storage."
     },
     "nat": {
       "hint": "STUN Binding against a public server to learn your mapped address / NAT exposure.",
@@ -2377,7 +2444,10 @@
       "pcapFailed": "Packet diagnostics failed.",
       "nodesFailed": "Failed to list probe nodes.",
       "multiNodeFailed": "Multi-node DNS compare failed.",
-      "agentFailed": "Agent registry operation failed."
+      "agentFailed": "Agent registry operation failed.",
+      "globalpingFailed": "Globalping remote test failed.",
+      "globalpingInvalidTarget": "Enter a public host or HTTP(S) URL. Local, LAN, and private-network targets are not allowed.",
+      "globalpingTokenFailed": "Cannot access system secure storage. Check any system prompt and retry."
     }
   },
   "extensionCenter": {

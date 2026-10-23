@@ -1584,7 +1584,7 @@
     "nodeSelect": {
       "label": "探测原点",
       "local": "本机",
-      "localOnlyHint": "远端节点执行尚未实现，当前所有探测都在本机运行。"
+      "localOnlyHint": "此原点选择器控制本机探测。Globalping DNS/Ping/HTTP 请在「发现 → 多节点」中运行。"
     },
     "sideLog": {
       "title": "命令日志",
@@ -2185,7 +2185,74 @@
       "removeAgent": "移除",
       "removingAgent": "移除中…",
       "agentRemoved": "Agent 已移除。",
-      "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms"
+      "meta": "{{domain}} · {{count}} 条答案 · {{ms}} ms",
+      "globalpingTitle": "Globalping 远程探测",
+      "globalpingDisclosure": "目标（含 URL 查询参数）会提交给 Globalping，测量记录通常保留 6 个月。请勿填入密钥或私人数据。每次最多 3 个探点，仅允许公网目标；最长等待约 55 秒，提交后无法取消。",
+      "globalpingType": "探测类型",
+      "globalpingTarget": "公网目标",
+      "globalpingHttpPlaceholder": "https://example.com/",
+      "globalpingMethod": "HTTP 方法",
+      "globalpingRun": "开始远程探测",
+      "globalpingRunning": "探测中…",
+      "globalpingResultMeta": "{{kind}} · {{target}} · {{count}} 个探点 · {{ms}} ms",
+      "globalpingQuotaRemaining": "当前时段剩余 {{remaining}}/{{limit}} 次测量",
+      "globalpingQuotaConsumed": "本次计 {{consumed}} 次",
+      "globalpingQuotaReset": "约 {{seconds}} 秒后重置",
+      "globalpingCreditsRemaining": "剩余积分 {{credits}}",
+      "globalpingCreditsConsumed": "本次消耗积分 {{credits}}",
+      "globalpingTypes": {
+        "ping": "Ping",
+        "http": "HTTP"
+      },
+      "globalpingMethods": {
+        "head": "HEAD（仅响应头）",
+        "get": "GET（读取响应）",
+        "options": "OPTIONS（查询方法）"
+      },
+      "globalpingStatus": {
+        "finished": "已完成",
+        "failed": "失败",
+        "partial": "部分结果",
+        "in-progress": "进行中"
+      },
+      "globalpingFailures": {
+        "rate_limited": "Globalping 匿名额度或账号额度已用完；配置 token 或稍后重试。",
+        "invalid_token": "Globalping token 无效或已过期，请检查后重试。",
+        "network_error": "无法连接 Globalping API，请检查网络后重试。",
+        "timed_out": "Globalping 探测超时，请稍后重试。",
+        "invalid_request": "Globalping 拒绝了目标或测量参数，请检查后重试。",
+        "service_error": "Globalping API 暂时不可用，请稍后重试。",
+        "http_error": "Globalping API 返回了意外的 HTTP 状态，请稍后重试。",
+        "invalid_response": "Globalping 返回了无法识别的结果。",
+        "terminal_failure": "Globalping 未能完成这次测量。",
+        "no_results": "Globalping 没有返回可用探点结果。"
+      },
+      "globalpingFailureSources": {
+        "target": "失败可能来自目标或其网络路径。",
+        "resolver": "失败可能来自 DNS 解析器。",
+        "internal": "失败可能来自 Globalping 探点或服务。",
+        "unknown": "探点未能完成测量。"
+      },
+      "globalpingResolved": "解析地址：{{address}}",
+      "globalpingPingStats": "收到 {{received}}/{{sent}} 个包 · 丢包 {{loss}}% · 平均 RTT {{avg}} ms",
+      "globalpingHttpStats": "HTTP {{code}} · 总计 {{total}} ms · DNS {{dns}} ms · TCP {{tcp}} ms · TLS {{tls}} ms · 首字节 {{firstByte}} ms · 下载 {{download}} ms",
+      "globalpingNoTls": "不适用",
+      "globalpingTokenSettings": "Token 设置",
+      "globalpingTokenClose": "收起 Token 设置",
+      "globalpingTokenStatus": "Globalping API token",
+      "globalpingTokenChecking": "正在检查钥匙串…",
+      "globalpingTokenConfigured": "已安全保存到系统钥匙串",
+      "globalpingTokenMissing": "未配置，可匿名使用",
+      "globalpingTokenUnknown": "状态未知",
+      "globalpingTokenHint": "Token 可提高额度。只保存在系统钥匙串；不会写入页面存储、日志或探测结果。",
+      "globalpingTokenPlaceholder": "粘贴 Globalping token",
+      "globalpingTokenSave": "安全保存",
+      "globalpingTokenSaving": "保存中…",
+      "globalpingTokenRemove": "移除 token",
+      "globalpingTokenRemoveTitle": "移除 Globalping token？",
+      "globalpingTokenRemoveDescription": "这只会删除本机钥匙串中的副本。之后仍可匿名使用或重新配置 token。",
+      "globalpingTokenSaved": "Globalping token 已安全保存。",
+      "globalpingTokenRemoved": "已从本机钥匙串移除 Globalping token。"
     },
     "nat": {
       "hint": "对公网 STUN 服务器做 Binding，查看映射地址 / NAT 暴露情况。",
@@ -2377,7 +2444,10 @@
       "pcapFailed": "包级诊断失败。",
       "nodesFailed": "列举探测节点失败。",
       "multiNodeFailed": "多节点 DNS 对比失败。",
-      "agentFailed": "Agent 注册操作失败。"
+      "agentFailed": "Agent 注册操作失败。",
+      "globalpingFailed": "Globalping 远程探测失败。",
+      "globalpingInvalidTarget": "请输入公网主机或 HTTP(S) 地址；不允许本机、局域网或内网目标。",
+      "globalpingTokenFailed": "无法访问系统钥匙串，请检查系统提示后重试。"
     }
   },
   "extensionCenter": {

@@ -110,8 +110,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
             reachable: true,
           },
         ]
-  // 远端节点执行（Globalping / 自有 agent）尚未接入任何 use-case, 探测一律本机跑;
-  // 按 design.md §4.2「实现前不要假连接」, 可选项收敛为 local, 其余节点在下方渲染为 disabled。
+  // 通用原点选择仍只对本机探测生效；Globalping DNS/Ping/HTTP 从 Discover → Nodes 显式运行。
+  // 自有 agent 尚未接入测量 use-case，继续显示为 disabled，避免假连接。
   const activeNode = useMemo(
     () => probeNodes.find((n) => n.kind === "local") ?? probeNodes[0],
     [probeNodes],
@@ -599,11 +599,20 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     loadingNodes={c.loadingNodes}
                     nodesLoadError={c.probeNodesLoadError}
                     result={c.multiNodeDnsResult}
+                    globalpingResult={c.globalpingMeasurementResult}
+                    loadingGlobalping={c.loadingGlobalpingMeasurement}
+                    tokenConfigured={c.globalpingTokenConfigured}
+                    loadingToken={c.loadingGlobalpingToken}
+                    savingToken={c.savingGlobalpingToken}
                     nodes={c.probeNodes}
                     agentMutation={c.agentMutation}
                     toolEnabled={c.toolEnabled.multiNode}
                     toolStatus={c.toolStatus.multiNode}
                     onCompare={c.compareDnsMulti}
+                    onRunGlobalping={c.runGlobalpingMeasurement}
+                    onRefreshTokenStatus={c.refreshGlobalpingTokenStatus}
+                    onSaveToken={c.saveGlobalpingToken}
+                    onRemoveToken={c.removeGlobalpingToken}
                     onRefreshNodes={c.refreshProbeNodes}
                     onAddAgent={c.addAgent}
                     onRemoveAgent={c.removeAgent}

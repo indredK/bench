@@ -1,11 +1,12 @@
 use super::types::{
     CapabilityPackInfo, CapabilityPackInstallResult, CaptivePortalResult, DefaultRouteInfo,
     DefaultsOverride, DnsLookupResult, DnsSecCheckResult, FirewallStatus, FixResult,
-    HealthScanResult, HostsOverride, Ipv6StackResult, LanDiscoveryResult, LanServicesResult,
-    LocalNetworkSummary, MultiNodeDnsResult, NatProbeResult, NetworkProbeCapabilities,
-    NetworkProbeDefaultsCatalog, NtpProbeResult, PathMtuResult, PcapDiagResult, PingProbeResult,
-    PollutionReport, PortScanResult, ProbeNode, ProbeTargetResult, ProxyVpnStatus, PublicIpInfo,
-    SitesProbeResult, SpeedSource, SpeedTestResult, TcpConnectResult, TracerouteResult, WhoisInfo,
+    GlobalpingMeasurementResult, HealthScanResult, HostsOverride, Ipv6StackResult,
+    LanDiscoveryResult, LanServicesResult, LocalNetworkSummary, MultiNodeDnsResult, NatProbeResult,
+    NetworkProbeCapabilities, NetworkProbeDefaultsCatalog, NtpProbeResult, PathMtuResult,
+    PcapDiagResult, PingProbeResult, PollutionReport, PortScanResult, ProbeNode, ProbeTargetResult,
+    ProxyVpnStatus, PublicIpInfo, SitesProbeResult, SpeedSource, SpeedTestResult, TcpConnectResult,
+    TracerouteResult, WhoisInfo,
 };
 use crate::error::{AppError, AppResult};
 use tauri::AppHandle;
@@ -137,10 +138,41 @@ pub async fn network_probe_run_pcap_diag(
 
 #[tauri::command]
 pub async fn network_probe_compare_dns_multi(
+    app: AppHandle,
     domain: String,
     locations: Option<Vec<String>>,
 ) -> AppResult<MultiNodeDnsResult> {
-    super::globalping::compare_dns_multi(domain, locations.unwrap_or_default()).await
+    super::globalping::compare_dns_multi(
+        app.config().identifier.clone(),
+        domain,
+        locations.unwrap_or_default(),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn network_probe_globalping_token_configured(app: AppHandle) -> AppResult<bool> {
+    super::globalping::token_configured(app.config().identifier.clone()).await
+}
+
+#[tauri::command]
+pub async fn network_probe_save_globalping_token(app: AppHandle, token: String) -> AppResult<()> {
+    super::globalping::save_token(app.config().identifier.clone(), token).await
+}
+
+#[tauri::command]
+pub async fn network_probe_remove_globalping_token(app: AppHandle) -> AppResult<()> {
+    super::globalping::remove_token(app.config().identifier.clone()).await
+}
+
+#[tauri::command]
+pub async fn network_probe_run_globalping_measurement(
+    app: AppHandle,
+    kind: String,
+    target: String,
+    method: Option<String>,
+) -> AppResult<GlobalpingMeasurementResult> {
+    super::globalping::run_measurement(app.config().identifier.clone(), kind, target, method).await
 }
 
 #[tauri::command]

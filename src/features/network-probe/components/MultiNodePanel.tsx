@@ -7,8 +7,14 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { GlobalpingMeasurementPanel } from "@/features/network-probe/components/GlobalpingMeasurementPanel"
 import type { AgentMutation } from "@/features/network-probe/store"
-import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
+import type {
+  GlobalpingMeasurementKind,
+  GlobalpingMeasurementResult,
+  MultiNodeDnsResult,
+  ProbeNode,
+} from "@/lib/tauri/types/network-probe"
 import { toast } from "sonner"
 
 interface MultiNodePanelProps {
@@ -16,11 +22,24 @@ interface MultiNodePanelProps {
   loadingNodes: boolean
   nodesLoadError: string | null
   result: MultiNodeDnsResult | null
+  globalpingResult: GlobalpingMeasurementResult | null
+  loadingGlobalping: boolean
+  tokenConfigured: boolean | null
+  loadingToken: boolean
+  savingToken: boolean
   nodes: ProbeNode[]
   agentMutation: AgentMutation | null
   toolEnabled: boolean
   toolStatus?: string
   onCompare: (domain: string) => void
+  onRunGlobalping: (
+    kind: GlobalpingMeasurementKind,
+    target: string,
+    method?: string,
+  ) => Promise<void>
+  onRefreshTokenStatus: () => Promise<boolean | null>
+  onSaveToken: (token: string) => Promise<boolean>
+  onRemoveToken: () => Promise<boolean>
   onRefreshNodes: () => void
   onAddAgent: (label: string, endpoint: string) => Promise<ProbeNode | null>
   onRemoveAgent: (agentId: string) => Promise<boolean>
@@ -31,11 +50,20 @@ export function MultiNodePanel({
   loadingNodes,
   nodesLoadError,
   result,
+  globalpingResult,
+  loadingGlobalping,
+  tokenConfigured,
+  loadingToken,
+  savingToken,
   nodes,
   agentMutation,
   toolEnabled,
   toolStatus,
   onCompare,
+  onRunGlobalping,
+  onRefreshTokenStatus,
+  onSaveToken,
+  onRemoveToken,
   onRefreshNodes,
   onAddAgent,
   onRemoveAgent,
@@ -215,6 +243,17 @@ export function MultiNodePanel({
         </>
       }
     >
+      <GlobalpingMeasurementPanel
+        result={globalpingResult}
+        loading={loadingGlobalping}
+        tokenConfigured={tokenConfigured}
+        loadingToken={loadingToken}
+        savingToken={savingToken}
+        onRun={onRunGlobalping}
+        onRefreshTokenStatus={onRefreshTokenStatus}
+        onSaveToken={onSaveToken}
+        onRemoveToken={onRemoveToken}
+      />
       {result ? (
         <div className="space-y-2">
           <p className="text-muted-foreground text-xs">
