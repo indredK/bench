@@ -18,6 +18,17 @@
 - 仍有 1 条 unsound（glib，见 SEC01）和 6 条 unmaintained 提示；安全 workflow
   会继续列出它们，不把 warning 误报成漏洞清零。
 
+## 2026-10-23 扫描复核
+
+- PR #154 的首次远程扫描发现新公告 RUSTSEC-2026-0385：`ctutils 0.4.2` 的常量时间
+  mask 生成与 `u128` 比较存在问题，修复版本为 0.4.4。该 crate 经 `aes-gcm`、摘要/HMAC
+  与通用哈希依赖进入 Bench。
+- 已将 `src-tauri/Cargo.lock` 中 `ctutils` 精确升级到 0.4.4；依赖树确认所有路径均解析到
+  修复版本。macOS 本机 `cargo audit` 漏洞数为 0，`pnpm run test:be` 为 643 项通过、1 项
+  跳过，更新后的 macOS release app bundle 构建成功。
+- 其余既有 allowed warnings（glib unsound、6 个 unmaintained crate 与 `clipboard-win`
+  yanked 提示）未由本次升级引入，沿用现有处置；不计入漏洞数。
+
 ## SEC01 — glib 0.18.5（unsound）
 
 | 字段           | 值                                                                                                                                                                 |
