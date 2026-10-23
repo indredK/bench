@@ -1732,7 +1732,7 @@
         "start": "开始监测",
         "stop": "停止监测",
         "running": "监测中；每轮结束后等待 {{seconds}} 秒，阈值 {{threshold}} ms。",
-        "foregroundOnly": "仅在此面板打开时运行；离开面板会停止监测，并请求取消正在执行的探测。",
+        "foregroundOnly": "仅在此面板打开且窗口处于前台时运行；离开面板或切到其他应用会停止监测，并请求取消正在执行的探测。回到窗口后需手动重新开始。",
         "probeFailed": "本轮没有返回结果，将在下一间隔重试。",
         "alert": "{{count}} 个站点不可达或延迟达到 {{threshold}} ms。",
         "thresholdRange": "请输入 {{min}} 到 {{max}} ms。"

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { canUseTauriWindow } from "@/platform/capabilities"
 import type { SiteSampleResult, SitesProbeResult } from "@/lib/tauri/types/network-probe"
 
 export const SITE_MONITOR_INTERVALS_SECONDS = [30, 60, 300] as const
@@ -99,6 +100,65 @@ export function useSitesMonitoring({
       else if (probeInFlightRef.current) cancelPendingRef.current = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!monitoring) return undefined
+
+    let disposed = false
+    let focusPollTimer: ReturnType<typeof setInterval> | undefined
+    let checkingFocus = false
+    let unlisten: (() => void) | undefined
+    const stopOnBlur = () => stop()
+    const stopWhenDocumentHidden = () => {
+      if (document.visibilityState !== "visible") stop()
+    }
+
+    // WebView blur/visibility changes are the portable foreground signal. Tauri's
+    // native event covers platforms where WebView visibility is not updated on app switch.
+    window.addEventListener("blur", stopOnBlur)
+    document.addEventListener("visibilitychange", stopWhenDocumentHidden)
+
+    if (canUseTauriWindow()) {
+      void import("@tauri-apps/api/window")
+        .then(({ getCurrentWindow }) => {
+          const currentWindow = getCurrentWindow()
+          const checkFocus = async () => {
+            if (disposed || checkingFocus) return
+            checkingFocus = true
+            try {
+              if (!(await currentWindow.isFocused())) stop()
+            } catch (error) {
+              console.warn("Unable to check Tauri window focus", error)
+            } finally {
+              checkingFocus = false
+            }
+          }
+
+          // Native focus events are immediate when available; the low-frequency check
+          // also covers macOS app hiding and window-manager edge cases that omit blur.
+          void checkFocus()
+          focusPollTimer = setInterval(() => void checkFocus(), 500)
+          return currentWindow.onFocusChanged(({ payload: focused }) => {
+            if (!focused) stop()
+          })
+        })
+        .then((nextUnlisten) => {
+          if (disposed) nextUnlisten()
+          else unlisten = nextUnlisten
+        })
+        .catch((error: unknown) => {
+          console.warn("Unable to observe Tauri window focus changes", error)
+        })
+    }
+
+    return () => {
+      disposed = true
+      if (focusPollTimer != null) clearInterval(focusPollTimer)
+      window.removeEventListener("blur", stopOnBlur)
+      document.removeEventListener("visibilitychange", stopWhenDocumentHidden)
+      unlisten?.()
+    }
+  }, [monitoring, stop])
 
   const start = useCallback(() => {
     if (

@@ -1732,7 +1732,7 @@
         "start": "Start monitoring",
         "stop": "Stop monitoring",
         "running": "Monitoring; waiting {{seconds}} seconds after each round. Threshold: {{threshold}} ms.",
-        "foregroundOnly": "Runs only while this panel is open. Leaving stops monitoring and requests cancellation of an in-progress probe.",
+        "foregroundOnly": "Runs only while this panel is open and the window is focused. Leaving or switching apps stops monitoring and requests cancellation of an in-progress probe. Restart monitoring manually when you return.",
         "probeFailed": "This round returned no result. It will retry after the next interval.",
         "alert": "{{count}} sites are unreachable or have latency at or above {{threshold}} ms.",
         "thresholdRange": "Enter a value from {{min}} to {{max}} ms."

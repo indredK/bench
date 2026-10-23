@@ -1,10 +1,28 @@
 import { act, renderHook } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { canUseTauriWindow } from "@/platform/capabilities"
 import {
   getSiteMonitorAlerts,
   useSitesMonitoring,
 } from "@/features/network-probe/hooks/useSitesMonitoring"
 import type { SiteSampleResult, SitesProbeResult } from "@/lib/tauri/types/network-probe"
+
+const focusEvents = vi.hoisted(() => ({
+  handler: null as ((event: { payload: boolean }) => void) | null,
+  onFocusChanged: vi.fn(),
+  isFocused: vi.fn(),
+}))
+
+vi.mock("@/platform/capabilities", () => ({
+  canUseTauriWindow: vi.fn(() => false),
+}))
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    onFocusChanged: focusEvents.onFocusChanged,
+    isFocused: focusEvents.isFocused,
+  }),
+}))
 
 function sample(overrides: Partial<SiteSampleResult> = {}): SiteSampleResult {
   return {
@@ -26,7 +44,13 @@ function probeResult(results: SiteSampleResult[], cancelled = false): SitesProbe
   }
 }
 
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.mocked(canUseTauriWindow).mockReturnValue(false)
+  focusEvents.handler = null
+  focusEvents.onFocusChanged.mockReset()
+  focusEvents.isFocused.mockReset().mockResolvedValue(true)
+})
 
 describe("site monitoring", () => {
   it("alerts on unreachable sites and uses HTTP latency before ICMP fallback", () => {
@@ -178,6 +202,91 @@ describe("site monitoring", () => {
     })
     unmount()
     expect(onCancel).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("stops monitoring and cancels the active round when the app window loses focus", async () => {
+    vi.useFakeTimers()
+    vi.mocked(canUseTauriWindow).mockReturnValue(true)
+    focusEvents.onFocusChanged.mockImplementation((handler) => {
+      focusEvents.handler = handler
+      return Promise.resolve(vi.fn())
+    })
+    focusEvents.isFocused.mockResolvedValue(true)
+    const onCancel = vi.fn()
+    const onProbe = vi.fn().mockReturnValue(new Promise<SitesProbeResult>(() => {}))
+    const { result } = renderHook(() =>
+      useSitesMonitoring({
+        loading: false,
+        toolEnabled: true,
+        canCancel: true,
+        onProbe,
+        onCancel,
+      }),
+    )
+
+    act(() => result.current.start())
+    await act(async () => Promise.resolve())
+    expect(focusEvents.onFocusChanged).toHaveBeenCalledTimes(1)
+    expect(onProbe).toHaveBeenCalledTimes(1)
+
+    act(() => focusEvents.handler?.({ payload: false }))
+
+    expect(result.current.monitoring).toBe(false)
+    expect(onCancel).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("polls native focus while monitoring and stops when the window is unfocused", async () => {
+    vi.useFakeTimers()
+    vi.mocked(canUseTauriWindow).mockReturnValue(true)
+    focusEvents.isFocused.mockResolvedValue(true)
+    focusEvents.onFocusChanged.mockResolvedValue(vi.fn())
+    const onCancel = vi.fn()
+    const onProbe = vi.fn().mockReturnValue(new Promise<SitesProbeResult>(() => {}))
+    const { result } = renderHook(() =>
+      useSitesMonitoring({
+        loading: false,
+        toolEnabled: true,
+        canCancel: true,
+        onProbe,
+        onCancel,
+      }),
+    )
+
+    act(() => result.current.start())
+    await act(async () => Promise.resolve())
+    expect(focusEvents.isFocused).toHaveBeenCalledTimes(1)
+
+    focusEvents.isFocused.mockResolvedValue(false)
+    await act(async () => vi.advanceTimersByTimeAsync(500))
+
+    expect(result.current.monitoring).toBe(false)
+    expect(onCancel).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("stops monitoring and cancels the active round when the WebView loses focus", () => {
+    vi.useFakeTimers()
+    const onCancel = vi.fn()
+    const onProbe = vi.fn().mockReturnValue(new Promise<SitesProbeResult>(() => {}))
+    const { result } = renderHook(() =>
+      useSitesMonitoring({
+        loading: false,
+        toolEnabled: true,
+        canCancel: true,
+        onProbe,
+        onCancel,
+      }),
+    )
+
+    act(() => result.current.start())
+    expect(onProbe).toHaveBeenCalledTimes(1)
+
+    act(() => window.dispatchEvent(new Event("blur")))
+
+    expect(result.current.monitoring).toBe(false)
+    expect(onCancel).toHaveBeenCalledTimes(1)
     expect(vi.getTimerCount()).toBe(0)
   })
 })
