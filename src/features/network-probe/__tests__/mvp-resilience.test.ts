@@ -12,6 +12,8 @@ const {
   getFirewallStatus,
   checkHostsOverrides,
   tcpConnect,
+  dnsLookup,
+  probeTarget,
   pingHost,
   openLocalNetworkPrivacySettings,
   listCapabilityPacks,
@@ -30,6 +32,8 @@ const {
   getFirewallStatus: vi.fn(),
   checkHostsOverrides: vi.fn(),
   tcpConnect: vi.fn(),
+  dnsLookup: vi.fn(),
+  probeTarget: vi.fn(),
   pingHost: vi.fn(),
   openLocalNetworkPrivacySettings: vi.fn(),
   listCapabilityPacks: vi.fn(),
@@ -51,6 +55,8 @@ vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
     getFirewallStatus,
     checkHostsOverrides,
     tcpConnect,
+    dnsLookup,
+    probeTarget,
     pingHost,
     openLocalNetworkPrivacySettings,
     listCapabilityPacks,
@@ -139,6 +145,53 @@ describe("network-probe MVP failure and re-entry handling", () => {
     expect(state.globalpingMeasurementResult).toBeNull()
     expect(state.error?.key).toBe("networkProbe.errors.globalpingInvalidTarget")
     expect(state.loadingGlobalpingMeasurement).toBe(false)
+  })
+
+  it("preserves targeted results while retrying but clears them when the retry fails", async () => {
+    const previousTcp = {
+      host: "example.com",
+      port: 443,
+      status: "ok",
+      rttMs: 12,
+      commandHint: "tcpConnect()",
+    }
+    const previousDns = {
+      domain: "example.com",
+      rrType: "A",
+      resolver: "system",
+      elapsedMs: 3,
+      records: [],
+      commandHint: "dnsLookup()",
+    }
+    const previousProbe = {
+      input: "https://example.com",
+      kind: "url",
+      commandHint: "probeTarget()",
+    }
+    useNetworkProbeStore.setState({
+      tcpResult: previousTcp,
+      dnsResult: previousDns,
+      probeResult: previousProbe,
+    })
+    let rejectTcp: (error: Error) => void = () => {}
+    tcpConnect.mockImplementation(() => new Promise((_, reject) => (rejectTcp = reject)))
+    dnsLookup.mockRejectedValueOnce(new Error("resolver unavailable"))
+    probeTarget.mockRejectedValueOnce(new Error("request failed"))
+
+    const retryTcp = networkProbeUseCases.runTcpConnect("new.example", 8443)
+    expect(useNetworkProbeStore.getState().tcpResult).toBe(previousTcp)
+    rejectTcp(new Error("connection failed"))
+    await retryTcp
+    await networkProbeUseCases.runDnsLookup("new.example", "AAAA")
+    await networkProbeUseCases.runProbeTarget("https://new.example")
+
+    const state = useNetworkProbeStore.getState()
+    expect(state.tcpResult).toBeNull()
+    expect(state.dnsResult).toBeNull()
+    expect(state.probeResult).toBeNull()
+    expect(state.loadingTcp).toBe(false)
+    expect(state.loadingDns).toBe(false)
+    expect(state.loadingProbe).toBe(false)
   })
 
   it("preserves the ICMP error code so Ping can show the Local Network settings guide", async () => {
@@ -237,10 +290,22 @@ describe("network-probe MVP failure and re-entry handling", () => {
     expect(useNetworkProbeStore.getState().publicIpInfo?.ip).toBe("203.0.113.8")
   })
 
-  it("keeps available overview data when another overview request fails", async () => {
-    const summary = { interfaces: [], dnsServers: [] }
+  it("clears failed overview items but keeps the results that refreshed successfully", async () => {
+    const previousSummary = {
+      interfaces: [{ name: "old", addrs: [], isLoopback: false }],
+      dnsServers: [],
+    }
+    const previousFirewall = { status: "on", ttl: 1, data: "old" }
+    const previousHosts = [
+      { address: "192.0.2.1", names: ["old.example"], line: 1, suspicious: true },
+    ]
     const hosts: never[] = []
-    getLocalNetworkSummary.mockResolvedValue(summary)
+    useNetworkProbeStore.setState({
+      summary: previousSummary,
+      firewall: previousFirewall,
+      hosts: previousHosts,
+    })
+    getLocalNetworkSummary.mockRejectedValue(new Error("summary query unavailable"))
     getFirewallStatus.mockRejectedValue(new Error("firewall query unavailable"))
     checkHostsOverrides.mockResolvedValue(hosts)
 
@@ -249,10 +314,13 @@ describe("network-probe MVP failure and re-entry handling", () => {
     })
 
     const state = useNetworkProbeStore.getState()
-    expect(state.summary).toBe(summary)
+    expect(state.summary).toBeNull()
     expect(state.firewall).toBeNull()
     expect(state.hosts).toBe(hosts)
-    expect(state.overviewErrors).toEqual({ firewall: "firewall query unavailable" })
+    expect(state.overviewErrors).toEqual({
+      summary: "summary query unavailable",
+      firewall: "firewall query unavailable",
+    })
     expect(state.error?.key).toBe("networkProbe.errors.overviewPartialFailed")
     expect(state.loadingSummary).toBe(false)
     const log = state.commandLog.join("\n")

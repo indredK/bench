@@ -175,11 +175,20 @@ export const networkProbeUseCases = {
       ])
       const errors: NonNullable<typeof store.overviewErrors> = {}
       if (summary.ok) store.setSummary(summary.value)
-      else errors.summary = summary.error
+      else {
+        useNetworkProbeStore.getState().setSummary(null)
+        errors.summary = summary.error
+      }
       if (firewall.ok) store.setFirewall(firewall.value)
-      else errors.firewall = firewall.error
+      else {
+        useNetworkProbeStore.getState().setFirewall(null)
+        errors.firewall = firewall.error
+      }
       if (hosts.ok) store.setHosts(hosts.value)
-      else errors.hosts = hosts.error
+      else {
+        useNetworkProbeStore.getState().setHosts(null)
+        errors.hosts = hosts.error
+      }
       store.setOverviewErrors(errors)
       if (Object.keys(errors).length > 0) {
         store.setError({
@@ -207,6 +216,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.tcpConnect(host.trim(), port)
       store.setTcpResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setTcpResult(null)
       store.setError({
         key: "networkProbe.errors.tcpFailed",
         fallback: getErrorMessage(error),
@@ -261,6 +271,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.dnsLookup(domain.trim(), rrType, resolver)
       store.setDnsResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setDnsResult(null)
       store.setError({
         key: "networkProbe.errors.dnsFailed",
         fallback: getErrorMessage(error),
@@ -280,6 +291,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.probeTarget(input.trim())
       store.setProbeResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setProbeResult(null)
       store.setError({
         key: "networkProbe.errors.probeFailed",
         fallback: getErrorMessage(error),
@@ -471,6 +483,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.flushDns()
       store.setFixResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setFixResult(null)
       store.setError({
         key: "networkProbe.errors.fixFailed",
         fallback: getErrorMessage(error),
@@ -490,6 +503,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.switchDns(service, servers)
       store.setFixResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setFixResult(null)
       store.setError({
         key: "networkProbe.errors.fixFailed",
         fallback: getErrorMessage(error),
@@ -509,6 +523,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.renewDhcp(service)
       store.setFixResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setFixResult(null)
       store.setError({
         key: "networkProbe.errors.fixFailed",
         fallback: getErrorMessage(error),
@@ -528,6 +543,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.resetNetworkStack(service)
       store.setFixResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setFixResult(null)
       store.setError({
         key: "networkProbe.errors.fixFailed",
         fallback: getErrorMessage(error),
@@ -909,6 +925,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.runPollutionCheck(domain.trim())
       store.setPollutionResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setPollutionResult(null)
       store.setError({
         key: "networkProbe.errors.pollutionFailed",
         fallback: getErrorMessage(error),
@@ -935,6 +952,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.whoisLookup(query.trim())
       store.setWhoisResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setWhoisResult(null)
       store.setError({
         key: "networkProbe.errors.whoisFailed",
         fallback: getErrorMessage(error),
@@ -961,6 +979,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.checkDnssec(domain.trim())
       store.setDnssecResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setDnssecResult(null)
       store.setError({
         key: "networkProbe.errors.dnssecFailed",
         fallback: getErrorMessage(error),
@@ -1024,6 +1043,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.probeNat()
       store.setNatResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setNatResult(null)
       store.setError({
         key: "networkProbe.errors.natFailed",
         fallback: getErrorMessage(error),
@@ -1043,6 +1063,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.probeNtp()
       store.setNtpResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setNtpResult(null)
       store.setError({
         key: "networkProbe.errors.ntpFailed",
         fallback: getErrorMessage(error),
@@ -1069,6 +1090,7 @@ export const networkProbeUseCases = {
           : `scanLan done neighbors=${result.neighbors.length}`,
       )
     } catch (error) {
+      useNetworkProbeStore.getState().setLanResult(null)
       store.setError({
         key: "networkProbe.errors.lanFailed",
         fallback: getErrorMessage(error),
@@ -1089,6 +1111,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.browseLanServices()
       store.setLanServicesResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setLanServicesResult(null)
       store.setError({
         key: "networkProbe.errors.lanSvcFailed",
         fallback: getErrorMessage(error),
@@ -1117,6 +1140,7 @@ export const networkProbeUseCases = {
       const result = await networkProbeRepository.runPcapDiag(durationSecs ?? 5)
       store.setPcapResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setPcapResult(null)
       store.setError({
         key: "networkProbe.errors.pcapFailed",
         fallback: getErrorMessage(error),
@@ -1166,6 +1190,7 @@ export const networkProbeUseCases = {
       ])
       store.setMultiNodeDnsResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setMultiNodeDnsResult(null)
       store.setError({
         key: "networkProbe.errors.multiNodeFailed",
         fallback: getErrorMessage(error),

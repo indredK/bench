@@ -272,7 +272,8 @@ L1 → L2 映射：
 | 测速源不可达                             | `!result.ok && !cancelled`                             | 30s 冷却倒计时禁用，可换源；取消成功不计冷却                                                                                                                |
 | 取消命令本身失败                         | `cancelFailed`                                         | 错误横幅提示；仅清除仍处于活动状态的该会话取消标记，允许重试，不影响新会话                                                                                  |
 | 一键诊断部分子项失败                     | `runOfflineDiagnostics` 各项独立结算                   | 成功项保留，失败项在对应区块显示错误并汇总为 `offlinePartialFailed`；可单项重试或重跑                                                                       |
-| 概览单项加载失败                         | 概览三项并行、逐项结算                                 | 已成功卡片继续呈现；失败卡片显示错误，刷新后可恢复                                                                                                          |
+| 概览单项加载失败                         | 概览三项并行、逐项结算                                 | 已成功卡片继续呈现；失败卡片清除该项旧值并显示错误，刷新后可恢复                                                                                            |
+| 单次探测刷新失败                         | TCP、DNS、自定义目标及单次诊断请求被拒绝或失败         | 刷新中保留旧结果并锁定输入；请求失败后只清除本次对应的旧结果并显示错误；其他独立结果保留                                                                    |
 | Agent 节点列表读取失败                   | 节点注册表独立于本机能力、默认值与能力包结算           | 保留其他成功数据；节点区显示错误与重试，不显示空列表                                                                                                        |
 | 网络服务枚举失败                         | `networkServicesStatus = error`                        | 显示重试入口；切换 DNS、续租 DHCP、重置网络栈保持禁用，DNS 刷新仍可单独使用                                                                                 |
 
@@ -283,6 +284,7 @@ L1 → L2 映射：
 - **端口扫描及时取消**：扫描会话的 Tokio `watch` 信号同时中断 nmap 子进程与内置 TCP connect 任务；nmap 使用 Tokio 子进程和 `kill_on_drop`，取消后终止子进程、回收任务并返回 `cancelled`，不得再降级启动第二轮 TCP 扫描。界面显示本地化取消状态；会话用 RAII 清理。
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
 - **单工具防重入**：每个 use-case 入口检查对应 loading；服务列表加载使用 `networkServicesStatus === "loading"` single-flight；批量离线诊断与 IPv6 / MTU / 公网出口单项检查互斥，同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
+- **单次探测结果与输入一致性**：TCP、DNS、自定义目标面板在请求期间禁用本次目标输入，结果卡片标明实际探测的主机/端口、域名或 URL。重试期间保留旧结果；如果本次调用拒绝/失败，仅清除对应旧结果并展示错误，避免把上一次成功误认为当前输入的结果；一个概览子请求失败时也只清除对应卡片，成功的兄弟项仍保留。后端返回的有效失败状态属于新结果，照常展示。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。
 - **single-flight 式刷新与 Agent 写入**：刷新概览（`loadingSummary`）、节点（`loadingNodes`）在用例内以 loading 标志防重复触发；节点刷新期间按钮禁用并显示进度，避免可点击但无操作；Agent 添加/移除共享 `agentMutation` single-flight，期间锁定两个写按钮与节点刷新；成功后直接更新当前节点列表，避免二次读取失败或并发旧响应覆盖。节点列表以 revision 丢弃过期 bootstrap/refresh 响应。能力包刷新也由用例层 single-flight，并在页面显示刷新态、禁用冲突操作。
 - **测速冷却计时器生命周期**：冷却期间每 500ms 更新倒计时；达到 `cooldownUntil` 后清除 interval，卸载或冷却值变化时也清理，避免冷却结束后持续触发 React 重渲染。
