@@ -2163,6 +2163,8 @@
       "kindRemoteProxy": "Globalping 节点",
       "kindRemoteAgent": "自建 Agent",
       "kindUnknown": "其他节点",
+      "answerOk": "成功",
+      "answerFail": "失败",
       "reachable": "可达",
       "unreachable": "不可达",
       "addTitle": "添加 agent",

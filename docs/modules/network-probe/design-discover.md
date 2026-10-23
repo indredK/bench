@@ -122,12 +122,15 @@ type ProbeNode = {
 
 #### Globalping（`remote-proxy`）
 
-| 项   | 约定                                                      |
-| ---- | --------------------------------------------------------- |
-| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 轮询 status |
-| 能力 | ping / traceroute / dns / mtr / http（**无带宽**）        |
-| 配额 | 匿名额度用尽 → 提示配置 token；错误映射 `AppError`        |
-| ToS  | 遵守官方限额；前端展示剩余额度（若 API 提供）             |
+| 项   | 约定                                                                                                              |
+| ---- | ----------------------------------------------------------------------------------------------------------------- |
+| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 每 700ms 轮询，整体最多 45 秒；按官方契约仅 `in-progress` 继续轮询  |
+| 失败 | 非 `in-progress` 终态、HTTP/解析错误与超时显示为 Globalping 失败行；本机 DNS 结果保留，部分远程结果随错误一并返回 |
+| 能力 | ping / traceroute / dns / mtr / http（**无带宽**）                                                                |
+| 配额 | 匿名额度用尽 → 提示配置 token；错误映射 `AppError`                                                                |
+| ToS  | 遵守官方限额；前端展示剩余额度（若 API 提供）                                                                     |
+
+结果行显示本地化的本机名称与成功/失败状态；节点列表的可达状态跟随当前语言。部分结果或远程失败不得覆盖本机结果。
 
 #### 自有 agent（`remote-agent`）
 

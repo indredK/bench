@@ -135,11 +135,13 @@ export function MultiNodePanel({
                 const statusLabel = n.reachable
                   ? t("networkProbe.nodes.reachable")
                   : t("networkProbe.nodes.unreachable")
+                const nodeLabel = n.kind === "local" ? t("networkProbe.nodes.kindLocal") : n.label
 
                 return (
                   <li key={n.id} className="flex w-full flex-wrap items-center gap-2">
-                    <span className="min-w-0 flex-1 break-all" title={n.endpoint ?? n.label}>
-                      {n.label} · {kindLabel}
+                    <span className="min-w-0 flex-1 break-all" title={n.endpoint ?? nodeLabel}>
+                      {nodeLabel}
+                      {n.kind === "local" ? "" : ` · ${kindLabel}`}
                       {n.endpoint ? ` · ${n.endpoint}` : ""}
                     </span>
                     <span
@@ -226,7 +228,10 @@ export function MultiNodePanel({
             {result.answers.map((a) => (
               <li key={a.nodeId} className="rounded-md border px-3 py-2">
                 <div className="font-medium">
-                  {a.nodeLabel} <span className="font-mono text-xs">{a.ok ? "OK" : "FAIL"}</span>
+                  {a.nodeId === "local" ? t("networkProbe.nodes.kindLocal") : a.nodeLabel}{" "}
+                  <span className="font-mono text-xs" role="status">
+                    {t(a.ok ? "networkProbe.nodes.answerOk" : "networkProbe.nodes.answerFail")}
+                  </span>
                 </div>
                 {a.answers.length > 0 ? (
                   <pre className="text-muted-foreground mt-1 overflow-auto font-mono text-xs">

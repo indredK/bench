@@ -2163,6 +2163,8 @@
       "kindRemoteProxy": "Globalping location",
       "kindRemoteAgent": "Self-hosted agent",
       "kindUnknown": "Other node",
+      "answerOk": "OK",
+      "answerFail": "FAIL",
       "reachable": "Reachable",
       "unreachable": "Unreachable",
       "addTitle": "Add agent",

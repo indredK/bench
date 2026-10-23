@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ComponentProps, ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { MultiNodePanel } from "@/features/network-probe/components/MultiNodePanel"
-import type { ProbeNode } from "@/lib/tauri/types/network-probe"
+import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
 
 const { toastSuccess, toastInfo } = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
@@ -99,6 +99,55 @@ describe("MultiNodePanel agent registry UX", () => {
     expect(screen.getByText("networkProbe.nodes.reachable")).toBeInTheDocument()
     expect(screen.getByText("networkProbe.nodes.unreachable")).toBeInTheDocument()
     expect(screen.queryByText("remote-agent")).not.toBeInTheDocument()
+  })
+
+  it("uses a localized label for the local node regardless of platform", () => {
+    renderPanel({
+      nodes: [
+        {
+          id: "local",
+          kind: "local",
+          label: "This Mac",
+          reachable: true,
+        },
+      ],
+    })
+
+    expect(screen.getByText("networkProbe.nodes.kindLocal")).toBeInTheDocument()
+    expect(screen.queryByText("This Mac")).not.toBeInTheDocument()
+  })
+
+  it("localizes DNS result status and the local node while preserving remote errors", () => {
+    const result: MultiNodeDnsResult = {
+      domain: "example.com",
+      answers: [
+        {
+          nodeId: "local",
+          nodeLabel: "This Mac",
+          ok: true,
+          answers: ["A 192.0.2.1"],
+        },
+        {
+          nodeId: "globalping-error",
+          nodeLabel: "Globalping",
+          ok: false,
+          answers: [],
+          detail: "Globalping polling timed out.",
+        },
+      ],
+      elapsedMs: 100,
+      commandHint: "dnsLookup(multi, 'example.com')",
+    }
+
+    renderPanel({ result })
+
+    expect(screen.getByText("networkProbe.nodes.kindLocal")).toBeInTheDocument()
+    expect(screen.getByText("networkProbe.nodes.answerOk")).toBeInTheDocument()
+    expect(screen.getByText("networkProbe.nodes.answerFail")).toBeInTheDocument()
+    expect(screen.getByText("Globalping polling timed out.")).toBeInTheDocument()
+    expect(screen.queryByText("This Mac")).not.toBeInTheDocument()
+    expect(screen.queryByText("OK")).not.toBeInTheDocument()
+    expect(screen.queryByText("FAIL")).not.toBeInTheDocument()
   })
 
   it("disables conflicting actions and inputs while an agent mutation is active", () => {
