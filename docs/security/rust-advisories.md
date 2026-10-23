@@ -24,10 +24,11 @@
   mask 生成与 `u128` 比较存在问题，修复版本为 0.4.4。该 crate 经 `aes-gcm`、摘要/HMAC
   与通用哈希依赖进入 Bench。
 - 已将 `src-tauri/Cargo.lock` 中 `ctutils` 精确升级到 0.4.4；依赖树确认所有路径均解析到
-  修复版本。macOS 本机 `cargo audit` 漏洞数为 0，`pnpm run test:be` 为 643 项通过、1 项
-  跳过，更新后的 macOS release app bundle 构建成功。
-- 其余既有 allowed warnings（glib unsound、6 个 unmaintained crate 与 `clipboard-win`
-  yanked 提示）未由本次升级引入，沿用现有处置；不计入漏洞数。
+  修复版本。`cargo deny check` 随后发现 `arboard` 锁定了已 yanked 的 `clipboard-win 5.4.1`，
+  已一并更新到兼容的 5.4.3。macOS 本机 `cargo audit` 漏洞数为 0、`cargo deny check` 通过；
+  `pnpm run test:be` 为 643 项通过、1 项跳过，更新后的 macOS release app bundle 构建成功。
+- 其余既有 7 条 allowed warnings（glib unsound 与 6 个 unmaintained crate）沿用现有处置；
+  不计入漏洞数。yanked 依赖已清除。
 
 ## SEC01 — glib 0.18.5（unsound）
 
