@@ -120,6 +120,8 @@ export function PortScanPanel({
                 status: toolStatus ?? "unsupported",
               })}
             </p>
+          ) : toolStatus === "supported" ? (
+            <p className="text-muted-foreground text-xs">{t("networkProbe.ports.nmapHint")}</p>
           ) : (
             <p className="text-xs text-amber-700 dark:text-amber-400">
               {t("networkProbe.ports.degradedHint")}
@@ -185,7 +187,15 @@ export function PortScanPanel({
           ) : null}
         </p>
       ) : null}
-      {result?.message ? (
+      {result?.cancelled ? (
+        <p className="text-muted-foreground text-xs">{t("networkProbe.ports.cancelled")}</p>
+      ) : result?.mode === "nmap-syn-or-connect" ? (
+        <p className="text-muted-foreground text-xs">{t("networkProbe.ports.nmapResult")}</p>
+      ) : result?.mode === "tcp-connect" ? (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {t("networkProbe.ports.tcpFallbackResult")}
+        </p>
+      ) : result?.message ? (
         <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
       ) : null}
       {samples.length > 0 ? (

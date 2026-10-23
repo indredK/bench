@@ -149,7 +149,10 @@ UI：测试入口与「上不了网」入口共用面板组件；面包屑标明
 | `probePathMtu`    | 否或短会话 | —                              |
 | `getPublicIpInfo` | 否         | —                              |
 | `startSpeedTest`  | 是 · Post  | `network-probe://speed-sample` |
+| `scanPorts`       | 是 · Post  | `network-probe://port-sample`  |
 | `cancelScan`      | —          | 幂等                           |
+
+端口扫描取消必须中断运行中的 nmap 子进程（Tokio `kill_on_drop`）或 abort 内置 TCP connect 任务；取消结果标记 `cancelled`，不能触发 TCP 降级重扫。macOS 回归需验证按钮及时复位、子进程退出且同一会话只返回取消结果。nmap `-V` 能力探测须有 2 秒上限，超时按未检测到处理并终止探测子进程。
 
 `nodeId`：MVP 仅 `local`；选中 remote 时灰显或提示后续版本（勿假连接）。
 

@@ -101,6 +101,61 @@ function service(index: number): LanServiceItem {
 }
 
 describe("network-probe long result lists", () => {
+  it("shows a localized cancellation state instead of raw backend text", () => {
+    render(
+      <PortScanPanel
+        loading={false}
+        canCancel={false}
+        result={{
+          target: "127.0.0.1",
+          mode: "cancelled",
+          openPorts: [],
+          samples: [],
+          cancelled: true,
+          sessionId: "ports-cancelled",
+          message: "Port scan cancelled.",
+          commandHint: "scanPorts()",
+        }}
+        streaming={[]}
+        toolEnabled
+        onRun={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("networkProbe.ports.cancelled")).toBeInTheDocument()
+    expect(screen.queryByText("Port scan cancelled.")).toBeNull()
+  })
+
+  it("shows the nmap capability and result instead of the degraded TCP hint", () => {
+    render(
+      <PortScanPanel
+        loading={false}
+        canCancel={false}
+        result={{
+          target: "127.0.0.1",
+          mode: "nmap-syn-or-connect",
+          openPorts: [80],
+          samples: [portSample(80)],
+          cancelled: false,
+          sessionId: "ports-nmap",
+          message: "nmap present: used -sS when permitted, otherwise -sT.",
+          commandHint: "scanPorts()",
+        }}
+        streaming={[]}
+        toolEnabled
+        toolStatus="supported"
+        onRun={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("networkProbe.ports.nmapHint")).toBeInTheDocument()
+    expect(screen.getByText("networkProbe.ports.nmapResult")).toBeInTheDocument()
+    expect(screen.queryByText("networkProbe.ports.degradedHint")).toBeNull()
+    expect(screen.queryByText(/nmap present:/)).toBeNull()
+  })
+
   it("renders short result lists in full without a virtual scroll region", () => {
     render(
       <PortScanPanel

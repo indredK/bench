@@ -155,13 +155,13 @@ L1 → L2 映射：
 
 > 未授权时 use-case 直接报 `securityAuthRequired`，不发起探测。
 
-| 面板      | 说明                                                                                                                                                                                                                                                                  |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ports     | TCP connect 端口扫描（默认 127.0.0.1 / 22,80,443,8080，端口范围语法支持 `,`/`-`）；**目标非内网或端口数 >64 时强制二次确认**（DestructiveConfirm）；流式 `port-sample`；显示开放端口列表、每个端口状态/serviceHint/rtt、degraded 提示（本机 nmap -sS/-sT 可用时回退） |
-| pollution | DNS 污染检测：对域名跑检测（本地 + 公共 DNS 对照），输出 `PollutionReport`（finding 列表）                                                                                                                                                                            |
-| pcap      | 诊断抓包（`pcap-diag`，默认 5s）：重传/乱序/RST 统计；无特权时 tcpdump 计数降级；可取消；缺 pack 时引导安装 `pcap-diag`                                                                                                                                               |
-| dnssec    | DNSSEC 校验（Cloudflare DoH AD 位验证链），输出 `DnsSecCheckResult`                                                                                                                                                                                                   |
-| whois     | WHOIS 查询（任意 query），输出 `WhoisInfo`                                                                                                                                                                                                                            |
+| 面板      | 说明                                                                                                                                                                                                                                                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ports     | 端口扫描（默认 127.0.0.1 / 22,80,443,8080，端口范围语法支持 `,`/`-`）；**目标非内网或端口数 >64 时强制二次确认**（DestructiveConfirm）；流式 `port-sample`；有 nmap 时优先 SYN、权限不足回退到 nmap TCP connect，未检测到时使用内置 TCP connect；能力提示须与实际模式一致，取消须结束当前进程/任务且不得触发第二轮扫描。 |
+| pollution | DNS 污染检测：对域名跑检测（本地 + 公共 DNS 对照），输出 `PollutionReport`（finding 列表）                                                                                                                                                                                                                               |
+| pcap      | 诊断抓包（`pcap-diag`，默认 5s）：重传/乱序/RST 统计；无特权时 tcpdump 计数降级；可取消；缺 pack 时引导安装 `pcap-diag`                                                                                                                                                                                                  |
+| dnssec    | DNSSEC 校验（Cloudflare DoH AD 位验证链），输出 `DnsSecCheckResult`                                                                                                                                                                                                                                                      |
+| whois     | WHOIS 查询（任意 query），输出 `WhoisInfo`                                                                                                                                                                                                                                                                               |
 
 **交互细节**：
 
@@ -262,24 +262,25 @@ L1 → L2 映射：
 
 ### 13.2 常见失败场景与行为
 
-| 场景                                     | 行为/提示                                              | 恢复/降级                                                                                    |
-| ---------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| 网络断开/超时                            | 各探测命令返回对应错误码 → 错误横幅                    | 重试；`caps.localNetworkHint` 提示「全部探测丢失可能是权限/防火墙/真实断网，不要当唯一结论」 |
-| 权限拒绝（Local Network / TCC / 无特权） | `ICMP_UNAVAILABLE`、arp `emptyPermission`、pcap 无特权 | 降级到 tcpdump 计数 / ARP 缓存读取；给出「打开系统网络设置」入口，不静默                     |
-| 平台不支持（Windows/Linux）              | `UNSUPPORTED` 或能力矩阵 `unsupported`                 | 面板隐藏/禁用 + toolDisabled 提示；firewall 返回 status=unsupported + detail                 |
-| 能力包缺失                               | `tools.<key> = missing_pack`                           | 面板禁用 + 「管理能力包」入口跳转安装；安装后自动刷新                                        |
-| 外部工具缺失（如 nmap）                  | externalTools 反映                                     | 端口扫描降级为 TCP connect（degraded），提示安装 adv-scanner/nmap 可启用 SYN                 |
-| 测速源不可达                             | `!result.ok && !cancelled`                             | 30s 冷却倒计时禁用，可换源；取消成功不计冷却                                                 |
-| 取消命令本身失败                         | `cancelFailed`                                         | 错误横幅提示；仅清除仍处于活动状态的该会话取消标记，允许重试，不影响新会话                   |
-| 一键诊断部分子项失败                     | `runOfflineDiagnostics` 各项独立结算                   | 成功项保留，失败项在对应区块显示错误并汇总为 `offlinePartialFailed`；可单项重试或重跑        |
-| 概览单项加载失败                         | 概览三项并行、逐项结算                                 | 已成功卡片继续呈现；失败卡片显示错误，刷新后可恢复                                           |
-| Agent 节点列表读取失败                   | 节点注册表独立于本机能力、默认值与能力包结算           | 保留其他成功数据；节点区显示错误与重试，不显示空列表                                         |
-| 网络服务枚举失败                         | `networkServicesStatus = error`                        | 显示重试入口；切换 DNS、续租 DHCP、重置网络栈保持禁用，DNS 刷新仍可单独使用                  |
+| 场景                                     | 行为/提示                                              | 恢复/降级                                                                                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 网络断开/超时                            | 各探测命令返回对应错误码 → 错误横幅                    | 重试；`caps.localNetworkHint` 提示「全部探测丢失可能是权限/防火墙/真实断网，不要当唯一结论」                                                                |
+| 权限拒绝（Local Network / TCC / 无特权） | `ICMP_UNAVAILABLE`、arp `emptyPermission`、pcap 无特权 | 降级到 tcpdump 计数 / ARP 缓存读取；给出「打开系统网络设置」入口，不静默                                                                                    |
+| 平台不支持（Windows/Linux）              | `UNSUPPORTED` 或能力矩阵 `unsupported`                 | 面板隐藏/禁用 + toolDisabled 提示；firewall 返回 status=unsupported + detail                                                                                |
+| 能力包缺失                               | `tools.<key> = missing_pack`                           | 面板禁用 + 「管理能力包」入口跳转安装；安装后自动刷新                                                                                                       |
+| 外部工具缺失或探测超时（如 nmap）        | externalTools 反映                                     | nmap `-V` 探测最多等待 2 秒；缺失或超时按未检测到处理，端口扫描降级为 TCP connect（degraded）；marker-only 或尚未接入执行路径的能力包不得伪装为已解锁扫描器 |
+| 测速源不可达                             | `!result.ok && !cancelled`                             | 30s 冷却倒计时禁用，可换源；取消成功不计冷却                                                                                                                |
+| 取消命令本身失败                         | `cancelFailed`                                         | 错误横幅提示；仅清除仍处于活动状态的该会话取消标记，允许重试，不影响新会话                                                                                  |
+| 一键诊断部分子项失败                     | `runOfflineDiagnostics` 各项独立结算                   | 成功项保留，失败项在对应区块显示错误并汇总为 `offlinePartialFailed`；可单项重试或重跑                                                                       |
+| 概览单项加载失败                         | 概览三项并行、逐项结算                                 | 已成功卡片继续呈现；失败卡片显示错误，刷新后可恢复                                                                                                          |
+| Agent 节点列表读取失败                   | 节点注册表独立于本机能力、默认值与能力包结算           | 保留其他成功数据；节点区显示错误与重试，不显示空列表                                                                                                        |
+| 网络服务枚举失败                         | `networkServicesStatus = error`                        | 显示重试入口；切换 DNS、续租 DHCP、重置网络栈保持禁用，DNS 刷新仍可单独使用                                                                                 |
 
 ### 13.3 幂等 / 取消 / 并发保护
 
 - **会话取消幂等（前后端双保险）**：前端按 `kind` 保存 `cancelRequestedSessionIdByKind`，保证同一 `sessionId` 只发一次 `cancelScan`；取消 IPC 失败时，仅在该会话仍为活动会话且取消标记仍匹配时清除标记，允许重试；后端 `session.rs` 以 `HashSet` 记录已取消 id，重复取消为 no-op 成功。新会话（新 sessionId）自动重置取消标记（有单测 `cancel-idempotency.test.ts`）。
 - **测速及时取消**：测速会话额外持有 Tokio `watch` 取消信号；ping 请求、下载/上传请求、下载响应体读取与阶段间等待均通过 `select!` 与取消竞争。用户取消后后端立即结束当前请求并返回 `cancelled`，前端结束 loading、不启动 30 秒冷却，允许立即重跑；会话用 RAII 清理取消信号。
+- **端口扫描及时取消**：扫描会话的 Tokio `watch` 信号同时中断 nmap 子进程与内置 TCP connect 任务；nmap 使用 Tokio 子进程和 `kill_on_drop`，取消后终止子进程、回收任务并返回 `cancelled`，不得再降级启动第二轮 TCP 扫描。界面显示本地化取消状态；会话用 RAII 清理。
 - **事件监听清理**：所有流式长任务在 `finally` 中 `unlisten()` 全部事件订阅（health-item / site-sample / traceroute-hop / ping-sample / speed-sample / port-sample / scan-session / pack-progress），避免泄漏与跨会话串扰。
 - **单工具防重入**：每个 use-case 入口检查对应 loading；服务列表加载使用 `networkServicesStatus === "loading"` single-flight；批量离线诊断与 IPv6 / MTU / 公网出口单项检查互斥，同一工具不可并发，不同工具可并行（store 每工具独立 loading）。
 - **修复幂等**：后端每次执行前重新校验服务白名单（忽略前端「已确认」标志）；刷新 DNS 对 `dscacheutil`/`killall` 分别报告成功/失败，不把权限失败当成功。

@@ -12,7 +12,7 @@ use tauri::AppHandle;
 
 #[tauri::command]
 pub async fn get_network_probe_capabilities(app: AppHandle) -> AppResult<NetworkProbeCapabilities> {
-    Ok(super::packs::build_capabilities(Some(&app)))
+    Ok(super::packs::build_capabilities(Some(&app)).await)
 }
 
 #[tauri::command]
