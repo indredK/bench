@@ -147,7 +147,7 @@ describe("site monitoring", () => {
       useSitesMonitoring({
         loading: false,
         toolEnabled: true,
-        canCancel: true,
+        canCancel: false,
         onProbe: () => new Promise<SitesProbeResult>(() => {}),
         onCancel,
       }),
@@ -156,5 +156,28 @@ describe("site monitoring", () => {
     act(() => result.current.start())
     unmount()
     expect(onCancel).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not cancel an already completed round when the panel unmounts between intervals", async () => {
+    vi.useFakeTimers()
+    const onCancel = vi.fn()
+    const { result, unmount } = renderHook(() =>
+      useSitesMonitoring({
+        loading: false,
+        toolEnabled: true,
+        canCancel: false,
+        onProbe: vi.fn().mockResolvedValue(probeResult([sample()])),
+        onCancel,
+      }),
+    )
+
+    await act(async () => {
+      result.current.start()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    unmount()
+    expect(onCancel).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

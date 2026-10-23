@@ -174,6 +174,78 @@ describe("network-probe session slots per probe kind", () => {
     await healthPromise
     expect(slots().health).toBeNull()
   })
+
+  it("queues cancellation until a late session event arrives", async () => {
+    const sites = deferred<Record<string, unknown>>()
+    sitesProbe.mockReturnValue(sites.promise)
+    cancelScan.mockResolvedValue(true)
+
+    const sitesPromise = networkProbeUseCases.runSitesProbe("official")
+    await flushMicrotasks()
+
+    // Leaving a monitoring panel can happen before its IPC session ID is published.
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("sites")
+    })
+    expect(cancelScan).not.toHaveBeenCalled()
+
+    emitScanSession({ sessionId: "sites-late", kind: "sites" })
+    await flushMicrotasks()
+    expect(slots().sites).toBe("sites-late")
+    expect(cancelScan).toHaveBeenCalledTimes(1)
+    expect(cancelScan).toHaveBeenCalledWith("sites-late")
+
+    sites.resolve({
+      sessionId: "sites-late",
+      packId: "official",
+      results: [],
+      cancelled: true,
+      elapsedMs: 1,
+      commandHint: "",
+    })
+    await sitesPromise
+    expect(slots().sites).toBeNull()
+    expect(useNetworkProbeStore.getState().loadingSites).toBe(false)
+  })
+
+  it("does not carry a queued cancellation into a later scan after the current run fails early", async () => {
+    const firstSites = deferred<Record<string, unknown>>()
+    sitesProbe.mockReturnValueOnce(firstSites.promise)
+    cancelScan.mockResolvedValue(true)
+
+    const firstRun = networkProbeUseCases.runSitesProbe("official")
+    await flushMicrotasks()
+    await networkProbeUseCases.cancelScan("sites")
+    firstSites.resolve({
+      sessionId: "sites-no-session",
+      packId: "official",
+      results: [],
+      cancelled: true,
+      elapsedMs: 1,
+      commandHint: "",
+    })
+    await firstRun
+
+    // There is no active tracker now, so a later run is not canceled implicitly.
+    const secondSites = deferred<Record<string, unknown>>()
+    sitesProbe.mockReturnValueOnce(secondSites.promise)
+    const secondRun = networkProbeUseCases.runSitesProbe("official")
+    await flushMicrotasks()
+    expect(cancelScan).not.toHaveBeenCalled()
+    emitScanSession({ sessionId: "sites-next", kind: "sites" })
+    await flushMicrotasks()
+    expect(cancelScan).not.toHaveBeenCalled()
+
+    secondSites.resolve({
+      sessionId: "sites-next",
+      packId: "official",
+      results: [],
+      cancelled: false,
+      elapsedMs: 1,
+      commandHint: "",
+    })
+    await secondRun
+  })
 })
 
 describe("network-probe rerun clears previous results", () => {

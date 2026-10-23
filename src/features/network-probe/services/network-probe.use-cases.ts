@@ -32,6 +32,7 @@ function logCommand(commandName: string) {
 
 let bootstrapInFlight: Promise<void> | null = null
 let capabilityPacksRefreshInFlight: Promise<void> | null = null
+const activeScanCancelRequestByKind = new Map<NetworkProbeKind, () => void>()
 
 /**
  * 订阅 scan-session 事件, 把后端回传的会话只写进「本类探测专属」的槽位。
@@ -41,8 +42,20 @@ let capabilityPacksRefreshInFlight: Promise<void> | null = null
 function createScanSessionTracker(kind: NetworkProbeKind) {
   let sessionId: string | null = null
   let unlisten: (() => void) | undefined
+  let cancelWhenSessionArrives = false
+  let active = false
+  const requestCancel = () => {
+    if (!active) return
+    if (sessionId) {
+      void networkProbeUseCases.cancelScan(kind)
+    } else {
+      cancelWhenSessionArrives = true
+    }
+  }
   return {
     async start() {
+      active = true
+      activeScanCancelRequestByKind.set(kind, requestCancel)
       // 起跑先占位清空, 槽里之后只可能是本轮会话, 取消目标不会串到上一轮。
       useNetworkProbeStore.getState().setActiveSessionId(kind, null)
       unlisten = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
@@ -51,10 +64,19 @@ function createScanSessionTracker(kind: NetworkProbeKind) {
           if (event.payload.kind !== kind) return
           sessionId = event.payload.sessionId
           useNetworkProbeStore.getState().setActiveSessionId(kind, sessionId)
+          if (cancelWhenSessionArrives) {
+            cancelWhenSessionArrives = false
+            void networkProbeUseCases.cancelScan(kind)
+          }
         },
       )
     },
     stop() {
+      active = false
+      cancelWhenSessionArrives = false
+      if (activeScanCancelRequestByKind.get(kind) === requestCancel) {
+        activeScanCancelRequestByKind.delete(kind)
+      }
       unlisten?.()
       unlisten = undefined
       // 只清自己这轮占的槽, 别的探测进度不受影响。
@@ -392,7 +414,10 @@ export const networkProbeUseCases = {
   async cancelScan(kind: NetworkProbeKind) {
     const store = useNetworkProbeStore.getState()
     const sessionId = store.activeSessionIdByKind[kind]
-    if (!sessionId) return
+    if (!sessionId) {
+      activeScanCancelRequestByKind.get(kind)?.()
+      return
+    }
     // 幂等 (A4-4): 同一会话只允许发出一次 cancel 请求。
     if (store.cancelRequestedSessionIdByKind[kind] === sessionId) return
     store.setCancelRequestedSessionId(kind, sessionId)

@@ -154,7 +154,9 @@ export function useSitesMonitoring({
 
   useEffect(
     () => () => {
-      const shouldCancelCurrent = activeRef.current && canCancelRef.current
+      // On unmount, cancel even before the session ID event arrives. The use case
+      // queues that intent on its active session tracker and sends it when ready.
+      const shouldCancelCurrent = activeRef.current && probeInFlightRef.current
       activeRef.current = false
       if (timerRef.current != null) clearTimeout(timerRef.current)
       timerRef.current = null
