@@ -28,7 +28,9 @@
   已一并更新到兼容的 5.4.3。macOS 本机 `cargo audit` 漏洞数为 0、`cargo deny check` 通过；
   `pnpm run test:be` 为 643 项通过、1 项跳过，更新后的 macOS release app bundle 构建成功。
 - 其余既有 7 条 allowed warnings（glib unsound 与 6 个 unmaintained crate）沿用现有处置；
-  不计入漏洞数。yanked 依赖已清除。
+  不计入漏洞数。yanked 依赖已清除。PR #154 提交 `81d1787c` 的 `Cargo Audit + Deny`
+  与完整 GitHub checks 均通过；Windows/macOS Rust CI、前端、E2E、静态检查及 Node 24
+  兼容性检查通过，发布构建按条件跳过。
 
 ## SEC01 — glib 0.18.5（unsound）
 
