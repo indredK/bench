@@ -35,7 +35,7 @@
 ## 2026-10-24 扫描复核
 
 - PR #154 提交 `30379b32` 的 `cargo deny` 新发现 Tokio 1.53.1 命中 [RUSTSEC-2026-0386](https://github.com/RustSec/advisory-db/blob/main/crates/tokio/RUSTSEC-2026-0386.md)：`AsyncFd` 安全构造器允许仅实现 `AsRawFd` 的类型进入 I/O driver，存在 I/O safety / use-after-free 风险。该公告的修复范围为 Tokio `>=1.53.3`；已只将 `src-tauri/Cargo.lock` 中 Tokio 更新到 1.53.3，Cargo.toml 的 semver 约束无需改变。
-- 更新后 `cargo deny check` 通过；`cargo audit` 无 vulnerability，仍报告 7 条既有 allowed warning（glib unsound 与 unmaintained crate）；`clippy:be` 通过、Rust 后端 647 项通过（1 项跳过）。最终最小锁文件构建的隔离 macOS QA app 在真机启动并完成 Tauri/Rust 初始化，未执行网络探测或系统权限操作。CUA 对临时 bundle 的窗口绑定超时并错误解析到正式 bundle；正式 app 已退出，因此这次未能检查最终 bundle 的面板导航。此前相同源码和 Tokio 1.53.3 的 QA 构建已打开 Network Probe 与站点延迟面板。PR #154 的这次安全修复远程检查待完成。
+- 更新后 `cargo deny check` 通过；`cargo audit` 无 vulnerability，仍报告 7 条既有 allowed warning（glib unsound 与 unmaintained crate）；`clippy:be` 通过、Rust 后端 647 项通过（1 项跳过）。最终最小锁文件构建的隔离 macOS QA app 在真机启动并完成 Tauri/Rust 初始化；后续复验已从该 bundle 打开 Network Probe 与站点延迟面板。PR #154 提交 `46d9b046` 的 Cargo Audit + Deny、macOS/Windows Rust、前端、E2E、静态与 Node 24 检查全部通过，发布构建按条件跳过。
 
 ## SEC01 — glib 0.18.5（unsound）
 
