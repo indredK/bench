@@ -382,7 +382,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     canCancel={Boolean(activeSessionIdByKind.sites) && c.loadingSites}
                     result={c.sitesResult}
                     streaming={c.sitesStreaming}
-                    sparklines={c.siteSparklineById}
+                    sparklines={c.siteSparklineByTarget}
                     packIds={sitePackIds}
                     toolEnabled={c.toolEnabled.sitesProbe}
                     toolStatus={c.toolStatus.sitesProbe}

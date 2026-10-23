@@ -1715,7 +1715,7 @@
       "icmpMs": "ICMP {{ms}} ms",
       "httpMs": "HTTP {{status}} · {{ms}} ms",
       "mbps": "{{mbps}} Mbps",
-      "fail": "fail — {{error}}",
+      "fail": "Probe failed. Check your network and retry.",
       "customTitle": "Custom sites",
       "customInput": "URL or host",
       "customPlaceholder": "https://registry.npmjs.org",
@@ -1723,6 +1723,20 @@
       "customRun": "Run custom",
       "customRemove": "Remove",
       "customEmpty": "No custom sites yet.",
+      "monitor": {
+        "scopePack": "Monitoring: {{pack}}",
+        "scopeOfficial": "Monitoring: official sites",
+        "interval": "Interval",
+        "seconds": "Every {{count}} seconds",
+        "threshold": "Latency threshold (ms)",
+        "start": "Start monitoring",
+        "stop": "Stop monitoring",
+        "running": "Monitoring; waiting {{seconds}} seconds after each round. Threshold: {{threshold}} ms.",
+        "foregroundOnly": "Runs only while this panel is open. Leaving stops future rounds; the current round may finish.",
+        "probeFailed": "This round returned no result. It will retry after the next interval.",
+        "alert": "{{count}} sites are unreachable or have latency at or above {{threshold}} ms.",
+        "thresholdRange": "Enter a value from {{min}} to {{max}} ms."
+      },
       "packs": {
         "global": "Global",
         "cn-friendly": "CN-friendly",
@@ -1746,7 +1760,7 @@
       "icmpMs": "ICMP {{ms}} ms",
       "mbps": "{{mbps}} Mbps",
       "sampleSmall": "Sample small",
-      "fail": "{{error}}",
+      "fail": "Probe failed. Check your network and retry.",
       "testedAt": "at {{time}}",
       "cancelled": "Batch cancelled — finished cards keep their results.",
       "sites": {

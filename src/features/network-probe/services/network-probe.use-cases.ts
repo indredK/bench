@@ -10,6 +10,7 @@ import type {
   HealthCheckItem,
   PingSample,
   SiteSampleResult,
+  SitesProbeResult,
   SpeedSampleEvent,
   PortSampleEvent,
   TracerouteHop,
@@ -263,9 +264,9 @@ export const networkProbeUseCases = {
     }
   },
 
-  async runSitesProbe(packId: string) {
+  async runSitesProbe(packId: string): Promise<SitesProbeResult | null> {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingSites) return
+    if (store.loadingSites) return null
     store.setLoadingSites(true)
     store.setError(null)
     store.resetSitesStreaming()
@@ -289,11 +290,13 @@ export const networkProbeUseCases = {
           ? `sitesProbe cancelled sessionId=${result.sessionId}`
           : `sitesProbe done pack=${result.packId} n=${result.results.length}`,
       )
+      return result
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.sitesFailed",
         fallback: getErrorMessage(error),
       })
+      return null
     } finally {
       unlistenSample?.()
       sessions.stop()
@@ -301,9 +304,9 @@ export const networkProbeUseCases = {
     }
   },
 
-  async runSitesProbeCustom(targets: string[]) {
+  async runSitesProbeCustom(targets: string[]): Promise<SitesProbeResult | null> {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingSites) return
+    if (store.loadingSites) return null
     store.setLoadingSites(true)
     store.setError(null)
     store.resetSitesStreaming()
@@ -327,11 +330,13 @@ export const networkProbeUseCases = {
           ? `sitesProbeCustom cancelled sessionId=${result.sessionId}`
           : `sitesProbeCustom done n=${result.results.length}`,
       )
+      return result
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.sitesFailed",
         fallback: getErrorMessage(error),
       })
+      return null
     } finally {
       unlistenSample?.()
       sessions.stop()
