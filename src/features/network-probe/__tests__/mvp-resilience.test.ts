@@ -17,6 +17,7 @@ const {
   listCapabilityPacks,
   getCapabilities,
   installCapabilityPack,
+  installCapabilityPackVerifyFail,
 } = vi.hoisted(() => ({
   detectCaptivePortal: vi.fn(),
   getPublicIpInfo: vi.fn(),
@@ -33,6 +34,7 @@ const {
   listCapabilityPacks: vi.fn(),
   getCapabilities: vi.fn(),
   installCapabilityPack: vi.fn(),
+  installCapabilityPackVerifyFail: vi.fn(),
 }))
 
 vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
@@ -52,6 +54,7 @@ vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
     listCapabilityPacks,
     getCapabilities,
     installCapabilityPack,
+    installCapabilityPackVerifyFail,
   },
 }))
 
@@ -79,6 +82,7 @@ beforeEach(() => {
     listCapabilityPacks,
     getCapabilities,
     installCapabilityPack,
+    installCapabilityPackVerifyFail,
   ]) {
     mock.mockReset()
   }
@@ -296,6 +300,50 @@ describe("network-probe MVP failure and re-entry handling", () => {
     expect(log).toContain("installCapabilityPack()")
     expect(log).toContain("installCapabilityPack done ok=true mode=marker")
     expect(log).not.toContain("private-pack-id")
+  })
+
+  it("shows a localized hash failure and skips refresh after a failed pack install", async () => {
+    installCapabilityPack.mockResolvedValue({
+      packId: "pcap-diag",
+      ok: false,
+      mode: "hash-mismatch",
+      message: "backend English text must not be rendered",
+      commandHint: "installCapabilityPack('pcap-diag') // hash-mismatch",
+    })
+
+    await networkProbeUseCases.installCapabilityPack("pcap-diag")
+
+    expect(useNetworkProbeStore.getState().error).toEqual({
+      key: "networkProbe.errors.packHashMismatch",
+    })
+    expect(listCapabilityPacks).not.toHaveBeenCalled()
+    expect(useNetworkProbeStore.getState().packProgressText).toBeNull()
+    expect(useNetworkProbeStore.getState().commandLog.join("\n")).toContain(
+      "installCapabilityPack done ok=false mode=hash-mismatch",
+    )
+  })
+
+  it("surfaces the hash failure test result without changing pack state", async () => {
+    installCapabilityPackVerifyFail.mockResolvedValue({
+      packId: "pcap-diag",
+      ok: false,
+      mode: "hash-mismatch",
+      message: "backend English text must not be rendered",
+      commandHint: "installCapabilityPack('pcap-diag') // hash-mismatch test",
+    })
+    const initialPacks = useNetworkProbeStore.getState().capabilityPacks
+
+    await networkProbeUseCases.installCapabilityPackVerifyFail("pcap-diag")
+
+    expect(useNetworkProbeStore.getState().error).toEqual({
+      key: "networkProbe.errors.packHashMismatch",
+    })
+    expect(useNetworkProbeStore.getState().packProgressText).toBeNull()
+    expect(useNetworkProbeStore.getState().capabilityPacks).toBe(initialPacks)
+    expect(listCapabilityPacks).not.toHaveBeenCalled()
+    expect(useNetworkProbeStore.getState().commandLog.join("\n")).toContain(
+      "pack verify fail: hash-mismatch",
+    )
   })
 
   it("single-flights capability pack refreshes and allows a later retry", async () => {

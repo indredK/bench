@@ -78,6 +78,14 @@ fn canonical_manifest() -> Vec<PackManifestEntry> {
     ]
 }
 
+fn pack_failure_mode(error: &AppError) -> &'static str {
+    if error.code == "PACK_HASH_MISMATCH" {
+        "hash-mismatch"
+    } else {
+        "failed"
+    }
+}
+
 fn packs_dir(app: &AppHandle<impl Runtime>) -> AppResult<PathBuf> {
     let base = app
         .path()
@@ -237,10 +245,11 @@ pub async fn install_capability_pack<R: Runtime>(
         match download_and_verify(app, &entry).await {
             Ok(()) => "sidecar",
             Err(e) => {
+                let mode = pack_failure_mode(&e);
                 return Ok(CapabilityPackInstallResult {
                     pack_id: pack_id.clone(),
                     ok: false,
-                    mode: "failed".into(),
+                    mode: mode.into(),
                     message: e.to_string(),
                     command_hint: format!("installCapabilityPack('{pack_id}') // failed"),
                 });
@@ -499,6 +508,7 @@ async fn download_and_verify<R: Runtime>(
 }
 
 /// S-X-05 test channel: force hash-mismatch without installing.
+#[cfg(debug_assertions)]
 pub async fn install_capability_pack_verify_fail<R: Runtime>(
     app: &AppHandle<R>,
     pack_id: String,
@@ -521,9 +531,30 @@ pub async fn install_capability_pack_verify_fail<R: Runtime>(
     })
 }
 
+/// The test-only hash failure channel is unavailable in production builds.
+#[cfg(not(debug_assertions))]
+pub async fn install_capability_pack_verify_fail<R: Runtime>(
+    app: &AppHandle<R>,
+    pack_id: String,
+) -> AppResult<CapabilityPackInstallResult> {
+    let _ = (app, pack_id);
+    Err(AppError::unsupported(
+        "Capability pack verification test is only available in debug builds.",
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hash_mismatch_has_a_stable_install_failure_mode() {
+        assert_eq!(
+            pack_failure_mode(&AppError::new("PACK_HASH_MISMATCH", "mismatch")),
+            "hash-mismatch"
+        );
+        assert_eq!(pack_failure_mode(&AppError::io("disk full")), "failed");
+    }
 
     #[test]
     fn missing_privileged_tools_remain_degraded_or_pack_gated() {

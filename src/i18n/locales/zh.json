@@ -2358,6 +2358,7 @@
       "mtuFailed": "路径 MTU 探测失败。",
       "openSettingsFailed": "无法打开系统网络设置。",
       "packsFailed": "能力包操作失败。",
+      "packHashMismatch": "SHA-256 校验失败。能力包未安装，二进制文件未执行。",
       "defaultsFailed": "Defaults 覆盖/重置失败。",
       "speedFailed": "带宽测速失败。",
       "securityAuthRequired": "请先确认安全 Tab 授权声明。",

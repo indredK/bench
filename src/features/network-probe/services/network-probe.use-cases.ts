@@ -796,6 +796,15 @@ export const networkProbeUseCases = {
       logCommand("installCapabilityPack")
       const result = await networkProbeRepository.installCapabilityPack(packId)
       store.appendCommandLog(`installCapabilityPack done ok=${result.ok} mode=${result.mode}`)
+      if (!result.ok) {
+        store.setError({
+          key:
+            result.mode === "hash-mismatch"
+              ? "networkProbe.errors.packHashMismatch"
+              : "networkProbe.errors.packsFailed",
+        })
+        return
+      }
       await networkProbeUseCases.refreshCapabilityPacks()
     } catch (error) {
       store.setError({
@@ -1218,12 +1227,15 @@ export const networkProbeUseCases = {
   async installCapabilityPackVerifyFail(packId: string) {
     const store = useNetworkProbeStore.getState()
     store.setError(null)
+    store.setPackProgressText(null)
     logCommand("installCapabilityPackVerifyFail")
     try {
       const result = await networkProbeRepository.installCapabilityPackVerifyFail(packId)
-      store.setPackProgressText(result.message)
       if (!result.ok) {
+        store.setError({ key: "networkProbe.errors.packHashMismatch" })
         store.appendCommandLog(`pack verify fail: ${result.mode}`)
+      } else {
+        store.setError({ key: "networkProbe.errors.packsFailed" })
       }
     } catch (error) {
       store.setError({

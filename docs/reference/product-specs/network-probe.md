@@ -182,8 +182,8 @@ L1 → L2 映射：
 ## 8. 能力包（D-017 packs）
 
 - **能力包**：`adv-scanner`（SYN 扫描）、`pcap-diag`（诊断抓包）、`priv-helper`（特权 helper）。内置 manifest（packId / version / hash / 签名来源）。
-- PackInstallDialog：pack 列表（version / sizeMB / status / markerOnly 提示 / 描述），安装 / 卸载 / 刷新；安装走后端（**禁止前端传 URL**，marker + hash 校验，测试通道可强制 hash-fail）；进度事件 `pack-progress` 实时显示 `packId phase bytes/totalBytes`。
-- 安装/卸载后自动刷新 capabilities 与 packs 列表；capabilities 中 `tools.<key>` 可反映 `missing_pack`（缺能力包时面板显示缺失提示并可跳转安装）。
+- PackInstallDialog：pack 列表（version / sizeMB / status / markerOnly 提示 / 描述），安装 / 卸载 / 刷新；安装走后端（**禁止前端传 URL**，marker + hash 校验，debug 验证通道可强制 hash-fail）；进度事件 `pack-progress` 实时显示 `packId phase bytes/totalBytes`。
+- 安装/卸载成功后自动刷新 capabilities 与 packs 列表；失败时显示本地化原因并保留原列表状态。capabilities 中 `tools.<key>` 可反映 `missing_pack`（缺能力包时面板显示缺失提示并可跳转安装）。
 
 **交互细节**：
 
@@ -192,7 +192,7 @@ L1 → L2 映射：
 - `busy` 为真时**全部按钮禁用**（刷新/安装/卸载/测试哈希失败），安装按钮文案切为「安装中…」；进度文本 `packId phase bytes/totalBytes` 实时刷新，安装完成/失败后清除。
 - **能力包刷新防重入与反馈**：`refreshCapabilityPacks` 在用例层 single-flight；页面显示 `packsRefreshing` 状态，刷新期间禁用刷新、安装、卸载与哈希校验入口，并显示“刷新中…”；刷新完成后恢复操作，失败时保留重试入口。
 - 已安装 pack 显示「卸载」（destructive 样式）；未安装显示「安装」；`markerOnly`（制品未发布）显示标记提示。
-- 「测试哈希失败」按钮（验证通道）仅用于开发验证：安装强制返回 hash 不匹配并写入命令日志，不实际安装。
+- 「测试哈希失败」按钮（验证通道）仅在开发构建显示：强制返回本地化 hash 不匹配并写入命令日志，不实际安装；release 实现 fail-closed，不运行该测试通道。
 
 ## 9. 快捷键
 
@@ -257,7 +257,7 @@ L1 → L2 映射：
 | `TRACEROUTE_BUILD` / `TRACEROUTE_RUN`  | traceroute 构建/运行失败                                                                                                                     | 错误横幅 `networkProbe.errors.tracerouteFailed`                                                  |
 | `PACK_URL_INSECURE`                    | 包下载 URL 非 https（仅后端 manifest）                                                                                                       | 错误横幅 `networkProbe.errors.packsFailed`（正常不可达，防篡改）                                 |
 | `PACK_CLIENT` / `PACK_DOWNLOAD`        | 包下载网络失败（120s 超时）                                                                                                                  | 错误横幅 `networkProbe.errors.packsFailed`；可刷新后重试                                         |
-| `PACK_HASH_MISMATCH`                   | SHA-256 校验失败（marker-only / 下载损坏）                                                                                                   | 错误横幅 `networkProbe.errors.packsFailed`，二进制不安装                                         |
+| `PACK_HASH_MISMATCH`                   | SHA-256 校验失败（marker-only / 下载损坏）                                                                                                   | 双语错误横幅 `networkProbe.errors.packHashMismatch`，二进制不安装、不执行                        |
 | 前端 `securityAuthRequired`            | 安全 Tab 未授权调用                                                                                                                          | 错误横幅「请先确认安全 Tab 授权声明。」，不发起 IPC                                              |
 
 ### 13.2 常见失败场景与行为

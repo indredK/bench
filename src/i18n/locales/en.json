@@ -2358,6 +2358,7 @@
       "mtuFailed": "Path MTU probe failed.",
       "openSettingsFailed": "Could not open system network settings.",
       "packsFailed": "Capability pack operation failed.",
+      "packHashMismatch": "SHA-256 verification failed. The pack was not installed and its binary was not run.",
       "defaultsFailed": "Defaults override / reset failed.",
       "speedFailed": "Speed test failed.",
       "securityAuthRequired": "Authorize the Security tab before running these tools.",

@@ -3,7 +3,7 @@
 > 未完成项（Wave 0/2/3/5 剩余 + Wave 6 远期）已汇总至 [planned/network-probe.md](../../roadmap/planned/network-probe.md)。
 > 已完成功能（模块 1.0 / MVP A+B + Post-MVP 主路径）与能力细节见 [product-specs/network-probe.md](../../reference/product-specs/network-probe.md) 与 [design.md](./design.md)。
 
-**当前状态**：模块 1.0 / MVP A+B 已闭环（D-016，2026-07-22）；Post-MVP 测速·多节点·安全·发现主路径已交付；P0-1 会话竞态已由回归测试复现并修复，macOS 真机确认取消/重跑正常，Ping 权限错误现提供本地化原因提示和「隐私与安全性」入口；能力包“测试哈希失败”按钮仅开发构建可见，生产界面已做 macOS 真机复验；Local Network/TCC 拒绝场景与 Windows 真机回归仍按 [planned roadmap](../../roadmap/planned/network-probe.md) 待验；指纹增强与特权 helper 仍待。
+**当前状态**：模块 1.0 / MVP A+B 已闭环（D-016，2026-07-22）；Post-MVP 测速·多节点·安全·发现主路径已交付；P0-1 会话竞态已由回归测试复现并修复，macOS 真机确认取消/重跑正常，Ping 权限错误现提供本地化原因提示和「隐私与安全性」入口；能力包哈希失败现显示双语错误且不会误刷新为成功，开发用验证入口仅开发构建可见，macOS 隔离真机验证通过；Local Network/TCC 拒绝场景与 Windows 真机回归仍按 [planned roadmap](../../roadmap/planned/network-probe.md) 待验；指纹增强与特权 helper 仍待。
 
 **硬性红线**（不实现 · 法律/合规约束，详见 design.md §12.3.2）：主动攻击能力——ARP 欺骗**攻击** / MITM 流量**注入** / **DoS** / 密码**爆破**，违法绝不构建；仅提供对应检测/防御版本（`detectArpSpoofing` / `checkSsl.mitmSuspected` / 暴露面评估）。
 
