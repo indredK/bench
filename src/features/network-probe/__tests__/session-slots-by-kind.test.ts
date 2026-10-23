@@ -246,6 +246,31 @@ describe("network-probe session slots per probe kind", () => {
     })
     await secondRun
   })
+
+  it("ignores a queued session event after its scan has already ended", async () => {
+    const health = deferred<Record<string, unknown>>()
+    runHealthScan.mockReturnValue(health.promise)
+
+    const scanPromise = networkProbeUseCases.runHealthScan()
+    await flushMicrotasks()
+    const handler = [...(handlers.get(SCAN_SESSION) ?? [])][0]
+    expect(handler).toBeDefined()
+
+    health.resolve({
+      sessionId: "health-finished",
+      cancelled: false,
+      items: [],
+      opinions: [],
+      elapsedMs: 1,
+      commandHint: "",
+    })
+    await scanPromise
+    expect(slots().health).toBeNull()
+
+    // The native event may already be queued when its listener is removed.
+    act(() => handler?.({ payload: { sessionId: "health-finished", kind: "health" } }))
+    expect(slots().health).toBeNull()
+  })
 })
 
 describe("network-probe rerun clears previous results", () => {

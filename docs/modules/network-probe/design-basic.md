@@ -171,7 +171,7 @@ macOS 允许非 root 使用 `SOCK_DGRAM` + `IPPROTO_ICMP`（与系统 `ping(8)` 
 | session | `startHealthScan` / `startSitesProbe` + `cancelScan`                                                             |
 | event   | `network-probe://health-item` `network-probe://site-sample`                                                      |
 
-Tauri v2：事件名进 `TAURI_EVENTS`；payload 必带 `sessionId`；前端只合并当前 session。
+Tauri v2：事件名进 `TAURI_EVENTS`；payload 必带 `sessionId`；前端只合并当前 session。扫描结束并卸载 listener 后，丢弃已排队的迟到 session 事件；同类重跑不得继承旧会话 ID 或取消意图。
 
 ---
 

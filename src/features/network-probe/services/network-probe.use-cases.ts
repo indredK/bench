@@ -61,6 +61,7 @@ function createScanSessionTracker(kind: NetworkProbeKind) {
       unlisten = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
         TAURI_EVENTS.networkProbe.scanSession,
         (event) => {
+          if (!active) return
           if (event.payload.kind !== kind) return
           sessionId = event.payload.sessionId
           useNetworkProbeStore.getState().setActiveSessionId(kind, sessionId)
