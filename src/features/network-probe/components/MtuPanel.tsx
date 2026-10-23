@@ -3,6 +3,7 @@
  */
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
@@ -44,13 +45,15 @@ export function MtuPanel({ loading, result, onRun, dualFrom }: MtuPanelProps) {
                 autoComplete="off"
               />
             </div>
-            <Button
-              type="button"
-              disabled={loading || !target.trim()}
-              onClick={() => onRun(target)}
-            >
-              {loading ? t("networkProbe.mtu.running") : t("networkProbe.mtu.run")}
-            </Button>
+            <CommandHint hint={t("networkProbe.cmd.mtu", { target: target.trim() || "…" })}>
+              <Button
+                type="button"
+                disabled={loading || !target.trim()}
+                onClick={() => onRun(target)}
+              >
+                {loading ? t("networkProbe.mtu.running") : t("networkProbe.mtu.run")}
+              </Button>
+            </CommandHint>
           </div>
           <p className="text-muted-foreground font-mono text-xs">
             {t("networkProbe.cmd.mtu", { target: target.trim() || "…" })}

@@ -54,13 +54,9 @@
 ```text
 用户打开「端口扫描」
   → getNetworkProbeCapabilities()
-  → tool=missing_pack 且无 external nmap
-      → PackInstallDialog：用途 / 体积 / 版本 / 签名来源 / Gatekeeper 提示
-      → 用户同意 → installCapabilityPack(packId)  // 无 URL 参数
-      → 后端读 canonical manifest → 下载到 App Support → 校验 hash/签名
-      → 刷新 capabilities → 若仍需特权再走提权/降级
-  → tool=degraded（仅有 connect）→ 可直接跑，并提示「安装 adv-scanner 可启用 SYN」
-  → tool=supported → 正常扫描
+  → tool=degraded（未检测到 nmap）→ 可直接跑内置 TCP connect，并提示安装 nmap
+  → tool=supported（检测到 nmap）→ 优先尝试 SYN，权限不足时回退 nmap TCP connect
+  → adv-scanner 未接入端口扫描执行路径前，不得改变 portScan 能力状态
 ```
 
 ### 3.3 IPC（Post-MVP）

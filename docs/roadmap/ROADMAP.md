@@ -256,6 +256,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 3. 使用真实 Tauri updater 私钥构建 macOS arm64/x64、Windows x64；聚合三目标 manifest 后生成并验证 `latest.json`。
 4. 验证 installer、updater bundle、`.sig`、`OS-SIGNING-NOTICE.txt`、`SHA256SUMS` 数量与内容；任一缺失 fail-closed。
 5. 保持 `BENCH_OS_SIGNING_MODE=unsigned`；不得要求不存在的 Apple/Windows 证书。
+6. [x] **2026-10-22 依赖漏洞收口**：升级 TLS/QUIC 修复版本与 `zip 9.0.5`；固定官方 Tauri updater 源码 revision 以移除其 Windows `zip 4` 解压漏洞；宿主解压器拒绝 symlink 并限制归档权限。`cargo audit` vulnerability 数量归零；glib 与 unmaintained 提示继续由 [SEC01](../security/rust-advisories.md) 跟踪。
 
 **禁止**：把私钥/PFX 写入仓库或日志；复用 updater 私钥做 OS 签名；签名失败后发布；RC dry-run 修改 GitHub Release。
 

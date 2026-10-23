@@ -529,3 +529,68 @@ export interface MultiNodeDnsResult {
   elapsedMs: number
   commandHint: string
 }
+
+export type GlobalpingMeasurementKind = "ping" | "http"
+
+export interface GlobalpingPingStats {
+  packetsSent: number
+  packetsReceived: number
+  lossPercent: number
+  minRttMs?: number
+  avgRttMs?: number
+  maxRttMs?: number
+}
+
+export interface GlobalpingHttpStats {
+  statusCode?: number
+  totalMs?: number
+  dnsMs?: number
+  tcpMs?: number
+  tlsMs?: number
+  firstByteMs?: number
+  downloadMs?: number
+  tlsAvailable: boolean
+}
+
+export interface GlobalpingProbeResult {
+  nodeId: string
+  nodeLabel: string
+  status: string
+  ok: boolean
+  failureSource?: string
+  resolvedAddress?: string
+  ping?: GlobalpingPingStats
+  http?: GlobalpingHttpStats
+}
+
+export interface GlobalpingMeasurementResult {
+  kind: GlobalpingMeasurementKind
+  target: string
+  method?: string
+  status: string
+  failureCode?:
+    | "rate_limited"
+    | "invalid_token"
+    | "network_error"
+    | "timed_out"
+    | "invalid_request"
+    | "service_error"
+    | "http_error"
+    | "invalid_response"
+    | "terminal_failure"
+    | "no_results"
+  quota?: GlobalpingQuota
+  probesCount: number
+  results: GlobalpingProbeResult[]
+  elapsedMs: number
+  commandHint: string
+}
+
+export interface GlobalpingQuota {
+  rateLimitLimit?: number
+  rateLimitConsumed?: number
+  rateLimitRemaining?: number
+  rateLimitResetSeconds?: number
+  creditsRemaining?: number
+  creditsConsumed?: number
+}

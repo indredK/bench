@@ -2,6 +2,7 @@
  * Feature UI / 功能界面: IPv6 dual-stack diagnostics.
  */
 import { useTranslation } from "react-i18next"
+import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { Ipv6StackResult } from "@/lib/tauri/types/network-probe"
@@ -27,9 +28,11 @@ export function Ipv6Panel({ loading, result, onRun, dualFrom }: Ipv6PanelProps) 
               {t(`networkProbe.dualEntry.from.${dualFrom}`)}
             </p>
           ) : null}
-          <Button type="button" disabled={loading} onClick={onRun}>
-            {loading ? t("networkProbe.ipv6.running") : t("networkProbe.ipv6.run")}
-          </Button>
+          <CommandHint hint={t("networkProbe.cmd.ipv6")}>
+            <Button type="button" disabled={loading} onClick={onRun}>
+              {loading ? t("networkProbe.ipv6.running") : t("networkProbe.ipv6.run")}
+            </Button>
+          </CommandHint>
           <p className="text-muted-foreground font-mono text-xs">{t("networkProbe.cmd.ipv6")}</p>
         </>
       }

@@ -1,13 +1,18 @@
-//! Port scan — TCP connect degraded path (design-security §5.1). SYN needs pack.
+//! Port scan — nmap when detected, with a built-in TCP connect fallback.
 
 use super::types::{PortSampleEvent, PortScanResult, ScanSessionEvent};
 use super::validate::validate_host;
 use crate::error::{AppError, AppResult};
+use std::ffi::OsStr;
 use std::net::IpAddr;
+use std::process::{Output, Stdio};
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Runtime};
 use tokio::net::TcpStream;
+use tokio::process::Command;
+use tokio::sync::watch;
+use tokio::task::JoinSet;
 use tokio::time::timeout;
 
 pub const PORT_SAMPLE_EVENT: &str = "network-probe:port-sample";
@@ -37,14 +42,9 @@ pub async fn scan_ports_tcp<R: Runtime>(
         )));
     }
 
-    // S-SEC-03: prefer nmap SYN when nmap is present; fall back to TCP connect.
-    if nmap_available() {
-        if let Ok(Some(syn)) = try_nmap_syn(app, &target, &ports).await {
-            return Ok(syn);
-        }
-    }
-
-    let session_id = super::session::new_session_id();
+    let session = super::session::new_cancellable_session();
+    let session_id = session.id.clone();
+    let mut cancellation = session.cancellation.clone();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -55,60 +55,77 @@ pub async fn scan_ports_tcp<R: Runtime>(
         );
     }
 
-    let command_hint = format!(
+    let tcp_command_hint = format!(
         "scanPorts(local, '{target}', {} ports) // degraded: tcp connect",
         ports.len()
     );
+
+    // S-SEC-03: prefer the mature nmap implementation when it is available.
+    // Run it as a cancellable child process; cancellation must not fall through
+    // into a second, uncancelled TCP scan.
+    if let Some(nmap_result) =
+        try_nmap_syn(app, &target, &ports, &session_id, &mut cancellation).await
+    {
+        return Ok(nmap_result);
+    }
+
+    if *cancellation.borrow() || super::session::is_cancelled(&session_id) {
+        return Ok(cancelled_scan_result(target, session_id, tcp_command_hint));
+    }
 
     let mut samples = Vec::new();
     let mut open_ports = Vec::new();
     let mut cancelled = false;
 
     for chunk in ports.chunks(CONCURRENCY) {
-        if super::session::is_cancelled(&session_id) {
+        if *cancellation.borrow() || super::session::is_cancelled(&session_id) {
             cancelled = true;
             break;
         }
-        let mut handles = Vec::new();
+        let mut tasks = JoinSet::new();
         for &port in chunk {
             let host = target.clone();
-            handles.push(tokio::spawn(async move {
-                probe_one(host, port, DEFAULT_TIMEOUT_MS).await
-            }));
+            tasks.spawn(async move { probe_one(host, port, DEFAULT_TIMEOUT_MS).await });
         }
-        for handle in handles {
-            if super::session::is_cancelled(&session_id) {
-                cancelled = true;
-                break;
-            }
-            match handle.await {
-                Ok(sample) => {
-                    if sample.state == "open" {
-                        open_ports.push(sample.port);
-                    }
-                    if let Some(app) = app {
-                        let _ = app.emit(PORT_SAMPLE_EVENT, &sample);
-                    }
-                    samples.push(sample);
+        while !tasks.is_empty() {
+            tokio::select! {
+                biased;
+                _ = wait_for_cancellation(&mut cancellation) => {
+                    cancelled = true;
+                    tasks.abort_all();
+                    break;
                 }
-                Err(e) => {
-                    samples.push(PortSampleEvent {
-                        port: 0,
-                        state: "error".into(),
-                        service_hint: None,
-                        rtt_ms: None,
-                    });
-                    let _ = e;
+                joined = tasks.join_next() => {
+                    match joined {
+                        Some(Ok(sample)) => {
+                            if sample.state == "open" {
+                                open_ports.push(sample.port);
+                            }
+                            if let Some(app) = app {
+                                let _ = app.emit(PORT_SAMPLE_EVENT, &sample);
+                            }
+                            samples.push(sample);
+                        }
+                        Some(Err(_)) => {
+                            samples.push(PortSampleEvent {
+                                port: 0,
+                                state: "error".into(),
+                                service_hint: None,
+                                rtt_ms: None,
+                            });
+                        }
+                        None => break,
+                    }
                 }
             }
         }
+        while tasks.join_next().await.is_some() {}
         if cancelled {
             break;
         }
     }
 
-    cancelled = cancelled || super::session::is_cancelled(&session_id);
-    super::session::clear_session(&session_id);
+    cancelled = cancelled || *cancellation.borrow() || super::session::is_cancelled(&session_id);
     open_ports.sort_unstable();
 
     Ok(PortScanResult {
@@ -121,10 +138,34 @@ pub async fn scan_ports_tcp<R: Runtime>(
         message: if cancelled {
             Some("Port scan cancelled.".into())
         } else {
-            Some("Degraded mode: TCP connect only. Install adv-scanner / nmap for SYN.".into())
+            Some("Degraded mode: TCP connect only. nmap was not detected.".into())
         },
-        command_hint,
+        command_hint: tcp_command_hint,
     })
+}
+
+fn cancelled_scan_result(
+    target: String,
+    session_id: String,
+    command_hint: String,
+) -> PortScanResult {
+    PortScanResult {
+        target,
+        mode: "cancelled".into(),
+        open_ports: Vec::new(),
+        samples: Vec::new(),
+        cancelled: true,
+        session_id,
+        message: None,
+        command_hint,
+    }
+}
+
+async fn wait_for_cancellation(cancellation: &mut watch::Receiver<bool>) {
+    if *cancellation.borrow() {
+        return;
+    }
+    let _ = cancellation.changed().await;
 }
 
 async fn probe_one(host: String, port: u16, timeout_ms: u64) -> PortSampleEvent {
@@ -176,84 +217,95 @@ fn service_hint(port: u16) -> Option<String> {
     )
 }
 
-fn nmap_available() -> bool {
-    std::process::Command::new("nmap")
-        .arg("-V")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-/// Try unprivileged TCP SYN-ish via `nmap -sT` (connect) first; if root-capable `-sS` works use that.
-/// Returns Ok(None) to fall back to built-in TCP connect scanner.
+/// Prefer nmap SYN when permitted, then its unprivileged connect mode.
+/// Returns `None` only when nmap cannot provide a useful result and TCP fallback is safe.
 async fn try_nmap_syn<R: Runtime>(
     app: Option<&AppHandle<R>>,
     target: &str,
     ports: &[u16],
-) -> AppResult<Option<PortScanResult>> {
-    let session_id = super::session::new_session_id();
-    if let Some(app) = app {
-        let _ = app.emit(
-            SCAN_SESSION_EVENT,
-            &ScanSessionEvent {
-                session_id: session_id.clone(),
-                kind: "ports".into(),
-            },
-        );
-    }
+    session_id: &str,
+    cancellation: &mut watch::Receiver<bool>,
+) -> Option<PortScanResult> {
     let port_arg = ports
         .iter()
         .map(|p| p.to_string())
         .collect::<Vec<_>>()
         .join(",");
-    let target_owned = target.to_string();
-    let session_for_block = session_id.clone();
-
-    let output = tauri::async_runtime::spawn_blocking(move || {
-        // Prefer -sS (SYN); fall back to -sT (connect) without root.
-        let run = |scan: &str| {
-            std::process::Command::new("nmap")
-                .args([
-                    "-Pn",
-                    scan,
-                    "--max-retries",
-                    "1",
-                    "--host-timeout",
-                    "30s",
-                    "-p",
-                    &port_arg,
-                    &target_owned,
-                ])
-                .output()
-        };
-        match run("-sS") {
-            Ok(out)
-                if (out.status.success() || !out.stdout.is_empty())
-                    && !String::from_utf8_lossy(&out.stderr)
-                        .to_ascii_lowercase()
-                        .contains("requires root") =>
-            {
-                Ok(out)
-            }
-            _ => run("-sT").map_err(|e| AppError::io(format!("nmap: {e}"))),
-        }
-    })
-    .await
-    .map_err(|e| AppError::task_failed(format!("nmap join: {e}")))?;
-
-    let cancelled = super::session::is_cancelled(&session_for_block);
-    super::session::clear_session(&session_for_block);
-
-    let out = match output {
-        Ok(o) => o,
-        Err(_) => return Ok(None),
+    let args = |scan: &str| {
+        [
+            "-Pn".to_string(),
+            scan.to_string(),
+            "--max-retries".to_string(),
+            "1".to_string(),
+            "--host-timeout".to_string(),
+            "30s".to_string(),
+            "-p".to_string(),
+            port_arg.clone(),
+            target.to_string(),
+        ]
     };
+
+    // Prefer -sS; if it is not permitted, retry with nmap's unprivileged -sT.
+    let syn_output =
+        match run_program_cancellable(OsStr::new("nmap"), &args("-sS"), cancellation).await {
+            CancellableOutput::Cancelled => {
+                return Some(cancelled_scan_result(
+                    target.to_string(),
+                    session_id.to_string(),
+                    format!(
+                        "scanPorts(local, '{target}', {} ports) // cancelled nmap scan",
+                        ports.len()
+                    ),
+                ));
+            }
+            CancellableOutput::Unavailable => return None,
+            CancellableOutput::Completed(output) => output,
+        };
+
+    let syn_stderr = String::from_utf8_lossy(&syn_output.stderr).to_ascii_lowercase();
+    let syn_stdout = String::from_utf8_lossy(&syn_output.stdout).to_ascii_lowercase();
+    let requires_connect_scan = syn_stdout.is_empty()
+        || syn_stderr.contains("requires root")
+        || syn_stderr.contains("not permitted")
+        || syn_stdout.contains("requires root")
+        || syn_stdout.contains("not permitted");
+    let out = if requires_connect_scan {
+        match run_program_cancellable(OsStr::new("nmap"), &args("-sT"), cancellation).await {
+            CancellableOutput::Cancelled => {
+                return Some(cancelled_scan_result(
+                    target.to_string(),
+                    session_id.to_string(),
+                    format!(
+                        "scanPorts(local, '{target}', {} ports) // cancelled nmap scan",
+                        ports.len()
+                    ),
+                ));
+            }
+            CancellableOutput::Unavailable => return None,
+            CancellableOutput::Completed(output) => output,
+        }
+    } else {
+        syn_output
+    };
+
+    if *cancellation.borrow() || super::session::is_cancelled(session_id) {
+        return Some(cancelled_scan_result(
+            target.to_string(),
+            session_id.to_string(),
+            format!(
+                "scanPorts(local, '{target}', {} ports) // cancelled nmap scan",
+                ports.len()
+            ),
+        ));
+    }
+
     let text = String::from_utf8_lossy(&out.stdout);
-    if text.to_ascii_lowercase().contains("requires root")
-        || text.to_ascii_lowercase().contains("not permitted")
-        || text.is_empty()
+    let lower_text = text.to_ascii_lowercase();
+    if lower_text.contains("requires root")
+        || lower_text.contains("not permitted")
+        || text.trim().is_empty()
     {
-        return Ok(None);
+        return None;
     }
 
     let mut samples = Vec::new();
@@ -291,16 +343,16 @@ async fn try_nmap_syn<R: Runtime>(
         }
     }
     if samples.is_empty() {
-        return Ok(None);
+        return None;
     }
     open_ports.sort_unstable();
-    Ok(Some(PortScanResult {
+    Some(PortScanResult {
         target: target.into(),
         mode: "nmap-syn-or-connect".into(),
         open_ports,
         samples,
-        cancelled,
-        session_id,
+        cancelled: false,
+        session_id: session_id.to_string(),
         message: Some(
             "nmap present: used -sS when permitted, otherwise -sT. No exploit scripts (-sC/-sV off)."
                 .into(),
@@ -309,7 +361,127 @@ async fn try_nmap_syn<R: Runtime>(
             "scanPorts(local, '{target}', {} ports) // nmap SYN/connect fallback",
             ports.len()
         ),
-    }))
+    })
+}
+
+enum CancellableOutput {
+    Completed(Output),
+    Cancelled,
+    Unavailable,
+}
+
+async fn run_program_cancellable(
+    program: &OsStr,
+    args: &[String],
+    cancellation: &mut watch::Receiver<bool>,
+) -> CancellableOutput {
+    if *cancellation.borrow() {
+        return CancellableOutput::Cancelled;
+    }
+
+    let mut command = Command::new(program);
+    command
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+
+    tokio::select! {
+        biased;
+        _ = wait_for_cancellation(cancellation) => CancellableOutput::Cancelled,
+        output = command.output() => match output {
+            Ok(output) => CancellableOutput::Completed(output),
+            Err(_) => CancellableOutput::Unavailable,
+        },
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::process::Command as StdCommand;
+    use std::time::Instant;
+    use tokio::time::sleep;
+
+    fn process_exists(pid: &str) -> bool {
+        StdCommand::new("kill")
+            .args(["-0", pid])
+            .stderr(Stdio::null())
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+    }
+
+    #[tokio::test]
+    async fn cancelling_external_scan_kills_the_child_without_waiting_for_its_timeout() {
+        let directory =
+            std::env::temp_dir().join(format!("bench-port-cancel-test-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&directory).expect("create test directory");
+        let pid_file = directory.join("pid");
+        let mock_program = directory.join("mock-nmap");
+        fs::write(
+            &mock_program,
+            format!(
+                "#!/bin/sh\nprintf '%s' \"$$\" > '{}'\nexec /bin/sleep 15\n",
+                pid_file.display()
+            ),
+        )
+        .expect("write mock program");
+        let mut permissions = fs::metadata(&mock_program)
+            .expect("read mock permissions")
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&mock_program, permissions).expect("make mock executable");
+
+        let session = super::super::session::new_cancellable_session();
+        let mut cancellation = session.cancellation.clone();
+        let program = mock_program.clone();
+        let scan = tokio::spawn(async move {
+            run_program_cancellable(program.as_os_str(), &[], &mut cancellation).await
+        });
+
+        let pid = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if let Ok(pid) = fs::read_to_string(&pid_file) {
+                    break pid;
+                }
+                sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("mock scan should start");
+
+        let started = Instant::now();
+        super::super::session::cancel_scan(session.id.clone());
+        let output = tokio::time::timeout(Duration::from_secs(2), scan)
+            .await
+            .expect("cancellation should not wait for the child timeout")
+            .expect("scan task should finish");
+        assert!(matches!(output, CancellableOutput::Cancelled));
+        assert!(started.elapsed() < Duration::from_secs(2));
+
+        let child_exited = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if !process_exists(pid.trim()) {
+                    break true;
+                }
+                sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap_or(false);
+        if !child_exited {
+            let _ = StdCommand::new("kill")
+                .args(["-KILL", pid.trim()])
+                .stderr(Stdio::null())
+                .status();
+        }
+        let _ = fs::remove_dir_all(&directory);
+        assert!(child_exited, "cancelled external scan child must be reaped");
+    }
 }
 
 fn validate_scan_target(target: &str) -> AppResult<()> {

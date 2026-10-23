@@ -1,7 +1,7 @@
 /**
  * IPC Commands / 通信命令: wrap typed invokes only; 只封装 Tauri 调用.
  */
-import type { DefaultsOverride } from "@/lib/tauri/types/network-probe"
+import type { DefaultsOverride, GlobalpingMeasurementKind } from "@/lib/tauri/types/network-probe"
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts"
 import { invokeTauriCommand } from "@/lib/tauri/invoke"
 
@@ -149,6 +149,10 @@ export function openSystemNetworkSettings() {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.openSystemNetworkSettings)
 }
 
+export function openLocalNetworkPrivacySettings() {
+  return invokeTauriCommand(TAURI_COMMANDS.systemSettings.openPrivacySecuritySettings)
+}
+
 export function listSpeedSources() {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.listSpeedSources)
 }
@@ -195,6 +199,30 @@ export function runPcapDiag(durationSecs?: number | null) {
 
 export function compareDnsMulti(domain: string, locations?: string[] | null) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.compareDnsMulti, { domain, locations })
+}
+
+export function isGlobalpingTokenConfigured() {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.globalpingTokenConfigured)
+}
+
+export function saveGlobalpingToken(token: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.saveGlobalpingToken, { token })
+}
+
+export function removeGlobalpingToken() {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.removeGlobalpingToken)
+}
+
+export function runGlobalpingMeasurement(
+  kind: GlobalpingMeasurementKind,
+  target: string,
+  method?: string,
+) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.runGlobalpingMeasurement, {
+    kind,
+    target,
+    method: method ?? null,
+  })
 }
 
 export function addAgent(label: string, endpoint: string) {

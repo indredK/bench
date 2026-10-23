@@ -128,7 +128,7 @@
 
 | L1           | 用户心智                  | 放什么                                                                           |
 | ------------ | ------------------------- | -------------------------------------------------------------------------------- |
-| **基础视角** | 「正不正常？怎么修？」    | 急救箱：概览、体检、意见、站点、上不了网、修复、报告                             |
+| **基础视角** | 「正不正常？怎么修？」    | 急救箱：概览、体检、意见、上不了网、修复、报告；站点延迟为独立 L1                |
 | **测试**     | 「对某个目标测一下」      | 主动探测：Ping/DNS/TCP/自定义/Traceroute；MTU·公网出口（与上不了网双入口）；测速 |
 | **安全**     | 「有没有暴露 / 被劫持？」 | 端口扫描、污染（DNS/hosts/证书）、抓包诊断、DNSSEC/DoH、WHOIS                    |
 | **发现**     | 「周围有什么 / 从哪测？」 | ARP 发现、局域网服务、NAT、NTP、多节点对比（Globalping/agent）                   |
@@ -167,15 +167,15 @@
 
 #### L2 全表（原型与实现对齐）
 
-| L1       | L2                                                                                |
+| L1       | L2 / 页面组织                                                                     |
 | -------- | --------------------------------------------------------------------------------- |
-| 基础视角 | 概览 · 一键体检 · 扫描意见 · 上不了网 · 一键修复 · 报告                           |
+| 基础视角 | 同页六区：概览 · 一键体检 · 扫描意见 · 上不了网 · 一键修复 · 报告                 |
 | 站点延迟 | 常用官网（卡片+吞吐） · 区域站点包（global/cn/dev + 自定义）                      |
 | 测试     | Ping · DNS · TCP · 自定义目标 · Traceroute · MTU · 公网出口 · 带宽测速(Post)      |
 | 安全     | 端口扫描(Post) · 污染检测(Post) · 包级诊断(Post) · DNSSEC/DoH(Post) · WHOIS(Post) |
 | 发现     | ARP 发现(Post) · 局域网服务(Post) · NAT(Post) · NTP(Post) · 多节点对比(Post)      |
 
-组件：`FeatureTreeL1`（4 项）· `FeatureTreeL2` · 各 L3 面板（`OfflineSuite` 含子路由；`MtuPanel`/`EgressPanel` 双入口）。命令透明见 §3.5。
+组件：`FeatureTreeL1`（4 项）· 其他 L1 的 `FeatureTreeL2` · 各 L3 面板（`OfflineSuite` 含子路由；`MtuPanel`/`EgressPanel` 双入口）。基础视角用 BasicView 六区与页首锚点导航，不显示 L2 底栏；命令透明见 §3.5。
 
 ### 3.2 安全 / 发现面板（原 AdvancedView · Post-MVP 为主）
 
@@ -476,7 +476,8 @@ src/features/network-probe/
     network-probe.sites.ts
   components/
     NodeSelector.tsx
-    BasicView/{NetworkSummaryHeader,SiteLatencyBoard,HealthTree,ScanOpinion,ComprehensiveScan,QuickTools}.tsx
+    BasicView.tsx                        # 六区组合 + 区块跳转
+    {OverviewPanel,HealthTreePanel,ScanOpinionPanel,OfflinePanel,FixPanel,ReportPanel}.tsx
     AdvancedView/...
     HealthReport.tsx
     TripleDestructiveConfirm.tsx   // 或 shared/common
@@ -683,7 +684,7 @@ MVP-B traceroute：主包内 `trippy-core`；有特权走完整路径；无特�
 
 用户可增删改；存本地 JSON；首次注入默认包（跟随 UI 语言或设置区）。
 
-规格：ICMP+HTTP 双通道、火花线、阈值、nodeId 路由（MVP 仅 local）、零特权优先。
+规格：ICMP+HTTP 双通道、火花线、阈值、nodeId 路由（MVP 仅 local）、零特权优先。官方站点与选定站点包支持持续监测：立即执行首轮、每轮结束后等待 30/60/300 秒再串行执行；默认阈值 200ms（可调 1–10,000ms），HTTP TTFB 优先、缺失时回退 ICMP，达到阈值或探测不可达在当前面板告警。监测只在面板打开且窗口处于前台时运行；显式停止、离开面板或切到其他应用都会停止监测并请求取消正在执行的探测，回到窗口后需手动重新开始；不请求系统通知权限、不后台常驻、不持久化样本，火花线只保留每目标最近 20 点且最多 100 个目标。
 
 其余内置资源（推荐 DNS、Captive、公网 IP API、reach 目标、MTU/STUN/NTP）统一见 [defaults.md](./defaults.md)。
 

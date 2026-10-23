@@ -65,7 +65,7 @@ src-tauri/src/net_probe/
 | 校验   | host 禁止 shell 元字符（对齐现有 `validate_host`）；拒绝空、过长、以 `-` 开头 |
 | 降级   | ICMP 不可用 → 返回 `degraded` 并建议改用 TCP/HTTP；UI 不显示假 0ms            |
 
-真机注意：macOS **本地网络**隐私权限会影响 LAN ping；能力矩阵标 `D/S`，UI 给设置跳转文案。
+真机注意：macOS **本地网络**隐私权限会影响 LAN ping；能力矩阵标 `D/S`。socket 不可用或全丢包时，UI 说明权限、防火墙与过滤等可能原因，并可打开系统设置「隐私与安全性」供用户查看「本地网络」；不自动修改权限。
 
 ### 3.2 DNS（`dnsLookup`）
 
@@ -149,7 +149,10 @@ UI：测试入口与「上不了网」入口共用面板组件；面包屑标明
 | `probePathMtu`    | 否或短会话 | —                              |
 | `getPublicIpInfo` | 否         | —                              |
 | `startSpeedTest`  | 是 · Post  | `network-probe://speed-sample` |
+| `scanPorts`       | 是 · Post  | `network-probe://port-sample`  |
 | `cancelScan`      | —          | 幂等                           |
+
+端口扫描取消必须中断运行中的 nmap 子进程（Tokio `kill_on_drop`）或 abort 内置 TCP connect 任务；取消结果标记 `cancelled`，不能触发 TCP 降级重扫。macOS 回归需验证按钮及时复位、子进程退出且同一会话只返回取消结果。nmap `-V` 能力探测须有 2 秒上限，超时按未检测到处理并终止探测子进程。
 
 `nodeId`：MVP 仅 `local`；选中 remote 时灰显或提示后续版本（勿假连接）。
 
@@ -160,7 +163,7 @@ UI：测试入口与「上不了网」入口共用面板组件；面包屑标明
 - 目标输入：最近 N 条历史（本地，脱敏）；一键填 `1.1.1.1` / `cloudflare.com`。
 - 结果区下方固定 `CommandHint` + 写入命令日志。
 - Ping/Traceroute：实时表 + 停止按钮；离开面板**不**自动 clear 结果（导航记忆 §3.1）。
-- 长跳点表 >50：虚拟化（Polish 可延后，但接口预留）。
+- 长跳点表达到 50 跳时用 `@tanstack/react-virtual` 虚拟化，表格保留可访问的总行数、列标题和行/单元格语义；视口最高 320px，键盘可聚焦并滚动。
 - 测速面板标 `Post`，不进 MVP 验收。
 
 Store 建议：`testResults: { ping?, dns?, tcp?, custom?, traceroute?, mtu?, egress?, speed? }`，按工具分槽，互不覆盖。
