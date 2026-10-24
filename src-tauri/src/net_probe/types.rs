@@ -651,11 +651,44 @@ pub struct PortScanResult {
     pub mode: String,
     pub open_ports: Vec<u16>,
     pub samples: Vec<PortSampleEvent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fingerprint: Option<PortFingerprint>,
     pub cancelled: bool,
     pub session_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortFingerprint {
+    pub services: Vec<PortServiceFingerprint>,
+    pub os_matches: Vec<PortOsMatch>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortServiceFingerprint {
+    pub port: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra_info: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<u8>,
+    pub risk_tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortOsMatch {
+    pub name: String,
+    pub accuracy: u8,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

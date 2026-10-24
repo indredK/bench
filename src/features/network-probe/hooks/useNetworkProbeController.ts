@@ -227,7 +227,8 @@ export function useNetworkProbeController() {
   const runWhois = useCallback((query: string) => networkProbeUseCases.runWhois(query), [])
   const runDnssec = useCallback((domain: string) => networkProbeUseCases.runDnssec(domain), [])
   const runPortScan = useCallback(
-    (target: string, ports: string) => networkProbeUseCases.runPortScan(target, ports),
+    (target: string, ports: string, fingerprint: boolean, highRiskConfirmed: boolean) =>
+      networkProbeUseCases.runPortScan(target, ports, fingerprint, highRiskConfirmed),
     [],
   )
   const probeNat = useCallback(() => networkProbeUseCases.probeNat(), [])

@@ -441,10 +441,33 @@ export interface PortScanResult {
   mode: string
   openPorts: number[]
   samples: PortSampleEvent[]
+  fingerprint?: PortFingerprint
   cancelled: boolean
   sessionId: string
   message?: string
   commandHint: string
+}
+
+export type PortRiskTag = "remote_admin" | "file_sharing" | "database" | "plaintext_protocol"
+
+export interface PortServiceFingerprint {
+  port: number
+  serviceName?: string
+  product?: string
+  version?: string
+  extraInfo?: string
+  confidence?: number
+  riskTags: PortRiskTag[]
+}
+
+export interface PortOsMatch {
+  name: string
+  accuracy: number
+}
+
+export interface PortFingerprint {
+  services: PortServiceFingerprint[]
+  osMatches: PortOsMatch[]
 }
 
 export interface NatProbeResult {

@@ -152,10 +152,12 @@ fn pcap_status(pcap_installed: bool) -> &'static str {
 }
 
 fn fingerprint_status(nmap_found: bool, adv_installed: bool) -> &'static str {
-    if adv_installed {
+    if nmap_found {
+        "supported"
+    } else if adv_installed {
+        // The package marker is not wired to this scanner; it cannot enable
+        // fingerprint execution by itself.
         "degraded"
-    } else if nmap_found {
-        "unsupported"
     } else {
         "missing_pack"
     }
@@ -664,7 +666,7 @@ mod tests {
     #[test]
     fn external_nmap_enables_port_scan_but_does_not_fake_pack_features() {
         assert_eq!(port_scan_status(true), "supported");
-        assert_eq!(fingerprint_status(true, false), "unsupported");
+        assert_eq!(fingerprint_status(true, false), "supported");
         assert_eq!(pcap_status(false), "degraded");
     }
 }

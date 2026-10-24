@@ -115,6 +115,40 @@ beforeEach(() => {
 })
 
 describe("network-probe session slots per probe kind", () => {
+  it("localizes a backend rejection when high-risk confirmation is missing", async () => {
+    scanPorts.mockRejectedValue({
+      code: "HIGH_RISK_CONFIRMATION_REQUIRED",
+      message: "This target or port range requires explicit confirmation.",
+    })
+
+    await act(async () => {
+      await networkProbeUseCases.runPortScan("example.com", "22", false, false)
+    })
+
+    expect(scanPorts).toHaveBeenCalledWith("example.com", "22", false, false)
+    expect(useNetworkProbeStore.getState().error?.key).toBe(
+      "networkProbe.errors.highRiskConfirmationRequired",
+    )
+    expect(useNetworkProbeStore.getState().loadingPorts).toBe(false)
+  })
+
+  it("localizes a backend rejection for unsupported multi-host port targets", async () => {
+    scanPorts.mockRejectedValue({
+      code: "PORT_SCAN_SINGLE_HOST_REQUIRED",
+      message: "Port scanning accepts one IP address or hostname.",
+    })
+
+    await act(async () => {
+      await networkProbeUseCases.runPortScan("192.168.0.0/24", "80", false, false)
+    })
+
+    expect(scanPorts).toHaveBeenCalledWith("192.168.0.0/24", "80", false, false)
+    expect(useNetworkProbeStore.getState().error?.key).toBe(
+      "networkProbe.errors.singleHostPortScanOnly",
+    )
+    expect(useNetworkProbeStore.getState().loadingPorts).toBe(false)
+  })
+
   it("cancels only the requested probe kind and keeps the other kind's target", async () => {
     const health = deferred<Record<string, unknown>>()
     const ports = deferred<Record<string, unknown>>()
@@ -123,8 +157,9 @@ describe("network-probe session slots per probe kind", () => {
     cancelScan.mockResolvedValue(true)
 
     const healthPromise = networkProbeUseCases.runHealthScan()
-    const portsPromise = networkProbeUseCases.runPortScan("127.0.0.1", "22")
+    const portsPromise = networkProbeUseCases.runPortScan("example.com", "22", false, true)
     await flushMicrotasks()
+    expect(scanPorts).toHaveBeenCalledWith("example.com", "22", false, true)
 
     emitScanSession({ sessionId: "health-1", kind: "health" })
     emitScanSession({ sessionId: "ports-1", kind: "ports" })

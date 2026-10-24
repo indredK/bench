@@ -499,6 +499,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     streaming={c.portScanStreaming}
                     toolEnabled={c.toolEnabled.portScan}
                     toolStatus={c.toolStatus.portScan}
+                    fingerprintStatus={c.capabilities?.tools?.fingerprint}
                     onRun={c.runPortScan}
                     onCancel={() => c.cancelScan("ports")}
                   />

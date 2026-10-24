@@ -7,7 +7,7 @@
 ## 当前状态
 
 - 模块 1.0 / MVP A+B 已闭环（D-016）。
-- Post-MVP：测速、Globalping DNS/Ping/HTTP 与可选 token、agent 注册骨架、安全/发现主路径已交付；**指纹增强与特权 helper 仍待**。
+- Post-MVP：测速、Globalping DNS/Ping/HTTP 与可选 token、agent 注册骨架、安全/发现主路径已交付；Nmap 轻量服务 / OS 指纹已在工作区实现，待隔离 macOS 真机验收与远程构建；**特权 helper 仍待**。
 
 ## 待实现（未完成项）
 
@@ -17,7 +17,7 @@
 
 ### Wave 3 · 安全 Tab（续）
 
-- [ ] **S3-6** 服务 / OS 指纹 + 风险标注（依赖 S3-5）。
+- [ ] **S3-6** 服务 / OS 指纹 + 风险标注（依赖 S3-5；实现已落入工作区，待隔离 macOS 真机验证与远程构建）。
 - [ ] **S3-8** 特权分层：`priv-helper` / 触发提权 / 自动降级文案（依赖 Wave 1）。
 
 ### Wave 5 · Polish 增强（产品化）
@@ -88,3 +88,9 @@
 - 2026-10-24：P0-1 修复端口扫描取消失效与能力状态误报：nmap 改用 Tokio 可取消子进程，内置 TCP 扫描取消时 abort 并回收当前任务；取消返回 `cancelled`，不触发第二轮 TCP 重扫；尚未接入扫描路径的 `adv-scanner` 不再将端口扫描标为 supported，界面提示按中英文和实际结果模式显示；nmap `-V` 能力探测限时 2 秒，超时降级并终止探测子进程。`test:critical`（60 文件 / 336 项）、`lint:fe`、`check:be-cfg`、`clippy:be`、Rust 格式、Prettier、Tauri QA app 构建及后端 652 项（1 项跳过）通过。macOS 27.0.1 arm64 隔离 QA `com.bench.qa.portcancelfix20261024` 确认 nmap 能力提示正确；连续两轮点击取消均立即恢复按钮并显示“端口扫描已取消”，mock 子进程 PID 均退出，调用日志恰好两次 `-sS` 且无 TCP 重扫；卡住 15 秒的 `nmap -V` 在 2 秒内降级且探测进程退出。QA app（138 MB）、WebKit/support 数据、dist、扩展暂存资源、mock/config 已移入系统废纸篓，共享 Rust 构建缓存保留。P0-1 仍未完成：Local Network/TCC 拒绝需要临时 macOS 用户或 VM，Windows 真机回归按用户安排延期；PR #154 的 [commit `61a0a67c`](https://github.com/indredK/bench/commit/61a0a67c) 已通过全部必需 GitHub Actions 检查；非发布 PR 的 release build/publish jobs 按配置跳过。
 - 2026-10-24：完成 C2-2：Globalping 多节点 DNS/Ping/HTTP 与可选系统钥匙串 token 已接入；HTTP URL 按 API 契约拆分主机、协议、路径、查询与端口，限制私网目标，反馈真实配额并区分请求拒绝与服务故障。复核发现仅返回部分 quota 字段时分隔点会出现在开头，改为只连接实际存在的字段并新增回归用例。最终 `lint:fe`、关键测试（61 文件 / 346 项）、前端生产构建、Prettier、Rust 格式、Clippy、后端 662 项（1 项跳过）、cfg 检查和 `git diff --check` 通过。隔离 macOS QA `com.bench.qa.globalping20261024` 真机验证：`example.com` 的 HTTP HEAD 三个探点均 HTTP 200、TCP/TLS 时延及单位正确、quota 以 `241/250` 和本次 3 次显示；Ping 三地均收 3/3 包；输入 `127.0.0.1` 被本地拒绝且旧结果清空。未写入临时/真实 token；只读取隔离 bundle 的未配置状态。QA 应用、support/WebKit/cache 数据、`dist` 与临时配置已移入废纸篓，共享 Rust 构建缓存保留；最终只启动一个正式 Bench 实例。Local Network/TCC 拒绝与 Windows 真机回归仍需专用环境；PR #154 commit `20108bf8` 的 Cargo Audit + Deny、E2E、前端、静态、Node 24、macOS/Windows Rust 与聚合 CI 全部通过，Release build/publish 按非发布 PR 规则跳过。
 - 2026-10-24：P0-1 修复单次探测刷新失败后仍展示上次成功结果、且结果未标明实际目标的问题。TCP/DNS/自定义目标与其他单次探测失败时清除对应旧值，概览失败项逐项清除；目标输入在请求期间锁定，结果卡片标明实际主机/端口、域名或 URL，刷新中仍保留旧结果。新增 use-case 与面板回归；`lint:fe`、`test:critical`（62 文件 / 350 项）、全量 `test:fe`（77 文件 / 445 项）、`build:fe`、`format:check`、`check:docs` 通过。macOS arm64 隔离 QA bundle `com.bench.qa.p0staleresult20261024` 使用仅绑定 loopback 的 TCP listener 真机验证：`127.0.0.1:48765` 首次连接成功并显示目标，随后无效主机重试立即清除成功卡片并显示失败提示；测试未访问外网或修改系统权限。隔离 QA app、support/cache 数据和 `dist` 已移入系统废纸篓，共享 Rust 构建缓存保留；本地 listener 已退出。P0-1 仍未完成：Local Network/TCC 拒绝需临时 macOS 用户或 VM，Windows 真机回归按用户安排延期。
+- 2026-10-25：S3-6 服务 / OS 指纹与暴露类别标注已实现于工作区：用户显式启用后调用本机 Nmap `-sV --version-light`，stdout/stderr 分别限 2 MiB / 64 KiB，任一超限均排空后明确失败并支持取消；无原始包权限时重试不带 `-O` 的 TCP connect 服务识别。复核修正了空结果说明、stderr 超限标记，以及高风险扫描确认框缺少实际范围/速率/时长的问题；Nmap 端口阶段使用 `--scan-delay 50ms` 和 30s host timeout，指纹服务 / OS 阶段使用 Nmap 自身时序，且界面说明 50ms 不限制整次指纹扫描总速率；内置 TCP 按每目标 50ms 间隔调度并在等待期间响应取消。移除了与 `--scan-delay` 冲突的 `--max-parallelism`，指纹模式使用 `-T2` 降低服务探测并行度。产品规格、设计、安全测试和中英文案同步。`lint:fe`、`test:critical`（62 文件 / 357 项）、`build:fe`、Prettier、`check:docs`、`check:be-cfg`、Rust 格式与 Clippy 通过；`cargo test` 为 671 项通过、1 项忽略。隔离 macOS loopback 真机验收待用户授权 Nmap QA 扫描；本地改动未提交或推送，PR #154 现有远端绿灯对应旧 head，不代表本次改动已通过远程构建。
+- 2026-10-25：静态审计修复端口扫描高风险确认仅在前端实施的缺口：Rust IPC 现在按目标类型及实际去重端口数校验 `highRiskConfirmed`，缺少确认时在创建扫描会话前返回稳定错误码；前端严格拒绝越界 / 前导零 IPv4 的内网分类，`localhost` 与后端规则对齐。加入 Rust 风险分类与 64/65 边界测试、UI 确认传参 / 异常 IPv4 / localhost / 本地化错误用例。`lint:fe`、`test:critical`（62 文件 / 361 项）、Prettier、`build:fe`、`check:be-cfg`、Rust 格式、Clippy 和后端 673 项（1 项跳过）通过；隔离 macOS QA 真机显示 `example.com`、`22-100` / 79 端口及实际适用的 Nmap 速率与时长说明后取消，未启动扫描或访问网络；QA bundle 与 dist / staged extensions 已移入废纸篓，共享 Rust target 保留。隔离 macOS loopback Nmap 指纹扫描与远程构建尚未执行，改动未提交或推送。
+- 2026-10-25：修复高风险确认框按原始条目重复计数导致错误范围提示和多余确认的问题。前端解析语法与后端对齐，按去重端口数判断 64 端口门槛；非法范围显示无法估算并省略预计时长；新增实际计数、65 个重复项不触发确认及非法范围不展示估算的 UI 回归，产品规格与测试设计同步。`lint:fe`、关键测试（62 文件 / 364 项）、Prettier 与 `build:fe` 通过；物理真机已验证既有高风险弹窗可显示并取消，新重复端口路径的隔离真机复验待完成。
+
+- 2026-10-25：按用户选择将 S3-6 端口扫描目标契约收敛为单主机；Rust IPC 在建立会话前显式拒绝 CIDR、目标列表、通配符和 IPv4 octet range（稳定错误 `PORT_SCAN_SINGLE_HOST_REQUIRED`）。真机隔离 QA 输入 `192.168.0.0/24` 显示本地化拒绝；输入 `example.com` 和 65 个重复 `80` 后确认框显示实际 1 个端口并取消，未执行扫描。验证发现 `url::Host::parse` 会宽松接受带 CIDR 后缀的输入，已在 hostname 解析前增加拒绝并由 Rust 回归覆盖。`lint:fe`、`test:critical`（62 文件 / 366 项）、`build:fe`、Prettier、cfg、Rust fmt、Clippy 和 `cargo test`（675 通过 / 1 忽略）通过。重复端口 QA 点击曾意外发起一次仅针对 `127.0.0.1:80` 的普通 Nmap SYN/connect 探测，结果 closed；该误触发未访问外部目标、不是指纹验收，随后不再发起任何扫描。隔离 QA 已退出；本地代码未提交或推送，S3-6 指纹扫描真机验收与远程构建仍待完成。
+- 2026-10-25：S3-6 loopback 指纹验收完成。隔离 macOS QA 在 `127.0.0.1:48765` 上对本机临时 HTTP 服务执行 1 端口扫描，日志记录 `mode=nmap-fingerprint-syn-or-connect`，结果为开放 HTTP，服务信息识别到 Python `BaseHTTPServer`；没有可靠 OS 匹配时 UI 明确解释权限 / 指纹限制，且说明未运行 NSE。服务只绑定 loopback，测试结束已停止；确认无 Nmap、QA 或测试服务残留。另修复前端 IPv6 ULA / 链路本地误触发公网确认的问题，使用 `ipaddr.js@2.5.0` 与 Rust 分类规则对齐；组件测试 25 项、`tsc --noEmit`、Prettier 和隔离 macOS QA bundle 构建通过。真机以 `fd00::1` 和无效端口确认本地输入不弹风险框并在解析前失败；公网 IPv6 确认框显示后取消。该分类验收未发送探测包。代码与文档尚未提交 / 推送，远程构建待执行；Local Network/TCC 拒绝与 Windows 真机回归仍待专用环境。

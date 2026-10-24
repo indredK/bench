@@ -103,9 +103,11 @@ pub async fn network_probe_scan_ports(
     app: AppHandle,
     target: String,
     ports: String,
+    fingerprint: bool,
+    high_risk_confirmed: bool,
 ) -> AppResult<PortScanResult> {
     let parsed = super::ports::parse_port_range(&ports)?;
-    super::ports::scan_ports_tcp(Some(&app), target, parsed).await
+    super::ports::scan_ports_tcp(Some(&app), target, parsed, fingerprint, high_risk_confirmed).await
 }
 
 #[tauri::command]

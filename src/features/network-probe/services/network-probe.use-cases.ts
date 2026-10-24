@@ -989,7 +989,7 @@ export const networkProbeUseCases = {
     }
   },
 
-  async runPortScan(target: string, ports: string) {
+  async runPortScan(target: string, ports: string, fingerprint = false, highRiskConfirmed = false) {
     const store = useNetworkProbeStore.getState()
     if (!store.securityAuthorized) {
       store.setError({
@@ -1014,7 +1014,12 @@ export const networkProbeUseCases = {
         },
       )
       logCommand("scanPorts")
-      const result = await networkProbeRepository.scanPorts(target.trim(), ports.trim())
+      const result = await networkProbeRepository.scanPorts(
+        target.trim(),
+        ports.trim(),
+        fingerprint,
+        highRiskConfirmed,
+      )
       store.setPortScanResult(result)
       store.appendCommandLog(
         result.cancelled
@@ -1023,7 +1028,12 @@ export const networkProbeUseCases = {
       )
     } catch (error) {
       store.setError({
-        key: "networkProbe.errors.portsFailed",
+        key:
+          getErrorCode(error) === "HIGH_RISK_CONFIRMATION_REQUIRED"
+            ? "networkProbe.errors.highRiskConfirmationRequired"
+            : getErrorCode(error) === "PORT_SCAN_SINGLE_HOST_REQUIRED"
+              ? "networkProbe.errors.singleHostPortScanOnly"
+              : "networkProbe.errors.portsFailed",
         fallback: getErrorMessage(error),
       })
     } finally {

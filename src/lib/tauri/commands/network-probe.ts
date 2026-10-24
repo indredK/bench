@@ -173,8 +173,18 @@ export function checkDnssec(domain: string) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.checkDnssec, { domain })
 }
 
-export function scanPorts(target: string, ports: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.scanPorts, { target, ports })
+export function scanPorts(
+  target: string,
+  ports: string,
+  fingerprint: boolean,
+  highRiskConfirmed: boolean,
+) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.scanPorts, {
+    target,
+    ports,
+    fingerprint,
+    highRiskConfirmed,
+  })
 }
 
 export function probeNat() {
