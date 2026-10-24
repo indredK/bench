@@ -62,7 +62,7 @@
 - 三个按钮：
   - **Ping**：对目标执行 ping（count=5，1s 超时），输出 `PingResult`（host / 发包 / 收包 / min·avg·max RTT / 丢包率）JSON。
   - **本机 IP**：返回本机 IP（macOS `ipconfig getifaddr en0`）；非 macOS 报 unsupported。
-  - **WiFi**：返回 WiFi 信息（SSID / 信号强度 / 信道，macOS airport 命令解析）；非 macOS 报 unsupported。
+  - **WiFi**：返回 WiFi 信息（SSID / 信号强度 / 信道，macOS CoreWLAN API）；非 macOS 报 unsupported。SSID 受 macOS 定位服务授权限制，本应用只读、不主动申请权限。
 - 结果 JSON 格式化后显示在 `pre`（max-h-48 滚动）。
 
 **交互细节**：
@@ -73,7 +73,7 @@
 - **失败时旧结果保留**：错误经 `run` 转为 toast，`diagnosticResult` 不被覆盖（上一次成功结果仍在 `pre` 中可见）。
 - 结果与操作共用 `pre` 展示区（JSON 格式化）；「本机 IP」「WiFi」仅展示结果，无复制按钮（未见实现）。
 - **本机 IP 边界**：macOS 下 `ipconfig getifaddr en0` 输出为空（无 en0 接口 / 未联网）时**返回空字符串 `local_ip`，无报错无提示**（`unwrap_or_default` 静默）。
-- **WiFi 未连接**：airport `-I` 命令退出码非 0 → toast 报错；已连接但字段缺失时 SSID 等可为空串（无校验提示）。
+- **WiFi 未连接或 SSID 不可用**：CoreWLAN 返回空 SSID、无信号/信道时按空字段展示，不弹错误 toast；SSID 还可能因 macOS 定位服务未授权而不可读。信号强度仅展示有效负 dBm，频率/安全类型保留为空。
 - **Ping 无地址解析**：`resolve_target_ip` 解析到 0 个地址 → toast「操作失败: No addresses resolved for target」（`INVALID_INPUT`）。
 
 ## 6. 系统信息 Tab（info）
@@ -148,7 +148,7 @@
 | Ping 目标解析到 0 个地址（域名合法但无记录）                  | toast「操作失败: No addresses resolved for target」（`INVALID_INPUT`）                                          | 换可解析目标                                                                      |
 | DNS 解析的 `spawn_blocking` 任务失败                          | toast「操作失败: ...」（`TASK_FAILED`）                                                                         | 重试                                                                              |
 | macOS 本机 IP 无 en0 接口 / 未联网                            | 返回**空字符串** `local_ip`，无 toast（`unwrap_or_default` 静默）                                               | 无（静默空结果）                                                                  |
-| macOS WiFi 未连接（airport `-I` 退出码非 0）                  | toast「操作失败: ...」                                                                                          | 连接网络后重试                                                                    |
+| macOS WiFi 未连接 / SSID 因系统隐私设置不可读                 | CoreWLAN 返回空字段，不弹错误 toast                                                                             | 连接 Wi‑Fi；如需 SSID，用户可在系统设置中管理定位服务权限                         |
 
 - **幂等/防重入**：`run` 同一 key 防并发（重复点击静默忽略）；所有操作按钮在任意操作进行中禁用（`applying`）。
 - **取消/并发**：无取消机制（操作均为短时 `spawn_blocking`，无长任务）；不同 key 可并行。

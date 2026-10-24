@@ -119,14 +119,17 @@ Post-MVP-C
 
 ### 步骤
 
-1. 手动添加 agent endpoint + 凭证（进 Keychain/安全存储）
-2. `listProbeNodes` 出现 `remote-agent`
+1. 手动添加 HTTPS/WSS agent endpoint；C2-3 落地后再将凭证存入 Keychain / 系统安全存储
+2. `listProbeNodes` 出现 `remote-agent`，添加与刷新都会重新检查 Agent 健康状态并显示中英文可达状态
 3. 用 ping/http 跑同一目标
 4. 负向：尝试让 agent 执行非白名单/任意 shell → 被拒
+
+当前注册阶段只持久化 endpoint 并做健康检查；HTTPS 使用 `/v1/health` JSON API，WSS 只验证安全 Upgrade 握手，不发送消息。节点列表刷新以最多 8 个并发重新检查健康状态，并按注册顺序返回。凭据安全存储、认证和远程执行仍属于 C2-3，未交付前不得把凭据嵌入 URL。
 
 ### 期望
 
 - HTTPS/WSS；HMAC 或 mTLS；限速 429 映射 `AppError`
+- 节点注册表读取失败时显示错误和重试，不冒充空列表；不阻断本机能力、默认值和能力包加载
 - 禁止明文；禁止局域网自动扩散发现 agent
 - SSRF：拒云元数据等危险目标
 

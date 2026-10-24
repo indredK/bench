@@ -15,8 +15,10 @@ interface HealthTreePanelProps {
   result: HealthScanResult | null
   streamingItems: HealthCheckItem[]
   canCancel: boolean
+  cancelling: boolean
   onRun: () => void
   onCancel: () => void
+  embedded?: boolean
 }
 
 export function HealthTreePanel({
@@ -24,8 +26,10 @@ export function HealthTreePanel({
   result,
   streamingItems,
   canCancel,
+  cancelling,
   onRun,
   onCancel,
+  embedded = false,
 }: HealthTreePanelProps) {
   const { t } = useTranslation()
   // 跑动中只渲染本轮 streaming: 旧 result 优先会把上一轮结论当成新一轮进度。
@@ -33,6 +37,7 @@ export function HealthTreePanel({
 
   return (
     <ProbePanelShell
+      embedded={embedded}
       toolbar={
         <>
           <p className="text-muted-foreground text-sm">{t("networkProbe.health.hint")}</p>
@@ -44,8 +49,15 @@ export function HealthTreePanel({
             </CommandHint>
             {loading ? (
               <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
-                <Button type="button" variant="outline" disabled={!canCancel} onClick={onCancel}>
-                  {t("networkProbe.health.cancel")}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!canCancel || cancelling}
+                  onClick={onCancel}
+                >
+                  {cancelling
+                    ? t("networkProbe.health.cancelling")
+                    : t("networkProbe.health.cancel")}
                 </Button>
               </CommandHint>
             ) : null}
