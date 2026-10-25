@@ -2120,7 +2120,7 @@
       "fail": "不可达 / 失败"
     },
     "ports": {
-      "hint": "对自有或已授权主机做 TCP connect 端口扫描。最多 256 端口；可取消。",
+      "hint": "对你拥有或获准测试的单台主机扫描 TCP 端口（最多 256 个），可随时取消。",
       "degradedHint": "降级模式：仅 TCP connect。未检测到 nmap；安装 nmap 后可尝试 SYN。",
       "nmapHint": "已检测到 nmap：优先尝试 SYN，权限不足时回退为 TCP connect。可单独勾选服务 / OS 指纹。",
       "nmapResult": "nmap 扫描完成；未运行漏洞或服务探测脚本。",

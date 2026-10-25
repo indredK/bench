@@ -73,3 +73,6 @@
 ```
 
 审计前先读本文件；修复后更新或删除对应风险，不追加无追踪价值的流水账。
+
+- [§5/i18n] `src/features/network-probe/components/PortScanPanel.tsx` - 端口扫描结果直接展示后端英文状态和提示，中文界面混入 `closed`、降级/取消信息等英文；按中英文翻译已知状态与扫描模式提示，为未来状态提供本地化兜底，组件回归覆盖状态和提示分支，macOS 隔离应用本机回环扫描确认修复 - **建议** - 状态：已修复并真机验证（2026-10-03）。
+- [§5/UX] `src/features/network-probe/components/PortScanPanel.tsx` - 顶部说明把端口扫描说成 TCP connect，但检测到 Nmap 时实际会优先尝试 SYN；改为说明单主机 TCP 扫描范围，并将具体 Nmap 模式留在独立提示中；zh/en 隔离应用界面真机验证（2026-10-26）。
