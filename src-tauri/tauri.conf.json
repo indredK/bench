@@ -95,7 +95,8 @@
       ],
       "windows": {
         "installMode": "passive"
-      }
+      },
+      "allowDowngrades": false
     },
     "deep-link": {
       "desktop": {
