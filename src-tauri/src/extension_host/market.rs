@@ -21,9 +21,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use http::Uri;
+use hyper_util::client::proxy::matcher::{Intercept, Matcher};
 use serde::Serialize;
 use sha2::Digest;
 use tauri::{AppHandle, Manager, Runtime};
+use url::Url;
 
 use crate::error::{AppError, AppResult};
 
@@ -40,6 +43,7 @@ use super::{
 
 /// 整包下载上限（与解压总体积上限一致；registry 声明的 size 另行精确校验）。
 const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_MARKET_REDIRECTS: usize = 10;
 
 /// 下载缓存目录名（`$APPDATA/extension-cache`）。
 const CACHE_DIR_NAME: &str = "extension-cache";
@@ -90,19 +94,105 @@ pub struct RevokedHitDto {
     pub reason: String,
 }
 
+fn next_market_redirect_url(current: &Url, location: &str) -> AppResult<Url> {
+    let next = current.join(location).map_err(|error| {
+        AppError::forbidden_path(format!("market redirect is invalid: {error}"))
+    })?;
+    registry::validate_download_url(next.as_str())?;
+    Ok(next)
+}
+
+fn market_proxy_intercept(url: &Url, matcher: &Matcher) -> AppResult<Option<Intercept>> {
+    let uri = url.as_str().parse::<Uri>().map_err(|error| {
+        AppError::forbidden_path(format!("market URL cannot be routed: {error}"))
+    })?;
+    Ok(matcher.intercept(&uri))
+}
+
+fn reqwest_market_proxy(intercept: &Intercept) -> AppResult<reqwest::Proxy> {
+    let proxy_uri = intercept.uri().to_string();
+    let mut proxy_url = Url::parse(&proxy_uri)
+        .map_err(|_| AppError::internal("configured market proxy URL is invalid"))?;
+    if let Some((username, password)) = intercept.raw_auth() {
+        proxy_url
+            .set_username(username)
+            .map_err(|_| AppError::internal("configured market proxy credentials are invalid"))?;
+        proxy_url
+            .set_password(Some(password))
+            .map_err(|_| AppError::internal("configured market proxy credentials are invalid"))?;
+    }
+    let mut proxy = reqwest::Proxy::all(proxy_url.as_str())
+        .map_err(|_| AppError::internal("configured market proxy is unsupported"))?;
+    if let Some(auth) = intercept.basic_auth() {
+        proxy = proxy.custom_http_auth(auth.clone());
+    }
+    Ok(proxy)
+}
+
+/// GET a market URL only after vetting its URL and route. Direct requests pin their checked DNS
+/// answers; proxied requests rely on the explicitly matched system proxy for origin DNS. Redirects
+/// are handled manually so each hop gets its own URL validation and route decision.
+async fn get_market_response(
+    url: &str,
+    timeout: std::time::Duration,
+) -> AppResult<reqwest::Response> {
+    let mut current = Url::parse(url)
+        .map_err(|error| AppError::forbidden_path(format!("market URL is invalid: {error}")))?;
+
+    for redirect_count in 0..=MAX_MARKET_REDIRECTS {
+        registry::validate_download_url(current.as_str())?;
+        let proxy_intercept = market_proxy_intercept(&current, &Matcher::from_system())?;
+        // System proxies may intentionally resolve domains to synthetic addresses (for example,
+        // Shadowrocket's 198.18/15 fake-IP mode). The proxy receives the vetted hostname and is
+        // the egress boundary for proxied requests; only direct requests use local DNS pinning.
+        let addresses = if proxy_intercept.is_none() {
+            registry::resolve_public_download_addrs(&current).await?
+        } else {
+            Vec::new()
+        };
+        let mut builder = reqwest::Client::builder()
+            .timeout(timeout)
+            .redirect(reqwest::redirect::Policy::none())
+            .no_proxy();
+        if let Some(intercept) = proxy_intercept {
+            builder = builder.proxy(reqwest_market_proxy(&intercept)?);
+        } else if let Some(url::Host::Domain(host)) = current.host() {
+            // Direct connections are pinned to the complete checked DNS answer set.
+            builder = builder.resolve_to_addrs(host, &addresses);
+        }
+        let client = builder
+            .build()
+            .map_err(|error| AppError::internal(format!("build market HTTP client: {error}")))?;
+        let response = client
+            .get(current.clone())
+            .send()
+            .await
+            .map_err(|error| AppError::internal(format!("market request failed: {error}")))?;
+        if !response.status().is_redirection() {
+            return Ok(response);
+        }
+        if redirect_count == MAX_MARKET_REDIRECTS {
+            return Err(AppError::forbidden_path("market redirect limit exceeded"));
+        }
+        let location = response
+            .headers()
+            .get(reqwest::header::LOCATION)
+            .ok_or_else(|| AppError::forbidden_path("market redirect has no Location"))?
+            .to_str()
+            .map_err(|error| {
+                AppError::forbidden_path(format!("market redirect Location is invalid: {error}"))
+            })?;
+        current = next_market_redirect_url(&current, location)?;
+    }
+
+    Err(AppError::forbidden_path("market redirect limit exceeded"))
+}
+
 /// 拉取 registry 目录（async 命令；reqwest rustls）。
 async fn fetch_registry() -> AppResult<RegistryDoc> {
     let base = registry::registry_base_url()?;
     let url = registry::registry_index_url(&base);
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-        .map_err(|e| AppError::internal(format!("build http client: {e}")))?;
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| AppError::internal(format!("fetch registry {url}: {e}")))?;
+    let response = get_market_response(&url, std::time::Duration::from_secs(30)).await?;
     if !response.status().is_success() {
         return Err(AppError::internal(format!(
             "fetch registry {url}: HTTP {}",
@@ -349,17 +439,11 @@ pub async fn ext_market_prepare(
     // 管线主体；任一步失败 → 清理 staging + 临时 zip（prepare 无审计事件）。
     let prepared = async {
         // 步骤 3：下载（content-length 预检 + 流式上限）。
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(300))
-            .build()
-            .map_err(|e| AppError::internal(format!("build http client: {e}")))?;
-        let mut response = client
-            .get(&version_entry.download_url)
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::internal(format!("download {}: {e}", version_entry.download_url))
-            })?;
+        let mut response = get_market_response(
+            &version_entry.download_url,
+            std::time::Duration::from_secs(300),
+        )
+        .await?;
         if !response.status().is_success() {
             return Err(AppError::internal(format!(
                 "download {}: HTTP {}",
@@ -689,6 +773,69 @@ mod tests {
   ],
   "signature": "untrusted comment: bench test sig\nRUQBAgMEBQYHCEBrRau//nbRO+afsKe966zXO5HvL25WTHSyPlEDVa9Xh2sPHyu0JPVvKeOG7jwpaSFImZHcUbJ8aRSauSXTvAo=\ntrusted comment: fake-ext@1.0.0\nIMRjs1pxhOrlYHZUrCJk+Ou6htk77gEwX66NzVZvR2RpyPQ/9VI8QCJ/8bET4l9qOprMMfeW2xDOHmI+9hCbCg==\n"
 }"#;
+
+    #[test]
+    fn market_redirects_are_reparsed_and_revalidated() {
+        let current = Url::parse("https://cdn.example.com/packages/extension.zip")
+            .expect("valid current URL");
+        assert_eq!(
+            next_market_redirect_url(&current, "../releases/extension.zip")
+                .expect("relative HTTPS redirect is allowed")
+                .as_str(),
+            "https://cdn.example.com/releases/extension.zip"
+        );
+        for location in [
+            "http://cdn.example.com/insecure.zip",
+            "https://127.0.0.1/private.zip",
+            "https://user:secret@cdn.example.com/private.zip",
+        ] {
+            assert_eq!(
+                next_market_redirect_url(&current, location)
+                    .unwrap_err()
+                    .code,
+                "FORBIDDEN_PATH",
+                "expected redirect to be refused: {location}"
+            );
+        }
+    }
+
+    #[test]
+    fn market_proxy_routing_matches_system_proxy_rules() {
+        let url = Url::parse("https://raw.githubusercontent.com/kindred-plugin-market/plugin-market/main/registry.json")
+            .expect("valid market URL");
+        let proxied = Matcher::builder().https("http://127.0.0.1:1082").build();
+        let intercept = market_proxy_intercept(&url, &proxied)
+            .expect("URL can be routed")
+            .expect("system HTTPS proxy should be selected");
+        assert!(intercept.uri().to_string().contains("127.0.0.1:1082"));
+        assert!(reqwest_market_proxy(&intercept).is_ok());
+
+        let bypassed = Matcher::builder()
+            .https("http://127.0.0.1:1082")
+            .no("raw.githubusercontent.com")
+            .build();
+        assert!(market_proxy_intercept(&url, &bypassed)
+            .expect("URL can be routed")
+            .is_none());
+
+        let direct = Matcher::builder().build();
+        assert!(market_proxy_intercept(&url, &direct)
+            .expect("URL can be routed")
+            .is_none());
+    }
+
+    #[test]
+    fn market_proxy_preserves_socks_credentials_without_logging_them() {
+        let url = Url::parse("https://cdn.example.com/extension.zip").expect("valid URL");
+        let matcher = Matcher::builder()
+            .https("socks5h://qa-user:qa-secret@127.0.0.1:1082")
+            .build();
+        let intercept = market_proxy_intercept(&url, &matcher)
+            .expect("URL can be routed")
+            .expect("configured SOCKS proxy should be selected");
+        assert!(!format!("{intercept:?}").contains("qa-secret"));
+        assert!(reqwest_market_proxy(&intercept).is_ok());
+    }
 
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
