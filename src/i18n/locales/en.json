@@ -2080,6 +2080,7 @@
     "whois": {
       "hint": "RDAP lookup via rdap.org (WHOIS fallback not required for this build). Output may be truncated.",
       "query": "Domain or IP",
+      "resultFor": "Result for {{query}}",
       "run": "Lookup",
       "running": "Looking up…",
       "partial": "partial",

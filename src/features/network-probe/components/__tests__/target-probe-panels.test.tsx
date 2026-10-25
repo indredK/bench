@@ -4,9 +4,13 @@ import { describe, expect, it, vi } from "vitest"
 import { DnsLookupPanel } from "@/features/network-probe/components/DnsLookupPanel"
 import { ProbeTargetPanel } from "@/features/network-probe/components/ProbeTargetPanel"
 import { TcpConnectPanel } from "@/features/network-probe/components/TcpConnectPanel"
+import { WhoisPanel } from "@/features/network-probe/components/WhoisPanel"
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, values?: { query?: string }) =>
+      values?.query ? `${key}: ${values.query}` : key,
+  }),
 }))
 
 vi.mock("@/components/common/CommandHint", () => ({
@@ -79,5 +83,25 @@ describe("target probe results", () => {
 
     expect(screen.getByLabelText("networkProbe.probe.input")).toBeDisabled()
     expect(screen.getByText("https://test.example/health")).toBeInTheDocument()
+  })
+
+  it("identifies the RDAP query while the next lookup is loading", () => {
+    render(
+      <WhoisPanel
+        loading
+        result={{
+          query: "1.1.1.1",
+          source: "rdap.org",
+          rawText: "{}",
+          partial: false,
+          commandHint: "whoisLookup()",
+        }}
+        toolEnabled
+        onRun={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByLabelText("networkProbe.whois.query")).toBeDisabled()
+    expect(screen.getByText("networkProbe.whois.resultFor: 1.1.1.1")).toBeInTheDocument()
   })
 })

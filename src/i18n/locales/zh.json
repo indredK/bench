@@ -2080,6 +2080,7 @@
     "whois": {
       "hint": "经 rdap.org 做 RDAP 查询（本构建不强制 WHOIS 文本协议）。输出可能截断。",
       "query": "域名或 IP",
+      "resultFor": "本次结果：{{query}}",
       "run": "查询",
       "running": "查询中…",
       "partial": "部分",
