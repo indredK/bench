@@ -94,6 +94,9 @@ pub fn extract_zip_with_cancel(
             // Reject zip-slip and absolute paths.
             None => continue,
         };
+        if entry.is_symlink() {
+            return Err("SU_EXTRACT_FAIL: archive contains a symlink entry".into());
+        }
         let outpath = work_dir.join(&rel);
 
         if entry.is_dir() {
@@ -125,7 +128,8 @@ pub fn extract_zip_with_cancel(
         #[cfg(unix)]
         if let Some(mode) = entry.unix_mode() {
             use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&outpath, std::fs::Permissions::from_mode(mode));
+            let safe_mode = crate::archive::safe_archive_unix_mode(mode);
+            let _ = std::fs::set_permissions(&outpath, std::fs::Permissions::from_mode(safe_mode));
         }
     }
 
@@ -277,7 +281,7 @@ mod tests {
                 .unwrap();
             writer.write_all(b"<plist/>").unwrap();
             writer
-                .start_file("Demo.app/Contents/MacOS/Demo", opts.unix_permissions(0o755))
+                .start_file("Demo.app/Contents/MacOS/Demo", opts.unix_permissions(0o777))
                 .unwrap();
             writer.write_all(b"#!/bin/sh\n").unwrap();
             writer.finish().unwrap();
@@ -293,6 +297,45 @@ mod tests {
         assert!(app.ends_with("Demo.app"));
         assert!(app.join("Contents/Info.plist").exists());
         assert!(app.join("Contents/MacOS/Demo").exists());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(app.join("Contents/MacOS/Demo"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o7777;
+            assert_eq!(mode, 0o755, "archive write bits must be stripped");
+        }
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn extract_zip_rejects_symlink_entries() {
+        use zip::write::SimpleFileOptions;
+
+        let root = temp_subdir("bench-zip-extract-symlink");
+        let zip_path = root.join("symlink.zip");
+        {
+            let file = std::fs::File::create(&zip_path).unwrap();
+            let mut writer = zip::ZipWriter::new(file);
+            writer
+                .add_symlink(
+                    "Demo.app/Contents/MacOS/Demo",
+                    "../../../../tmp/escaped",
+                    SimpleFileOptions::default(),
+                )
+                .unwrap();
+            writer.finish().unwrap();
+        }
+
+        let work = root.join("work");
+        std::fs::create_dir_all(&work).unwrap();
+        let error = extract_zip_with_cancel(&zip_path, &work, None).unwrap_err();
+        assert!(error.contains("symlink"));
+        assert!(!work.join("Demo.app/Contents/MacOS/Demo").exists());
 
         let _ = std::fs::remove_dir_all(&root);
     }

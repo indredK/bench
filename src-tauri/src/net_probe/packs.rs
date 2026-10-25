@@ -8,11 +8,13 @@ use super::types::{
 use crate::error::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
+use tokio::process::Command as TokioCommand;
+use tokio::time::timeout;
 
 pub const PACK_PROGRESS_EVENT: &str = "network-probe:pack-progress";
 
@@ -78,6 +80,14 @@ fn canonical_manifest() -> Vec<PackManifestEntry> {
     ]
 }
 
+fn pack_failure_mode(error: &AppError) -> &'static str {
+    if error.code == "PACK_HASH_MISMATCH" {
+        "hash-mismatch"
+    } else {
+        "failed"
+    }
+}
+
 fn packs_dir(app: &AppHandle<impl Runtime>) -> AppResult<PathBuf> {
     let base = app
         .path()
@@ -108,10 +118,48 @@ fn platform_id() -> &'static str {
     }
 }
 
-fn nmap_status() -> String {
-    match Command::new("nmap").arg("-V").output() {
-        Ok(out) if out.status.success() => "found".into(),
-        _ => "not_found".into(),
+async fn nmap_status() -> String {
+    if version_command_succeeds(OsStr::new("nmap"), Duration::from_secs(2)).await {
+        "found".into()
+    } else {
+        "not_found".into()
+    }
+}
+
+async fn version_command_succeeds(program: &OsStr, timeout_after: Duration) -> bool {
+    let mut command = TokioCommand::new(program);
+    command.arg("-V").kill_on_drop(true);
+    matches!(
+        timeout(timeout_after, command.output()).await,
+        Ok(Ok(output)) if output.status.success()
+    )
+}
+
+fn port_scan_status(nmap_found: bool) -> &'static str {
+    if nmap_found {
+        "supported"
+    } else {
+        "degraded"
+    }
+}
+
+fn pcap_status(pcap_installed: bool) -> &'static str {
+    if pcap_installed {
+        "supported"
+    } else {
+        "degraded"
+    }
+}
+
+fn fingerprint_status(nmap_found: bool, adv_installed: bool) -> &'static str {
+    if nmap_found {
+        "supported"
+    } else if adv_installed {
+        // The package marker is not wired to this scanner; it cannot enable
+        // fingerprint execution by itself.
+        "degraded"
+    } else {
+        "missing_pack"
     }
 }
 
@@ -211,10 +259,11 @@ pub async fn install_capability_pack<R: Runtime>(
         match download_and_verify(app, &entry).await {
             Ok(()) => "sidecar",
             Err(e) => {
+                let mode = pack_failure_mode(&e);
                 return Ok(CapabilityPackInstallResult {
                     pack_id: pack_id.clone(),
                     ok: false,
-                    mode: "failed".into(),
+                    mode: mode.into(),
                     message: e.to_string(),
                     command_hint: format!("installCapabilityPack('{pack_id}') // failed"),
                 });
@@ -272,7 +321,7 @@ pub fn is_pack_installed(app: &AppHandle<impl Runtime>, pack_id: &str) -> bool {
         .is_some_and(|record| record.mode != "marker")
 }
 
-pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbeCapabilities {
+pub async fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbeCapabilities {
     let platform = platform_id().to_string();
     let mut tools = HashMap::new();
     let s = |v: &str| v.to_string();
@@ -354,35 +403,20 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
     let pcap_installed = app
         .map(|a| is_pack_installed(a, "pcap-diag"))
         .unwrap_or(false);
-    let nmap = nmap_status();
+    let nmap = nmap_status().await;
+    let nmap_found = nmap == "found";
 
-    // TCP connect always available (degraded); SYN when nmap found.
-    tools.insert(
-        "portScan".into(),
-        if nmap == "found" || adv_installed {
-            s("supported")
-        } else {
-            s("degraded")
-        },
-    );
+    // The current port scanner invokes only nmap or the built-in TCP fallback.
+    // An installed adv-scanner pack does not claim support until its sidecar is wired in.
+    tools.insert("portScan".into(), s(port_scan_status(nmap_found)));
     // ARP: cache read always; privileged sweep needs pack.
     tools.insert("arp".into(), s("degraded"));
     // Pcap: tcpdump counters always attempted; pack unlocks richer mode later.
+    tools.insert("pcap".into(), s(pcap_status(pcap_installed)));
     tools.insert(
-        "pcap".into(),
-        if pcap_installed {
-            s("supported")
-        } else {
-            s("degraded")
-        },
+        "fingerprint".into(),
+        s(fingerprint_status(nmap_found, adv_installed)),
     );
-    if adv_installed {
-        tools.insert("fingerprint".into(), s("degraded"));
-    } else if nmap == "found" {
-        tools.insert("fingerprint".into(), s("unsupported"));
-    } else {
-        tools.insert("fingerprint".into(), s("missing_pack"));
-    }
 
     let mut packs = HashMap::new();
     if let Some(app) = app {
@@ -486,6 +520,7 @@ async fn download_and_verify<R: Runtime>(
 }
 
 /// S-X-05 test channel: force hash-mismatch without installing.
+#[cfg(debug_assertions)]
 pub async fn install_capability_pack_verify_fail<R: Runtime>(
     app: &AppHandle<R>,
     pack_id: String,
@@ -506,4 +541,132 @@ pub async fn install_capability_pack_verify_fail<R: Runtime>(
                 .into(),
         command_hint: format!("installCapabilityPack('{pack_id}') // hash-mismatch test"),
     })
+}
+
+/// The test-only hash failure channel is unavailable in production builds.
+#[cfg(not(debug_assertions))]
+pub async fn install_capability_pack_verify_fail<R: Runtime>(
+    app: &AppHandle<R>,
+    pack_id: String,
+) -> AppResult<CapabilityPackInstallResult> {
+    let _ = (app, pack_id);
+    Err(AppError::unsupported(
+        "Capability pack verification test is only available in debug builds.",
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[cfg(unix)]
+    use std::fs;
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
+    #[cfg(unix)]
+    use std::process::{Command as StdCommand, Stdio};
+    #[cfg(unix)]
+    use std::time::Instant;
+
+    #[test]
+    fn hash_mismatch_has_a_stable_install_failure_mode() {
+        assert_eq!(
+            pack_failure_mode(&AppError::new("PACK_HASH_MISMATCH", "mismatch")),
+            "hash-mismatch"
+        );
+        assert_eq!(pack_failure_mode(&AppError::io("disk full")), "failed");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn stalled_nmap_version_probe_times_out_and_kills_the_child() {
+        let directory =
+            std::env::temp_dir().join(format!("bench-nmap-version-test-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&directory).expect("create test directory");
+        let pid_file = directory.join("pid");
+        let mock_program = directory.join("mock-nmap");
+        fs::write(
+            &mock_program,
+            format!(
+                "#!/bin/sh\nprintf '%s' \"$$\" > '{}'\nexec /bin/sleep 15\n",
+                pid_file.display()
+            ),
+        )
+        .expect("write mock program");
+        let mut permissions = fs::metadata(&mock_program)
+            .expect("read mock permissions")
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&mock_program, permissions).expect("make mock executable");
+
+        let started = Instant::now();
+        let program = mock_program.clone();
+        let probe = tokio::spawn(async move {
+            version_command_succeeds(program.as_os_str(), Duration::from_secs(2)).await
+        });
+
+        let pid = tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                if let Ok(pid) = fs::read_to_string(&pid_file) {
+                    break pid;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("mock version command should start");
+        let found = tokio::time::timeout(Duration::from_secs(2), probe)
+            .await
+            .expect("stalled version probe should respect its deadline")
+            .expect("version probe task should finish");
+        assert!(
+            !found,
+            "stalled version probes must be treated as unavailable"
+        );
+        assert!(started.elapsed() < Duration::from_secs(3));
+
+        let child_exited = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                let alive = StdCommand::new("kill")
+                    .args(["-0", pid.trim()])
+                    .stderr(Stdio::null())
+                    .status()
+                    .map(|status| status.success())
+                    .unwrap_or(false);
+                if !alive {
+                    break true;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap_or(false);
+        if !child_exited {
+            let _ = StdCommand::new("kill")
+                .args(["-KILL", pid.trim()])
+                .stderr(Stdio::null())
+                .status();
+        }
+        let _ = fs::remove_dir_all(&directory);
+        assert!(child_exited, "timed-out version probe child must exit");
+    }
+
+    #[test]
+    fn missing_privileged_tools_remain_degraded_or_pack_gated() {
+        assert_eq!(port_scan_status(false), "degraded");
+        assert_eq!(pcap_status(false), "degraded");
+        assert_eq!(fingerprint_status(false, false), "missing_pack");
+    }
+
+    #[test]
+    fn installed_scanner_does_not_claim_unwired_port_scan_support() {
+        assert_eq!(port_scan_status(false), "degraded");
+        assert_eq!(fingerprint_status(false, true), "degraded");
+    }
+
+    #[test]
+    fn external_nmap_enables_port_scan_but_does_not_fake_pack_features() {
+        assert_eq!(port_scan_status(true), "supported");
+        assert_eq!(fingerprint_status(true, false), "supported");
+        assert_eq!(pcap_status(false), "degraded");
+    }
 }

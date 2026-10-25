@@ -221,44 +221,76 @@ pub async fn get_local_ip() -> AppResult<super::types::IpInfo> {
 
 #[tauri::command]
 pub async fn get_wifi_info() -> AppResult<super::types::WifiInfo> {
-    tauri::async_runtime::spawn_blocking(|| {
-        #[cfg(target_os = "macos")]
-        {
-            let airport = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport";
-            // 该私有二进制在 macOS 15.4+ 已被移除。缺文件要显式 unsupported，
-            // 否则 `run_cmd` 的 spawn 失败会被折成 INTERNAL，用户只看到「内部错误」。
-            if !std::path::Path::new(airport).exists() {
-                return Err(AppError::unsupported(
-                    "WIFI_INFO_UNAVAILABLE: 本机 macOS 已移除 airport 工具，请改用系统 Wi-Fi 菜单",
-                ));
-            }
-            let output = run_cmd(airport, &["-I"])?;
-            let mut info = super::types::WifiInfo {
-                ssid: String::new(), signal_strength: None, channel: None, frequency: None, security: None,
+    tauri::async_runtime::spawn_blocking(read_wifi_info)
+        .await
+        .map_err(|e| AppError::internal(format!("get_wifi_info: {e}")))?
+}
+
+/// Read the current Wi-Fi interface once for both the system-tools command and
+/// network-probe summary. Missing SSID is normal when disconnected or when
+/// macOS privacy authorization is unavailable, so it is represented as empty.
+pub(crate) fn read_wifi_info() -> AppResult<super::types::WifiInfo> {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_core_wlan::CWWiFiClient;
+
+        let client = unsafe {
+            // SAFETY: CoreWLAN provides a process-wide shared client; the returned
+            // Objective-C objects stay on this blocking worker thread.
+            CWWiFiClient::sharedWiFiClient()
+        };
+        let Some(interface) = (unsafe {
+            // SAFETY: querying the default interface is a read-only CoreWLAN call.
+            client.interface()
+        }) else {
+            return Ok(empty_wifi_info());
+        };
+
+        let ssid = unsafe {
+            // SAFETY: the borrowed NSString is retained by the returned wrapper.
+            interface.ssid()
+        }
+        .map(|value| value.to_string())
+        .unwrap_or_default();
+        let rssi = unsafe {
+            // SAFETY: read-only query; CoreWLAN reports 0 when disconnected/unavailable.
+            interface.rssiValue()
+        } as i32;
+        let channel = unsafe {
+            // SAFETY: read-only query; None is returned when no current channel exists.
+            interface.wlanChannel()
+        }
+        .and_then(|channel| {
+            let number = unsafe {
+                // SAFETY: channel is a retained CoreWLAN value returned by this interface.
+                channel.channelNumber()
             };
-            for line in output.lines() {
-                let parts: Vec<&str> = line.splitn(2, ':').collect();
-                if parts.len() != 2 { continue; }
-                let key = parts[0].trim();
-                let val = parts[1].trim();
-                // `key` 已经 trim 过，分支却写成带前导空格的 " SSID" —— 永远不命中，
-                // 结果是所有字段都留空、界面显示一份空壳 Wi-Fi 信息。
-                match key {
-                    "SSID" => info.ssid = val.to_string(),
-                    "agrCtlRSSI" => info.signal_strength = val.parse().ok(),
-                    "channel" => info.channel = Some(val.to_string()),
-                    "freq" => info.frequency = Some(val.to_string()),
-                    "security" => info.security = Some(val.to_string()),
-                    _ => {}
-                }
-            }
-            Ok(info)
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            Err(AppError::unsupported("WiFi info is only supported on macOS"))
-        }
-    })
-    .await
-    .map_err(|e| AppError::internal(format!("get_wifi_info: {e}")))?
+            (number > 0).then(|| number.to_string())
+        });
+
+        Ok(super::types::WifiInfo {
+            ssid,
+            signal_strength: (rssi < 0).then_some(rssi),
+            channel,
+            frequency: None,
+            security: None,
+        })
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err(AppError::unsupported(
+            "WiFi info is only supported on macOS",
+        ))
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn empty_wifi_info() -> super::types::WifiInfo {
+    super::types::WifiInfo {
+        ssid: String::new(),
+        signal_strength: None,
+        channel: None,
+        frequency: None,
+        security: None,
+    }
 }

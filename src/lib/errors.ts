@@ -1,5 +1,6 @@
 export interface LocalizedError {
   key: string
+  code?: string
   values?: Record<string, unknown>
   fallback?: string
 }

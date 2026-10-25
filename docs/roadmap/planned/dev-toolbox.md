@@ -12,7 +12,7 @@
 
 ## 待验证
 
-- [ ] `get_local_ip` / `get_wifi_info` 在 macOS 真机上的输出（en0 不存在、未连接 WiFi 时的空值/错误表现）。
+- [ ] `get_local_ip` / `get_wifi_info` 在 macOS 真机上的输出：CoreWLAN 已真机返回信号 `-60 dBm` 与信道 `157`，未返回 SSID 且没有权限弹窗；SSID 正向结果仍需在系统允许读取的已连接 Wi‑Fi 环境验证。
 - [ ] 浏览器运行时进入本页：各工具 IPC 失败 toast 提示的可用性（是否应像 env-detector 一样加运行时门禁，待定）。
 
 ## 远期
@@ -25,3 +25,4 @@
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
 - 2026-09-03：生成产品说明文档与规划文档（对齐 photo-triage 模板）。
+- 2026-10-22：Wi‑Fi 读取迁移到 CoreWLAN，移除 macOS 15.4+ 已不可用的 `airport` 子进程路径，并由 network-probe 与 dev-toolbox 共用 helper；真机确认无权限弹窗，信号与信道可读、SSID 未返回。基础页现会在 SSID 缺失时显示 dBm，QA bundle 真机复验通过；SSID 正向路径待系统允许读取的环境验证。

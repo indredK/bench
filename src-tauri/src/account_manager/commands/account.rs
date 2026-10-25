@@ -6,8 +6,8 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 use zeroize::Zeroizing;
 
 use super::shared::{
-    deletion_resource, new_id, normalize_optional, now_label, remove_account_metadata,
-    reorder_by_ids, trim_or_invalid,
+    deletion_resource, new_id, normalize_login_url, normalize_optional, now_label,
+    remove_account_metadata, reorder_by_ids, trim_or_invalid,
 };
 use crate::account_manager::crypto;
 use crate::account_manager::state::AccountManagerState;
@@ -508,7 +508,7 @@ pub fn create_ephemeral_account<R: Runtime>(
     username: String,
     station_id: Option<String>,
 ) -> AccountManagerResult<StationAccount> {
-    let website = trim_or_invalid(&website, "website")?;
+    let website = normalize_login_url(&website)?;
     let username = trim_or_invalid(&username, "username")?;
 
     // 若指定了 station,必须存在

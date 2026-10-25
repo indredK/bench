@@ -13,7 +13,7 @@ const messages = vi.hoisted(() => ({
   "networkProbe.nodes.listTitle": "Probe nodes",
   "networkProbe.nodes.answersLabel": "DNS answers by probe node",
   "networkProbe.nodes.answerOk": "OK",
-  "networkProbe.nodes.answerFailed": "Failed",
+  "networkProbe.nodes.answerFail": "Failed",
   "networkProbe.nodes.answerNotFound": "Domain not found",
   "networkProbe.nodes.answerNoRecords": "No records",
   "networkProbe.nodes.answerTimedOut": "Timed out",
@@ -28,6 +28,7 @@ const messages = vi.hoisted(() => ({
   "networkProbe.caps.toolDisabled": "{{tool}} unavailable",
   "networkProbe.cmd.compareDns": "compareDns()",
   "networkProbe.cmd.addAgent": "addAgent()",
+  "networkProbe.nodes.kindLocal": "This device",
 }))
 
 vi.mock("react-i18next", () => ({
@@ -46,6 +47,9 @@ vi.mock("@/features/network-probe/components/ProbePanelShell", () => ({
     </section>
   ),
 }))
+vi.mock("@/features/network-probe/components/GlobalpingMeasurementPanel", () => ({
+  GlobalpingMeasurementPanel: () => null,
+}))
 vi.mock("@/components/ui/button", () => ({
   Button: (props: ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props} />,
 }))
@@ -60,41 +64,52 @@ import { MultiNodePanel } from "@/features/network-probe/components/MultiNodePan
 
 afterEach(cleanup)
 
+function basePanelProps() {
+  return {
+    loading: false,
+    loadingNodes: false,
+    nodesLoadError: null,
+    result: null,
+    globalpingResult: null,
+    loadingGlobalping: false,
+    tokenConfigured: null,
+    loadingToken: false,
+    savingToken: false,
+    nodes: [],
+    agentMutation: null,
+    toolEnabled: true,
+    onCompare: vi.fn(),
+    onRunGlobalping: vi.fn().mockResolvedValue(undefined),
+    onRefreshTokenStatus: vi.fn().mockResolvedValue(null),
+    onSaveToken: vi.fn().mockResolvedValue(true),
+    onRemoveToken: vi.fn().mockResolvedValue(true),
+    onRefreshNodes: vi.fn(),
+    onAddAgent: vi.fn().mockResolvedValue(null),
+    onRemoveAgent: vi.fn().mockResolvedValue(true),
+  }
+}
+
 describe("MultiNodePanel Globalping results", () => {
   it("shows a status before the first comparison and while it is loading", () => {
-    const panelProps = {
-      agentAction: null,
-      nodesLoadFailed: false,
-      result: null,
-      nodes: [],
-      toolEnabled: true,
-      onCompare: vi.fn(),
-      onRefreshNodes: vi.fn(),
-      onAddAgent: vi.fn(),
-      onRemoveAgent: vi.fn(),
-    }
+    const panelProps = basePanelProps()
 
-    const { rerender } = render(
-      <MultiNodePanel {...panelProps} loading={false} loadingNodes={false} />,
-    )
+    const { rerender } = render(<MultiNodePanel {...panelProps} />)
 
     expect(screen.getByText("Run a DNS comparison to see answers from each node.")).toHaveAttribute(
       "aria-live",
       "polite",
     )
 
-    rerender(<MultiNodePanel {...panelProps} loading loadingNodes={false} />)
+    rerender(<MultiNodePanel {...panelProps} loading />)
     expect(
       screen.getByText("Comparing DNS answers. Results will appear here when the probes finish."),
     ).toHaveAttribute("aria-live", "polite")
   })
   it("localizes DNS response states, keeps diagnostics collapsed, and announces results", () => {
-    const nodeStateProps = { agentAction: null, nodesLoadFailed: false }
+    const panelProps = basePanelProps()
     render(
       <MultiNodePanel
-        {...nodeStateProps}
-        loading={false}
-        loadingNodes={false}
+        {...panelProps}
         result={{
           domain: "example.com",
           elapsedMs: 12,
@@ -129,17 +144,11 @@ describe("MultiNodePanel Globalping results", () => {
               nodeLabel: "Globalping",
               ok: false,
               answers: [],
-              errorCode: "GLOBALPING_TIMEOUT",
+              errorCode: "timed_out",
               detail: "measurement did not finish in time",
             },
           ],
         }}
-        nodes={[]}
-        toolEnabled
-        onCompare={vi.fn()}
-        onRefreshNodes={vi.fn()}
-        onAddAgent={vi.fn()}
-        onRemoveAgent={vi.fn()}
       />,
     )
 

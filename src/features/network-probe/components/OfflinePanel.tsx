@@ -4,7 +4,10 @@
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
-import type { NetworkProbeOfflineSub } from "@/features/network-probe/store"
+import type {
+  NetworkProbeOfflineErrors,
+  NetworkProbeOfflineSub,
+} from "@/features/network-probe/store"
 import type {
   CaptivePortalResult,
   Ipv6StackResult,
@@ -16,7 +19,9 @@ import { useTranslation } from "react-i18next"
 
 interface OfflinePanelProps {
   loading: boolean
+  busy: boolean
   focus: NetworkProbeOfflineSub
+  errors: NetworkProbeOfflineErrors
   captive: CaptivePortalResult | null
   publicIp: PublicIpInfo | null
   proxyVpn: ProxyVpnStatus | null
@@ -28,7 +33,9 @@ interface OfflinePanelProps {
 
 export function OfflinePanel({
   loading,
+  busy,
   focus,
+  errors,
   captive,
   publicIp,
   proxyVpn,
@@ -47,7 +54,7 @@ export function OfflinePanel({
         <>
           <p className="text-muted-foreground text-sm">{t("networkProbe.offline.hint")}</p>
           <CommandHint hint={t("networkProbe.cmd.offlineBundle")}>
-            <Button type="button" disabled={loading} onClick={onRunAll}>
+            <Button type="button" disabled={busy} onClick={onRunAll}>
               {loading ? t("networkProbe.offline.running") : t("networkProbe.offline.run")}
             </Button>
           </CommandHint>
@@ -73,8 +80,11 @@ export function OfflinePanel({
               <p className="text-muted-foreground font-mono text-[10px]">{captive.commandHint}</p>
             </>
           ) : (
-            <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
+            !errors.captive && (
+              <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
+            )
           )}
+          <CheckFailure message={errors.captive} />
         </section>
       ) : null}
 
@@ -106,8 +116,11 @@ export function OfflinePanel({
               <p className="text-muted-foreground font-mono text-[10px]">{publicIp.commandHint}</p>
             </>
           ) : (
-            <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
+            !errors.egress && (
+              <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
+            )
           )}
+          <CheckFailure message={errors.egress} />
         </section>
       ) : null}
 
@@ -141,8 +154,11 @@ export function OfflinePanel({
               <p className="text-muted-foreground font-mono text-[10px]">{proxyVpn.commandHint}</p>
             </>
           ) : (
-            <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
+            !errors.proxy && (
+              <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
+            )
           )}
+          <CheckFailure message={errors.proxy} />
         </section>
       ) : null}
 
@@ -168,8 +184,11 @@ export function OfflinePanel({
               <p className="text-muted-foreground font-mono text-[10px]">{ipv6.commandHint}</p>
             </>
           ) : (
-            <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
+            !errors.ipv6 && (
+              <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
+            )
           )}
+          <CheckFailure message={errors.ipv6} />
         </section>
       ) : null}
 
@@ -198,8 +217,11 @@ export function OfflinePanel({
               <p className="text-muted-foreground font-mono text-[10px]">{mtu.commandHint}</p>
             </>
           ) : (
-            <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
+            !errors.mtu && (
+              <p className="text-muted-foreground text-xs">{t("networkProbe.offline.pending")}</p>
+            )
           )}
+          <CheckFailure message={errors.mtu} />
         </section>
       ) : null}
 
@@ -207,5 +229,15 @@ export function OfflinePanel({
         <p className="text-muted-foreground text-sm">{t("networkProbe.offline.diffHint")}</p>
       ) : null}
     </ProbePanelShell>
+  )
+}
+
+function CheckFailure({ message }: { message?: string }) {
+  const { t } = useTranslation()
+  if (!message) return null
+  return (
+    <p role="alert" className="text-destructive text-xs">
+      {t("networkProbe.offline.checkFailed", { message })}
+    </p>
   )
 }

@@ -35,6 +35,7 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
                 value={host}
                 onChange={(e) => setHost(e.target.value)}
                 autoComplete="off"
+                disabled={loading}
               />
             </div>
             <div className="w-28 space-y-1">
@@ -47,6 +48,7 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
                 onChange={(e) => setPort(e.target.value)}
                 inputMode="numeric"
                 autoComplete="off"
+                disabled={loading}
               />
             </div>
             <CommandHint
@@ -69,6 +71,10 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
     >
       {result ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
+          <div>
+            {t("networkProbe.tcp.host")}: {result.host} · {t("networkProbe.tcp.port")}:{" "}
+            {result.port}
+          </div>
           <div>
             {t("networkProbe.tcp.status")}: <span className="font-medium">{result.status}</span>
           </div>

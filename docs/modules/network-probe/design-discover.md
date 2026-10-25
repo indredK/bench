@@ -122,12 +122,17 @@ type ProbeNode = {
 
 #### Globalping（`remote-proxy`）
 
-| 项   | 约定                                                      |
-| ---- | --------------------------------------------------------- |
-| 传输 | HTTPS REST；Rust `reqwest` 创建 measurement + 轮询 status |
-| 能力 | ping / traceroute / dns / mtr / http（**无带宽**）        |
-| 配额 | 匿名额度用尽 → 提示配置 token；错误映射 `AppError`        |
-| ToS  | 遵守官方限额；前端展示剩余额度（若 API 提供）             |
+| 项    | 约定                                                                                                                                                                                                                                                               |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 传输  | HTTPS REST；创建请求与响应体最多 10 秒；交互式请求启用 `inProgressUpdates`；按官方契约在响应后至少间隔 700ms 轮询并使用 ETag；测量轮询最多 45 秒；提交后最长等待约 55 秒                                                                                           |
+| 能力  | DNS multi；remote Ping 与 HTTP HEAD/GET/OPTIONS 分别从 world、US、Europe 各取 1 个探点（最多 3 次测试）；**无带宽**                                                                                                                                                |
+| 目标  | 目标（含 HTTP URL 查询参数）会发送给 Globalping；HTTP API 将 URL 拆为主机 `target`、协议、路径、查询串与可选端口；客户端拒绝私网/保留 IP、保留域名、非 HTTP(S) scheme、凭据和片段；服务端探点也会阻止私有 IP 目标；测量通常保留 6 个月，因此不得填入密钥或私人数据 |
+| 失败  | 非 `in-progress` 终态、HTTP/解析错误与超时显示为 Globalping 失败行；DNS 对比保留本机结果，部分远程结果随错误一并返回                                                                                                                                               |
+| Token | 可选 Bearer token 按应用 bundle identifier 独立保存在系统钥匙串；不会写入页面状态、命令日志或测量结果                                                                                                                                                              |
+| 配额  | 读取创建响应实际返回的 rate-limit/credits headers；API 未返回字段时不显示推测值；匿名额度用尽时提示稍后重试或配置 token                                                                                                                                            |
+| 取消  | Globalping 未提供测量撤销端点；提交后 UI 明确提示不可取消，使用创建与轮询期限限制等待时间                                                                                                                                                                          |
+
+结果行显示本地化的本机名称与成功/失败状态；节点列表的可达状态跟随当前语言。部分结果或远程失败不得覆盖本机结果。
 
 DNS 判定必须区分探测状态和 DNS 响应码：只有探测 `finished` 且 `statusCode=0`（NOERROR）算查询成功；NXDOMAIN 显示为域名不存在，NOERROR 空答案显示为无记录。Globalping `rawOutput` 仅放在默认折叠的技术详情中。字段语义以[官方 API 规格](https://github.com/jsdelivr/globalping/blob/master/public/v1/spec.yaml)为准。
 
@@ -141,15 +146,16 @@ DNS 判定必须区分探测状态和 DNS 响应码：只有探测 `finished` �
 
 见 design §4.4 摘要落地：
 
-| 项   | 约定                                                      |
-| ---- | --------------------------------------------------------- |
-| 传输 | HTTPS 或 WSS；禁止明文                                    |
-| 鉴权 | 每 agent token 或 mTLS；HMAC(timestamp+body)              |
-| 方法 | 白名单 tool id；**拒绝任意 shell**                        |
-| 限速 | 每 token QPS/并发；超限 → 429 语义                        |
-| SSRF | agent 拒绝被指使打云元数据/未声明目标                     |
-| 发现 | **手动**添加 endpoint；不做局域网自动扩散（防变僵尸网络） |
-| 密钥 | Keychain / 系统安全存储；不进前端持久化明文               |
+| 项       | 约定                                                                                                                                                                                                                           |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 传输     | HTTPS 或 WSS；禁止明文                                                                                                                                                                                                         |
+| 健康检查 | HTTPS 输入 base URL，`GET <base>/v1/health` 要求 2xx 且不跟随重定向；WSS 输入完整健康检查 URL，仅验证可信 TLS 与 WebSocket Upgrade 握手，立即关闭且不发送消息；添加与节点列表刷新均检查，5 秒超时、最多 8 个并发并保持列表顺序 |
+| 鉴权     | 每 agent token 或 mTLS；HMAC(timestamp+body)                                                                                                                                                                                   |
+| 方法     | 白名单 tool id；**拒绝任意 shell**                                                                                                                                                                                             |
+| 限速     | 每 token QPS/并发；超限 → 429 语义                                                                                                                                                                                             |
+| SSRF     | agent 拒绝被指使打云元数据/未声明目标                                                                                                                                                                                          |
+| 发现     | **手动**添加 endpoint；不做局域网自动扩散（防变僵尸网络）                                                                                                                                                                      |
+| 密钥     | Keychain / 系统安全存储；不进前端持久化明文                                                                                                                                                                                    |
 
 #### 对比视图
 
@@ -223,7 +229,7 @@ listProbeNodes(): ProbeNode[]
 
 **C**
 
-- [ ] `listProbeNodes` + Globalping 至少一种测量端到端
+- [x] `listProbeNodes` + Globalping DNS、Ping 与 HTTP 测量端到端
 - [ ] agent 鉴权/限速/拒绝 shell 有测试
 - [ ] `store.byNode` 对比视图；单节点失败可诊断
 - [ ] 远程能力不要求本机 Adv pack（本机零重库）
