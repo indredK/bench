@@ -19,6 +19,12 @@ import type {
   SpeedTestResult,
 } from "@/lib/tauri/types/network-probe"
 
+const BUILTIN_SPEED_SOURCE_LABELS = {
+  "librespeed-org": "networkProbe.speed.sources.libreSpeedOrg",
+  "librespeed-ams": "networkProbe.speed.sources.libreSpeedAmsterdam",
+  "librespeed-selfhost-template": "networkProbe.speed.sources.selfHostedTemplate",
+} as const
+
 interface SpeedPanelProps {
   loading: boolean
   canCancel: boolean
@@ -50,6 +56,11 @@ export function SpeedPanel({
   const [sourceId, setSourceId] = useState("")
   const [now, setNow] = useState(() => Date.now())
 
+  const getSourceLabel = (id: string, name: string) => {
+    if (!Object.prototype.hasOwnProperty.call(BUILTIN_SPEED_SOURCE_LABELS, id)) return name
+    return t(BUILTIN_SPEED_SOURCE_LABELS[id as keyof typeof BUILTIN_SPEED_SOURCE_LABELS])
+  }
+
   useEffect(() => {
     onLoadSources()
   }, [onLoadSources])
@@ -62,7 +73,11 @@ export function SpeedPanel({
 
   useEffect(() => {
     if (cooldownUntil == null || cooldownUntil <= Date.now()) return
-    const id = window.setInterval(() => setNow(Date.now()), 500)
+    const id = window.setInterval(() => {
+      const currentTime = Date.now()
+      setNow(currentTime)
+      if (currentTime >= cooldownUntil) window.clearInterval(id)
+    }, 500)
     return () => window.clearInterval(id)
   }, [cooldownUntil])
 
@@ -77,8 +92,14 @@ export function SpeedPanel({
         })
       : null
 
-  const unavailable =
-    result != null && !result.ok && !result.cancelled && result.downloadMbps == null
+  const hasBandwidthData =
+    result != null && (result.downloadMbps != null || result.uploadMbps != null)
+  const unavailable = result != null && !result.cancelled && !hasBandwidthData
+  const partialBandwidth =
+    result != null &&
+    !result.cancelled &&
+    hasBandwidthData &&
+    (result.downloadMbps == null || result.uploadMbps == null)
 
   return (
     <ProbePanelShell
@@ -117,7 +138,7 @@ export function SpeedPanel({
                 <SelectContent>
                   {sources.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
-                      {s.name}
+                      {getSourceLabel(s.id, s.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -156,7 +177,7 @@ export function SpeedPanel({
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div className="font-medium">
-            {result.sourceName}
+            {getSourceLabel(result.sourceId, result.sourceName)}
             {result.cancelled ? (
               <span className="text-muted-foreground ml-2 text-xs font-normal">
                 ({t("networkProbe.speed.cancelled")})
@@ -168,8 +189,10 @@ export function SpeedPanel({
               {t("networkProbe.speed.sourceUnavailable")}
             </p>
           ) : null}
-          {result.message ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
+          {partialBandwidth ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.speed.partialResult")}
+            </p>
           ) : null}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Metric
