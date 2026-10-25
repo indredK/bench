@@ -64,6 +64,7 @@
 
 - [前端 / UX / §7.4] `src/features/network-probe/components/PortScanPanel.tsx` — **Risk:** 前端仅识别 `::1`，会把 IPv6 ULA 与链路本地目标误判为公网并多弹一次确认；Rust 已将它们按本地目标处理。**Severity:** Low. **Refactor:** 使用成熟的 `ipaddr.js@2.5.0` 解析与范围分类，并严格要求四段十进制 IPv4，避免 UI / IPC 对低风险目标分歧。**Philosophy:** 确认提示应与执行端对同一 IP 的风险分类一致，公共 IPv6 及非规范 IPv4 仍保守要求确认。组件回归 25 项、`tsc --noEmit`、Prettier、隔离 macOS QA bundle 构建通过；macOS 真机以 `fd00::1` + 无效端口验证直达本地解析错误无对话框，公网 IPv6 确认框已显示并取消，未发包。状态：代码、本地回归与 macOS 真机已验证；远程待验。
 - [后端 + 前端 / 安全 / UX] `src-tauri/src/net_probe/ports.rs`、`src/features/network-probe/components/PortScanPanel.tsx` — **Risk:** S3-6 的服务 / OS 指纹通道虽有单元覆盖，但缺少真实 Nmap 执行与权限降级的真机证据。**Severity:** Medium. **Refactor:** 单主机约束、轻量服务探测、输出有界 / 可取消、NSE 禁用、指纹时序和无原始包权限时跳过 OS 识别均在后端执行；用户可选开启并可取消。**Philosophy:** 将高级探测限定在明确授权的单主机和端口范围内，且把 Nmap 能力与权限限制反馈给用户。macOS arm64 隔离 QA 对仅绑定 `127.0.0.1:48765` 的服务运行一次 Nmap 单端口指纹扫描，`mode=nmap-fingerprint-syn-or-connect`、HTTP 服务识别成功、OS 匹配不可用有说明、无 NSE；服务和 QA 已退出。远程构建待验。
+- [前端 / §7 / §9] `src/features/dev-toolbox/services/regex-tester.ts` — **Risk:** replacement 前缀/后缀 token 可放大替换输出，且大量/长捕获组可放大 Worker 响应与界面渲染，造成 WebView 内存与响应性风险。**Severity:** Medium. **Refactor:** 保留原生替换 token 语义；在生成结果前将替换文本限制为 1,000,000 字符，并把匹配/捕获输出限制为 1,000,000 字符及 4,096 个捕获项，超限返回本地化错误。**Philosophy:** 对输入、计算时间和计算结果分别设界，避免短输入借输出放大拖垮主界面。相关 Vitest、完整 pre-commit lint/测试/构建、i18n 与文档一致性检查通过；隔离 macOS QA 实测长捕获和大量空捕获均快速显示限额错误，普通匹配仍正常；PR #104 的所有必需远程 CI 检查已通过。
 
 ## 记录格式
 
