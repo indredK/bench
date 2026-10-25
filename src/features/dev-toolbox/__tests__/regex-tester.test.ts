@@ -101,6 +101,46 @@ describe("dev-toolbox regex tester (pure)", () => {
     expect(result.ok && result.replaced).toBe("a[1]b[2]")
   })
 
+  it("preserves native replacement tokens", () => {
+    const input = "ab ab"
+    const pattern = "(?<first>a)(b)"
+    const replacement = "$$:$&:$1:$2:$<first>:$`:$'"
+    const result = testRegex(pattern, "", input, replacement)
+
+    expect(result.ok && result.replaced).toBe(input.replace(new RegExp(pattern, "g"), replacement))
+  })
+
+  it.each([
+    { pattern: "(a)", input: "a a", replacement: "$0|$01|$10|$2|$$" },
+    { pattern: "(?<x>a)(b)?", input: "ab a", replacement: "$<x>:$<missing>:$1:$2" },
+    { pattern: "(a)?b", input: "b ab", replacement: "<$1>" },
+    { pattern: "a", input: "a a", replacement: "$<name>" },
+  ])("matches native replacement behavior for $replacement", ({ pattern, input, replacement }) => {
+    const result = testRegex(pattern, "", input, replacement)
+
+    expect(result.ok && result.replaced).toBe(input.replace(new RegExp(pattern, "g"), replacement))
+  })
+
+  it("stops replacement templates from expanding output without bound", () => {
+    const result = testRegex("(?=.)", "g", "x".repeat(3000), "$`")
+
+    expect(result).toEqual({ ok: false, code: "REPLACEMENT_OUTPUT_TOO_LARGE" })
+  })
+
+  it("bounds the combined text returned in matches and capture groups", () => {
+    const pattern = `(?=${Array.from({ length: 20 }, () => "(.*)").join("")})`
+    const result = testRegex(pattern, "g", "x".repeat(20_000))
+
+    expect(result).toEqual({ ok: false, code: "MATCH_OUTPUT_TOO_LARGE" })
+  })
+
+  it("bounds capture entry count when captures are empty", () => {
+    const pattern = `(?=${"()".repeat(500)})`
+    const result = testRegex(pattern, "g", "x".repeat(20))
+
+    expect(result).toEqual({ ok: false, code: "MATCH_OUTPUT_TOO_LARGE" })
+  })
+
   it("leaves replaced null when no replacement is provided", () => {
     const result = testRegex("\\d", "", "a1")
     expect(result.ok && result.replaced).toBeNull()

@@ -25,7 +25,10 @@ import type { AppFeature } from "@/features/types"
 import { formatMemory, formatUptime } from "@/lib/utils"
 import {
   MAX_REGEX_INPUT_LENGTH,
+  MAX_REGEX_MATCH_OUTPUT_LENGTH,
   MAX_REGEX_PATTERN_LENGTH,
+  MAX_REGEX_REPLACED_LENGTH,
+  MAX_REGEX_RESULT_CAPTURE_ENTRIES,
 } from "@/features/dev-toolbox/services/regex-tester"
 import {
   useDevToolboxController,
@@ -257,6 +260,8 @@ export default function DevToolbox(_props: DevToolboxProps) {
             {t("systemSettings.devtools.regexSizeHint", {
               patternMax: MAX_REGEX_PATTERN_LENGTH,
               inputMax: MAX_REGEX_INPUT_LENGTH,
+              resultMax: MAX_REGEX_MATCH_OUTPUT_LENGTH,
+              groupsMax: MAX_REGEX_RESULT_CAPTURE_ENTRIES,
             })}
           </p>
           <div className="flex gap-2">
@@ -294,7 +299,16 @@ export default function DevToolbox(_props: DevToolboxProps) {
                           ? t("systemSettings.devtools.regexReplacementTooLong", {
                               max: MAX_REGEX_INPUT_LENGTH,
                             })
-                          : t("systemSettings.devtools.regexInvalidPattern")}
+                          : regexResult.code === "REPLACEMENT_OUTPUT_TOO_LARGE"
+                            ? t("systemSettings.devtools.regexReplacementOutputTooLarge", {
+                                max: MAX_REGEX_REPLACED_LENGTH,
+                              })
+                            : regexResult.code === "MATCH_OUTPUT_TOO_LARGE"
+                              ? t("systemSettings.devtools.regexMatchOutputTooLarge", {
+                                  max: MAX_REGEX_MATCH_OUTPUT_LENGTH,
+                                  groupsMax: MAX_REGEX_RESULT_CAPTURE_ENTRIES,
+                                })
+                              : t("systemSettings.devtools.regexInvalidPattern")}
             </div>
           )}
           {regexResult && regexResult.ok && (
