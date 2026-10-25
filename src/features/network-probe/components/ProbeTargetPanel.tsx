@@ -34,6 +34,7 @@ export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelPro
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 autoComplete="off"
+                disabled={loading}
               />
             </div>
             <CommandHint hint={t("networkProbe.cmd.probeTarget", { input: input.trim() || "…" })}>
@@ -51,6 +52,9 @@ export function ProbeTargetPanel({ loading, result, onRun }: ProbeTargetPanelPro
     >
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
+          <div>
+            {t("networkProbe.probe.input")}: <span className="font-medium">{result.input}</span>
+          </div>
           <div>
             {t("networkProbe.probe.kind")}: <span className="font-medium">{result.kind}</span>
           </div>

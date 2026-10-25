@@ -126,7 +126,7 @@ fn append_limited(bytes: &mut Vec<u8>, chunk: &[u8], content_length: Option<u64>
     bytes.extend_from_slice(&chunk[..copied]);
 
     copied < chunk.len()
-        || (bytes.len() == MAX_RAW && content_length.is_none_or(|length| length > MAX_RAW as u64))
+        || (bytes.len() == MAX_RAW && content_length.is_some_and(|length| length > MAX_RAW as u64))
 }
 
 fn truncate(text: &str) -> (String, bool) {
@@ -176,6 +176,19 @@ mod tests {
         let partial = append_limited(&mut bytes, &chunk, Some((MAX_RAW * 4) as u64));
 
         assert!(partial);
+        assert_eq!(bytes.len(), MAX_RAW);
+    }
+
+    #[test]
+    fn append_limited_does_not_mark_exact_unknown_length_body_as_truncated() {
+        let chunk = vec![b'x'; MAX_RAW];
+        let mut bytes = Vec::new();
+
+        let partial = append_limited(&mut bytes, &chunk, None);
+
+        assert!(!partial);
+        assert_eq!(bytes.len(), MAX_RAW);
+        assert!(append_limited(&mut bytes, b"y", None));
         assert_eq!(bytes.len(), MAX_RAW);
     }
 }

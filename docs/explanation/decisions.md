@@ -91,12 +91,12 @@
 - **状态**：采纳（否定此前「空容错」实现）
 - **背景**：插件源码迁往 plugin-market 仓库后，宿主 `extensions/` 目录不再存在，`pnpm run test:extensions` 的发现集恒为空——旧实现把「零发现」当成功返回（`no extensions directory; nothing to test` → exit 0），门禁形同虚设；同时 `--id <不存在>` 也静默通过。
 - **决策**：
-  1. `scripts/plugins/test-extensions.mjs` 要求显式输入：`--market <插件源码根>` 或 `BENCH_MARKET_DIR`，宿主根默认当前仓库（可 `--host` 覆盖）；两者以 `BENCH_MARKET_DIR` / `BENCH_HOST_DIR` 传给子进程，作为插件配置解析宿主的固定接口。
+  1. `scripts/plugins/test-extensions.mjs` 要求显式输入：`--market <plugin-market/extensions>` 或 `BENCH_MARKET_DIR`，宿主根默认当前仓库（可 `--host` 覆盖）；Bench 入口只负责参数校验与转发，实际测试由 plugin-market 的 `scripts/test-extensions.mjs` 执行。
   2. 缺输入、目录不存在、零发现、`--id` 未命中、全部跳过（零实测）一律非零退出，并给出稳定错误码（`EXTENSION_MARKET_REQUIRED` / `EXTENSION_MARKET_MISSING` / `EXTENSION_ZERO_DISCOVERY` / `EXTENSION_NOT_FOUND` / `EXTENSION_ZERO_TESTED`）。
-  3. 报告 expected / discovered / tested / skipped / failed；`--json` 输出单份可解析 JSON（进度走 stderr）。
+  3. plugin-market runner 将宿主源码和插件源码复制到宿主 `node_modules` 内唯一沙箱，使用宿主锁定的 Vitest 与依赖；报告 expected / discovered / tested / skipped / failed，`--json` 输出单份可解析 JSON（进度走 stderr）。
   4. 构建侧（`build-extensions` 等）保持空容错：空集不阻断构建链，但**验证侧不再宽容**。
 - **理由**：审计确认宿主侧插件测试长期假绿；fail-closed 是唯一能恢复该门禁信用的方式，且 market 仓库成为真源后「验证什么」必须由调用者说清楚。
-- **影响**：`pnpm run test:extensions` 现在需要 `--market`；CI/市场批（P04）需先安装市场侧工具链再调用（真实运行会暴露 `Cannot find package 'vitest'`，属预期）。
+- **影响**：`pnpm run test:extensions` 现在需要 `--market`，并委托市场仓唯一 runner；不再从树外插件目录加载 `vitest.config.ts`，避免找不到宿主 Vitest 或落入不同 React 实例。
 - **相关**：[test-extensions.mjs](../../scripts/plugins/test-extensions.mjs) · [extensions-contract.test.mjs](../../scripts/quality/__tests__/extensions-contract.test.mjs)
 
 ## D-035 · 运行时与工具链基线：Node 26.8.2 / 最低 24.15.0、pnpm 12.4.2、Rust 1.98.1

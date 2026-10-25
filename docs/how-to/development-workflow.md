@@ -115,10 +115,10 @@ Rust 改动涉及窗口构建、托盘、系统 API 或外部命令时，额外�
 插件源码在市场仓库，宿主侧验证必须显式给输入：
 
 ```bash
-pnpm run test:extensions -- --market ../plugin-market/extensions
+pnpm run test:extensions -- --market ../kindred-plugin-market/plugin-market/extensions
 ```
 
-缺输入、目录不存在、零发现、`--id` 未命中、零实测都会非零退出（见 decisions.md D-036）；`--json` 输出 `expected/discovered/tested/skipped/failed`。市场侧工具链需先安装（否则会看到 `Cannot find package 'vitest'`，这是真实失败而非环境噪声）。
+缺输入、目录不存在、缺少市场 runner、零发现、`--id` 未命中、零实测都会非零退出（见 decisions.md D-036）；`--json` 输出 `expected/discovered/tested/skipped/failed`。Bench 入口转交市场仓 runner；测试使用宿主 Vitest，并在宿主 `node_modules` 内创建唯一沙箱。
 
 ### 9.5 CI 结构
 
