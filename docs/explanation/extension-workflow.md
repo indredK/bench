@@ -295,7 +295,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 - [ ] IPC 命令**留在宿主 Rust 核心**，仅登记 ACL 注册表（`extension_host/acl.rs`）+ 补 `capability_face_all_allowed` 测试；纯前端插件 `acl.commands: []` 并在注释声明
 - [ ] manifest `engines.bench` 门槛必须 ≤ 宿主版本——**别硬编码**：验证包脚本是动态读 `tauri.conf.json` 的 version（bench-poc 曾写死 `>=2.0.0` 导致插件中心显示「宿主版本不兼容」）
-- [ ] 平台限制用 `platforms` 字段（spec §3.1，P5 增补；缺省全平台；宿主在已装列表按当前平台过滤）
+- [ ] 平台限制用 `platforms` 字段（spec §3.1，P5 增补；缺省表示当前支持的 macOS / Windows；宿主在已装列表按当前平台过滤）
 - [ ] 契约（contracts.ts / types）**留在宿主**不动——双写规则针对宿主 Rust 面，与 UI 位置无关
 
 ### 11.4 i18n 归集（守卫已强制）

@@ -244,7 +244,7 @@ pnpm run test:critical       # ✓ 145 passed
   - 配套：`extensions:build` 泛化为循环构建全部插件；docs 对齐门禁升级（extensions/<id> 计入模块，14 features + 3 plugins ↔ 17 docs）；宿主 registry/locales 同步摘除（zh/en parity 保持）
   - **第一批后复评（用户已裁决）**：继续按需迁移，不停在 bundled-plugin 形态
 - [x] **第二批完成（2026-09-08，用户指令）**：clean-space（含 dev-cleaner 子能力）→ `extensions/clean-space/`
-  - 能力面 14 条命令（8 清理 + 6 dev-cleaner）留宿主核心 + ACL；**平台门控落地**：manifest v2 新增可选 `platforms` 字段（spec §3.1，缺省全平台、空数组非法、宿主按当前平台过滤已装列表——能力判定在宿主，renderer 不自行决定）
+  - 能力面 14 条命令（8 清理 + 6 dev-cleaner）留宿主核心 + ACL；**平台门控落地**：manifest v2 新增可选 `platforms` 字段（spec §3.1，缺省表示当前受支持的 macOS / Windows、空数组非法、宿主按当前平台过滤已装列表——能力判定在宿主，renderer 不自行决定）
   - dev-cleaner 作为子模块随迁（`src/dev-cleaner/`），宿主 `src/features/{clean-space,dev-cleaner}` 删除
   - **文档归集（用户指令）**：已插件化模块的文档三件套（product-spec / planned / roadmap / README，clean-space 另含 design.md + 原型 HTML、dev-cleaner 子目录）自包含迁至 `extensions/<id>/docs/`；docs-consistency 门禁升级为插件文档本地校验（12 features + 4 plugins ↔ 12 module docs）；docs/ROADMAP、modules/README、planned/README、dev-toolbox README 等入链全部重定向，390 条相对链接校验通过
   - **i18n 归集（用户指令）**：插件文案自包含于 `extensions/<id>/locales/{zh,en}.json`（独立 i18next 实例消费）；主包 locales 删除全部已迁模块键（photoTriage 残留清零）；**i18n 守卫扩展**：自动校验全部插件 locales 成对/结构/无重复键（缺 locales 直接挂 CI）
