@@ -153,7 +153,7 @@ tauri-app/
 
 ## 8. 作者侧流程（P4.5 交付物）
 
-> 目标：**前端开发者零门槛** —— 会写 React 就能做插件，不需要懂 Rust（对标 uTools 生态的成功要素）。
+> 作者工具链已交付在 [kindred-plugin-market/bench-extension-template](https://github.com/kindred-plugin-market/bench-extension-template)。新作者应以模板仓库 README 为可执行指南；本节记录能力与发布边界。
 > 契约细节一律以 [extension-spec.md](../reference/extension-spec.md) 为准。
 
 ### 8.1 创建插件
@@ -175,18 +175,20 @@ extensions/<id>/
 
 `id` 必须匹配 `^[a-z][a-z0-9-]*$`。
 
+模板打包器只接受 `platforms: ["macos"]`、`["windows"]` 或两者组合；省略 `platforms` 表示支持当前两个宿主平台。Linux 尚未纳入 Bench 构建与发布支持范围。
+
 ### 8.2 本地开发与调试
 
-1. 照常在主仓库开发：改前端 → `pnpm run dev` → 插件窗口即时生效；改 Rust → 走 cargo 链路。
-2. 产物同步到运行时目录：`pnpm run extensions:sync`（保留 `.disabled` 用户标记，幂等）。
-3. 打开插件窗口：插件中心点击「打开」，或 `BENCH_POC_EXT=<id> pnpm run dev` 直开。
-4. 调试：宿主注入 `EXT_ERROR_CAPTURE_SCRIPT`，捕获 window-error / unhandledrejection / console.error / boot，回传宿主落盘（P3.3 起为**追加式**）。
-5. 开发期免签：设 `BENCH_EXT_DEV_MODE=1`（[spec §4.3](../reference/extension-spec.md)）。
+1. 在模板仓库执行 `pnpm install`，修改生成目录下的源码与 manifest。
+2. 本地验证时运行 `pnpm run extensions:pack <id> --dev-unsigned --install-dir <Bench 插件目录>`；模板 README 给出了 macOS / Windows 目标目录。
+3. 完全退出 Bench，再设 `BENCH_EXT_DEV_MODE=1` 启动宿主，在插件中心打开插件。
+4. 宿主捕获 window-error / unhandledrejection / console.error / boot 并写入追加式诊断日志；插件中心的诊断标签可查看结果。
+5. `BENCH_EXT_DEV_MODE=1` 只用于本地未签名调试，不得用于正式发行（[spec §4.3](../reference/extension-spec.md)）。
 
 ### 8.3 构建
 
 ```bash
-pnpm run extensions:build     # 全部插件；支持 --id <id>；P4.5 起支持 --id
+pnpm run extensions:build     # 宿主仓库维护者构建 bundled 插件；支持 --id <id>
 ```
 
 产出 `extensions/<id>/assets/`（`base: "./"` 是硬性要求，否则子路径下 404 白屏）。
@@ -220,7 +222,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 3. 维护者人工审核：manifest 合法性、ACL 是否最小、产物与源码是否对应
 4. 合入即上架（静态托管，无服务端）
 
-阶段一（当前，契约演进期）：官方插件住主仓库 `extensions/`，`distribution: "bundled"`，随主包发布。
+当前官方插件源码由 [kindred-plugin-market/plugin-market](https://github.com/kindred-plugin-market/plugin-market) 管理，并由该仓库的发布流程生成 registry 产物；Bench 宿主按 `distribution` 与 registry 契约加载。不要把插件模板仓库当作官方插件源码仓。
 
 ### 8.6 版本升级与下架
 
@@ -232,12 +234,12 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 ### 8.7 作者文档清单（P4.5 一并交付）
 
-| 文档                              | 位置                                                |
-| --------------------------------- | --------------------------------------------------- |
-| 快速开始（30 分钟做出可安装插件） | `extensions/README.md`                              |
-| 契约参考                          | [extension-spec.md](../reference/extension-spec.md) |
-| SDK 用法（IPC / i18n / 诊断上报） | `@bench/ext-sdk` 包内 README                        |
-| 提交 registry                     | 本文 §8.5                                           |
+| 文档                              | 位置                                                                                                                          |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 快速开始（目标 30 分钟）          | [bench-extension-template README](https://github.com/kindred-plugin-market/bench-extension-template#30-分钟上手)              |
+| 契约参考                          | [extension-spec.md](../reference/extension-spec.md)                                                                           |
+| SDK 用法（IPC / i18n / 诊断上报） | [模板仓库 SDK README](https://github.com/kindred-plugin-market/bench-extension-template/blob/main/packages/ext-sdk/README.md) |
+| 提交 registry                     | 本文 §8.5                                                                                                                     |
 
 ---
 
@@ -293,7 +295,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 
 - [ ] IPC 命令**留在宿主 Rust 核心**，仅登记 ACL 注册表（`extension_host/acl.rs`）+ 补 `capability_face_all_allowed` 测试；纯前端插件 `acl.commands: []` 并在注释声明
 - [ ] manifest `engines.bench` 门槛必须 ≤ 宿主版本——**别硬编码**：验证包脚本是动态读 `tauri.conf.json` 的 version（bench-poc 曾写死 `>=2.0.0` 导致插件中心显示「宿主版本不兼容」）
-- [ ] 平台限制用 `platforms` 字段（spec §3.1，P5 增补；缺省全平台；宿主在已装列表按当前平台过滤）
+- [ ] 平台限制用 `platforms` 字段（spec §3.1，P5 增补；缺省表示当前支持的 macOS / Windows；宿主在已装列表按当前平台过滤）
 - [ ] 契约（contracts.ts / types）**留在宿主**不动——双写规则针对宿主 Rust 面，与 UI 位置无关
 
 ### 11.4 i18n 归集（守卫已强制）
@@ -315,7 +317,7 @@ pnpm run extensions:pack <id>     # P4.5 交付
 ### 11.6 测试
 
 - [ ] 插件测试放 `extensions/<id>/src/__tests__/`（随代码迁入）；**每个插件建 `vitest.config.ts` + `vitest.setup.ts`**（jsdom + 与构建一致的 alias，含 `"@/i18n/config"` 重绑定），并加**页面冒烟测试**（jsdom 渲染根组件 + 最小 invoke 桩）——"打开即白屏"类回归直接浮出
-- [ ] 跑 `pnpm run test:extensions -- --market <插件源码根>`（runner 循环全部带 vitest.config 的插件，fail-fast；缺输入/零发现/零实测一律失败，见 [D-036](./decisions.md)）；宿主 vitest 仍 exclude `extensions/**`，两套并行
+- [ ] 跑 `pnpm run test:extensions -- --market <plugin-market>/extensions`（Bench 入口委托市场仓 runner；以 `manifest.json` 为全集，缺配置/零发现/零实测一律失败，见 [D-036](./decisions.md)）；宿主 vitest 仍 exclude 插件源码，两套并行
 - [ ] 宿主侧更新：`src/features/registry.test.tsx` 断言反转（`not.toContain` 被迁路由）；`test:critical` 名单核对（被迁 feature 的测试若在列需移除）
 - [ ] **迁走共享工具前必须查全宿主消费者**（`grep -rln` 全 src，含测试文件）：两边都用 → 各留一份副本（如 `refresh.ts`：宿主原件保留、插件内 `lib/feature-refresh.ts` 副本，与 common 快照同理）；只删不查 = 宿主测试收集直接红（P5 实测踩坑）
 

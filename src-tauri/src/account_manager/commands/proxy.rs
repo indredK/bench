@@ -5,7 +5,8 @@ use tauri::{AppHandle, Manager, Runtime, State};
 use zeroize::Zeroizing;
 
 use super::shared::{
-    build_proxy_url_for_station, new_id, normalize_optional, now_label, trim_or_invalid,
+    build_proxy_url_for_station, new_id, normalize_login_url, normalize_optional, now_label,
+    trim_or_invalid,
 };
 use crate::account_manager::crypto;
 use crate::account_manager::state::{AccountManagerState, AuthProxyInboxStatus, AuthProxyTicket};
@@ -26,21 +27,14 @@ pub fn open_login_window<R: Runtime>(
     return_url: Option<String>,
     url: Option<String>,
 ) -> AccountManagerResult<()> {
-    // 显式 url 优先(快速登录粘贴的认证 URL),校验 http/https + host。
+    // 显式 URL 优先(快速登录粘贴的认证 URL)，禁止将认证信息嵌入 URL。
     let explicit_url = match url.as_deref() {
         Some(raw) => {
             let trimmed = raw.trim();
             if trimmed.is_empty() {
                 None
             } else {
-                let parsed = url::Url::parse(trimmed)
-                    .map_err(|e| AccountManagerError::invalid_input(format!("login url: {e}")))?;
-                if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
-                    return Err(AccountManagerError::invalid_input(
-                        "login url must use http or https and include a host",
-                    ));
-                }
-                Some(parsed.to_string())
+                Some(normalize_login_url(trimmed)?)
             }
         }
         None => None,
@@ -89,7 +83,10 @@ pub fn open_login_window<R: Runtime>(
     };
 
     // 目标 URL 优先级:显式 url > station.website。
-    let target = explicit_url.unwrap_or(website);
+    let target = match explicit_url {
+        Some(explicit_url) => explicit_url,
+        None => normalize_login_url(&website)?,
+    };
 
     // 互斥模式：登录前处理同站其它账号（exclusive 登出冲突账号 / rotating 降级活跃账号）
     crate::account_manager::exclusivity::enforce_exclusivity_before_login(

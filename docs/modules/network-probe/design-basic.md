@@ -22,21 +22,24 @@
 
 > **站点延迟**已提升为独立 L1（`sites`：常用官网卡片 + 区域站点包），不再挂在基础视角下。
 
-导航记忆：`nav.l1Id = basic` + `l2ByL1.basic` + `offlineSub`（见 design §3.1）。
+P5-4 将基础视角合并为一个纵向滚动页，按「概览 → 体检 → 扫描建议 → 上不了网 → 修复 → 报告」顺序展示六个区块。页首提供区块跳转；每区复用原面板、同一 feature store 与既有动作，切换区块不清除结果。站点延迟仍是独立 L1；区块共用页面滚动容器，不增加嵌套滚动。
+
+导航记忆：`nav.l1Id = basic` + `offlineSub`（见 design §3.1）；旧版本的 `l2ByL1.basic` 值仍可读取，但基础页不再依赖单区 L2 路由。
 
 ---
 
 ## 2. 架构落点
 
 ```text
-components/BasicView/
-  NetworkSummaryHeader.tsx   # overview
-  HealthTree.tsx             # tree
-  ScanOpinion.tsx            # opinion
-  SiteLatencyBoard.tsx       # sites
-  OfflineSuite.tsx           # offline + 子路由
-  QuickFixPanel.tsx          # fix
-  HealthReport.tsx           # report（可上提 shared）
+components/
+  BasicView.tsx              # 六区组合 + 区块跳转
+  OverviewPanel.tsx          # overview
+  HealthTreePanel.tsx        # tree
+  ScanOpinionPanel.tsx       # opinion
+  OfflinePanel.tsx           # offline + 子路由摘要
+  FixPanel.tsx               # fix
+  ReportPanel.tsx            # report
+  SitesProbePanel.tsx        # 独立 sites L1
 
 src-tauri/src/net_probe/
   summary.rs      # LocalNetworkSummary / DefaultRoute / hosts / firewall
@@ -62,15 +65,15 @@ UI → controller → use-case → repository → typed IPC → net_probe::*
 
 ### 3.1 本机摘要（`getLocalNetworkSummary` / `getDefaultRoute`）
 
-| 数据                    | 推荐路径                                                              | 备选 / 注意                                                                                  |
-| ----------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 接口 up/down、地址、MAC | `netdev` + `if-addrs`                                                 | 不解析 `ifconfig` 人类表格（coding-standards §7.4）                                          |
-| 默认路由 / 网关         | `netdev` 路由表或 `SCDynamicStore` / `route get default` 结构化解析   | 优先库；子进程须固定 locale、timeout、输出上限                                               |
-| DNS 服务器              | `system-configuration` crate → `SCDynamicStoreCopyValue` / DNS entity | 对齐 `scutil --dns` 语义；取**当前生效** resolver，非仅「网络服务」配置页                    |
-| 系统代理 / PAC          | `SCDynamicStore` Proxies 字典（HTTP/HTTPS/SOCKS/PAC URL）             | 对齐 `scutil --proxy`；企业 VPN 下勿只信 System Settings UI                                  |
-| 活动接口排序            | `scutil --nwi` 等价信息（Primary + REACH）                            | VPN `utun*` 可能抢主键；摘要须同时列出 primary + 隧道                                        |
-| Wi‑Fi SSID / 信号       | CoreWLAN（`CWInterface`）或既有 `get_wifi_info` 迁入                  | **macOS Local Network / Wi‑Fi 隐私**：首次可能弹授权；失败标 `partial`/`unsupported`，不伪装 |
-| hosts                   | 只读 `/etc/hosts`                                                     | 解析异常行记 warn；**不自动改写**                                                            |
+| 数据                    | 推荐路径                                                                                       | 备选 / 注意                                                                                                            |
+| ----------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 接口 up/down、地址、MAC | `netdev` + `if-addrs`                                                                          | 不解析 `ifconfig` 人类表格（coding-standards §7.4）                                                                    |
+| 默认路由 / 网关         | `netdev` 路由表或 `SCDynamicStore` / `route get default` 结构化解析                            | 优先库；子进程须固定 locale、timeout、输出上限                                                                         |
+| DNS 服务器              | `system-configuration` crate → `SCDynamicStoreCopyValue` / DNS entity                          | 对齐 `scutil --dns` 语义；取**当前生效** resolver，非仅「网络服务」配置页                                              |
+| 系统代理 / PAC          | `SCDynamicStore` Proxies 字典（HTTP/HTTPS/SOCKS/PAC URL）                                      | 对齐 `scutil --proxy`；企业 VPN 下勿只信 System Settings UI                                                            |
+| 活动接口排序            | `scutil --nwi` 等价信息（Primary + REACH）                                                     | VPN `utun*` 可能抢主键；摘要须同时列出 primary + 隧道                                                                  |
+| Wi‑Fi SSID / 信号       | CoreWLAN（`CWWiFiClient` / `CWInterface`），由 `system_settings::network::read_wifi_info` 共享 | SSID 受 macOS「定位服务」授权限制；本应用只读、不申请授权；未连接或系统不返回 SSID 时字段留空，信号仅接受有效负 dBm 值 |
+| hosts                   | 只读 `/etc/hosts`                                                                              | 解析异常行记 warn；**不自动改写**                                                                                      |
 
 参考实践：
 
@@ -168,7 +171,7 @@ macOS 允许非 root 使用 `SOCK_DGRAM` + `IPPROTO_ICMP`（与系统 `ping(8)` 
 | session | `startHealthScan` / `startSitesProbe` + `cancelScan`                                                             |
 | event   | `network-probe://health-item` `network-probe://site-sample`                                                      |
 
-Tauri v2：事件名进 `TAURI_EVENTS`；payload 必带 `sessionId`；前端只合并当前 session。
+Tauri v2：事件名进 `TAURI_EVENTS`；payload 必带 `sessionId`；前端只合并当前 session。扫描结束并卸载 listener 后，丢弃已排队的迟到 session 事件；同类重跑不得继承旧会话 ID 或取消意图。
 
 ---
 
@@ -221,6 +224,7 @@ Advisor：前端 `network-probe.advisor.ts` 与后端 `advisor_rules.rs` **共�
 - [ ] 上不了网五项 + 与测试双入口不双实现
 - [x] 高危修复三次确认 + 后端复核
 - [ ] 能力矩阵驱动灰显；无特权不伪装 traceroute 成功（traceroute 属测试 Tab，但体检不假填跳点）
+- [x] 基础视角六区同页、区块跳转可键盘操作；站点延迟仍为独立 L1；区块无嵌套滚动
 - [ ] `lint:fe` / `test:critical`；相关 Rust 测试通过
 
 ---

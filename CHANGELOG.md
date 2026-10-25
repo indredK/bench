@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.38.0](https://github.com/indredK/bench/compare/v1.37.0...v1.38.0) (2026-10-25)
+
+
+### Features
+
+* **network-probe:** integrate BasicView panels ([#154](https://github.com/indredK/bench/issues/154)) ([0116228](https://github.com/indredK/bench/commit/01162286cd7b86f7783b23bbd7205ccf711ca3a1))
+
+
+### Bug Fixes
+
+* **account-manager:** recover first run and secure quick login ([#137](https://github.com/indredK/bench/issues/137)) ([5a669b2](https://github.com/indredK/bench/commit/5a669b28554cd54ba1784660f2a96a889f0cc41c))
+* **dev-toolbox:** isolate regex evaluation in a bounded worker ([#104](https://github.com/indredK/bench/issues/104)) ([22856df](https://github.com/indredK/bench/commit/22856df32e01ceff352dbcd127f07effed0ed57e))
+* **extension-center:** align supported platform validation ([#136](https://github.com/indredK/bench/issues/136)) ([6a5ff40](https://github.com/indredK/bench/commit/6a5ff404a58fc0b86253677523f25a3e0dc8cbe5))
+* harden app inventory and plugin verification ([#140](https://github.com/indredK/bench/issues/140)) ([f6c7bf8](https://github.com/indredK/bench/commit/f6c7bf8318e352183d8adc354746a68f05b4be8b))
+* **macos:** use AppKit scroll elasticity selectors ([#156](https://github.com/indredK/bench/issues/156)) ([ee131af](https://github.com/indredK/bench/commit/ee131af5687f5c496cadb908af29403f349bad43))
+* **network-probe:** handle Globalping DNS status and deadlines ([#130](https://github.com/indredK/bench/issues/130)) ([7a6c53f](https://github.com/indredK/bench/commit/7a6c53f2f5582934df79940fc3de60e9bb01a857))
+* **network-probe:** route IP RDAP queries correctly ([#141](https://github.com/indredK/bench/issues/141)) ([6627ff2](https://github.com/indredK/bench/commit/6627ff2b74c46c298337d1193e780576841a5281))
+* **updater:** reject downgrade installs ([#153](https://github.com/indredK/bench/issues/153)) ([c1c2cca](https://github.com/indredK/bench/commit/c1c2cca1a59205094ff7336969d5bca5610314d9))
+
 ## [1.37.0](https://github.com/indredK/bench/compare/v1.36.0...v1.37.0) (2026-09-22)
 
 

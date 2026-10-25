@@ -18,7 +18,11 @@ function scanResult(overrides: Partial<PortScanResult> = {}): PortScanResult {
   }
 }
 
-function renderSamples(samples: PortSampleEvent[], result: PortScanResult | null = null) {
+function renderSamples(
+  samples: PortSampleEvent[],
+  result: PortScanResult | null = null,
+  toolStatus?: string,
+) {
   return render(
     <I18nextProvider i18n={i18n}>
       <PortScanPanel
@@ -27,10 +31,17 @@ function renderSamples(samples: PortSampleEvent[], result: PortScanResult | null
         result={result}
         streaming={samples}
         toolEnabled
+        toolStatus={toolStatus}
         onRun={() => undefined}
         onCancel={() => undefined}
       />
     </I18nextProvider>,
+  )
+}
+
+function portSampleRows(): string[] {
+  return Array.from(document.querySelectorAll('[data-network-probe-list="port-samples"] li')).map(
+    (item) => item.textContent?.replace(/\s+/g, "") ?? "",
   )
 }
 
@@ -49,12 +60,13 @@ describe("PortScanPanel status localization", () => {
       { port: 8443, state: "future-state" },
     ])
 
-    expect(screen.getByText("22: 开放")).toBeTruthy()
-    expect(screen.getByText("80: 已关闭")).toBeTruthy()
-    expect(screen.getByText("443: 无法确定（已过滤）")).toBeTruthy()
-    expect(screen.getByText("8080: 探测失败")).toBeTruthy()
-    expect(screen.getByText("8443: 未知")).toBeTruthy()
-    expect(screen.queryByText("80: closed")).toBeNull()
+    expect(portSampleRows()).toEqual([
+      "22:开放",
+      "80:关闭",
+      "443:已过滤",
+      "8080:错误",
+      "8443:未知状态",
+    ])
   })
 
   it("shows the English labels when the application language is English", async () => {
@@ -67,28 +79,54 @@ describe("PortScanPanel status localization", () => {
       { port: 8443, state: "future-state" },
     ])
 
-    expect(screen.getByText("22: Open")).toBeTruthy()
-    expect(screen.getByText("80: Closed")).toBeTruthy()
-    expect(screen.getByText("443: Undetermined (filtered)")).toBeTruthy()
-    expect(screen.getByText("8080: Probe failed")).toBeTruthy()
-    expect(screen.getByText("8443: Unknown")).toBeTruthy()
+    expect(portSampleRows()).toEqual([
+      "22:Open",
+      "80:Closed",
+      "443:Filtered",
+      "8080:Error",
+      "8443:Unknown",
+    ])
   })
+
+  it.each([
+    [
+      "zh",
+      "对你拥有或获准测试的单台主机扫描 TCP 端口（最多 256 个），可随时取消。",
+      "已检测到 nmap：优先尝试 SYN，权限不足时回退为 TCP connect。可单独勾选服务 / OS 指纹。",
+    ],
+    [
+      "en",
+      "Scan TCP ports on one host you own or are authorized to test (up to 256). Cancel at any time.",
+      "nmap detected: SYN is attempted first and falls back to TCP connect if permission is unavailable. Service / OS fingerprinting is opt-in.",
+    ],
+  ])(
+    "describes the generic scan and Nmap mode separately in %s",
+    async (locale, hint, nmapHint) => {
+      await i18n.changeLanguage(locale)
+      renderSamples([], null, "supported")
+
+      expect(screen.getByText(hint)).toBeTruthy()
+      expect(screen.getByText(nmapHint)).toBeTruthy()
+      expect(screen.queryByText(/TCP connect scan/i)).toBeNull()
+      expect(screen.queryByText(/TCP connect 端口扫描/)).toBeNull()
+    },
+  )
 
   it("does not repeat the backend's English degraded-mode message", async () => {
     await i18n.changeLanguage("zh")
     renderSamples(
       [],
       scanResult({
-        message: "Degraded mode: TCP connect only. Install adv-scanner / nmap for SYN.",
+        mode: "tcp-connect",
+        message: "Degraded mode: TCP connect only. nmap was not detected.",
       }),
     )
 
     expect(
-      screen.getAllByText("降级模式：仅 TCP connect。安装 adv-scanner / nmap 可启用 SYN。"),
+      screen.getAllByText("降级模式：仅 TCP connect。未检测到 nmap；安装 nmap 后可尝试 SYN。"),
     ).toHaveLength(1)
-    expect(
-      screen.queryByText("Degraded mode: TCP connect only. Install adv-scanner / nmap for SYN."),
-    ).toBeNull()
+    expect(screen.getByText("未取得 nmap 扫描结果，已使用 TCP connect。")).toBeTruthy()
+    expect(screen.queryByText("Degraded mode: TCP connect only. nmap was not detected.")).toBeNull()
   })
 
   it("localizes cancellation and Nmap result notices", async () => {
@@ -109,11 +147,7 @@ describe("PortScanPanel status localization", () => {
           "nmap present: used -sS when permitted, otherwise -sT. No exploit scripts (-sC/-sV off).",
       }),
     )
-    expect(
-      screen.getByText(
-        "已使用 Nmap 执行 SYN 扫描（权限不足时回退 TCP connect）；未运行攻击脚本（-sC/-sV）。",
-      ),
-    ).toBeTruthy()
+    expect(screen.getByText("nmap 扫描完成；未运行漏洞或服务探测脚本。")).toBeTruthy()
     expect(screen.queryByText(/nmap present:/i)).toBeNull()
   })
 })
