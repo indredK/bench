@@ -52,6 +52,13 @@ import type {
   OriginStorage,
 } from "@/lib/tauri/types/account-manager"
 import type {
+  GlobalpingHttpStats,
+  GlobalpingMeasurementResult,
+  GlobalpingPingStats,
+  GlobalpingProbeResult,
+  GlobalpingQuota,
+} from "@/lib/tauri/types/network-probe"
+import type {
   BrowserExtensionStatus,
   BrowserInfo,
   McpInstallResult,
@@ -112,6 +119,74 @@ describe("Tauri contracts", () => {
     const rustStructFields = parseRustStructFields(rustSource)
 
     const checks: Array<[string, string, string[]]> = [
+      [
+        "GlobalpingMeasurementResult",
+        "camel",
+        dtoKeys<GlobalpingMeasurementResult>([
+          "kind",
+          "target",
+          "method",
+          "status",
+          "failureCode",
+          "quota",
+          "probesCount",
+          "results",
+          "elapsedMs",
+          "commandHint",
+        ]),
+      ],
+      [
+        "GlobalpingQuota",
+        "camel",
+        dtoKeys<GlobalpingQuota>([
+          "rateLimitLimit",
+          "rateLimitConsumed",
+          "rateLimitRemaining",
+          "rateLimitResetSeconds",
+          "creditsRemaining",
+          "creditsConsumed",
+        ]),
+      ],
+      [
+        "GlobalpingProbeResult",
+        "camel",
+        dtoKeys<GlobalpingProbeResult>([
+          "nodeId",
+          "nodeLabel",
+          "status",
+          "ok",
+          "failureSource",
+          "resolvedAddress",
+          "ping",
+          "http",
+        ]),
+      ],
+      [
+        "GlobalpingPingStats",
+        "camel",
+        dtoKeys<GlobalpingPingStats>([
+          "packetsSent",
+          "packetsReceived",
+          "lossPercent",
+          "minRttMs",
+          "avgRttMs",
+          "maxRttMs",
+        ]),
+      ],
+      [
+        "GlobalpingHttpStats",
+        "camel",
+        dtoKeys<GlobalpingHttpStats>([
+          "statusCode",
+          "totalMs",
+          "dnsMs",
+          "tcpMs",
+          "tlsMs",
+          "firstByteMs",
+          "downloadMs",
+          "tlsAvailable",
+        ]),
+      ],
       [
         "AccountManagerCapability",
         "camel",

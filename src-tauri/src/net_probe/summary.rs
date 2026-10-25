@@ -150,28 +150,9 @@ fn collect_dns_servers() -> Vec<String> {
 fn collect_wifi_info() -> (Option<String>, Option<i32>) {
     #[cfg(target_os = "macos")]
     {
-        let airport = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport";
-        let output = Command::new(airport).args(["-I"]).output();
-        let Ok(output) = output else {
-            return (None, None);
-        };
-        let text = String::from_utf8_lossy(&output.stdout);
-        let mut ssid = None;
-        let mut signal = None;
-        for line in text.lines() {
-            let parts: Vec<&str> = line.splitn(2, ':').collect();
-            if parts.len() != 2 {
-                continue;
-            }
-            let key = parts[0].trim();
-            let val = parts[1].trim();
-            match key {
-                "SSID" => ssid = Some(val.to_string()),
-                "agrCtlRSSI" => signal = val.parse().ok(),
-                _ => {}
-            }
-        }
-        (ssid, signal)
+        crate::system_settings::network::read_wifi_info()
+            .map(|info| wifi_summary_fields(&info))
+            .unwrap_or((None, None))
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -179,9 +160,42 @@ fn collect_wifi_info() -> (Option<String>, Option<i32>) {
     }
 }
 
+#[cfg(any(target_os = "macos", test))]
+fn wifi_summary_fields(
+    info: &crate::system_settings::types::WifiInfo,
+) -> (Option<String>, Option<i32>) {
+    let ssid = (!info.ssid.trim().is_empty()).then(|| info.ssid.clone());
+    (ssid, info.signal_strength.filter(|rssi| *rssi < 0))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{is_tunnel_iface, parse_route_get_default};
+    use super::{is_tunnel_iface, parse_route_get_default, wifi_summary_fields};
+    use crate::system_settings::types::WifiInfo;
+
+    fn wifi_info(ssid: &str, signal_strength: Option<i32>) -> WifiInfo {
+        WifiInfo {
+            ssid: ssid.to_string(),
+            signal_strength,
+            channel: None,
+            frequency: None,
+            security: None,
+        }
+    }
+
+    #[test]
+    fn unavailable_wifi_fields_remain_absent() {
+        assert_eq!(wifi_summary_fields(&wifi_info("", None)), (None, None));
+        assert_eq!(wifi_summary_fields(&wifi_info("  ", Some(0))), (None, None));
+    }
+
+    #[test]
+    fn connected_wifi_fields_are_preserved() {
+        assert_eq!(
+            wifi_summary_fields(&wifi_info("Bench Wi-Fi", Some(-48))),
+            (Some("Bench Wi-Fi".to_string()), Some(-48))
+        );
+    }
 
     #[test]
     fn route_with_gateway_is_present() {
