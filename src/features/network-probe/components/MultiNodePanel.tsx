@@ -256,34 +256,70 @@ export function MultiNodePanel({
       />
       {result ? (
         <div className="space-y-2">
-          <p className="text-muted-foreground text-xs">
+          <p className="text-muted-foreground text-xs" role="status" aria-live="polite">
             {t("networkProbe.nodes.meta", {
               domain: result.domain,
               count: result.answers.length,
               ms: result.elapsedMs.toFixed(0),
             })}
           </p>
-          <ul className="space-y-2 text-sm">
-            {result.answers.map((a) => (
-              <li key={a.nodeId} className="rounded-md border px-3 py-2">
-                <div className="font-medium">
-                  {a.nodeId === "local" ? t("networkProbe.nodes.kindLocal") : a.nodeLabel}{" "}
-                  <span className="font-mono text-xs" role="status">
-                    {t(a.ok ? "networkProbe.nodes.answerOk" : "networkProbe.nodes.answerFail")}
-                  </span>
-                </div>
-                {a.answers.length > 0 ? (
-                  <pre className="text-muted-foreground mt-1 overflow-auto font-mono text-xs">
-                    {a.answers.join("\n")}
-                  </pre>
-                ) : null}
-                {a.detail ? <p className="text-muted-foreground mt-1 text-xs">{a.detail}</p> : null}
-              </li>
-            ))}
+          <ul aria-label={t("networkProbe.nodes.answersLabel")} className="space-y-2 text-sm">
+            {result.answers.map((answer) => {
+              const responseCode = answer.statusCodeName?.toUpperCase()
+              const statusLabel =
+                responseCode === "NXDOMAIN"
+                  ? t("networkProbe.nodes.answerNotFound")
+                  : responseCode === "NOERROR" && answer.answers.length === 0
+                    ? t("networkProbe.nodes.answerNoRecords")
+                    : answer.errorCode === "timed_out"
+                      ? t("networkProbe.nodes.answerTimedOut")
+                      : t(
+                          answer.ok
+                            ? "networkProbe.nodes.answerOk"
+                            : "networkProbe.nodes.answerFail",
+                        )
+
+              return (
+                <li key={answer.nodeId} className="rounded-md border px-3 py-2">
+                  <div className="font-medium">
+                    {answer.nodeId === "local"
+                      ? t("networkProbe.nodes.kindLocal")
+                      : answer.nodeLabel}{" "}
+                    <span
+                      className={
+                        answer.ok
+                          ? "font-mono text-xs text-emerald-700 dark:text-emerald-400"
+                          : "text-destructive font-mono text-xs"
+                      }
+                      role="status"
+                    >
+                      {statusLabel}
+                    </span>
+                  </div>
+                  {answer.answers.length > 0 ? (
+                    <pre className="text-muted-foreground mt-1 overflow-auto font-mono text-xs">
+                      {answer.answers.join("\n")}
+                    </pre>
+                  ) : null}
+                  {answer.detail ? (
+                    <details className="text-muted-foreground mt-1 text-xs">
+                      <summary className="cursor-pointer">
+                        {t("networkProbe.nodes.technicalDetails")}
+                      </summary>
+                      <pre className="mt-1 overflow-auto font-mono">{answer.detail}</pre>
+                    </details>
+                  ) : null}
+                </li>
+              )
+            })}
           </ul>
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
-      ) : null}
+      ) : (
+        <p className="text-muted-foreground text-sm" aria-live="polite">
+          {loading ? t("networkProbe.nodes.resultsLoading") : t("networkProbe.nodes.resultsEmpty")}
+        </p>
+      )}
     </ProbePanelShell>
   )
 }

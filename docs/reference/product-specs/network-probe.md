@@ -187,6 +187,12 @@ L1 → L2 映射：
 | ntp     | NTP 时间偏移（多源中位数），输出 `NtpProbeResult`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | nodes   | **多节点 DNS、Globalping remote Ping/HTTP + agent 注册**：DNS 对比列出本机与 Globalping 结果；Ping 与 HTTP HEAD/GET/OPTIONS 从 world、US、Europe 各选 1 个探点（最多 3 次测试）。HTTP URL 拆为 API 所需的主机、协议、路径、查询串与可选端口。目标（含 URL 查询参数）发送给 Globalping；输入限制为公网 IP/主机名与 HTTP(S)，私有/保留 IP、保留域名、凭据与片段拒绝；系统探点会阻止私有 IP。测量记录通常保留 6 个月，不得填入密钥或私人数据。交互请求启用 `inProgressUpdates`；创建与响应体最多 10 秒、之后每 700ms（按响应后间隔）使用 ETag 轮询最长 45 秒；提交后不可取消。显示响应头实际提供的 quota/credits；可选 Bearer token 按 bundle identifier 独立保存在系统钥匙串，不进入页面持久化、日志或测量结果。终态失败、请求错误与超时保留部分结果；客户端请求被拒与 Globalping 服务不可用显示不同提示。节点列表（local / Globalping 区域 / remote-agent）；注册 agent（label + HTTPS 基础地址或完整 WSS 健康检查地址）→ `addAgent`（HTTPS `GET <base>/v1/health` 或 WSS TLS/Upgrade 握手；健康检查不发送 WebSocket 消息），可移除；刷新节点时最多 8 个并发重查健康状态、保持注册顺序，并显示已本地化的可达状态；注册表读取失败显示错误与重试，不得冒充空列表，且不得阻断其他启动数据 |
 
+### DNS 多节点结果状态
+
+- Globalping 探测行只有 `status=finished` 且 DNS `statusCode=0` 时才标记为成功；未知或缺失响应码必须失败关闭。
+- `NXDOMAIN` 显示为“域名不存在”；成功的 `NOERROR` 空响应显示为“无记录”。测量超时时保留已返回的节点结果，并单独标记未完成状态。
+- 原始 resolver 诊断默认折叠；执行前明确告知用户域名会发送给 Globalping，以及测量记录的保留和隐私注意事项。
+
 ## 8. 能力包（D-017 packs）
 
 - **能力包**：`adv-scanner`（SYN 扫描）、`pcap-diag`（诊断抓包）、`priv-helper`（特权 helper）。内置 manifest（packId / version / hash / 签名来源）。

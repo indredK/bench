@@ -55,6 +55,13 @@
 
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
+- 2026-10-04：多节点 DNS 首次查询前与等待期间曾留白；增加双语结果区提示，并保留重新查询期间的旧结果。macOS 隔离桌面包真机确认空态、加载态和按钮禁用状态；本轮 Globalping 请求失败，仅记为网络观测、不归因于产品逻辑。新增前端用例并同步产品规格与发现设计。
+
+- 2026-10-03：复查多节点 DNS 结果时发现成功/失败标签硬编码英文；现接入中英文文案，并以颜色辅助区分结果，新增结果状态回归覆盖。后续桌面验收及修复记录见下一条。
+- 2026-10-03：多节点真机查询进一步发现 Globalping `finished` 被误判为 DNS 成功：对保留 `.invalid` 域名，本机结果失败而远端无答案仍显示成功；此外 API `rawOutput` camelCase 未反序列化且原始英文详情默认可见。现按官方 `statusCode` 区分 NOERROR/NXDOMAIN，增加双语「域名不存在/无记录」状态，原始详情折叠，并补 Rust 3 项/API DTO/组件回归。重建后实测 `example.com` 四个节点成功、保留 `.invalid` 域名在本机失败并在远端显示「域名不存在」，技术详情默认折叠；`test:critical` 293 项、`lint:fe`、Clippy、Rust fmt、format:check 通过。
+- 2026-10-03：按 Globalping 官方异步测量约定，修复多节点 DNS 把固定 20 次轮询（约 14 秒）当成测量终态、并可能因当前返回的 probe 都结束而提前退出的问题；现以顶层状态轮询至终态或 45 秒总截止，限制单次请求 8 秒、按间隔退避，并将部分结果与明确超时状态返回 UI。Rust 轮询用例 5/5、前端关键用例 293/293、lint:fe、clippy、Rust fmt 与 cfg 检查通过；macOS 桌面以仅监听 127.0.0.1 的模拟服务确认 5 秒截止后保留已完成节点答案、把未完成节点和汇总标为「等待超时」，展开详情显示原始状态；恢复正式 API/45 秒配置后，真实 Globalping 对 example.com 返回本机与 3 个远端成功结果，约 5.5 秒。可运行 debug .app 已生成；bundle 命令仅因缺少 updater 私钥未能签署更新包。该项验证闭环。
+- 2026-10-03：UX/隐私复审补足多节点 DNS 的第三方披露：在运行按钮旁双语提示远端查询会向 Globalping 发送域名；结果摘要增加 polite live region，告知屏幕阅读器异步完成状态。新增组件断言，并同步产品规格与发现设计。
+
 - 2026-09-03：首版生成——依据 `docs/modules/network-probe/roadmap.md`（Wave 0–6）与 `docs/roadmap/ROADMAP.md` D-016，提炼 ⬜/◐ 未完成项为「待实现」「待验证」「远期」三档；产品说明见 `../product-specs/network-probe.md`。
 - 2026-10-22：完成 P5-4；基础视角改为六区同页滚动与页首跳转，站点延迟保留为独立一级页；产品规格同步更新。
 - 2026-10-22：P0-1 部分推进；概览与一键诊断改为逐项结算、保留刷新中的旧结果并呈现失败项，失败项清理过期结果；修复取消失败后的重试标记，网络服务列表增加 single-flight / retry / 空态与恢复清错，离线批量与 IPv6 / MTU / 出口检查互斥。P0-1 保持未完成，权限拒绝真机验收及其余 S-X 覆盖仍待验证。
@@ -94,3 +101,4 @@
 
 - 2026-10-25：按用户选择将 S3-6 端口扫描目标契约收敛为单主机；Rust IPC 在建立会话前显式拒绝 CIDR、目标列表、通配符和 IPv4 octet range（稳定错误 `PORT_SCAN_SINGLE_HOST_REQUIRED`）。真机隔离 QA 输入 `192.168.0.0/24` 显示本地化拒绝；输入 `example.com` 和 65 个重复 `80` 后确认框显示实际 1 个端口并取消，未执行扫描。验证发现 `url::Host::parse` 会宽松接受带 CIDR 后缀的输入，已在 hostname 解析前增加拒绝并由 Rust 回归覆盖。`lint:fe`、`test:critical`（62 文件 / 366 项）、`build:fe`、Prettier、cfg、Rust fmt、Clippy 和 `cargo test`（675 通过 / 1 忽略）通过。重复端口 QA 点击曾意外发起一次仅针对 `127.0.0.1:80` 的普通 Nmap SYN/connect 探测，结果 closed；该误触发未访问外部目标、不是指纹验收，随后不再发起任何扫描。隔离 QA 已退出；本地代码未提交或推送，S3-6 指纹扫描真机验收与远程构建仍待完成。
 - 2026-10-25：S3-6 loopback 指纹验收完成。隔离 macOS QA 在 `127.0.0.1:48765` 上对本机临时 HTTP 服务执行 1 端口扫描，日志记录 `mode=nmap-fingerprint-syn-or-connect`，结果为开放 HTTP，服务信息识别到 Python `BaseHTTPServer`；没有可靠 OS 匹配时 UI 明确解释权限 / 指纹限制，且说明未运行 NSE。服务只绑定 loopback，测试结束已停止；确认无 Nmap、QA 或测试服务残留。另修复前端 IPv6 ULA / 链路本地误触发公网确认的问题，使用 `ipaddr.js@2.5.0` 与 Rust 分类规则对齐；组件测试 25 项、`tsc --noEmit`、Prettier 和隔离 macOS QA bundle 构建通过。真机以 `fd00::1` 和无效端口确认本地输入不弹风险框并在解析前失败；公网 IPv6 确认框显示后取消。该分类验收未发送探测包。代码与文档尚未提交 / 推送，远程构建待执行；Local Network/TCC 拒绝与 Windows 真机回归仍待专用环境。
+- 2026-10-25：将 DNS 多节点成功判定收敛为 `status=finished` 且 `statusCode=0`，明确 NXDOMAIN、NOERROR 空记录与未知响应码失败关闭；加入技术详情折叠、空/加载态和 Globalping 数据披露。`lint:fe`、`test:critical`（382/382）、`test:fe`（477/477）、`check:be-cfg`（385 files）、Rust 格式、Clippy、`test:be`（683 通过 / 1 跳过）通过；回环 Rust 用例设置 `NO_PROXY=127.0.0.1,localhost` 后通过。macOS arm64 隔离 QA 真机 `example.com` 查询返回本机和 3 个远端成功；保留 `.invalid` 查询有 2 个远端明确返回 NXDOMAIN /「域名不存在」，本机和另一个远端如实显示失败；中英文状态、数据保留提示、技术详情折叠与原始 NXDOMAIN 详情通过。PR 远程构建待验。

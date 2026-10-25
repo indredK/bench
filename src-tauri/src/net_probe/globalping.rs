@@ -592,7 +592,9 @@ fn globalping_failure(detail: String) -> NodeDnsAnswer {
         node_label: "Globalping".into(),
         ok: false,
         answers: vec![],
+        status_code_name: None,
         detail: Some(detail),
+        error_code: None,
     }
 }
 
@@ -602,14 +604,20 @@ fn map_globalping_results(result: GpResult) -> Vec<NodeDnsAnswer> {
         .into_iter()
         .enumerate()
         .map(|(idx, probe_result)| {
+            let GpInner {
+                status,
+                answers: probe_answers,
+                raw_output,
+                status_code,
+                status_code_name,
+                ..
+            } = probe_result.result;
             let label = format!(
                 "Globalping · {}/{}",
                 probe_result.probe.city.unwrap_or_else(|| "?".into()),
                 probe_result.probe.country.unwrap_or_else(|| "?".into())
             );
-            let answers: Vec<String> = probe_result
-                .result
-                .answers
+            let answers: Vec<String> = probe_answers
                 .into_iter()
                 .map(|answer| {
                     if answer.rr_type.is_empty() {
@@ -619,28 +627,34 @@ fn map_globalping_results(result: GpResult) -> Vec<NodeDnsAnswer> {
                     }
                 })
                 .collect();
-            let ok = match probe_result.result.status.as_str() {
-                "finished" => true,
-                "" => !answers.is_empty(),
-                _ => false,
-            };
+            let ok = status == "finished" && status_code == Some(0);
             NodeDnsAnswer {
                 node_id: format!("gp-{idx}"),
                 node_label: label,
                 ok,
                 answers,
-                detail: probe_result.result.raw_output,
+                status_code_name,
+                detail: raw_output,
+                error_code: None,
             }
         })
         .collect()
 }
 
 fn append_poll_outcome(answers: &mut Vec<NodeDnsAnswer>, outcome: GpPollOutcome) {
-    if let Some(result) = outcome.result {
+    let GpPollOutcome {
+        result,
+        failure,
+        failure_code,
+    } = outcome;
+    if let Some(result) = result {
         answers.extend(map_globalping_results(result));
     }
-    if let Some(failure) = outcome.failure {
-        answers.push(globalping_failure(failure));
+    if let Some(failure) = failure {
+        answers.push(NodeDnsAnswer {
+            error_code: failure_code,
+            ..globalping_failure(failure)
+        });
     }
 }
 
@@ -980,6 +994,7 @@ struct GpInner {
     resolved_address: Option<String>,
     stats: Option<GpPingStats>,
     status_code: Option<u16>,
+    status_code_name: Option<String>,
     timings: Option<GpMeasurementTimings>,
     tls: Option<serde_json::Value>,
 }
@@ -1023,7 +1038,9 @@ pub async fn compare_dns_multi(
                 node_label: "This Mac".into(),
                 ok: true,
                 answers: vals,
+                status_code_name: None,
                 detail: None,
+                error_code: None,
             });
         }
         Err(e) => answers.push(NodeDnsAnswer {
@@ -1031,7 +1048,9 @@ pub async fn compare_dns_multi(
             node_label: "This Mac".into(),
             ok: false,
             answers: vec![],
+            status_code_name: None,
             detail: Some(e.to_string()),
+            error_code: None,
         }),
     }
 
@@ -1115,7 +1134,9 @@ pub async fn compare_dns_multi(
                 node_label: "Globalping".into(),
                 ok: false,
                 answers: vec![],
+                status_code_name: None,
                 detail: Some("Globalping quota exhausted (HTTP 429).".into()),
+                error_code: Some("rate_limited".into()),
             });
         }
         Ok(Ok((status, _))) => {
@@ -1124,7 +1145,9 @@ pub async fn compare_dns_multi(
                 node_label: "Globalping".into(),
                 ok: false,
                 answers: vec![],
+                status_code_name: None,
                 detail: Some(format!("Globalping HTTP {status}")),
+                error_code: None,
             });
         }
     }
@@ -1141,8 +1164,9 @@ pub async fn compare_dns_multi(
 mod tests {
     use super::{
         append_poll_outcome, failure_code_for_status, globalping_http_target,
-        map_measurement_results, measurement_request_body, normalize_target, normalize_token,
-        poll_measurement, quota_from_headers, valid_measurement_id, GpPollOutcome, MeasurementKind,
+        map_globalping_results, map_measurement_results, measurement_request_body,
+        normalize_target, normalize_token, poll_measurement, quota_from_headers,
+        valid_measurement_id, GpPollOutcome, GpResult, MeasurementKind,
     };
     use crate::net_probe::types::NodeDnsAnswer;
     use std::io::{Read, Write};
@@ -1353,7 +1377,9 @@ mod tests {
             node_label: "Local".into(),
             ok: true,
             answers: vec!["192.0.2.2".into()],
+            status_code_name: None,
             detail: None,
+            error_code: None,
         };
         let mut answers = vec![local];
 
@@ -1436,7 +1462,9 @@ mod tests {
             node_label: "Local".into(),
             ok: true,
             answers: vec!["192.0.2.2".into()],
+            status_code_name: None,
             detail: None,
+            error_code: None,
         };
         let mut answers = vec![local];
 
@@ -1672,5 +1700,63 @@ mod tests {
         assert!(!serialized.contains("rawBody"));
         assert!(!serialized.contains("rawHeaders"));
         assert!(!serialized.contains("secret raw output"));
+    }
+
+    #[test]
+    fn dns_results_require_finished_status_and_success_response_code() {
+        let response: GpResult = serde_json::from_value(serde_json::json!({
+            "status": "finished",
+            "results": [
+                {
+                    "probe": { "city": "Osaka", "country": "JP" },
+                    "result": {
+                        "status": "finished",
+                        "statusCode": 3,
+                        "statusCodeName": "NXDOMAIN",
+                        "answers": [],
+                        "rawOutput": "domain does not exist"
+                    }
+                },
+                {
+                    "probe": { "city": "Berlin", "country": "DE" },
+                    "result": {
+                        "status": "finished",
+                        "statusCode": 0,
+                        "statusCodeName": "NOERROR",
+                        "answers": []
+                    }
+                },
+                {
+                    "probe": { "city": "Paris", "country": "FR" },
+                    "result": {
+                        "status": "finished",
+                        "answers": [{ "type": "A", "value": "192.0.2.10" }]
+                    }
+                },
+                {
+                    "probe": { "city": "Madrid", "country": "ES" },
+                    "result": {
+                        "status": "in-progress",
+                        "statusCode": 0,
+                        "statusCodeName": "NOERROR",
+                        "answers": [{ "type": "A", "value": "192.0.2.11" }]
+                    }
+                }
+            ]
+        }))
+        .expect("parse DNS measurement response");
+
+        let answers = map_globalping_results(response);
+        assert_eq!(answers.len(), 4);
+        assert!(!answers[0].ok);
+        assert_eq!(answers[0].status_code_name.as_deref(), Some("NXDOMAIN"));
+        assert_eq!(answers[0].detail.as_deref(), Some("domain does not exist"));
+        assert!(answers[1].ok, "NOERROR is successful even with no records");
+        assert!(answers[1].answers.is_empty());
+        assert!(!answers[2].ok, "missing response code must fail closed");
+        assert!(
+            !answers[3].ok,
+            "an unfinished probe cannot be reported as success"
+        );
     }
 }
