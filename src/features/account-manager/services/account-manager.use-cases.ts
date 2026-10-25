@@ -55,9 +55,11 @@ function normalizeQuickLoginUrl(input: string): string {
   } catch {
     throw { code: "INVALID_LOGIN_URL", message: "" }
   }
+  const authority = candidate.match(/^https?:\/\/([^/?#]*)/i)?.[1] ?? ""
   if (
     (parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
     !parsed.hostname ||
+    authority.includes("@") ||
     parsed.username !== "" ||
     parsed.password !== ""
   ) {

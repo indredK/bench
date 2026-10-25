@@ -31,6 +31,7 @@ describe("accountManagerUseCases quick login", () => {
   it.each([
     "https://user:secret@example.com/login",
     "https://user@example.com/login",
+    "https://@example.com/login",
     "ftp://example.com/login",
     "javascript:alert(1)",
     "file:/etc/passwd",
