@@ -245,7 +245,7 @@
       "regexFlagsPlaceholder": "修饰符",
       "regexInputPlaceholder": "待测文本...",
       "regexReplacePlaceholder": "替换内容（可选），例如 [$1]",
-      "regexSizeHint": "正则表达式最多 {{patternMax}} 字符；待测文本和替换内容最多 {{inputMax}} 字符。",
+      "regexSizeHint": "正则表达式最多 {{patternMax}} 字符；待测文本和替换内容最多 {{inputMax}} 字符；匹配结果最多 {{resultMax}} 字符 / {{groupsMax}} 个捕获项。",
       "regexTest": "测试",
       "regexTesting": "测试中…",
       "regexNoMatch": "无匹配",
@@ -258,6 +258,8 @@
       "regexPatternTooLong": "正则表达式超过 {{max}} 字符。",
       "regexInputTooLong": "待测文本超过 {{max}} 字符。",
       "regexReplacementTooLong": "替换内容超过 {{max}} 字符。",
+      "regexMatchOutputTooLarge": "匹配结果超过 {{max}} 字符或 {{groupsMax}} 个捕获项，请缩小正则范围或待测文本。",
+      "regexReplacementOutputTooLarge": "替换结果超过 {{max}} 字符，请缩短待测文本或替换内容。",
       "regexIndexLabel": "位置 {{index}}"
     },
     "diagnostics": {
