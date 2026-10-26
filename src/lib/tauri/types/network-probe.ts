@@ -471,12 +471,23 @@ export interface PortFingerprint {
 }
 
 export interface NatProbeResult {
-  natType: string
+  mappingObservation:
+    | "blocked-or-timeout"
+    | "mapped-address"
+    | "consistent-mapping"
+    | "varying-mapping"
+    | "no-mapping"
   mappedAddress?: string
-  stunServer: string
-  detail?: string
+  serverResults: NatProbeServerResult[]
   elapsedMs: number
   commandHint: string
+}
+
+export interface NatProbeServerResult {
+  server: string
+  status: "mapped" | "timeout" | "no-mapping" | "error"
+  mappedAddress?: string
+  errorCode?: string
 }
 
 export interface NtpProbeResult {

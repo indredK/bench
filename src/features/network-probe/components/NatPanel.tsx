@@ -1,5 +1,5 @@
 /**
- * Feature UI / 功能界面: NAT type via STUN.
+ * Feature UI / 功能界面: STUN-observed NAT mapping.
  */
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
@@ -17,6 +17,7 @@ interface NatPanelProps {
 
 export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: NatPanelProps) {
   const { t } = useTranslation()
+  const mappingObservation = result?.mappingObservation ?? "unknown"
   return (
     <ProbePanelShell
       toolbar={
@@ -41,8 +42,12 @@ export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: Na
       {result ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div>
-            {t("networkProbe.nat.type")}:{" "}
-            <span className="font-mono font-medium">{result.natType}</span>
+            {t("networkProbe.nat.observation")}:{" "}
+            <span className="font-medium">
+              {t(`networkProbe.nat.mappingObservations.${mappingObservation}`, {
+                defaultValue: t("networkProbe.nat.mappingObservations.unknown"),
+              })}
+            </span>
           </div>
           {result.mappedAddress ? (
             <div>
@@ -50,8 +55,32 @@ export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: Na
               <span className="font-mono">{result.mappedAddress}</span>
             </div>
           ) : null}
-          {result.detail ? <p className="text-muted-foreground text-xs">{result.detail}</p> : null}
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+          <p className="text-muted-foreground text-xs">
+            {t(`networkProbe.nat.explanations.${mappingObservation}`, {
+              defaultValue: t("networkProbe.nat.explanations.unknown"),
+            })}
+          </p>
+          {result.serverResults.length ? (
+            <ul className="space-y-1 text-xs" aria-label={t("networkProbe.nat.serverResults")}>
+              {result.serverResults.map((server) => (
+                <li key={server.server} className="flex flex-wrap justify-between gap-x-3">
+                  <span className="font-mono">{server.server}</span>
+                  <span className="text-muted-foreground">
+                    {t(`networkProbe.nat.serverStatuses.${server.status}`, {
+                      defaultValue: t("networkProbe.nat.serverStatuses.unknown"),
+                    })}
+                    {server.mappedAddress ? ` · ${server.mappedAddress}` : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="text-muted-foreground flex flex-wrap justify-between gap-2 text-xs">
+            <span>
+              {t("networkProbe.nat.elapsed", { seconds: (result.elapsedMs / 1000).toFixed(1) })}
+            </span>
+            <span className="font-mono">{result.commandHint}</span>
+          </div>
         </div>
       ) : null}
     </ProbePanelShell>
