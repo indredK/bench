@@ -2120,7 +2120,7 @@
       "fail": "unreachable / failed"
     },
     "ports": {
-      "hint": "TCP connect scan of a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",
+      "hint": "Scan TCP ports on one host you own or are authorized to test (up to 256). Cancel at any time.",
       "degradedHint": "Degraded mode: TCP connect only. nmap was not detected; install nmap to try SYN scans.",
       "nmapHint": "nmap detected: SYN is attempted first and falls back to TCP connect if permission is unavailable. Service / OS fingerprinting is opt-in.",
       "nmapResult": "nmap scan completed; vulnerability and service-detection scripts were not run.",
