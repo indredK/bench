@@ -44,6 +44,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "affinidi-net-guard"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43736e64c051b4689d39c08e781dae750a79fee9bbf44e4eb7ed93e081485184"
+dependencies = [
+ "reqwest",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -376,6 +389,7 @@ version = "1.38.1"
 dependencies = [
  "aes",
  "aes-gcm",
+ "affinidi-net-guard",
  "async-trait",
  "base64 0.23.1",
  "bench-capabilities",
@@ -387,6 +401,8 @@ dependencies = [
  "ed25519-dalek",
  "futures-util",
  "hickory-resolver",
+ "http",
+ "hyper-util",
  "if-addrs",
  "keyring",
  "md5",

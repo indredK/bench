@@ -16,7 +16,10 @@
 //! 吊销语义（spec §5.3）：命中 `revoked` → 宿主**强制禁用**（写 `.disabled`）
 //! + UI 显著警示，不静默删除。
 
+use std::net::{IpAddr, SocketAddr};
+
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 use crate::error::{AppError, AppResult};
 
@@ -183,12 +186,12 @@ pub fn validate_registry_doc(doc: &RegistryDoc) -> AppResult<()> {
                     entry.id, version.version
                 )));
             }
-            if !version.download_url.starts_with("https://") {
-                return Err(AppError::invalid_input(format!(
-                    "registry entry `{}` version `{}` downloadUrl must be https",
-                    entry.id, version.version
-                )));
-            }
+            validate_download_url(&version.download_url).map_err(|error| {
+                AppError::invalid_input(format!(
+                    "registry entry `{}` version `{}` downloadUrl rejected: {}",
+                    entry.id, version.version, error.message
+                ))
+            })?;
         }
     }
     Ok(())
@@ -209,6 +212,12 @@ pub fn registry_base_url() -> AppResult<String> {
             "extension registry URL must be https, got `{url}`"
         )));
     }
+    validate_download_url(&url).map_err(|error| {
+        AppError::internal(format!(
+            "extension registry URL rejected: {}",
+            error.message
+        ))
+    })?;
     Ok(url)
 }
 
@@ -218,29 +227,63 @@ pub fn registry_index_url(base: &str) -> String {
     format!("{base}/registry.json")
 }
 
-/// 下载 URL 必须与 registry 基址同源（防止 registry 内容投喂任意下载点）。
-///
-/// registry 允许经 GitHub Pages/jsDelivr 托管，下载文件可在 CDN —— 因此这里
-/// 不做严格同源，而是要求 https 且非 localhost（公网分发语义），完整性由
-/// 整包 sha256 + minisign 签名双通道兜底。
+/// Vet registry / download URLs against the public-internet egress policy.
 pub fn validate_download_url(url: &str) -> AppResult<()> {
-    if !url.starts_with("https://") {
-        return Err(AppError::forbidden_path(format!(
-            "download url must be https, got `{url}`"
-        )));
+    let parsed = Url::parse(url)
+        .map_err(|error| AppError::forbidden_path(format!("download url is invalid: {error}")))?;
+    if parsed.scheme() != "https" {
+        return Err(AppError::forbidden_path("download url must use HTTPS"));
     }
-    let host_part = url
-        .trim_start_matches("https://")
-        .split('/')
-        .next()
-        .unwrap_or("");
-    let host = host_part.split(':').next().unwrap_or("");
-    if host.is_empty() || host == "localhost" || host == "127.0.0.1" || host == "0.0.0.0" {
-        return Err(AppError::forbidden_path(format!(
-            "download url host `{host}` is not allowed"
-        )));
+    affinidi_net_guard::EgressPolicy::public_internet()
+        .vet(url)
+        .map(|_| ())
+        .map_err(|error| AppError::forbidden_path(format!("download URL rejected: {error}")))
+}
+
+/// Resolve a vetted HTTPS URL and reject the whole answer set if any address is not public.
+/// The returned port-zero addresses can be passed to reqwest's `resolve_to_addrs` so a
+/// direct connection uses this exact validated DNS answer set instead of resolving again.
+pub(super) async fn resolve_public_download_addrs(url: &Url) -> AppResult<Vec<SocketAddr>> {
+    validate_download_url(url.as_str())?;
+    let Some(url::Host::Domain(host)) = url.host() else {
+        return Ok(Vec::new());
+    };
+    let port = url
+        .port_or_known_default()
+        .ok_or_else(|| AppError::forbidden_path("download url has no usable port"))?;
+    let resolved = tokio::net::lookup_host((host, port))
+        .await
+        .map_err(|error| {
+            AppError::internal(format!("resolve extension download host `{host}`: {error}"))
+        })?;
+    let mut addresses: Vec<SocketAddr> = resolved
+        .map(|address| SocketAddr::new(address.ip(), 0))
+        .collect();
+    addresses.sort_unstable();
+    addresses.dedup();
+    validate_resolved_download_addrs(&addresses)?;
+    Ok(addresses)
+}
+
+fn validate_resolved_download_addrs(addresses: &[SocketAddr]) -> AppResult<()> {
+    if addresses.is_empty() {
+        return Err(AppError::forbidden_path(
+            "download host resolved to no public addresses",
+        ));
+    }
+    if addresses
+        .iter()
+        .any(|address| !is_public_download_ip(address.ip()))
+    {
+        return Err(AppError::forbidden_path(
+            "download host resolved to a private or reserved address",
+        ));
     }
     Ok(())
+}
+
+fn is_public_download_ip(address: IpAddr) -> bool {
+    affinidi_net_guard::is_globally_routable(address)
 }
 
 /// 判断某已安装版本是否命中吊销列表；命中返回原因。
@@ -342,6 +385,8 @@ mod tests {
     #[test]
     fn download_url_validation() {
         assert!(validate_download_url("https://cdn.example.com/a.zip").is_ok());
+        assert!(validate_download_url("https://93.184.216.34/a.zip").is_ok());
+        assert!(validate_download_url("https://[2606:4700:4700::1111]/a.zip").is_ok());
         assert_eq!(
             validate_download_url("http://cdn.example.com/a.zip")
                 .unwrap_err()
@@ -360,6 +405,56 @@ mod tests {
                 .code,
             "FORBIDDEN_PATH"
         );
+        for url in [
+            "https://10.0.0.1/a.zip",
+            "https://100.64.0.1/a.zip",
+            "https://169.254.169.254/a.zip",
+            "https://198.18.0.1/a.zip",
+            "https://240.0.0.1/a.zip",
+            "https://[::1]/a.zip",
+            "https://[fd00::1]/a.zip",
+            "https://[fe80::1]/a.zip",
+            "https://[2001:db8::1]/a.zip",
+            "https://[3fff::1]/a.zip",
+            "https://[2001:2::1]/a.zip",
+            "https://[2002:7f00:1::1]/a.zip",
+            "https://[64:ff9b::7f00:1]/a.zip",
+            "https://[::ffff:127.0.0.1]/a.zip",
+            "https://metadata/a.zip",
+            "https://service.internal/a.zip",
+            "https://user:secret@cdn.example.com/a.zip",
+        ] {
+            assert_eq!(
+                validate_download_url(url).unwrap_err().code,
+                "FORBIDDEN_PATH",
+                "expected URL to be refused: {url}"
+            );
+        }
+    }
+
+    #[test]
+    fn resolved_download_addresses_reject_empty_and_mixed_answers() {
+        let mixed = [
+            "93.184.216.34:0".parse().expect("public IPv4"),
+            "10.0.0.8:0".parse().expect("private IPv4"),
+        ];
+        assert_eq!(
+            validate_resolved_download_addrs(&mixed).unwrap_err().code,
+            "FORBIDDEN_PATH"
+        );
+        assert_eq!(
+            validate_resolved_download_addrs(&[]).unwrap_err().code,
+            "FORBIDDEN_PATH"
+        );
+    }
+
+    #[test]
+    fn resolved_download_addresses_allow_public_only_answers() {
+        let public = [
+            "93.184.216.34:0".parse().expect("public IPv4"),
+            "[2606:4700:4700::1111]:0".parse().expect("public IPv6"),
+        ];
+        assert!(validate_resolved_download_addrs(&public).is_ok());
     }
 
     #[test]
