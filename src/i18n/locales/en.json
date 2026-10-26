@@ -1653,7 +1653,7 @@
       "whois": "WHOIS",
       "arp": "ARP discovery",
       "lan-svc": "LAN services",
-      "nat": "NAT type",
+      "nat": "NAT mapping",
       "ntp": "NTP",
       "nodes": "Multi-node"
     },
@@ -2310,28 +2310,28 @@
       "globalpingTokenRemoved": "Globalping token removed from local secure storage."
     },
     "nat": {
-      "hint": "STUN Binding against a public server to learn your mapped address / NAT exposure.",
-      "run": "Probe NAT",
-      "running": "Probing…",
-      "type": "Result",
+      "hint": "Send STUN Binding requests to public servers to observe mapped addresses. This does not classify NAT behavior.",
+      "run": "Check mapping",
+      "running": "Checking…",
+      "observation": "Mapping observation",
       "mapped": "Mapped address",
       "elapsed": "Elapsed {{seconds}} s",
       "serverResults": "STUN server results",
-      "types": {
+      "mappingObservations": {
         "blocked-or-timeout": "No STUN response received",
-        "mapped-address": "Mapped address found; NAT behavior is unknown",
+        "mapped-address": "One server returned a mapped address",
         "consistent-mapping": "Multiple servers returned the same mapped address",
         "varying-mapping": "Multiple servers returned different mapped addresses",
-        "no-mapping": "Server response did not include a mapped address",
+        "no-mapping": "STUN response contained no usable mapped address",
         "unknown": "Unknown result"
       },
       "explanations": {
         "blocked-or-timeout": "No STUN response was received. Check each server below; network filtering, DNS resolution, or server availability can cause this. A timeout alone cannot identify the cause.",
-        "mapped-address": "Only one server returned a mapped address, which is not enough to infer NAT behavior.",
-        "consistent-mapping": "Multiple servers returned the same mapped address; this is not a complete NAT type classification.",
-        "varying-mapping": "Different paths or servers can also cause mapping differences; this alone does not prove symmetric NAT.",
+        "mapped-address": "Only one server returned a mapped address, so cross-server consistency is unknown.",
+        "consistent-mapping": "Multiple servers returned the same mapped address; this does not classify NAT behavior.",
+        "varying-mapping": "Different paths or servers can also cause mapping differences; this alone does not classify NAT behavior.",
         "no-mapping": "A STUN response arrived, but no valid mapped address could be read.",
-        "unknown": "Mapping behavior could not be determined."
+        "unknown": "Mapping observation could not be determined."
       },
       "serverStatuses": {
         "mapped": "Responded",

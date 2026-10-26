@@ -17,13 +17,14 @@ const STUN_SERVERS: &[&str] = &[
     "stun.cloudflare.com:3478",
 ];
 const STUN_TIMEOUT: Duration = Duration::from_secs(3);
+const MAX_STUN_ADDRESSES_PER_SERVER: usize = 4;
 
 pub async fn probe_nat() -> AppResult<NatProbeResult> {
     let command_hint = "probeNat(local) // multi-STUN Binding (google/cloudflare)".to_string();
     let started = Instant::now();
 
     // Reuse one socket per address family so requests to different servers use a stable local
-    // endpoint. IPv4 is preferred when a server publishes both address families.
+    // endpoint. Try IPv4 first, then IPv6, with up to two DNS addresses per family.
     let mut socket_v4: Option<UdpSocket> = None;
     let mut socket_v6: Option<UdpSocket> = None;
     let mut server_results = Vec::with_capacity(STUN_SERVERS.len());
@@ -59,23 +60,20 @@ pub async fn probe_nat() -> AppResult<NatProbeResult> {
         });
     }
 
-    let (nat_type, mapped_address) = classify_mappings(&server_results);
+    let (mapping_observation, mapped_address) = summarize_mapping_observations(&server_results);
 
     Ok(NatProbeResult {
-        nat_type: nat_type.into(),
+        mapping_observation: mapping_observation.into(),
         mapped_address,
-        stun_server: server_results
-            .iter()
-            .map(|server| server.server.as_str())
-            .collect::<Vec<_>>()
-            .join(", "),
         server_results,
         elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
         command_hint,
     })
 }
 
-fn classify_mappings(results: &[NatProbeServerResult]) -> (&'static str, Option<String>) {
+fn summarize_mapping_observations(
+    results: &[NatProbeServerResult],
+) -> (&'static str, Option<String>) {
     let mapped_addresses: BTreeSet<_> = results
         .iter()
         .filter(|server| server.status == "mapped")
@@ -117,8 +115,22 @@ async fn resolve_servers(server_name: &str) -> AppResult<Vec<SocketAddr>> {
 }
 
 fn prefer_socket_families(addresses: &mut Vec<SocketAddr>) {
+    let mut seen = BTreeSet::new();
+    addresses.retain(|address| seen.insert(*address));
     addresses.sort_by_key(SocketAddr::is_ipv6);
-    addresses.dedup_by_key(|address| address.is_ipv6());
+
+    let mut ipv4 = addresses.iter().copied().filter(SocketAddr::is_ipv4);
+    let mut ipv6 = addresses.iter().copied().filter(SocketAddr::is_ipv6);
+    let mut candidates = Vec::with_capacity(MAX_STUN_ADDRESSES_PER_SERVER);
+    for _ in 0..(MAX_STUN_ADDRESSES_PER_SERVER / 2) {
+        if let Some(address) = ipv4.next() {
+            candidates.push(address);
+        }
+        if let Some(address) = ipv6.next() {
+            candidates.push(address);
+        }
+    }
+    *addresses = candidates;
 }
 
 async fn probe_server(
@@ -348,8 +360,8 @@ mod tests {
     }
 
     #[test]
-    fn classification_counts_only_successful_mapping_responses() {
-        let (kind, address) = classify_mappings(&[
+    fn summary_counts_only_successful_mapping_responses() {
+        let (kind, address) = summarize_mapping_observations(&[
             server_result("mapped", Some("203.0.113.9:54321")),
             server_result("timeout", None),
             server_result("error", None),
@@ -357,7 +369,7 @@ mod tests {
         assert_eq!(kind, "mapped-address");
         assert_eq!(address.as_deref(), Some("203.0.113.9:54321"));
 
-        let (kind, address) = classify_mappings(&[
+        let (kind, address) = summarize_mapping_observations(&[
             server_result("mapped", Some("203.0.113.9:54321")),
             server_result("mapped", Some("203.0.113.9:54321")),
             server_result("timeout", None),
@@ -367,8 +379,8 @@ mod tests {
     }
 
     #[test]
-    fn classification_does_not_call_cross_server_variation_symmetric_nat() {
-        let (kind, address) = classify_mappings(&[
+    fn mapping_summary_does_not_infer_nat_type_from_server_variation() {
+        let (kind, address) = summarize_mapping_observations(&[
             server_result("mapped", Some("203.0.113.9:54321")),
             server_result("mapped", Some("198.51.100.3:31234")),
         ]);
@@ -377,9 +389,9 @@ mod tests {
     }
 
     #[test]
-    fn classification_reports_missing_mapping_separately_from_timeouts() {
+    fn summary_reports_missing_mapping_separately_from_timeouts() {
         assert_eq!(
-            classify_mappings(&[
+            summarize_mapping_observations(&[
                 server_result("no-mapping", None),
                 server_result("timeout", None),
             ])
@@ -387,24 +399,29 @@ mod tests {
             "no-mapping"
         );
         assert_eq!(
-            classify_mappings(&[server_result("timeout", None)]).0,
+            summarize_mapping_observations(&[server_result("timeout", None)]).0,
             "blocked-or-timeout"
         );
     }
 
     #[test]
-    fn address_selection_prefers_ipv4_but_keeps_ipv6_fallback() {
+    fn address_selection_prefers_ipv4_and_keeps_bounded_fallbacks_for_both_families() {
         let mut addresses = vec![
             "[2001:db8::1]:3478".parse().unwrap(),
             "192.0.2.1:3478".parse().unwrap(),
             "192.0.2.2:3478".parse().unwrap(),
             "[2001:db8::2]:3478".parse().unwrap(),
+            "192.0.2.1:3478".parse().unwrap(),
+            "192.0.2.3:3478".parse().unwrap(),
+            "[2001:db8::3]:3478".parse().unwrap(),
         ];
 
         prefer_socket_families(&mut addresses);
 
-        assert_eq!(addresses.len(), 2);
+        assert_eq!(addresses.len(), MAX_STUN_ADDRESSES_PER_SERVER);
         assert!(addresses[0].is_ipv4());
         assert!(addresses[1].is_ipv6());
+        assert!(addresses[2].is_ipv4());
+        assert!(addresses[3].is_ipv6());
     }
 }

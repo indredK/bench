@@ -694,12 +694,12 @@ pub struct PortOsMatch {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NatProbeResult {
+    /// Mapping observation only; this is not an RFC 5780 NAT behavior classification.
     /// blocked-or-timeout | mapped-address | consistent-mapping | varying-mapping | no-mapping
-    pub nat_type: String,
+    pub mapping_observation: String,
     /// Present only when one mapping was found or all successful servers agree.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mapped_address: Option<String>,
-    pub stun_server: String,
     pub server_results: Vec<NatProbeServerResult>,
     pub elapsed_ms: f64,
     pub command_hint: String,

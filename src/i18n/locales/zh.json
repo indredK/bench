@@ -1653,7 +1653,7 @@
       "whois": "WHOIS",
       "arp": "ARP 发现",
       "lan-svc": "局域网服务",
-      "nat": "NAT 类型",
+      "nat": "NAT 映射",
       "ntp": "NTP",
       "nodes": "多节点对比"
     },
@@ -2310,28 +2310,28 @@
       "globalpingTokenRemoved": "已从本机钥匙串移除 Globalping token。"
     },
     "nat": {
-      "hint": "对公网 STUN 服务器做 Binding，查看映射地址 / NAT 暴露情况。",
-      "run": "探测 NAT",
-      "running": "探测中…",
-      "type": "结果",
+      "hint": "向多个公网 STUN 服务器发送 Binding 请求，观察各服务器返回的映射地址；本面板不判定 NAT 行为类型。",
+      "run": "检查映射",
+      "running": "检查中…",
+      "observation": "映射观察",
       "mapped": "映射地址",
       "elapsed": "耗时 {{seconds}} 秒",
       "serverResults": "STUN 服务器结果",
-      "types": {
+      "mappingObservations": {
         "blocked-or-timeout": "没有收到 STUN 响应",
-        "mapped-address": "已发现映射地址，NAT 类型未知",
+        "mapped-address": "单个服务器返回了映射地址",
         "consistent-mapping": "多个服务器的映射地址一致",
         "varying-mapping": "多个服务器的映射地址不同",
-        "no-mapping": "服务器响应中没有映射地址",
+        "no-mapping": "STUN 响应未包含可用映射地址",
         "unknown": "未知结果"
       },
       "explanations": {
         "blocked-or-timeout": "未收到 STUN 响应。请查看逐源状态；网络过滤、DNS 解析或服务器超时都可能导致无响应，单凭超时无法确认原因。",
-        "mapped-address": "只有一个服务器返回映射地址，当前信息不足以判断 NAT 行为。",
-        "consistent-mapping": "多个服务器返回相同映射地址；这不等同于完整的 NAT 类型判定。",
-        "varying-mapping": "映射差异也可能来自网络路径或服务器差异，不能单独据此判定为对称型 NAT。",
+        "mapped-address": "只有一个服务器返回映射地址，无法比较多个服务器间的一致性。",
+        "consistent-mapping": "多个服务器返回相同映射地址；这只描述当前观察，不判定 NAT 行为类型。",
+        "varying-mapping": "映射差异也可能来自网络路径或服务器差异，不能单独据此判定 NAT 行为类型。",
         "no-mapping": "收到了 STUN 响应，但未解析到有效映射地址。",
-        "unknown": "无法判断映射行为。"
+        "unknown": "无法判断映射观察结果。"
       },
       "serverStatuses": {
         "mapped": "已响应",

@@ -15,14 +15,9 @@ interface NatPanelProps {
   onRun: () => void
 }
 
-const NAT_TYPE_ALIASES: Record<string, string> = {
-  "cone-or-mapped": "mapped-address",
-  "symmetric-or-varied": "varying-mapping",
-}
-
 export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: NatPanelProps) {
   const { t } = useTranslation()
-  const natType = result ? (NAT_TYPE_ALIASES[result.natType] ?? result.natType) : "unknown"
+  const mappingObservation = result?.mappingObservation ?? "unknown"
   return (
     <ProbePanelShell
       toolbar={
@@ -47,10 +42,10 @@ export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: Na
       {result ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div>
-            {t("networkProbe.nat.type")}:{" "}
+            {t("networkProbe.nat.observation")}:{" "}
             <span className="font-medium">
-              {t(`networkProbe.nat.types.${natType}`, {
-                defaultValue: t("networkProbe.nat.types.unknown"),
+              {t(`networkProbe.nat.mappingObservations.${mappingObservation}`, {
+                defaultValue: t("networkProbe.nat.mappingObservations.unknown"),
               })}
             </span>
           </div>
@@ -61,11 +56,11 @@ export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: Na
             </div>
           ) : null}
           <p className="text-muted-foreground text-xs">
-            {t(`networkProbe.nat.explanations.${natType}`, {
+            {t(`networkProbe.nat.explanations.${mappingObservation}`, {
               defaultValue: t("networkProbe.nat.explanations.unknown"),
             })}
           </p>
-          {result.serverResults?.length ? (
+          {result.serverResults.length ? (
             <ul className="space-y-1 text-xs" aria-label={t("networkProbe.nat.serverResults")}>
               {result.serverResults.map((server) => (
                 <li key={server.server} className="flex flex-wrap justify-between gap-x-3">
