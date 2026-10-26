@@ -6,6 +6,8 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { SiteMonitoringControls } from "@/features/network-probe/components/SiteMonitoringControls"
+import { useSitesMonitoring } from "@/features/network-probe/hooks/useSitesMonitoring"
 import type {
   SitePreset,
   SiteSampleResult,
@@ -23,7 +25,7 @@ interface OfficialSitesPanelProps {
   streaming: SiteSampleResult[]
   toolEnabled: boolean
   toolStatus?: string
-  onTestAll: () => void
+  onTestAll: () => Promise<SitesProbeResult | null>
   onTestOne: (target: string) => void
   onCancel: () => void
 }
@@ -48,8 +50,9 @@ function targetKey(target: string): string {
   return target.trim()
 }
 
-function fingerprintOf(row: SiteSampleResult): string {
+function fingerprintOf(row: SiteSampleResult, sessionId?: string): string {
   return [
+    sessionId ?? "",
     row.id,
     row.ok ? "1" : "0",
     row.httpStatus ?? "",
@@ -77,6 +80,16 @@ export function OfficialSitesPanel({
   const { t, i18n } = useTranslation()
   const [samplesByTarget, setSamplesByTarget] = useState<Record<string, CardSample>>({})
   const [pendingTarget, setPendingTarget] = useState<string | null>(null)
+  const monitor = useSitesMonitoring({
+    loading,
+    toolEnabled,
+    canCancel,
+    onProbe: () => {
+      setPendingTarget(null)
+      return onTestAll()
+    },
+    onCancel,
+  })
 
   // Merge streaming / final results by target so single-card runs keep prior results.
   useEffect(() => {
@@ -93,7 +106,7 @@ export function OfficialSitesPanel({
       for (const row of incoming) {
         const key = targetKey(row.target)
         if (!key) continue
-        const fingerprint = fingerprintOf(row)
+        const fingerprint = fingerprintOf(row, result?.sessionId)
         if (next[key]?.fingerprint === fingerprint) continue
         next[key] = { ...row, testedAt: now, fingerprint }
         changed = true
@@ -131,11 +144,13 @@ export function OfficialSitesPanel({
     })
 
   const handleTestAll = () => {
+    if (monitor.monitoring) return
     setPendingTarget(null)
     onTestAll()
   }
 
   const handleTestOne = (target: string) => {
+    if (monitor.monitoring) return
     setPendingTarget(targetKey(target))
     onTestOne(target)
   }
@@ -155,13 +170,17 @@ export function OfficialSitesPanel({
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <CommandHint hint={t("networkProbe.cmd.sitesProbe", { packId: OFFICIAL_PACK_ID })}>
-              <Button type="button" disabled={loading || !toolEnabled} onClick={handleTestAll}>
+              <Button
+                type="button"
+                disabled={loading || monitor.monitoring || !toolEnabled}
+                onClick={handleTestAll}
+              >
                 {loading && !pendingTarget
                   ? t("networkProbe.official.running")
                   : t("networkProbe.official.testAll")}
               </Button>
             </CommandHint>
-            {canCancel ? (
+            {canCancel && !monitor.monitoring ? (
               <CommandHint hint={t("networkProbe.cmd.cancelScan")}>
                 <Button type="button" variant="outline" onClick={onCancel}>
                   {t("common.cancel")}
@@ -178,6 +197,20 @@ export function OfficialSitesPanel({
               </span>
             ) : null}
           </div>
+          <SiteMonitoringControls
+            scopeText={t("networkProbe.sites.monitor.scopeOfficial")}
+            disabled={loading || !toolEnabled || presets.length === 0}
+            monitoring={monitor.monitoring}
+            intervalSeconds={monitor.intervalSeconds}
+            onIntervalChange={monitor.setIntervalSeconds}
+            thresholdInput={monitor.thresholdInput}
+            onThresholdChange={monitor.setThresholdInput}
+            thresholdValid={monitor.thresholdValid}
+            alertTargets={monitor.alertTargets}
+            lastProbeFailed={monitor.lastProbeFailed}
+            onStart={monitor.start}
+            onStop={monitor.stop}
+          />
         </>
       }
     >
@@ -208,13 +241,18 @@ export function OfficialSitesPanel({
                     ? "—"
                     : null
             const status = isPending ? "running" : !sample ? "idle" : sample.ok ? "ok" : "fail"
+            const cardHint = t("networkProbe.official.cardHint", { host })
 
             return (
               <button
                 key={site.id}
                 type="button"
-                disabled={loading || !toolEnabled}
-                title={t("networkProbe.official.cardHint", { host })}
+                disabled={loading || monitor.monitoring || !toolEnabled}
+                title={
+                  sample && !sample.ok && sample.error
+                    ? `${cardHint}\n${sample.error.slice(0, 240)}`
+                    : cardHint
+                }
                 onClick={() => handleTestOne(site.target)}
                 className={cn(
                   "relative flex min-h-[5.25rem] flex-col rounded-md border px-3.5 pt-3 pb-8 text-left transition-colors",
@@ -255,8 +293,8 @@ export function OfficialSitesPanel({
                   <span className="min-w-0 truncate">
                     {isPending
                       ? t("networkProbe.official.running")
-                      : sample?.error && !sample.ok
-                        ? t("networkProbe.official.fail", { error: sample.error })
+                      : sample && !sample.ok
+                        ? t("networkProbe.official.fail")
                         : sample
                           ? [
                               t("networkProbe.official.testedAt", {

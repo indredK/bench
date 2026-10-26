@@ -1,13 +1,15 @@
 /**
  * Controller / 控制器: bind dev toolbox state; 子 Tab 切换、开发工具、诊断、系统信息.
  */
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { registerFeatureRefresh, requestFeatureRefresh } from "@/features/refresh"
 import { systemInfoUseCases } from "@/features/system-settings/services/system-info.use-cases"
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases"
 import { useSettingAction } from "@/features/system-settings/hooks/useSettingAction"
 import { getErrorMessage } from "@/lib/tauri/errors"
 import type { SystemInfoData } from "@/lib/tauri/types/system-info"
+import { runRegexTestInWorker } from "@/features/dev-toolbox/services/regex-runner"
+import type { RegexTestResult } from "@/features/dev-toolbox/services/regex-tester"
 
 export type ToolboxTab = "port-manager" | "env-detector" | "devtools" | "diagnostics" | "info"
 
@@ -26,6 +28,13 @@ export function useDevToolboxController() {
   const [tsFormat, setTsFormat] = useState("datetime")
   const [tsOutput, setTsOutput] = useState("")
   const [uuidOutput, setUuidOutput] = useState("")
+  const [regexPattern, setRegexPattern] = useState("")
+  const [regexFlags, setRegexFlags] = useState("g")
+  const [regexInput, setRegexInput] = useState("")
+  const [regexReplacement, setRegexReplacement] = useState("")
+  const [regexResult, setRegexResult] = useState<RegexTestResult | null>(null)
+  const [regexTesting, setRegexTesting] = useState(false)
+  const regexTestInFlight = useRef(false)
 
   // ── Diagnostics sub-tab state ──
   const [diagnosticTarget, setDiagnosticTarget] = useState("")
@@ -114,6 +123,25 @@ export function useDevToolboxController() {
     if (r !== undefined) setTsOutput(r)
   }
 
+  // 正则在可终止的 Worker 中执行；超时只终止计算，不阻塞其余界面。
+  const handleRegexTest = async () => {
+    if (regexTestInFlight.current) return
+    regexTestInFlight.current = true
+    setRegexTesting(true)
+    try {
+      const result = await runRegexTestInWorker({
+        pattern: regexPattern,
+        flags: regexFlags,
+        input: regexInput,
+        replacement: regexReplacement || undefined,
+      })
+      setRegexResult(result)
+    } finally {
+      regexTestInFlight.current = false
+      setRegexTesting(false)
+    }
+  }
+
   // ── Diagnostics handlers ──
   const handlePing = () => runDiagnostic(() => systemSettingsUseCases.pingHost(diagnosticTarget, 5))
 
@@ -151,6 +179,16 @@ export function useDevToolboxController() {
     setTsFormat,
     tsOutput,
     uuidOutput,
+    regexPattern,
+    setRegexPattern,
+    regexFlags,
+    setRegexFlags,
+    regexInput,
+    setRegexInput,
+    regexReplacement,
+    setRegexReplacement,
+    regexResult,
+    regexTesting,
     // devtools handlers
     handleJsonPretty,
     handleJsonMinify,
@@ -159,6 +197,7 @@ export function useDevToolboxController() {
     handleHash,
     handleUuid,
     handleTimestamp,
+    handleRegexTest,
     // diagnostics state
     diagnosticTarget,
     setDiagnosticTarget,

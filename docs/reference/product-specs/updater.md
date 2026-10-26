@@ -90,7 +90,7 @@ available ──▶ downloading ──▶ installFailed（下载完成但安装�
 - **离线/弱网**：自动检查延后（不丢计划），监听 `online` 事件重新调度；手动检查失败给出网络错误分类。
 - **并发/幂等**：后端 `UpdaterCache` single-flight（leader-follower 共享结果或错误），结果缓存供下载阶段复用；下载/取消/安装/重启均有状态守卫防重入。
 - **取消/失败保留产物**：取消与失败均保留缓存 update；`installFailed` 保留已下载进度供直接重试安装；重启失败保留已下载产物。
-- **安全脱敏**：后端错误映射输出脱敏 public message，不暴露原始 URL/query（可能含 token），有测试保证；progress 载荷做 `isFinite` 守卫避免 NaN 渲染。
+- **安全脱敏与版本单调性**：后端错误映射输出脱敏 public message，不暴露原始 URL/query（可能含 token），有测试保证；progress 载荷做 `isFinite` 守卫避免 NaN 渲染；Tauri updater 与 Windows 安装包均明确拒绝低于当前版本的更新。
 
 ## 5. 技术实现要点
 

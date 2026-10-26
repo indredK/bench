@@ -32,9 +32,10 @@ fn disable_overscroll_bounce(window: &tauri::WebviewWindow) -> Result<usize, tau
     let found = Arc::new(AtomicUsize::new(0));
     let found_in_closure = Arc::clone(&found);
     window.with_webview(move |webview| {
-        use objc2::msg_send;
+        use objc2::{msg_send, sel};
         use objc2::rc::Retained;
-        use objc2::runtime::{AnyObject, Bool};
+        use objc2::runtime::AnyObject;
+        use objc2_app_kit::NSScrollElasticity;
         use objc2_app_kit::NSView;
         use objc2_foundation::NSArray;
         use objc2_web_kit::WKWebView;
@@ -51,12 +52,26 @@ fn disable_overscroll_bounce(window: &tauri::WebviewWindow) -> Result<usize, tau
                 }
                 let class_name = (*node).class().name().to_str().unwrap_or("");
                 if class_name.contains("ScrollView") || class_name.contains("WKScroll") {
-                    let _: () = msg_send![node, setBounces: Bool::NO];
-                    let _: () = msg_send![node, setAlwaysBouncesVertical: Bool::NO];
-                    let _: () = msg_send![node, setAlwaysBouncesHorizontal: Bool::NO];
-                    let _: () = msg_send![node, setVerticalScrollElasticity: 0isize];
-                    let _: () = msg_send![node, setHorizontalScrollElasticity: 0isize];
-                    found_in_closure.fetch_add(1, Ordering::Relaxed);
+                    // `bounces` and `alwaysBounce*` are UIKit UIScrollView
+                    // selectors; WKWebView's macOS scroll view is an AppKit
+                    // NSScrollView and raises NSInvalidArgumentException for
+                    // them. An Objective-C exception crossing this callback
+                    // aborts the Rust process, so only use AppKit selectors
+                    // after checking that the concrete view implements them.
+                    let mut changed = false;
+                    let vertical = sel!(setVerticalScrollElasticity:);
+                    if msg_send![node, respondsToSelector: vertical] {
+                        let _: () = msg_send![node, setVerticalScrollElasticity: NSScrollElasticity::None];
+                        changed = true;
+                    }
+                    let horizontal = sel!(setHorizontalScrollElasticity:);
+                    if msg_send![node, respondsToSelector: horizontal] {
+                        let _: () = msg_send![node, setHorizontalScrollElasticity: NSScrollElasticity::None];
+                        changed = true;
+                    }
+                    if changed {
+                        found_in_closure.fetch_add(1, Ordering::Relaxed);
+                    }
                 }
                 let subs: Retained<NSArray<NSView>> = msg_send![node, subviews];
                 let cnt = subs.count();

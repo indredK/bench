@@ -42,25 +42,24 @@
 
 ### 3.1 哪些要包、哪些不要
 
-| 能力                                                                  | 供给方式                              | 说明                                           |
-| --------------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------- |
-| TCP connect 降级扫描、污染里的 DNS/hosts/轻量 TLS、WHOIS、DNSSEC 只读 | **主包或轻量编译**                    | 无重内核依赖时可进主包；勿强行拆下载           |
-| SYN stealth、深度 ARP、指纹增强                                       | 可选包 `adv-scanner` 和/或本机 `nmap` | 首次点击若 `missing_pack` 且无 nmap → 安装向导 |
-| 诊断抓包                                                              | 可选包 `pcap-diag`                    | 依赖 libpcap + 通常需特权                      |
-| 正式特权 helper                                                       | 可选包 `priv-helper`                  | 公证前仅提示限制（D-010）                      |
+| 能力                                                                  | 供给方式             | 说明                                                                            |
+| --------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------- |
+| TCP connect 降级扫描、污染里的 DNS/hosts/轻量 TLS、WHOIS、DNSSEC 只读 | **主包或轻量编译**   | 无重内核依赖时可进主包；勿强行拆下载                                            |
+| Nmap SYN、服务 / OS 指纹                                              | 本机 `nmap`          | 仅检测到可执行 Nmap 才标记 supported；adv-scanner marker 未接入时不能解锁该能力 |
+| 深度 ARP                                                              | 可选包 `adv-scanner` | 安装包 marker 尚未接入执行路径时保持 degraded                                   |
+| 诊断抓包                                                              | 可选包 `pcap-diag`   | 依赖 libpcap + 通常需特权                                                       |
+| 正式特权 helper                                                       | 可选包 `priv-helper` | 公证前仅提示限制（D-010）                                                       |
 
 ### 3.2 点击流（强制）
 
 ```text
 用户打开「端口扫描」
   → getNetworkProbeCapabilities()
-  → tool=missing_pack 且无 external nmap
-      → PackInstallDialog：用途 / 体积 / 版本 / 签名来源 / Gatekeeper 提示
-      → 用户同意 → installCapabilityPack(packId)  // 无 URL 参数
-      → 后端读 canonical manifest → 下载到 App Support → 校验 hash/签名
-      → 刷新 capabilities → 若仍需特权再走提权/降级
-  → tool=degraded（仅有 connect）→ 可直接跑，并提示「安装 adv-scanner 可启用 SYN」
-  → tool=supported → 正常扫描
+  → tool=degraded（未检测到 nmap）→ 可直接跑内置 TCP connect，并提示安装 nmap
+  → tool=supported（检测到 nmap）→ 优先尝试 SYN，权限不足时回退 nmap TCP connect
+  → 指纹选项默认关闭；用户显式勾选后，以 -sV --version-light 运行单目标探测并解析 Nmap XML；具备原始包权限时尝试 -sS + -O，无权限时退到不带 -O 的 -sT 服务识别并保留服务结果；stdout 最多保留 2 MiB、stderr 最多保留 64 KiB，超限时继续排空管道并明确失败
+  → 指纹输出最多显示 3 个 OS 候选；服务风险标签只表示暴露类别，不声称漏洞，不运行 NSE
+  → adv-scanner 未接入端口扫描执行路径前，不得改变 portScan 能力状态
 ```
 
 ### 3.3 IPC（Post-MVP）
@@ -118,20 +117,20 @@ src-tauri/src/net_probe/
 
 ### 5.1 端口扫描（`scanPorts`）
 
-| 模式        | 条件             | 行为                                                                           |
-| ----------- | ---------------- | ------------------------------------------------------------------------------ |
-| SYN stealth | 有 RAW/pcap 特权 | 发 SYN，pcap 匹配 SYN-ACK/RST；**不回 RST 完成握手**（减少日志噪音，仍属探测） |
-| TCP connect | 无特权默认       | `connect()` 超时矩阵；能力标 `degraded`                                        |
+| 模式        | 条件                    | 行为                                                             |
+| ----------- | ----------------------- | ---------------------------------------------------------------- |
+| Nmap SYN    | nmap 存在且 SYN 可用    | 优先 `-sS`；权限不足时重跑 `-sT` connect，子进程通过会话取消回收 |
+| TCP connect | nmap 不存在或无可用结果 | 内置并发 connect 探测；指纹模式不会静默降级为此模式              |
 
 护栏：
 
 - 默认目标：RFC1918 / 本机 / 用户显式单个公网 host。
-- 大端口范围、公网、大 CIDR：二次确认 + 速率硬顶 + 并发上限。
+- 端口扫描只接受单个 IP 地址或主机名；CIDR、通配符、IP octet range 和多目标列表由 Rust IPC 拒绝，稳定错误码为 `PORT_SCAN_SINGLE_HOST_REQUIRED`。大端口范围或公网目标的二次确认展示精确目标、端口范围、速率与最长/估算时长；Rust IPC 再按目标类型和解析去重后的端口数判断风险，公网 IP、主机名或超过 64 个端口缺少 `highRiskConfirmed` 时在创建扫描会话前返回 `HIGH_RISK_CONFIRMATION_REQUIRED`。该字段只表示 UI 确认意图，不是抵御被攻陷 renderer 的授权凭据。内置 TCP 每目标端口连接至少间隔 50ms（约 20 次/秒），最多 32 并发且单连接超时 800ms。Nmap 普通端口扫描使用 `--scan-delay 50ms` 与 30s host timeout；显式指纹模式的服务 / OS 阶段由 Nmap 自身时序控制，50ms 不代表整次指纹扫描的总速率上限。
 - 进度 event：`port-sample`（port、state、serviceHint?）；`cancelScan` 幂等。
 
 库：`socket2` + `pnet`/`etherparse` + 可选 `pcap`；无 turnkey「完整 nmap」Rust 库——可接受薄封装或 nmap CLI fallback。
 
-指纹（可选同面板）：匹配常见 banner/端口→服务名风险标签；**不做**漏洞利用。
+指纹（同面板显式可选）：使用成熟 Nmap 的轻量服务识别和受限 OS 探测，XML 输出由 `quick-xml` 解析；输入与输出均有边界，错误/取消可见。风险标签分类为远程管理、文件共享、数据库、明文协议，仅表示服务暴露类别，不是漏洞判断或严重等级；禁止 `-A`、`-sC` 和 NSE 脚本，不做漏洞利用。OS 无匹配但有服务结果时仍展示服务信息并说明结果受权限与端口组合影响；两者均无匹配时显示明确空结果说明。
 
 ### 5.2 污染检测（`pollution` 聚合）
 
@@ -216,10 +215,11 @@ uninstallCapabilityPack(packId): void
 - [ ] 授权声明可持久化；未确认前不可启动 Adv 扫描
 - [ ] D-017：`missing_pack` → 安装向导 → manifest 校验；前端不能传下载 URL
 - [ ] 本机 nmap 探测与 sidecar 并存策略有明确 capabilities 语义
-- [ ] SYN→connect 降级路径单测 + 真机
+- [x] SYN→connect 降级路径单测 + macOS loopback 真机（2026-10-25）
+- [x] 高风险端口确认框展示精确范围、实际适用的探测速率和时长；Rust IPC 按解析后的目标与端口数拒绝缺少确认标记的高风险扫描；Nmap 端口阶段 / 内置 TCP 符合 50ms 探测间隔，指纹阶段明确说明由 Nmap 自身时序控制
 - [ ] 无攻击类 API；代码审不出现投毒/注入/爆破入口
 - [ ] pcap 默认统计模式；落盘需显式开关
-- [ ] 速率/CIDR/端口硬顶后端强制（不信任前端）
+- [x] 速率/单主机目标/CIDR 与端口硬顶后端强制（不信任前端）；CIDR、多目标语法返回 `PORT_SCAN_SINGLE_HOST_REQUIRED`
 - [ ] 与 port-manager 边界测试：占用 vs 存活
 
 ---
@@ -227,6 +227,7 @@ uninstallCapabilityPack(packId): void
 ## 9. 参考
 
 - NETworkManager Port Scanner / WiFi Analyzer：分工具、可配置速率
+- [Nmap timing and performance](https://nmap.org/book/man-performance.html)（单目标探测间隔与 host timeout 参数语义）
 - nmap host discovery & port states（语义对照，非捆绑义务）
 - rust-pcap · pnet · hickory DNSSEC
 - Apple Network Extension（加密 DNS / 透明代理——只读检测，不实现自有 VPN 攻击面）

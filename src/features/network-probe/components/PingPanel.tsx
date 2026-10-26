@@ -14,15 +14,26 @@ interface PingPanelProps {
   result: PingProbeResult | null
   toolEnabled: boolean
   toolStatus?: string
+  errorCode?: string
   onRun: (target: string, count: number) => void
+  onOpenLocalNetworkSettings?: () => void
 }
 
-export function PingPanel({ loading, result, toolEnabled, toolStatus, onRun }: PingPanelProps) {
+export function PingPanel({
+  loading,
+  result,
+  toolEnabled,
+  toolStatus,
+  errorCode,
+  onRun,
+  onOpenLocalNetworkSettings,
+}: PingPanelProps) {
   const { t } = useTranslation()
   const [target, setTarget] = useState("1.1.1.1")
   const [count, setCount] = useState("4")
   const showLocalNetworkHint =
-    result != null && result.packetsSent > 0 && result.packetsReceived === 0
+    errorCode === "ICMP_UNAVAILABLE" ||
+    (result != null && result.packetsSent > 0 && result.packetsReceived === 0)
 
   return (
     <ProbePanelShell
@@ -80,9 +91,23 @@ export function PingPanel({ loading, result, toolEnabled, toolStatus, onRun }: P
       }
     >
       {showLocalNetworkHint ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t("networkProbe.caps.localNetworkHint")}
-        </p>
+        <div className="space-y-2">
+          <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+            {t("networkProbe.ping.localNetworkHint")}
+          </p>
+          {onOpenLocalNetworkSettings ? (
+            <CommandHint hint={t("networkProbe.cmd.openPrivacySettings")}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onOpenLocalNetworkSettings}
+              >
+                {t("networkProbe.ping.openSettings")}
+              </Button>
+            </CommandHint>
+          ) : null}
+        </div>
       ) : null}
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
