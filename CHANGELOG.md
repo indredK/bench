@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.38.1](https://github.com/indredK/bench/compare/v1.38.0...v1.38.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **network-probe:** localize port scan results ([#131](https://github.com/indredK/bench/issues/131)) ([97193e0](https://github.com/indredK/bench/commit/97193e0f3cd04a9f043b8ef896696fffc4d6ef4d))
+
 ## [1.38.0](https://github.com/indredK/bench/compare/v1.37.0...v1.38.0) (2026-10-25)
 
 
