@@ -43,6 +43,8 @@ use super::{
 
 /// 整包下载上限（与解压总体积上限一致；registry 声明的 size 另行精确校验）。
 const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
+/// registry 是远程可变 JSON；限制解压后的响应大小，避免 gzip/brotli 放大耗尽宿主内存。
+const MAX_REGISTRY_BYTES: usize = 4 * 1024 * 1024;
 const MAX_MARKET_REDIRECTS: usize = 10;
 
 /// 下载缓存目录名（`$APPDATA/extension-cache`）。
@@ -129,6 +131,39 @@ fn reqwest_market_proxy(intercept: &Intercept) -> AppResult<reqwest::Proxy> {
     Ok(proxy)
 }
 
+fn market_timeout_error() -> AppError {
+    AppError::new(
+        "EXTENSION_MARKET_TIMEOUT",
+        "Extension market request timed out",
+    )
+}
+
+fn remaining_market_timeout(deadline: tokio::time::Instant) -> AppResult<std::time::Duration> {
+    let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+    if remaining.is_zero() {
+        Err(market_timeout_error())
+    } else {
+        Ok(remaining)
+    }
+}
+
+fn append_registry_chunk(body: &mut Vec<u8>, chunk: &[u8], max_bytes: usize) -> AppResult<()> {
+    let next_len = body.len().checked_add(chunk.len()).ok_or_else(|| {
+        AppError::new(
+            "EXTENSION_REGISTRY_TOO_LARGE",
+            "Registry response is too large",
+        )
+    })?;
+    if next_len > max_bytes {
+        return Err(AppError::new(
+            "EXTENSION_REGISTRY_TOO_LARGE",
+            format!("Registry response exceeds the {max_bytes}-byte limit"),
+        ));
+    }
+    body.extend_from_slice(chunk);
+    Ok(())
+}
+
 /// GET a market URL only after vetting its URL and route. Direct requests pin their checked DNS
 /// answers; proxied requests rely on the explicitly matched system proxy for origin DNS. Redirects
 /// are handled manually so each hop gets its own URL validation and route decision.
@@ -138,6 +173,9 @@ async fn get_market_response(
 ) -> AppResult<reqwest::Response> {
     let mut current = Url::parse(url)
         .map_err(|error| AppError::forbidden_path(format!("market URL is invalid: {error}")))?;
+    // One deadline covers DNS and every redirect hop. Per-hop Client timeouts use only the
+    // remaining budget, so redirect chains cannot multiply the caller's timeout.
+    let deadline = tokio::time::Instant::now() + timeout;
 
     for redirect_count in 0..=MAX_MARKET_REDIRECTS {
         registry::validate_download_url(current.as_str())?;
@@ -146,12 +184,14 @@ async fn get_market_response(
         // Shadowrocket's 198.18/15 fake-IP mode). The proxy receives the vetted hostname and is
         // the egress boundary for proxied requests; only direct requests use local DNS pinning.
         let addresses = if proxy_intercept.is_none() {
-            registry::resolve_public_download_addrs(&current).await?
+            tokio::time::timeout_at(deadline, registry::resolve_public_download_addrs(&current))
+                .await
+                .map_err(|_| market_timeout_error())??
         } else {
             Vec::new()
         };
         let mut builder = reqwest::Client::builder()
-            .timeout(timeout)
+            .timeout(remaining_market_timeout(deadline)?)
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy();
         if let Some(intercept) = proxy_intercept {
@@ -163,10 +203,9 @@ async fn get_market_response(
         let client = builder
             .build()
             .map_err(|error| AppError::internal(format!("build market HTTP client: {error}")))?;
-        let response = client
-            .get(current.clone())
-            .send()
+        let response = tokio::time::timeout_at(deadline, client.get(current.clone()).send())
             .await
+            .map_err(|_| market_timeout_error())?
             .map_err(|error| AppError::internal(format!("market request failed: {error}")))?;
         if !response.status().is_redirection() {
             return Ok(response);
@@ -199,10 +238,26 @@ async fn fetch_registry() -> AppResult<RegistryDoc> {
             response.status()
         )));
     }
-    let text = response
-        .text()
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_REGISTRY_BYTES as u64)
+    {
+        return Err(AppError::new(
+            "EXTENSION_REGISTRY_TOO_LARGE",
+            format!("Registry response exceeds the {MAX_REGISTRY_BYTES}-byte limit"),
+        ));
+    }
+    let mut body = Vec::new();
+    let mut response = response;
+    while let Some(chunk) = response
+        .chunk()
         .await
-        .map_err(|e| AppError::internal(format!("read registry body: {e}")))?;
+        .map_err(|error| AppError::internal(format!("read registry body: {error}")))?
+    {
+        append_registry_chunk(&mut body, &chunk, MAX_REGISTRY_BYTES)?;
+    }
+    let text = String::from_utf8(body)
+        .map_err(|error| AppError::invalid_input(format!("registry JSON is not UTF-8: {error}")))?;
     let doc: RegistryDoc = serde_json::from_str(&text)
         .map_err(|e| AppError::invalid_input(format!("registry JSON invalid: {e}")))?;
     registry::validate_registry_doc(&doc)?;
@@ -835,6 +890,35 @@ mod tests {
             .expect("configured SOCKS proxy should be selected");
         assert!(!format!("{intercept:?}").contains("qa-secret"));
         assert!(reqwest_market_proxy(&intercept).is_ok());
+    }
+
+    #[test]
+    fn registry_body_limit_counts_across_chunks_and_rejects_before_append() {
+        let mut body = Vec::new();
+        append_registry_chunk(&mut body, b"abc", 4).expect("first chunk fits");
+        assert_eq!(body, b"abc");
+        assert_eq!(
+            append_registry_chunk(&mut body, b"de", 4).unwrap_err().code,
+            "EXTENSION_REGISTRY_TOO_LARGE"
+        );
+        assert_eq!(body, b"abc");
+    }
+
+    #[test]
+    fn market_deadline_budget_decreases_and_expires() {
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+        let first = remaining_market_timeout(deadline).expect("initial budget exists");
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        let second = remaining_market_timeout(deadline).expect("remaining budget exists");
+        assert!(
+            second < first,
+            "redirect hops must share one decreasing budget"
+        );
+        let expired_deadline = tokio::time::Instant::now();
+        assert_eq!(
+            remaining_market_timeout(expired_deadline).unwrap_err().code,
+            "EXTENSION_MARKET_TIMEOUT"
+        );
     }
 
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
