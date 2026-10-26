@@ -5,16 +5,16 @@ import { NatPanel } from "../components/NatPanel"
 
 const translations: Record<string, string> = {
   "networkProbe.nat.hint": "STUN 探测",
-  "networkProbe.nat.run": "探测 NAT",
+  "networkProbe.nat.run": "检查映射",
   "networkProbe.nat.running": "探测中",
-  "networkProbe.nat.type": "结果",
+  "networkProbe.nat.observation": "映射观察",
   "networkProbe.nat.mapped": "映射地址",
-  "networkProbe.nat.types.blocked-or-timeout": "没有收到 STUN 响应",
-  "networkProbe.nat.types.varying-mapping": "多个服务器的映射地址不同",
-  "networkProbe.nat.types.unknown": "未知结果",
+  "networkProbe.nat.mappingObservations.blocked-or-timeout": "没有收到 STUN 响应",
+  "networkProbe.nat.mappingObservations.varying-mapping": "多个服务器的映射地址不同",
+  "networkProbe.nat.mappingObservations.unknown": "未知结果",
   "networkProbe.nat.explanations.blocked-or-timeout":
     "请查看逐源状态；网络过滤、DNS 解析或服务器超时都可能导致无响应，单凭超时无法确认原因。",
-  "networkProbe.nat.explanations.varying-mapping": "差异不证明对称型 NAT。",
+  "networkProbe.nat.explanations.varying-mapping": "映射差异不能判定 NAT 行为类型。",
   "networkProbe.nat.explanations.unknown": "无法判断。",
   "networkProbe.nat.serverResults": "STUN 服务器结果",
   "networkProbe.nat.serverStatuses.timeout": "请求超时",
@@ -36,8 +36,7 @@ vi.mock("@/components/common/CommandHint", () => ({
 
 function result(overrides: Partial<NatProbeResult> = {}): NatProbeResult {
   return {
-    natType: "blocked-or-timeout",
-    stunServer: "stun.example:3478",
+    mappingObservation: "blocked-or-timeout",
     serverResults: [
       {
         server: "stun.example:3478",
@@ -58,6 +57,7 @@ describe("NatPanel", () => {
     render(<NatPanel loading={false} result={result()} toolEnabled onRun={vi.fn()} />)
 
     expect(screen.getByText("没有收到 STUN 响应")).toBeInTheDocument()
+    expect(screen.getByText("没有收到 STUN 响应").parentElement).toHaveTextContent("映射观察")
     expect(
       screen.getByText(
         "请查看逐源状态；网络过滤、DNS 解析或服务器超时都可能导致无响应，单凭超时无法确认原因。",
@@ -69,18 +69,18 @@ describe("NatPanel", () => {
     expect(screen.queryByText("NAT_TIMEOUT")).not.toBeInTheDocument()
   })
 
-  it("maps legacy overconfident labels to qualified mapping observations", () => {
+  it("renders mapping observations without claiming a NAT type", () => {
     render(
       <NatPanel
         loading={false}
-        result={result({ natType: "symmetric-or-varied" })}
+        result={result({ mappingObservation: "varying-mapping" })}
         toolEnabled
         onRun={vi.fn()}
       />,
     )
 
     expect(screen.getByText("多个服务器的映射地址不同")).toBeInTheDocument()
-    expect(screen.queryByText("symmetric-or-varied")).not.toBeInTheDocument()
+    expect(screen.queryByText("NAT 类型")).not.toBeInTheDocument()
   })
 
   it("shows per-server addresses without choosing a summary address when they differ", () => {
@@ -88,7 +88,7 @@ describe("NatPanel", () => {
       <NatPanel
         loading={false}
         result={result({
-          natType: "varying-mapping",
+          mappingObservation: "varying-mapping",
           serverResults: [
             { server: "stun-a.example:3478", status: "mapped", mappedAddress: "203.0.113.9:54321" },
             {

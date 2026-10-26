@@ -62,6 +62,9 @@ export function WhoisPanel({ loading, result, toolEnabled, toolStatus, onRun }: 
     >
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
+          <p className="font-medium">
+            {t("networkProbe.whois.resultFor", { query: result.query })}
+          </p>
           <div>
             {result.source}
             {result.partial ? (

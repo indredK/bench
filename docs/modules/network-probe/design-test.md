@@ -65,7 +65,7 @@ src-tauri/src/net_probe/
 | 校验   | host 禁止 shell 元字符（对齐现有 `validate_host`）；拒绝空、过长、以 `-` 开头 |
 | 降级   | ICMP 不可用 → 返回 `degraded` 并建议改用 TCP/HTTP；UI 不显示假 0ms            |
 
-真机注意：macOS **本地网络**隐私权限会影响 LAN ping；能力矩阵标 `D/S`，UI 给设置跳转文案。
+真机注意：macOS **本地网络**隐私权限会影响 LAN ping；能力矩阵标 `D/S`。socket 不可用或全丢包时，UI 说明权限、防火墙与过滤等可能原因，并可打开系统设置「隐私与安全性」供用户查看「本地网络」；不自动修改权限。
 
 ### 3.2 DNS（`dnsLookup`）
 
@@ -149,7 +149,20 @@ UI：测试入口与「上不了网」入口共用面板组件；面包屑标明
 | `probePathMtu`    | 否或短会话 | —                              |
 | `getPublicIpInfo` | 否         | —                              |
 | `startSpeedTest`  | 是 · Post  | `network-probe://speed-sample` |
+| `scanPorts`       | 是 · Post  | `network-probe://port-sample`  |
 | `cancelScan`      | —          | 幂等                           |
+
+端口扫描取消必须中断运行中的 nmap 子进程（Tokio `kill_on_drop`）或 abort 内置 TCP connect 任务；取消结果标记 `cancelled`，不能触发 TCP 降级重扫。macOS 回归需验证按钮及时复位、子进程退出且同一会话只返回取消结果。nmap `-V` 能力探测须有 2 秒上限，超时按未检测到处理并终止探测子进程。
+
+指纹模式默认关闭且仅在检测到 nmap 时启用；macOS QA 只对 `127.0.0.1` 上的本机测试服务运行 `-sV --version-light`，具备原始包权限时再附 `-O --osscan-limit`；无该权限时应回退到不带 `-O` 的 TCP connect 服务识别并保留服务结果。确认 XML 能解析出服务元数据、无匹配 OS 时仍清楚说明、取消能结束子进程、Nmap 缺失/失败不伪装为普通扫描成功；stdout 保留上限 2 MiB、stderr 保留上限 64 KiB，超限时继续排空并明确失败。确认输出不含 NSE/`-A` 脚本，风险分类不显示漏洞严重级别；不得对用户网络中的其他主机做扫描。
+
+高风险范围确认框必须显示实际目标、用户输入的端口范围、实际适用的每目标探测速率与时长上限/估算；Nmap 端口扫描使用 `--scan-delay 50ms` 和 `--host-timeout 30s`，不叠加 `--max-parallelism`（该参数与 `--scan-delay` 同用会被忽略）。显式指纹模式的服务 / OS 阶段遵循 Nmap 自身时序，界面须说明 50ms 不是整次指纹扫描的总速率上限。内置 TCP 按至少 50ms 的间隔启动连接，最多 32 个并发连接且每次连接超时 800ms。确认取消期间请求扫描取消后应立即清理排程中的延时，不再启动新探测。
+
+高风险确认须在 Rust IPC 再检查：公网 IP、主机名或解析去重后超过 64 个端口，若 `highRiskConfirmed=false`，返回 `HIGH_RISK_CONFIRMATION_REQUIRED` 且不创建扫描会话；边界测试覆盖本机目标 64/65 端口、公网 IPv4/IPv6、私有 IPv4/IPv6、主机名及确认标志。界面仅在确认框接受后传 `true`，直接启动本机小范围扫描传 `false`。该布尔值表示 renderer 发来的确认意图，不作为抗 renderer 篡改的授权证明。
+
+端口扫描目标限定单个 IP / 主机名；Rust IPC 必须拒绝 IPv4/IPv6 CIDR、Nmap octet range、通配符和逗号分隔目标，返回 `PORT_SCAN_SINGLE_HOST_REQUIRED` 且不创建会话。界面对此类语法不展示公网风险确认框，use-case 显示双语单主机提示。测试覆盖接受单 IP / hostname 与拒绝多目标语法。
+
+确认框端口数必须与后端解析规则一致：按逗号 / 空白分隔、展开区间、校验 1–65535 与 256 个原始条目硬顶，再按端口去重后计数；重复端口不得造成虚假的大范围确认。语法无效时显示无法估算且不显示预计耗时。测试覆盖重复端口计数和 65 个重复项实际仅 1 个端口时不触发大范围确认。
 
 `nodeId`：MVP 仅 `local`；选中 remote 时灰显或提示后续版本（勿假连接）。
 
@@ -160,7 +173,7 @@ UI：测试入口与「上不了网」入口共用面板组件；面包屑标明
 - 目标输入：最近 N 条历史（本地，脱敏）；一键填 `1.1.1.1` / `cloudflare.com`。
 - 结果区下方固定 `CommandHint` + 写入命令日志。
 - Ping/Traceroute：实时表 + 停止按钮；离开面板**不**自动 clear 结果（导航记忆 §3.1）。
-- 长跳点表 >50：虚拟化（Polish 可延后，但接口预留）。
+- 长跳点表达到 50 跳时用 `@tanstack/react-virtual` 虚拟化，表格保留可访问的总行数、列标题和行/单元格语义；视口最高 320px，键盘可聚焦并滚动。
 - 测速面板标 `Post`，不进 MVP 验收。
 
 Store 建议：`testResults: { ping?, dns?, tcp?, custom?, traceroute?, mtu?, egress?, speed? }`，按工具分槽，互不覆盖。

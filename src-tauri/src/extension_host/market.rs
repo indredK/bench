@@ -471,6 +471,7 @@ pub async fn ext_market_commit(
                 "staged manifest does not match the requested install",
             ));
         }
+        manifest.ensure_supported_host()?;
         let host_version = app.package_info().version.to_string();
         if !manifest.satisfies_engines(&host_version) {
             return Err(AppError::unsupported(format!(
@@ -609,6 +610,7 @@ fn verify_staged_package(
             "registry package manifest must declare distribution `market`",
         ));
     }
+    manifest.ensure_supported_host()?;
 
     // 步骤 7：engines。
     if !manifest.satisfies_engines(host_version) {
@@ -701,8 +703,16 @@ mod tests {
         dir
     }
 
-    /// 组装插件 zip（manifest + index.html 内容可变，便于构造篡改用例）。
+    /// 组装插件 zip（manifest + index.html 内容可变，便于构造校验用例）。
     fn build_zip(tag: &str, index_html: &[u8]) -> (PathBuf, String, u64) {
+        build_zip_with_manifest(tag, index_html, PIPELINE_MANIFEST)
+    }
+
+    fn build_zip_with_manifest(
+        tag: &str,
+        index_html: &[u8],
+        manifest_json: &str,
+    ) -> (PathBuf, String, u64) {
         let root = temp_root(tag);
         let zip_path = root.join("plugin.zip");
         {
@@ -712,7 +722,7 @@ mod tests {
                 .start_file("manifest.json", zip::write::SimpleFileOptions::default())
                 .expect("start manifest");
             writer
-                .write_all(PIPELINE_MANIFEST.as_bytes())
+                .write_all(manifest_json.as_bytes())
                 .expect("write manifest");
             writer
                 .start_file("index.html", zip::write::SimpleFileOptions::default())
@@ -734,6 +744,38 @@ mod tests {
             published_at: None,
             yanked: false,
         }
+    }
+
+    #[test]
+    fn pipeline_rejects_package_for_another_host_platform() {
+        let unsupported_platform = if super::super::manifest::host_platform() == "macos" {
+            "windows"
+        } else {
+            "macos"
+        };
+        let manifest_json = PIPELINE_MANIFEST.replace(
+            "\"engines\"",
+            &format!("\"platforms\": [\"{unsupported_platform}\"], \"engines\""),
+        );
+        let (zip_path, hash, size) = build_zip_with_manifest("platform", b"test", &manifest_json);
+        let entry = registry_version(&hash, size);
+        let staging = temp_root("platform").join("staging");
+        let err = verify_staged_package(
+            &zip_path,
+            &staging,
+            "fake-ext",
+            "1.0.0",
+            &entry,
+            "1.30.0",
+            Some(PIPELINE_PUBKEY),
+            false,
+        )
+        .unwrap_err();
+        assert_eq!(err.code, "UNSUPPORTED");
+        assert!(err
+            .message
+            .contains(super::super::manifest::host_platform()));
+        fs::remove_dir_all(zip_path.parent().unwrap()).ok();
     }
 
     #[test]

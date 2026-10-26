@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { LanServicesResult } from "@/lib/tauri/types/network-probe"
 
 interface LanServicesPanelProps {
@@ -62,17 +63,23 @@ export function LanServicesPanel({
           {result.items.length === 0 ? (
             <p className="text-muted-foreground text-sm">{t("networkProbe.lanSvc.empty")}</p>
           ) : (
-            <ul className="space-y-1 font-mono text-xs">
-              {result.items.map((it, idx) => (
-                <li key={`${it.protocol}-${it.name}-${idx}`}>
-                  [{it.protocol}] {it.name}
-                  {it.serviceType ? ` · ${it.serviceType}` : ""}
-                  {it.host ? ` · ${it.host}` : ""}
-                  {it.port ? `:${it.port}` : ""}
-                  {it.detail ? ` — ${it.detail}` : ""}
-                </li>
-              ))}
-            </ul>
+            <VirtualizedResultList
+              items={result.items}
+              ariaLabel={t("networkProbe.lanSvc.servicesLabel")}
+              dataList="lan-services"
+              getItemKey={(item, index) => `${item.protocol}-${item.name}-${index}`}
+              className="space-y-1 font-mono text-xs"
+              itemClassName="flex h-7 min-w-0 items-center overflow-hidden whitespace-nowrap"
+              renderItem={(item) => (
+                <span className="min-w-0 truncate">
+                  [{item.protocol}] {item.name}
+                  {item.serviceType ? ` · ${item.serviceType}` : ""}
+                  {item.host ? ` · ${item.host}` : ""}
+                  {item.port ? `:${item.port}` : ""}
+                  {item.detail ? ` — ${item.detail}` : ""}
+                </span>
+              )}
+            />
           )}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>

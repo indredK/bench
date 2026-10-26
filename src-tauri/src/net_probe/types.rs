@@ -651,6 +651,8 @@ pub struct PortScanResult {
     pub mode: String,
     pub open_ports: Vec<u16>,
     pub samples: Vec<PortSampleEvent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fingerprint: Option<PortFingerprint>,
     pub cancelled: bool,
     pub session_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -660,13 +662,44 @@ pub struct PortScanResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct PortFingerprint {
+    pub services: Vec<PortServiceFingerprint>,
+    pub os_matches: Vec<PortOsMatch>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortServiceFingerprint {
+    pub port: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra_info: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<u8>,
+    pub risk_tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortOsMatch {
+    pub name: String,
+    pub accuracy: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NatProbeResult {
+    /// Mapping observation only; this is not an RFC 5780 NAT behavior classification.
     /// blocked-or-timeout | mapped-address | consistent-mapping | varying-mapping | no-mapping
-    pub nat_type: String,
+    pub mapping_observation: String,
     /// Present only when one mapping was found or all successful servers agree.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mapped_address: Option<String>,
-    pub stun_server: String,
     pub server_results: Vec<NatProbeServerResult>,
     pub elapsed_ms: f64,
     pub command_hint: String,
@@ -778,7 +811,11 @@ pub struct NodeDnsAnswer {
     pub ok: bool,
     pub answers: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -788,4 +825,93 @@ pub struct MultiNodeDnsResult {
     pub answers: Vec<NodeDnsAnswer>,
     pub elapsed_ms: f64,
     pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingMeasurementResult {
+    /// ping | http
+    pub kind: String,
+    pub target: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub method: Option<String>,
+    /// finished | failed | in-progress
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quota: Option<GlobalpingQuota>,
+    pub probes_count: u32,
+    pub results: Vec<GlobalpingProbeResult>,
+    pub elapsed_ms: f64,
+    pub command_hint: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingQuota {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate_limit_limit: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate_limit_consumed: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate_limit_remaining: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate_limit_reset_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credits_remaining: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credits_consumed: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingProbeResult {
+    pub node_id: String,
+    pub node_label: String,
+    /// finished | failed | offline | in-progress
+    pub status: String,
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ping: Option<GlobalpingPingStats>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http: Option<GlobalpingHttpStats>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingPingStats {
+    pub packets_sent: u32,
+    pub packets_received: u32,
+    pub loss_percent: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_rtt_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avg_rtt_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_rtt_ms: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingHttpStats {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dns_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tcp_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tls_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_byte_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub download_ms: Option<f64>,
+    pub tls_available: bool,
 }
