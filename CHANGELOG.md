@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.38.2](https://github.com/indredK/bench/compare/v1.38.1...v1.38.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **extension-market:** prevent DNS rebinding and unsafe redirects ([#157](https://github.com/indredK/bench/issues/157)) ([1eb14b8](https://github.com/indredK/bench/commit/1eb14b8c80ae5d04a91b35f9c91a09ca343d0eee))
+
 ## [1.38.1](https://github.com/indredK/bench/compare/v1.38.0...v1.38.1) (2026-10-25)
 
 
