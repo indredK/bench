@@ -410,6 +410,62 @@ pub async fn browser_ws_url(port: u16) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use futures_util::{SinkExt, StreamExt};
+    use tokio::net::{TcpListener, TcpStream};
+    use tokio_tungstenite::tungstenite::Message;
+
+    async fn serve_mock_cdp(stream: TcpStream) -> Vec<Value> {
+        let mut socket = tokio_tungstenite::accept_async(stream)
+            .await
+            .expect("accept mock CDP websocket");
+        let mut requests = Vec::new();
+
+        while let Some(frame) = socket.next().await {
+            let Ok(Message::Text(text)) = frame else {
+                break;
+            };
+            let request: Value = serde_json::from_str(text.as_str()).expect("parse CDP request");
+            let id = request["id"].as_u64().expect("request id");
+            let method = request["method"]
+                .as_str()
+                .expect("request method")
+                .to_string();
+            requests.push(request);
+
+            // CDP events have no id and must not consume a pending command response.
+            socket
+                .send(Message::Text(
+                    json!({ "method": "Page.loadEventFired", "params": {} })
+                        .to_string()
+                        .into(),
+                ))
+                .await
+                .expect("send mock CDP event");
+
+            let result = match method.as_str() {
+                "Target.getTargets" => json!({
+                    "targetInfos": [{
+                        "targetId": "page-1",
+                        "type": "page",
+                        "url": "about:blank"
+                    }]
+                }),
+                "Target.attachToTarget" => json!({ "sessionId": "session-1" }),
+                "Network.setCookie" => json!({ "success": true }),
+                "Page.navigate" => json!({ "frameId": "frame-1" }),
+                _ => json!({}),
+            };
+
+            socket
+                .send(Message::Text(
+                    json!({ "id": id, "result": result }).to_string().into(),
+                ))
+                .await
+                .expect("send mock CDP response");
+        }
+
+        requests
+    }
 
     #[test]
     fn loopback_ws_urls_are_accepted() {
@@ -537,5 +593,74 @@ mod tests {
             pick_page_target(&pages, Some("null")),
             Some("blank".to_string())
         );
+    }
+
+    #[tokio::test]
+    async fn cdp_client_runs_attach_inject_navigate_and_close_sequence() {
+        let listener = TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .expect("bind local mock CDP server");
+        let address = listener.local_addr().expect("mock server address");
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept CDP client");
+            serve_mock_cdp(stream).await
+        });
+
+        let mut client = CdpClient::connect(&format!(
+            "ws://127.0.0.1:{}/devtools/browser/mock",
+            address.port()
+        ))
+        .await
+        .expect("connect to local mock server");
+        client
+            .attach_page(Some("https://example.com"))
+            .await
+            .expect("attach page and enable domains");
+        assert!(client
+            .set_cookie(json!({
+                "name": "session",
+                "value": "mock-secret-cookie",
+                "url": "https://example.com"
+            }))
+            .await
+            .expect("set cookie"));
+        client
+            .navigate("https://example.com/dashboard")
+            .await
+            .expect("navigate to station");
+        client.close_browser().await.expect("close browser");
+        drop(client);
+
+        let requests = tokio::time::timeout(Duration::from_secs(2), server)
+            .await
+            .expect("mock server should finish promptly")
+            .expect("mock server task should not panic");
+        let methods: Vec<_> = requests
+            .iter()
+            .map(|request| request["method"].as_str().expect("method"))
+            .collect();
+        assert_eq!(
+            methods,
+            [
+                "Target.getTargets",
+                "Target.attachToTarget",
+                "Page.enable",
+                "Network.enable",
+                "Network.setCookie",
+                "Page.navigate",
+                "Browser.close",
+            ]
+        );
+        assert_eq!(requests[1]["params"]["targetId"], json!("page-1"));
+        assert_eq!(requests[1]["params"]["flatten"], json!(true));
+        for request in &requests[2..6] {
+            assert_eq!(request["sessionId"], json!("session-1"));
+        }
+        assert_eq!(requests[4]["params"]["value"], json!("mock-secret-cookie"));
+        assert_eq!(
+            requests[5]["params"]["url"],
+            json!("https://example.com/dashboard")
+        );
+        assert!(requests[6].get("sessionId").is_none());
     }
 }

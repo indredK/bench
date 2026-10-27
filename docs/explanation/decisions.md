@@ -2,6 +2,36 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-043 · Auth Proxy 可注册域匹配复用 Mozilla PSL 实现
+
+- **日期**：2026-10-04
+- **状态**：采纳
+- **背景**：Auth Proxy 的文档要求同可注册域匹配，但手写后缀判断只覆盖目标 host 是 Station host 子域的单向情形；简单剥离标签又会把 `example.co.uk` 与 `other.co.uk` 错当同站，也会混淆 `alice.github.io` 与 `bob.github.io`。
+- **决议**：Auth Proxy 保留自己的匹配语义（精确 host、目标子域、同 PSL 可注册域、SSO、manual），同可注册域判断使用 `psl` crate 提供的静态 Mozilla Public Suffix List；`Url` 继续负责 URL/hostname 解析。快速登录本轮不改匹配路径。
+- **边界**：无 PSL 可注册域的 IP、localhost 和内部单标签域不会因 PSL 规则扩展为同域匹配；已支持的精确 host 与目标子域规则仍保留。PSL 数据随 crate 版本更新，升级后需运行多级后缀与 private suffix 回归。
+- **理由**：用社区维护的 PSL 规则覆盖公共与 private suffix，避免把域名标签拆分误当作 eTLD+1；只在匹配边界替换手写规则，不引入运行时联网查表。
+- **相关**：[addr-rs/psl](https://github.com/addr-rs/psl) · [Auth Proxy 设计](../modules/account-manager/design.md) · D-042
+
+## D-042 · Auth Proxy 候选与一次性 ticket 共用 canonical snapshot
+
+- **日期**：2026-10-04
+- **状态**：采纳
+- **背景**：UI 原本从 `handle_browser_open` 收到自动匹配项后，再独立 IPC 拉取所有 Station/Account 并补 manual 候选。ticket 只包含第一份快照里的账号，造成 UI 明示可选的手动账号被后端拒绝；两次加载之间新增/移站还会造成候选与权限范围不一致。
+- **决议**：Rust 在一次 canonical snapshot 中返回自动匹配候选及其余所有已知站点的 `manual` 候选，并按相同候选生成 ticket 的账号-站点 ID 绑定。前端只消费该 DTO，不再为同一选择器加载第二份状态；启动前验证账号仍开启代理且仍属于票据记录的站点。新账号仍固定按目标 host 查找/创建站点，不接受 renderer 任意指定站点。
+- **边界**：manual 候选是产品显式提供给用户的选择，因此其代理账号确实在 ticket 允许范围；无效/已删除 Station 关联的孤立账号不属于返回候选。ticket 仍短时、单次，且账号移站后拒绝沿用。
+- **理由**：同一份后端快照同时定义“用户能选什么”和“ticket 能启动什么”，消除 UI/授权双份状态造成的失败，并保留确切账号-站点绑定防止旧 ticket 被移站复用。
+- **相关**：[Auth Proxy 设计](../modules/account-manager/design.md) · [产品规格](../reference/product-specs/account-manager.md) · D-043
+
+## D-041 · NAT 探测复用 webrtc-rs STUN 协议库，保留应用侧传输门控
+
+- **日期**：2026-10-03
+- **状态**：采纳（限 STUN 协议编码/解码，不引入完整 WebRTC/ICE）
+- **背景**：网络探测原有 STUN wire 编码与地址解析为手写逻辑，维护者需自行承担 RFC 字段、地址属性和报文边界的正确性。webrtc-rs 提供 Sans-I/O `rtc-stun`，协议实现与 socket/runtime 解耦，可接入现有 Tokio 探测流程。
+- **决议**：固定使用 webrtc-rs `rtc-stun 0.21.0`（上游当前稳定线），处理 Binding 消息编解码、映射属性解析与 CSPRNG transaction ID；应用继续拥有每服务器独立 UDP socket、DNS + 探测总截止时间、来源地址关联和严格 envelope/属性长度/重复属性校验。保留默认 `crypto-ring` feature，不接入其完整 ICE/TURN 客户端。
+- **边界**：多服务器映射比较只输出 `insufficient-evidence`、`consistent-mapping` 或 `mapping-varies` 等观察结论，不推断 Full Cone / Restricted / Port-Restricted；RFC 5780 映射/过滤行为使用独立探测序列报告，并保持“已接入实现、待 macOS 真机验收”的状态，不把单一服务器/时刻的观测包装成永久 NAT 属性。
+- **理由**：复用成熟协议代码降低自行维护 wire parser 的风险，同时保留应用对超时、来源验证、资源上限和用户可见不确定性的控制。
+- **相关**：[design-discover.md §3.3](../modules/network-probe/design-discover.md) · [webrtc-rs/rtc](https://github.com/webrtc-rs/rtc) · [D-016](#d-016--network-probe-mvp-a--b范围)
+
 ## D-040 · 新增「直读本机 Chrome 落盘登录态」作为 I3 兜底入向（修正一条基于错误事实的红线）
 
 - **日期**：2026-09-19

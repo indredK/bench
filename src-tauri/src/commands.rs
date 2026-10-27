@@ -179,6 +179,7 @@ macro_rules! app_invoke_handler {
             $crate::account_manager::commands::match_stations_by_url,
             $crate::account_manager::commands::proxy_login,
             $crate::account_manager::commands::handle_browser_open,
+            $crate::account_manager::commands::open_auth_proxy_return_url,
             $crate::account_manager::commands::get_auth_proxy_inbox_status,
             $crate::account_manager::commands::drain_auth_proxy_request,
             $crate::account_manager::commands::proxy_login_new_account,

@@ -63,6 +63,7 @@ export function useFingerprint({
           "detail",
           makeRegionError(error, "accountManager.errors.fingerprintCapture", {
             retry: () => handleCaptureFingerprint(stationId, accountId),
+            scope: { stationId, accountId },
           }),
         )
       }

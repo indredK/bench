@@ -74,6 +74,10 @@ AuthProfile 检测从页面、cookie、Web Storage、CSRF、SSO、anti-bot 和 W
 - 主密钥来自系统 Keychain；首次使用生成随机 256-bit key。
 - 密码和 Session 使用 AES-256-GCM，每次写入生成独立 nonce。
 - 解密只发生在 Rust 内存中；日志、事件和前端 DTO 不得包含密码、token、cookie 或明文 Session。
+- Auth Proxy 深链的完整目标 URL、回调 URL 与 OAuth state 仅保存在 Rust 端短时一次性 ticket；inbox IPC 的 renderer DTO 只收 ticket、host、候选站点、是否有回调及回调 scheme。候选由一次 canonical snapshot 生成：自动候选优先，所有其余已知站点标为 `manual`，每个站点仅展示 `proxy_enabled` 账号；ticket 绑定签发时的账号 ID 与站点 ID，手动候选和自动候选使用同一授权范围。启动 WebView 前基于最新 snapshot 再验证账号仍启用代理、仍属于签发时站点且该站点仍在候选集中。回调有预期 state 时只接受恰好一个完全匹配的 `state` 参数，缺失或重复均拒绝。用户手动粘贴的 URL 只留在弹窗临时输入态，关闭即清除、不写入 Zustand 或日志。回调应用由 Rust 按 ticket 打开，启动登录命令不回传 state 或占位凭据。
+- 新账号 Auth Proxy 必须在串行状态 mutation 中查找/创建 Station 并写入账号，避免并发深链制造重复站点；启动失败按本次操作 owner 回滚元数据并关闭新 WebView，仅在资源确属本次新建且仍无人使用时删除 Station。账号校验失败不消费 ticket，可恢复的启动失败归还未过期 ticket，保证重试状态与 UI 一致。
+- Auth Proxy 新账号始终按目标主机查找或创建站点；用户名可留空并由后端生成默认名称。该路径不依赖已有站点列表，首次使用时也可直接创建。
+- 普通 URL 从外部应用深链进入时不把原 URL 回传 renderer；Quick Open 只对用户手动粘贴的 URL 提供一键预填。深链场景显示重新复制并粘贴的提示，不显示无法工作的空链接跳转按钮。
 - store 写入由 `AccountManagerState` 串行化并显式 flush；Dev/Prod 共用 bundle ID 时遵守 [共存策略](../../how-to/dev-prod-coexistence.md)。
 - Keyring 首建和 store mutation 使用跨进程文件锁；mutation 在锁内 reload 磁盘 canonical snapshot 后再 save/replace，禁止 last-write-wins 覆盖。
 - 导出默认使用 sanitized 模式；包含凭据的导出必须保持加密并明确告知用户。

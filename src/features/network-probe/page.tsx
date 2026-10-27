@@ -3,7 +3,7 @@
  */
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Network } from "lucide-react"
+import { Network, X } from "lucide-react"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
 import { ArpPanel } from "@/features/network-probe/components/ArpPanel"
 import { DnsLookupPanel } from "@/features/network-probe/components/DnsLookupPanel"
@@ -127,7 +127,6 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
     [probeNodes],
   )
 
-  const errorText = c.error ? t(c.error.key, { defaultValue: c.error.fallback }) : null
   const offlineSub = c.offlineSub
   const panelTitle = t(`networkProbe.l2.${resolvedL2}`)
   const crumbOffline =
@@ -318,9 +317,28 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 </p>
               </div>
 
-              {errorText ? (
-                <div className="border-destructive/40 bg-destructive/5 text-destructive shrink-0 rounded-md border px-3 py-2 text-sm">
-                  {errorText}
+              {c.errors.length > 0 ? (
+                <div className="max-h-28 shrink-0 space-y-1 overflow-y-auto" aria-live="polite">
+                  {c.errors.map((error) => (
+                    <div
+                      key={`${error.key}:${error.scope ?? ""}`}
+                      role="alert"
+                      className="border-destructive/40 bg-destructive/5 text-destructive flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
+                    >
+                      <span className="min-w-0 flex-1 break-words">
+                        {t(error.key, { defaultValue: error.fallback })}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={t("common.close")}
+                        onClick={() => c.clearError(error.key, error.scope)}
+                      >
+                        <X aria-hidden="true" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               ) : null}
 
@@ -470,6 +488,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                 {showFix ? (
                   <FixPanel
                     loading={c.loadingFix}
+                    loadingServices={c.loadingServices}
                     services={c.networkServices}
                     dnsPresets={c.defaults?.dnsPresets ?? []}
                     lastResult={c.fixResult}
@@ -681,6 +700,10 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <MultiNodePanel
                     loading={c.loadingMultiNode}
                     loadingNodes={c.loadingNodes}
+                    agentAction={c.agentAction}
+                    nodesLoadFailed={c.errors.some(
+                      (error) => error.key === "networkProbe.errors.nodesFailed",
+                    )}
                     result={c.multiNodeDnsResult}
                     nodes={c.probeNodes}
                     toolEnabled={c.toolEnabled.multiNode}

@@ -1,223 +1,424 @@
 //! mDNS / DNS-SD browse + SSDP/UPnP discovery (read-only) — S-DIS-02.
 
-use super::types::{LanServiceItem, LanServicesResult};
+use super::types::{LanServiceItem, LanServicesProtocolError, LanServicesResult};
 use crate::error::{AppError, AppResult};
+use futures_util::StreamExt;
+use mdns_sd::{ServiceDaemon, ServiceEvent};
+use ssdp_client::SearchTarget;
 use std::collections::BTreeSet;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::time::{Duration, Instant};
-use tokio::net::UdpSocket;
-use tokio::time::{timeout, timeout_at, Instant as TokioInstant};
+use tokio::task::JoinSet;
+use tokio::time::{timeout_at, Instant as TokioInstant};
+
+const MAX_ITEMS_PER_PROTOCOL: usize = 256;
+const MAX_MDNS_SERVICE_TYPES: usize = 32;
+const MDNS_META_SERVICE_TYPE: &str = "_services._dns-sd._udp.local.";
+const MDNS_TYPE_WINDOW: Duration = Duration::from_millis(900);
+const MDNS_SERVICE_WINDOW: Duration = Duration::from_millis(1200);
+const SSDP_WINDOW: Duration = Duration::from_secs(2);
+const MAX_DETAIL_CHARS: usize = 768;
 
 pub async fn browse_lan_services() -> AppResult<LanServicesResult> {
     let started = Instant::now();
     let command_hint =
-        "browseLanServices(local) // mDNS PTR + SSDP M-SEARCH (read-only)".to_string();
+        "browseLanServices(local) // mDNS/DNS-SD + SSDP discovery (read-only)".to_string();
 
     let mut items = Vec::new();
-    let mut seen = BTreeSet::new();
-
+    let mut errors = Vec::new();
+    let mut truncated = false;
     match browse_mdns().await {
-        Ok(list) => {
-            for it in list {
-                let key = format!("{}|{}|{}", it.protocol, it.name, it.detail);
-                if seen.insert(key) {
-                    items.push(it);
-                }
-            }
+        Ok((list, was_truncated)) => {
+            truncated |= was_truncated;
+            items.extend(list);
         }
-        Err(e) => items.push(LanServiceItem {
-            protocol: "mdns".into(),
-            name: "(mDNS error)".into(),
-            service_type: None,
-            host: None,
-            port: None,
-            detail: e.to_string(),
-        }),
+        Err(error) => errors.push(protocol_error("mdns", error)),
     }
 
     match browse_ssdp().await {
-        Ok(list) => {
-            for it in list {
-                let key = format!("{}|{}|{}", it.protocol, it.name, it.detail);
-                if seen.insert(key) {
-                    items.push(it);
-                }
-            }
+        Ok((list, was_truncated)) => {
+            truncated |= was_truncated;
+            items.extend(list);
         }
-        Err(e) => items.push(LanServiceItem {
-            protocol: "ssdp".into(),
-            name: "(SSDP error)".into(),
-            service_type: None,
-            host: None,
-            port: None,
-            detail: e.to_string(),
-        }),
+        Err(error) => errors.push(protocol_error("ssdp", error)),
     }
 
     Ok(LanServicesResult {
         items,
-        message: Some(
-            "Read-only discovery. No UPnP Write / AddPortMapping actions are exposed.".into(),
-        ),
+        errors,
+        truncated,
+        // The UI already shows a localized read-only notice.
+        message: None,
         elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
         command_hint,
     })
 }
 
-async fn browse_mdns() -> AppResult<Vec<LanServiceItem>> {
-    let sock = UdpSocket::bind("0.0.0.0:0")
-        .await
-        .map_err(|e| AppError::new("MDNS_BIND", e.to_string()))?;
-    sock.set_broadcast(true).ok();
-    // Query PTR for DNS-SD root
-    let qname = "_services._dns-sd._udp.local";
-    let packet = build_dns_ptr_query(qname);
-    let dest = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(224, 0, 0, 251), 5353));
-    sock.send_to(&packet, dest)
-        .await
-        .map_err(|e| AppError::new("MDNS_SEND", e.to_string()))?;
+async fn browse_mdns() -> AppResult<(Vec<LanServiceItem>, bool)> {
+    let daemon =
+        ServiceDaemon::new().map_err(|error| AppError::new("MDNS_START", error.to_string()))?;
+    let result = browse_mdns_with_daemon(&daemon).await;
+    let _ = daemon.shutdown();
+    result
+}
 
+async fn browse_ssdp() -> AppResult<(Vec<LanServiceItem>, bool)> {
+    let target = SearchTarget::All;
+    let mut responses = ssdp_client::search(&target, SSDP_WINDOW, 2, None)
+        .await
+        .map_err(|error| AppError::new("SSDP_SEARCH", error.to_string()))?;
+    let deadline = TokioInstant::now() + SSDP_WINDOW + Duration::from_millis(250);
     let mut out = Vec::new();
-    let deadline = TokioInstant::now() + Duration::from_millis(1200);
-    let mut buf = [0u8; 1500];
-    while TokioInstant::now() < deadline {
-        match timeout_at(deadline, sock.recv_from(&mut buf)).await {
-            Ok(Ok((n, from))) => {
-                let text = String::from_utf8_lossy(&buf[..n]);
-                // Best-effort: surface responder + any printable service labels.
-                let labels = extract_printable_labels(&buf[..n]);
-                if labels.is_empty() {
-                    out.push(LanServiceItem {
-                        protocol: "mdns".into(),
-                        name: from.ip().to_string(),
-                        service_type: Some("_services._dns-sd._udp.local".into()),
-                        host: Some(from.ip().to_string()),
-                        port: None,
-                        detail: format!("response {} bytes", n),
-                    });
+    let mut truncated = false;
+    let mut seen_usn = BTreeSet::new();
+    loop {
+        match timeout_at(deadline, responses.next()).await {
+            Ok(Some(Ok(response))) => {
+                let usn = sanitize_network_text(response.usn(), 256);
+                let location = sanitize_network_text(response.location(), 256);
+                let server = sanitize_network_text(response.server(), 128);
+                let search_target =
+                    sanitize_network_text(&response.search_target().to_string(), 256);
+                let Some(name) = ssdp_display_name(&server, &usn, &search_target) else {
+                    continue;
+                };
+                let dedup_key = if !usn.is_empty() {
+                    usn.to_ascii_lowercase()
                 } else {
-                    for lab in labels.into_iter().take(8) {
-                        out.push(LanServiceItem {
-                            protocol: "mdns".into(),
-                            name: lab.clone(),
-                            service_type: Some(qname.into()),
-                            host: Some(from.ip().to_string()),
-                            port: None,
-                            detail: format!("label from {from}; raw_hint={}", truncate(&text, 80)),
-                        });
+                    if search_target.is_empty() && location.is_empty() {
+                        continue;
                     }
+                    format!("{}|{}", search_target.to_ascii_lowercase(), location)
+                };
+                if !seen_usn.insert(dedup_key) {
+                    continue;
+                }
+
+                let parsed_location = url::Url::parse(&location).ok().filter(|url| {
+                    matches!(url.scheme(), "http" | "https") && url.host_str().is_some()
+                });
+                let item = LanServiceItem {
+                    protocol: "ssdp".into(),
+                    name,
+                    service_type: if search_target.is_empty() {
+                        None
+                    } else {
+                        Some(search_target)
+                    },
+                    host: parsed_location
+                        .as_ref()
+                        .and_then(url::Url::host_str)
+                        .map(str::to_string),
+                    port: parsed_location
+                        .as_ref()
+                        .and_then(url::Url::port_or_known_default),
+                    // LOCATION is untrusted device data. Display it only; never fetch it.
+                    detail: sanitize_network_text(
+                        &format!("USN={usn}; LOCATION={location}"),
+                        MAX_DETAIL_CHARS,
+                    ),
+                };
+                if out.len() < MAX_ITEMS_PER_PROTOCOL {
+                    out.push(item);
+                } else {
+                    truncated = true;
+                    break;
                 }
             }
-            _ => break,
+            Ok(Some(Err(_))) => continue,
+            Ok(None) | Err(_) => break,
         }
     }
-    Ok(out)
+
+    Ok((out, truncated))
 }
 
-async fn browse_ssdp() -> AppResult<Vec<LanServiceItem>> {
-    let sock = UdpSocket::bind("0.0.0.0:0")
-        .await
-        .map_err(|e| AppError::new("SSDP_BIND", e.to_string()))?;
-    sock.set_broadcast(true).ok();
-    let payload = concat!(
-        "M-SEARCH * HTTP/1.1\r\n",
-        "HOST: 239.255.255.250:1900\r\n",
-        "MAN: \"ssdp:discover\"\r\n",
-        "MX: 2\r\n",
-        "ST: ssdp:all\r\n",
-        "\r\n"
-    );
-    let dest = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(239, 255, 255, 250), 1900));
-    sock.send_to(payload.as_bytes(), dest)
-        .await
-        .map_err(|e| AppError::new("SSDP_SEND", e.to_string()))?;
+async fn browse_mdns_with_daemon(daemon: &ServiceDaemon) -> AppResult<(Vec<LanServiceItem>, bool)> {
+    let meta_receiver = daemon
+        .browse(MDNS_META_SERVICE_TYPE)
+        .map_err(|error| AppError::new("MDNS_BROWSE", error.to_string()))?;
+    let meta_deadline = TokioInstant::now() + MDNS_TYPE_WINDOW;
+    let mut service_types = BTreeSet::new();
+    let mut truncated = false;
 
-    let mut out = Vec::new();
-    let deadline = TokioInstant::now() + Duration::from_millis(2000);
-    let mut buf = [0u8; 2048];
-    while TokioInstant::now() < deadline {
-        match timeout_at(deadline, sock.recv_from(&mut buf)).await {
-            Ok(Ok((n, from))) => {
-                let text = String::from_utf8_lossy(&buf[..n]);
-                let st = header_value(&text, "ST").unwrap_or_else(|| "ssdp:all".into());
-                let server = header_value(&text, "SERVER").unwrap_or_else(|| from.ip().to_string());
-                let location = header_value(&text, "LOCATION").unwrap_or_default();
-                // Do NOT fetch LOCATION for write actions — only display.
-                out.push(LanServiceItem {
-                    protocol: "ssdp".into(),
-                    name: server,
-                    service_type: Some(st),
-                    host: Some(from.ip().to_string()),
-                    port: Some(1900),
-                    detail: if location.is_empty() {
-                        "no LOCATION".into()
-                    } else {
-                        format!("LOCATION={location} (display only)")
-                    },
-                });
+    loop {
+        match timeout_at(meta_deadline, meta_receiver.recv_async()).await {
+            Ok(Ok(ServiceEvent::ServiceFound(_, full_name))) => {
+                insert_service_type(&mut service_types, full_name, &mut truncated);
             }
-            _ => break,
+            Ok(Ok(ServiceEvent::ServiceResolved(service))) => {
+                insert_service_type(
+                    &mut service_types,
+                    service.get_fullname().to_string(),
+                    &mut truncated,
+                );
+            }
+            Ok(Ok(_)) => {}
+            Ok(Err(_)) | Err(_) => break,
         }
     }
-    let _ = timeout(Duration::from_millis(1), async {}).await;
-    Ok(out)
-}
 
-fn build_dns_ptr_query(name: &str) -> Vec<u8> {
-    let mut out = Vec::new();
-    out.extend_from_slice(&0x1200u16.to_be_bytes()); // id
-    out.extend_from_slice(&0x0000u16.to_be_bytes()); // flags
-    out.extend_from_slice(&1u16.to_be_bytes()); // qdcount
-    out.extend_from_slice(&0u16.to_be_bytes());
-    out.extend_from_slice(&0u16.to_be_bytes());
-    out.extend_from_slice(&0u16.to_be_bytes());
-    for label in name.split('.') {
-        let b = label.as_bytes();
-        out.push(b.len() as u8);
-        out.extend_from_slice(b);
+    let mut receivers = Vec::new();
+    for service_type in &service_types {
+        match daemon.browse(service_type) {
+            Ok(receiver) => receivers.push(receiver),
+            Err(_) => truncated = true,
+        }
     }
-    out.push(0);
-    out.extend_from_slice(&12u16.to_be_bytes()); // PTR
-    out.extend_from_slice(&1u16.to_be_bytes()); // IN
-    out
-}
 
-fn extract_printable_labels(buf: &[u8]) -> Vec<String> {
+    let service_deadline = TokioInstant::now() + MDNS_SERVICE_WINDOW;
+    let mut tasks = JoinSet::new();
+    for receiver in receivers {
+        tasks.spawn(async move {
+            let mut items = Vec::new();
+            loop {
+                if items.len() >= MAX_ITEMS_PER_PROTOCOL {
+                    return (items, true);
+                }
+                match timeout_at(service_deadline, receiver.recv_async()).await {
+                    Ok(Ok(ServiceEvent::ServiceResolved(service))) => {
+                        items.push(mdns_service_item(&service));
+                    }
+                    Ok(Ok(_)) => {}
+                    Ok(Err(_)) | Err(_) => return (items, false),
+                }
+            }
+        });
+    }
+
     let mut out = Vec::new();
-    let mut i = 0;
-    while i < buf.len() {
-        let len = buf[i] as usize;
-        if len == 0 || len > 63 || i + 1 + len > buf.len() {
-            i += 1;
+    let mut seen = BTreeSet::new();
+    while let Some(result) = tasks.join_next().await {
+        let Ok((items, type_truncated)) = result else {
+            truncated = true;
             continue;
+        };
+        truncated |= type_truncated;
+        for item in items {
+            if out.len() < MAX_ITEMS_PER_PROTOCOL && seen.insert(item.name.clone()) {
+                push_bounded(&mut out, item, &mut truncated);
+            } else if out.len() >= MAX_ITEMS_PER_PROTOCOL {
+                truncated = true;
+                break;
+            }
         }
-        let slice = &buf[i + 1..i + 1 + len];
-        if slice
+    }
+
+    Ok((out, truncated))
+}
+
+fn insert_service_type(
+    service_types: &mut BTreeSet<String>,
+    service_type: String,
+    truncated: &mut bool,
+) {
+    if !is_valid_mdns_service_type(&service_type) || service_types.contains(&service_type) {
+        return;
+    }
+    if service_types.len() >= MAX_MDNS_SERVICE_TYPES {
+        *truncated = true;
+        return;
+    }
+    service_types.insert(service_type);
+}
+
+fn mdns_service_item(service: &mdns_sd::ResolvedService) -> LanServiceItem {
+    let mut addresses = service
+        .addresses
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    addresses.sort();
+    let txt = service
+        .txt_properties
+        .iter()
+        .take(16)
+        .map(|property| sanitize_network_text(&property.to_string(), 96))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let mut details = vec![format!(
+        "host={}",
+        sanitize_network_text(&service.host, 253)
+    )];
+    if !addresses.is_empty() {
+        details.push(format!("addresses={}", addresses.join(", ")));
+    }
+    if !txt.is_empty() {
+        details.push(format!("TXT={txt}"));
+    }
+
+    LanServiceItem {
+        protocol: "mdns".into(),
+        name: sanitize_network_text(service.get_fullname(), 253),
+        service_type: Some(sanitize_network_text(&service.ty_domain, 253)),
+        host: addresses
+            .first()
+            .cloned()
+            .or_else(|| Some(sanitize_network_text(&service.host, 253))),
+        port: Some(service.port),
+        detail: sanitize_network_text(&details.join(" · "), MAX_DETAIL_CHARS),
+    }
+}
+
+fn is_valid_mdns_service_type(service_type: &str) -> bool {
+    service_type != MDNS_META_SERVICE_TYPE
+        && service_type.len() <= 253
+        && service_type.is_ascii()
+        && (service_type.ends_with("._tcp.local.") || service_type.ends_with("._udp.local."))
+        && service_type
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.'))
+}
+
+fn ssdp_display_name(server: &str, usn: &str, search_target: &str) -> Option<String> {
+    [server, usn, search_target]
+        .into_iter()
+        .map(str::trim)
+        .find(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
+fn sanitize_network_text(text: &str, max_chars: usize) -> String {
+    text.chars()
+        .map(|character| {
+            if character.is_control() {
+                ' '
+            } else {
+                character
+            }
+        })
+        .take(max_chars)
+        .collect()
+}
+
+fn protocol_error(protocol: &str, error: AppError) -> LanServicesProtocolError {
+    LanServicesProtocolError {
+        protocol: protocol.to_string(),
+        code: sanitize_network_text(&error.code, 64),
+        message: sanitize_network_text(&error.message, MAX_DETAIL_CHARS),
+    }
+}
+
+fn push_bounded(
+    items: &mut Vec<LanServiceItem>,
+    item: LanServiceItem,
+    truncated: &mut bool,
+) -> bool {
+    if items.len() >= MAX_ITEMS_PER_PROTOCOL {
+        *truncated = true;
+        return false;
+    }
+    items.push(item);
+    true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    #[ignore = "requires macOS dns-sd and SSDP fixtures on the local multicast interface"]
+    async fn discovers_mdns_and_ssdp_fixtures_over_real_multicast() {
+        let result = browse_lan_services().await.unwrap();
+        let mdns_fixture = result
+            .items
             .iter()
-            .all(|c| c.is_ascii_graphic() || *c == b'_' || *c == b'-')
-        {
-            let s = String::from_utf8_lossy(slice).to_string();
-            if s.contains('_') || s.ends_with("local") || s.len() > 3 {
-                out.push(s);
-            }
-        }
-        i += 1 + len;
-    }
-    out
-}
+            .find(|item| item.protocol == "mdns" && item.name.contains("Bench LAN Fixture"))
+            .expect("the local Bonjour fixture should be discovered");
 
-fn header_value(msg: &str, key: &str) -> Option<String> {
-    for line in msg.lines() {
-        if let Some((k, v)) = line.split_once(':') {
-            if k.eq_ignore_ascii_case(key) {
-                return Some(v.trim().to_string());
-            }
-        }
-    }
-    None
-}
+        assert_eq!(
+            mdns_fixture.service_type.as_deref(),
+            Some("_bench-test._tcp.local.")
+        );
+        assert_eq!(mdns_fixture.port, Some(54321));
+        assert!(mdns_fixture.detail.contains("kind=fixture"));
 
-fn truncate(s: &str, n: usize) -> String {
-    let t: String = s.chars().take(n).collect();
-    t.replace('\n', " ")
+        let ssdp_fixtures = result
+            .items
+            .iter()
+            .filter(|item| item.protocol == "ssdp" && item.detail.contains("uuid:bench-test"))
+            .collect::<Vec<_>>();
+        assert_eq!(ssdp_fixtures.len(), 1, "duplicate USNs should be collapsed");
+        assert_eq!(ssdp_fixtures[0].name, "BenchTest/1.0 UPnP/1.1");
+        assert_eq!(
+            ssdp_fixtures[0].service_type.as_deref(),
+            Some("upnp:rootdevice")
+        );
+        assert_eq!(ssdp_fixtures[0].host.as_deref(), Some("192.0.2.1"));
+        assert_eq!(ssdp_fixtures[0].port, Some(6543));
+    }
+
+    #[test]
+    fn bounds_protocol_results_and_reports_omitted_items() {
+        let mut items = Vec::new();
+        let mut truncated = false;
+        for index in 0..=MAX_ITEMS_PER_PROTOCOL {
+            push_bounded(
+                &mut items,
+                LanServiceItem {
+                    protocol: "ssdp".into(),
+                    name: format!("device-{index}"),
+                    service_type: None,
+                    host: None,
+                    port: None,
+                    detail: String::new(),
+                },
+                &mut truncated,
+            );
+        }
+
+        assert_eq!(items.len(), MAX_ITEMS_PER_PROTOCOL);
+        assert!(truncated);
+        assert_eq!(
+            items.last().map(|item| item.name.as_str()),
+            Some("device-255")
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_service_types_from_mdns_responses() {
+        assert!(is_valid_mdns_service_type("_http._tcp.local."));
+        assert!(is_valid_mdns_service_type("_printer._sub._ipp._tcp.local."));
+        assert!(!is_valid_mdns_service_type("_services._dns-sd._udp.local."));
+        assert!(!is_valid_mdns_service_type("_http._tcp.example.com."));
+        assert!(!is_valid_mdns_service_type("_http._tcp.local.\nInjected"));
+    }
+
+    #[test]
+    fn sanitizes_control_characters_and_bounds_untrusted_service_text() {
+        assert_eq!(sanitize_network_text("server\r\nnext", 64), "server  next");
+        assert_eq!(sanitize_network_text("abcd", 3), "abc");
+    }
+
+    #[test]
+    fn ssdp_location_metadata_only_accepts_http_urls() {
+        let parsed = url::Url::parse("http://192.168.1.1:8080/device.xml")
+            .ok()
+            .filter(|url| matches!(url.scheme(), "http" | "https") && url.host_str().is_some());
+        assert_eq!(
+            parsed.as_ref().and_then(url::Url::host_str),
+            Some("192.168.1.1")
+        );
+        assert_eq!(
+            parsed.as_ref().and_then(url::Url::port_or_known_default),
+            Some(8080)
+        );
+
+        let rejected = url::Url::parse("file:///etc/passwd")
+            .ok()
+            .filter(|url| matches!(url.scheme(), "http" | "https") && url.host_str().is_some());
+        assert!(rejected.is_none());
+    }
+
+    #[test]
+    fn ssdp_name_falls_back_to_identity_when_server_header_is_missing() {
+        assert_eq!(
+            ssdp_display_name("", "uuid:device", "upnp:rootdevice").as_deref(),
+            Some("uuid:device")
+        );
+        assert_eq!(
+            ssdp_display_name("", "", "upnp:rootdevice").as_deref(),
+            Some("upnp:rootdevice")
+        );
+        assert_eq!(ssdp_display_name("", "", ""), None);
+    }
 }

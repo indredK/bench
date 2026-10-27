@@ -6,15 +6,17 @@
 >
 > **插件化执行进度（P 阶段，唯一状态清单见 [modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)）**：
 >
-> | 阶段                                                                    | 状态      |
-> | ----------------------------------------------------------------------- | --------- |
-> | P0 产品定案 / P1 概念验证 / P2 契约+插件中心 / P2b photo-triage 迁移    | ✅ 完成   |
-> | P3 运行时治理（engines / 签名骨架 / 语言注入 / 卸载）                   | ✅ 完成   |
-> | P3.1 包完整性安全地基（**硬阻塞**）/ P3.2 Windows 门禁 / P3.3 解压+审计 | ⬜ 未开始 |
-> | P3.4 bundled 发布集成 / P4 market 闭环 / P4.5 作者侧交付                | ⬜ 未开始 |
-> | P5 增量迁移（带停止线）/ P6 Windows release                             | ⬜ 未开始 |
+> | 阶段                                                                 | 状态                                    |
+> | -------------------------------------------------------------------- | --------------------------------------- |
+> | P0 产品定案 / P1 概念验证 / P2 契约+插件中心 / P2b photo-triage 迁移 | ✅ 代码完成                             |
+> | P3 运行时治理 / P3.1 包完整性安全地基（**硬阻塞**）/ P3.3 解压+审计  | ✅ 完成                                 |
+> | P3.2 Windows CI 门禁                                                 | ✅ 代码完成；待 Windows runner 复验     |
+> | P3.4 bundled 发布集成                                                | ✅ 代码完成；待 release 全新安装验收    |
+> | P4 market 闭环                                                       | ✅ 代码完成；待 registry 私钥端到端验收 |
+> | P4.5 作者侧交付                                                      | ⬜ 下一步                               |
+> | P5 增量迁移（带停止线）/ P6 Windows release                          | ⬜ 未开始                               |
 >
-> - **P3.1（包完整性 + 降级防护）是硬阻塞**：完成前不得实现 download/extract，否则产物格式上线后返工。
+> - **P3.1（包完整性 + 降级防护）是硬阻塞**：已完成；后续下载/解压必须遵循冻结的 manifest v2 产物格式。
 > - **P3.4（bundled 随正式包发布）与 P6（Windows release）是发布硬前置**：插件化能力在两者完成前不得随正式版发布。
 > - 本文件与 [GAP-TO-2.0.md](./GAP-TO-2.0.md) 的内容**保留作技术债台账**，供插件化迁移时按模块评估，不删除。
 > - 例外：涉及**数据安全与签名链**的条目（A5 持久化迁移、A3-1 RC dry-run、minisign 全链）在插件分发启用前必须重新评估。
@@ -75,7 +77,7 @@
 
 | ID  | 状态 | 责任                 | 任务                                           | 前置     |
 | --- | ---- | -------------------- | ---------------------------------------------- | -------- |
-| R00 | [ ]  | AI                   | 冻结范围与记录基线                             | 无       |
+| R00 | [x]  | AI                   | 冻结范围与记录基线                             | 无       |
 | R01 | [ ]  | AI                   | Account Manager 代码收口                       | R00      |
 | R02 | [ ]  | AI + 目标平台        | App Manager / Quick Launch fixture、启动与性能 | R01      |
 | R03 | [ ]  | macOS 人工           | System Settings / Clean Space 真机验证         | R00      |
@@ -128,7 +130,11 @@ git diff --check
 
 **完成条件**：基线全绿，范围和负责人已记录。否则停在 R00。
 
+**完成证据（2026-09-30）**：PR [#106](https://github.com/indredK/bench/pull/106) 已 squash merge（`0669d8b5`），Issue [#105](https://github.com/indredK/bench/issues/105) 已补齐记录并关闭；CI #36607569614、Security Scan #36607569578、Release Please #36607569556 均成功。
+
 ## R01 Account Manager 代码收口
+
+> 2026-10-04 进度：错误范围/脱敏、后台重载保留数据与紧凑状态、弹窗失败提示、重试防重入及 Auth Proxy inbox 按 owner 拆分已实现；深链完整目标/回调 URL 与 OAuth state 保留在 Rust ticket，inbox renderer DTO 只含脱敏元数据。另修复路由卸载后的旧 IPC 加载覆盖新状态、并发深链重复创建同域 Station、登录失败消费 ticket/遗留新账号或 WebView 等竞态与回滚问题，并修正账号卡片把子按钮藏在 `role=button` 中的无障碍问题。复审还收紧了 Auth Proxy ticket：只允许目标匹配列表中的代理账号，启动前按最新快照复核匹配；回调预期 state 必须唯一且完全匹配，拒绝重复参数。前端门禁、critical、Rust fmt 与 Clippy 已通过；隔离 macOS 测试用户下的中英文错误/partial 截图及 Deep Link 矩阵证据仍待，完成前不勾选本项。
 
 **代码修改**：是。
 

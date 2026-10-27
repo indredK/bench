@@ -58,35 +58,34 @@ Post-MVP-Adv
 
 ---
 
-## S-SEC-03 · 扫描自有 NAS 端口（含缺包安装）
+## S-SEC-03 · 扫描自有 NAS 端口（含 Nmap 可选降级）
 
 ### 背景
 
-用户只扫自家局域网 NAS（已授权），想看开放端口；本机无 nmap、未装 `adv-scanner`。
+用户只扫自家局域网 NAS（已授权），想看开放端口；本机未安装 Nmap。
 
 ### 前置
 
 - 授权声明已确认
-- capabilities：`scanPorts = missing_pack`；`externalTools.nmap = not_found`
+- capabilities：`portScan = degraded`；`externalTools.nmap = not_found`
 
 ### 步骤
 
 1. 「端口扫描」输入 NAS 的 RFC1918 地址与端口范围
-2. 出现 `PackInstallDialog`：用途/体积/版本/签名/Gatekeeper 提示
-3. 同意安装 → 后端按 manifest 下载校验（**前端不传 URL**）
-4. 安装后若仍无特权：以 TCP connect 降级跑通，并标注 `degraded`
-5. 有特权后可选 SYN 路径；中途取消
+2. 直接以主包 TCP connect 扫描；无需安装能力包，结果明确标注降级模式
+3. 如需服务/OS 指纹，用户必须主动勾选并再次确认；Nmap 缺失时仍完成基础扫描并说明指纹不可用
+4. 另一台安装 Nmap 的 Mac 优先使用 SYN；若 RAW 权限不足则回退 TCP connect；用户可中途取消
 
 ### 期望
 
-- 大范围/公网目标需二次确认 + 速率硬顶
-- 安装成功刷新 capabilities；安装≠自动 root
+- 公网目标、超过 64 个唯一端口或指纹探测需二次确认；前后端拒绝非法端口输入，表达式最多 4096 字节且最多 256 个去重端口；后端拒绝 CIDR/多目标
+- 指纹默认关闭；Nmap 服务名/产品/版本/OS 估计均注明来源，风险标签仅对开放端口显示且不代表漏洞
 - 结果无 Kill/进程树（边界：port-manager）
-- 命令日志含 `// missing_pack` → `installCapabilityPack` → `scanPorts`
+- Nmap 超时、输出截断或 XML 解析失败时降级至内置扫描；取消复用同一会话 ID
 
 ### 映射
 
-Pack：`adv-scanner`；可选本机 nmap fallback（另测：装 brew nmap 后应可 `found` 并增强）
+当前端口扫描复用系统 Nmap CLI，不下载或捆绑 Nmap；`adv-scanner` sidecar 尚未接入端口扫描。
 档位：Post-MVP-Adv
 
 ---
@@ -128,7 +127,7 @@ Post-MVP-Adv
 
 ### 步骤
 
-1. 「DNSSEC / DoH」查询域名 → 得 secure/bogus/insecure；测 DoH/DoT 可达
+1. 「DNSSEC / DoH」查询域名 → 得 secure/bogus/insecure/unknown；测 DoH/DoT 可达
 2. 「WHOIS」查同一域名（优先 RDAP）
 
 ### 期望

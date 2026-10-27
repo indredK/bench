@@ -6,7 +6,6 @@
  */
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { useTranslation } from "react-i18next"
-import { useShallow } from "zustand/react/shallow"
 import { toast } from "sonner"
 import { accountManagerUseCases } from "@/features/account-manager/services/account-manager.use-cases"
 import { accountManagerRepository } from "@/features/account-manager/services/account-manager.repository"
@@ -21,16 +20,25 @@ import { isCapabilityUsable } from "@/features/account-manager/model/capabilitie
 import { useAccountManagerStore } from "@/features/account-manager/store"
 import { useAuthProxy } from "@/features/account-manager/hooks/useAuthProxy"
 import { useAccountActions } from "@/features/account-manager/hooks/useAccountActions"
+import { useAccountManagerViewState } from "@/features/account-manager/hooks/useAccountManagerViewState"
 import { useDataPorting } from "@/features/account-manager/hooks/useDataPorting"
 import { useFingerprint } from "@/features/account-manager/hooks/useFingerprint"
 import { useQuickLoginHistory } from "@/features/account-manager/hooks/useQuickLoginHistory"
 import { useRefreshOrchestrator } from "@/features/account-manager/hooks/useRefreshOrchestrator"
 import { useSessionKeeper } from "@/features/account-manager/hooks/useSessionKeeper"
 import { useStationActions } from "@/features/account-manager/hooks/useStationActions"
-import type { AccountManagerRegion } from "@/features/account-manager/errors"
+import {
+  describeRegionError,
+  makeRegionError,
+  type AccountManagerRegion,
+} from "@/features/account-manager/errors"
 import { TAURI_EVENTS, type StoreChangedEventPayload } from "@/lib/tauri/contracts"
 import { translateError } from "@/lib/tauri/errors"
 import { listenToPlatformEvent } from "@/platform/events"
+
+// Account Manager routes are keyed and remount on navigation. Keep load ownership
+// outside the hook so an older route instance cannot overwrite a newer load.
+let latestLoadRequestVersion = 0
 
 export function useAccountManagerController() {
   const { t } = useTranslation()
@@ -38,6 +46,7 @@ export function useAccountManagerController() {
     stations,
     accounts,
     loading,
+    reloading,
     loadError,
     capabilities,
     selectedStationId,
@@ -81,80 +90,53 @@ export function useAccountManagerController() {
     setDeletingStation,
     setDeleteAccountOpen,
     setDeletingAccount,
-  } = useAccountManagerStore(
-    useShallow((s) => ({
-      stations: s.stations,
-      accounts: s.accounts,
-      loading: s.loading,
-      loadError: s.loadError,
-      capabilities: s.capabilities,
-      selectedStationId: s.selectedStationId,
-      selectedAccountId: s.selectedAccountId,
-      openingAccountId: s.openingAccountId,
-      importingData: s.importingData,
-      exportingData: s.exportingData,
-      reorderingStations: s.reorderingStations,
-      reorderingAccounts: s.reorderingAccounts,
-      isAddStationOpen: s.isAddStationOpen,
-      isAddAccountOpen: s.isAddAccountOpen,
-      isEditStationOpen: s.isEditStationOpen,
-      editingStation: s.editingStation,
-      isEditAccountOpen: s.isEditAccountOpen,
-      editingAccount: s.editingAccount,
-      isDeleteStationOpen: s.isDeleteStationOpen,
-      deletingStation: s.deletingStation,
-      isDeleteAccountOpen: s.isDeleteAccountOpen,
-      deletingAccount: s.deletingAccount,
-      isQuickLoginOpen: s.isQuickLoginOpen,
-      isExternalAppsOpen: s.isExternalAppsOpen,
-      externalAppsAccountId: s.externalAppsAccountId,
-      isFingerprintConfirmOpen: s.isFingerprintConfirmOpen,
-      fingerprintSummary: s.fingerprintSummary,
-      fingerprintTarget: s.fingerprintTarget,
-      isFingerprintDetailOpen: s.isFingerprintDetailOpen,
-      fingerprintDetail: s.fingerprintDetail,
-      regionErrors: s.regionErrors,
-      setSelectedAccountId: s.setSelectedAccountId,
-      setAddStationOpen: s.setAddStationOpen,
-      setAddAccountOpen: s.setAddAccountOpen,
-      setQuickLoginOpen: s.setQuickLoginOpen,
-      setExternalAppsOpen: s.setExternalAppsOpen,
-      setFingerprintConfirmOpen: s.setFingerprintConfirmOpen,
-      setFingerprintDetailOpen: s.setFingerprintDetailOpen,
-      setEditStationOpen: s.setEditStationOpen,
-      setEditingStation: s.setEditingStation,
-      setEditAccountOpen: s.setEditAccountOpen,
-      setEditingAccount: s.setEditingAccount,
-      setDeleteStationOpen: s.setDeleteStationOpen,
-      setDeletingStation: s.setDeletingStation,
-      setDeleteAccountOpen: s.setDeleteAccountOpen,
-      setDeletingAccount: s.setDeletingAccount,
-    })),
-  )
+  } = useAccountManagerViewState()
 
   const loadInitialData = useCallback(async () => {
     const s = useAccountManagerStore.getState()
+    const requestVersion = ++latestLoadRequestVersion
+    const hadUsableData = s.capabilities != null || s.stations.length > 0 || s.accounts.length > 0
     // 只有首屏（还没有任何数据可展示）才用整页骨架；回采/扩展保存/解锁后的重载
     // 保留旧数据 + 紧凑刷新态，不用骨架盖掉用户正在看的内容（ux-standards §2）。
-    if (s.stations.length === 0) {
+    if (!hadUsableData) {
       s.setLoading(true)
+    } else {
+      s.setReloading(true)
     }
     s.setLoadError(null)
     try {
       const [loadedCapabilities, loadedStations, loadedAccounts] =
         await accountManagerUseCases.loadInitialData()
+      if (requestVersion !== latestLoadRequestVersion) return
       s.setCapabilities(loadedCapabilities)
       s.setStations(loadedStations)
       s.setAccounts(loadedAccounts)
       s.applyInitialSelection(loadedStations, loadedAccounts)
       s.clearRegionErrors()
     } catch (error) {
-      useAccountManagerStore
-        .getState()
-        .setLoadError(translateError(t, error, t("accountManager.toasts.initFailed")))
+      if (requestVersion === latestLoadRequestVersion) {
+        const current = useAccountManagerStore.getState()
+        const payload = makeRegionError(error, "accountManager.toasts.initFailed", {
+          retry: () => loadInitialData(),
+          retryLabel: "refresh",
+        })
+        if (
+          current.capabilities != null ||
+          current.stations.length > 0 ||
+          current.accounts.length > 0
+        ) {
+          current.setRegionError("station", payload)
+        } else {
+          current.setLoadError(describeRegionError(t, payload))
+        }
+      }
       throw error
     } finally {
-      useAccountManagerStore.getState().setLoading(false)
+      if (requestVersion === latestLoadRequestVersion) {
+        const current = useAccountManagerStore.getState()
+        current.setLoading(false)
+        current.setReloading(false)
+      }
     }
   }, [t])
 
@@ -288,7 +270,7 @@ export function useAccountManagerController() {
   /** 区域错误条重试入口：执行写入错误时登记的区域级重试函数。 */
   const retryRegion = useCallback((region: AccountManagerRegion) => {
     const payload = useAccountManagerStore.getState().regionErrors[region]
-    payload?.retry?.()
+    return payload?.retry?.()
   }, [])
 
   const dismissRegionError = useCallback((region: AccountManagerRegion) => {
@@ -327,6 +309,7 @@ export function useAccountManagerController() {
     stations,
     accounts,
     loading,
+    reloading,
     loadError,
     capabilities,
     loadInitialData,

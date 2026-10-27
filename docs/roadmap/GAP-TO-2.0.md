@@ -9,7 +9,7 @@
 > - 本清单静态审计于 2026-09-03 完成，审计基线为 commit `44edf42`（1.28.0）；当时文档记录的当前版本为 1.30.0。截至 2026-09-27，代码版本为 1.37.0，复用本清单前仍须对照当前代码复核。
 > - 执行序列见 [docs/modules/extension-center/roadmap.md](../modules/extension-center/roadmap.md)。
 
-> **性质**：本文件是 [docs/roadmap/ROADMAP.md](./ROADMAP.md) R00–R10 的差距明细展开，供 2.0 收尾执行使用；**不构成第二份路线图**（D-013）。全部差距关闭后本文件应删除，执行状态仍以 ROADMAP.md 为准。
+> **性质**：本文件是 [docs/roadmap/ROADMAP.md](./ROADMAP.md) R00–R10 的历史差距明细，现供插件化迁移时复评；**不构成第二份路线图**（D-013）。不得按旧版“全部差距关闭后删除”的条款自动执行删除；R00–R10 状态以 `ROADMAP.md` 为准，P 阶段状态以 `docs/modules/extension-center/roadmap.md` 为准。
 >
 > **审计基线**：commit `44edf42`（1.28.0），静态代码审计于 2026-09-03 完成，覆盖 Account Manager / App Manager / Quick Launch / Updater / CI 流水线 / UX·a11y / 持久化迁移七大领域。
 >
@@ -56,14 +56,13 @@
 
 ### A1. Account Manager 代码收口（R01）
 
-#### A1-1. 四区域内联 error + retry 缺失 ⛔ P0
+> **状态（2026-09-30）**：A1-1～A1-8 的代码与自动化验收已完成；R01 仍待全新 macOS 测试用户中的错误/partial 中英文截图证据。以下位置与问题描述是基线记录，状态以本段及 `ROADMAP.md` 为准。
+
+#### [x] A1-1. 四区域内联 error + retry 缺失 ⛔ P0
 
 **位置**：
 
-- `src/features/account-manager/components/StationColumn.tsx`（全文件，无 error props）
-- `src/features/account-manager/components/AccountColumn.tsx`（同上）
-- `src/features/account-manager/components/DetailColumn.tsx`（同上）
-- `src/features/account-manager/components/auth-proxy-dialog.tsx:259-261`（`handleParseUrl` 失败仅 `console.warn`，用户点「下一步」无任何可见反馈）、`:227-233`（无效 URL 前缀静默 return）
+- `src/features/account-manager/components/{StationColumn,AccountColumn,DetailColumn,auth-proxy-dialog}.tsx`
 
 **问题**：所有区域错误只进 sonner toast（瞬态、自动消失、无重试入口），区域无持久化 error UI。刷新保留旧数据（stale-while-revalidate）已达标，但用户在批量刷新 partial 失败后无法对失败区域单独重试。Auth Proxy 的解析失败连 toast 都没有。
 
@@ -75,9 +74,9 @@
 
 **验收标准**：断网/后端报错时每个区域显示持久错误条与 Retry；partial 批量刷新后失败区域可单独重试且旧数据不丢；Auth Proxy 输入非法 URL 有明确可见反馈。补区域 retry 行为测试（见 A1-8）。
 
-#### A1-2. Rust `commands.rs` 超大未拆分 ⛔ P0
+#### [x] A1-2. Rust `commands.rs` 超大未拆分 ⛔ P0
 
-**位置**：`src-tauri/src/account_manager/commands.rs`（2448 行、35 个 `#[tauri::command]`）
+**位置**：基线的 `src-tauri/src/account_manager/commands.rs` 已拆至 `src-tauri/src/account_manager/commands/`；R01 本轮再将 deep-link inbox 从 `proxy.rs` 分出。
 
 **问题**：import/export（829-955）、`open_login_window` 含 exclusivity/代理编排（1269-1313）、`proxy_login`（2069-2253）、`proxy_login_new_account` 含自动建站（2254-2300）等重逻辑堆在单文件。
 
@@ -85,12 +84,12 @@
 
 **验收标准**：`cargo check` / `cargo test account_manager` / `clippy -D warnings` 通过；`contracts.test.ts` 全绿（命令集合不变）；单文件不超过 ~800 行。
 
-#### A1-3. 前端大文件未拆分 ⛔ P0
+#### [x] A1-3. 前端大文件未拆分 ⛔ P0
 
 **位置**：
 
-- `src/features/account-manager/components/dialogs.tsx`（827 行，5 个对话框同文件）
-- `src/features/account-manager/hooks/useAccountManagerController.ts`（761 行）
+- 基线的 `dialogs.tsx` 已按对话框拆分；controller 按站点、账号、刷新、导入导出和 Auth Proxy owner 组合。
+- R01 本轮抽出 `useAccountManagerViewState.ts`，controller 约 410 行。
 
 **修复方案**：
 
@@ -99,7 +98,7 @@
 
 **验收标准**：`pnpm exec vitest run src/features/account-manager` 全绿；页面行为无变化；单文件 ≤ ~400 行。
 
-#### A1-4. 错误处理双轨与裸 catch ⚠️ P1
+#### [x] A1-4. 错误处理双轨与裸 catch ⚠️ P1
 
 **位置**：
 
@@ -110,7 +109,7 @@
 
 **验收标准**：模块内 grep `readCode`/`readMessage` 为零；每个 catch 路径的错误文案来自 i18n key 而非硬编码；错误 code 可区分用户可恢复 vs 系统错误。
 
-#### A1-5. Rust 端硬编码中文 canonical 值 ⚠️ P1
+#### [x] A1-5. Rust 端硬编码中文 canonical 值 ⚠️ P1
 
 **位置**：`src-tauri/src/account_manager/commands.rs:2268` — `format!("{host} 账号")` 作为默认账号名，英文界面会显示中文。
 
@@ -118,7 +117,7 @@
 
 **验收标准**：英文界面下新增代理账号默认名不含中文；zh 界面正常。
 
-#### A1-6. 中英文切换行为测试缺失 ⚠️ P1
+#### [x] A1-6. 中英文切换行为测试缺失 ⚠️ P1
 
 **问题**：现有 6 个测试文件全部 mock `t: key => key`，无任何语言切换行为用例。
 
@@ -126,7 +125,7 @@
 
 **验收标准**：新增测试进入 `test:critical` 路径并通过。
 
-#### A1-7. 键盘/焦点测试缺失 ⚠️ P1
+#### [x] A1-7. 键盘/焦点测试缺失 ⚠️ P1
 
 **问题**：无 Tab/Escape/焦点恢复断言，focus trap 完全依赖 radix 隐式行为。
 
@@ -134,7 +133,7 @@
 
 **验收标准**：新增测试通过并覆盖至少 1 个对话框 + 1 个 Sheet。
 
-#### A1-8. 批量 partial 行为测试缺失 ⚠️ P1
+#### [x] A1-8. 批量 partial 行为测试缺失 ⚠️ P1
 
 **问题**：`api.test.ts` 只验证 refreshAll 会调用命令，无 `RefreshReport` failed 数组 → 失败账号保留旧数据 + partial 提示的行为级测试。
 

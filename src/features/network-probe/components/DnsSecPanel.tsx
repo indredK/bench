@@ -17,6 +17,19 @@ interface DnsSecPanelProps {
   onRun: (domain: string) => void
 }
 
+function dnssecStatusLabel(status: string, t: (key: string) => string): string {
+  switch (status) {
+    case "secure":
+      return t("networkProbe.dnssec.statusSecure")
+    case "insecure":
+      return t("networkProbe.dnssec.statusInsecure")
+    case "bogus":
+      return t("networkProbe.dnssec.statusBogus")
+    default:
+      return t("networkProbe.dnssec.statusUnknown")
+  }
+}
+
 export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }: DnsSecPanelProps) {
   const { t } = useTranslation()
   const [domain, setDomain] = useState("cloudflare.com")
@@ -64,9 +77,8 @@ export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }:
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div>
             {t("networkProbe.dnssec.status")}:{" "}
-            <span className="font-mono font-medium">{result.dnssecStatus}</span>
+            <span className="font-medium">{dnssecStatusLabel(result.dnssecStatus, t)}</span>
           </div>
-          {result.dnssecDetail ? <p className="text-sm">{result.dnssecDetail}</p> : null}
           <div className="grid gap-2 sm:grid-cols-2">
             <div>
               <div className="text-muted-foreground text-xs">{t("networkProbe.dnssec.doh")}</div>
@@ -75,9 +87,6 @@ export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }:
                   ? t("networkProbe.dnssec.okMs", { ms: result.dohRttMs?.toFixed(0) ?? "—" })
                   : t("networkProbe.dnssec.fail")}
               </div>
-              {result.dohDetail ? (
-                <p className="text-muted-foreground text-xs">{result.dohDetail}</p>
-              ) : null}
             </div>
             <div>
               <div className="text-muted-foreground text-xs">{t("networkProbe.dnssec.dot")}</div>
@@ -86,12 +95,19 @@ export function DnsSecPanel({ loading, result, toolEnabled, toolStatus, onRun }:
                   ? t("networkProbe.dnssec.okMs", { ms: result.dotRttMs?.toFixed(0) ?? "—" })
                   : t("networkProbe.dnssec.fail")}
               </div>
-              {result.dotDetail ? (
-                <p className="text-muted-foreground text-xs">{result.dotDetail}</p>
-              ) : null}
             </div>
           </div>
-          <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
+          <details className="text-muted-foreground text-xs">
+            <summary className="cursor-pointer select-none">
+              {t("networkProbe.dnssec.technicalDetails")}
+            </summary>
+            <div className="mt-2 space-y-1 break-words">
+              {result.dnssecDetail ? <p>{result.dnssecDetail}</p> : null}
+              {result.dohDetail ? <p>{result.dohDetail}</p> : null}
+              {result.dotDetail ? <p>{result.dotDetail}</p> : null}
+              <p className="font-mono">{result.commandHint}</p>
+            </div>
+          </details>
         </div>
       ) : null}
     </ProbePanelShell>

@@ -110,7 +110,7 @@ beforeEach(() => {
     },
     reportHistory: [],
     commandLog: [],
-    error: null,
+    errors: [],
   })
 })
 
@@ -123,7 +123,7 @@ describe("network-probe session slots per probe kind", () => {
     cancelScan.mockResolvedValue(true)
 
     const healthPromise = networkProbeUseCases.runHealthScan()
-    const portsPromise = networkProbeUseCases.runPortScan("127.0.0.1", "22")
+    const portsPromise = networkProbeUseCases.runPortScan("127.0.0.1", "22", false)
     await flushMicrotasks()
 
     emitScanSession({ sessionId: "health-1", kind: "health" })

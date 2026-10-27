@@ -88,6 +88,7 @@ describe("MultiNodePanel Globalping results", () => {
       screen.getByText("Comparing DNS answers. Results will appear here when the probes finish."),
     ).toHaveAttribute("aria-live", "polite")
   })
+
   it("localizes DNS response states, keeps diagnostics collapsed, and announces results", () => {
     const nodeStateProps = { agentAction: null, nodesLoadFailed: false }
     render(

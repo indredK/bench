@@ -93,13 +93,15 @@
 
 - AuthProfile 面板：检测时间、置信度（百分比 + 进度条）；维度：📋 cookie、💾 token 存储、🛡 CSRF（含提取源/字段/header tooltip）、🔐 认证类型、👆 指纹级别、🚫 anti-bot、🔗 SSO（如有）；每项状态圆点（绿/黄/红/灰）；当前 probe 策略徽章 + 策略下拉（auto / httpFirst / httpOnly / webviewOnly）；手动覆盖策略时显示琥珀色提示。
 
+- 登录指纹区：底部操作行提供采样入口；采样同时刷新 AuthProfile。站点摘要展示采样时间、Cookie/storage 特征数量。用户确认当前账号已登录后，将该账号标为 Ready 并刷新同站其他账号；仅所有指纹特征缺失时作为确定性未登录证据。特征值不进入前端；用户主动打开二级明细时可查看特征名和形态元数据。
+
 - 「重新检测」：`detectStationAuthProfile(stationId, accountId?)`，防重入（`redetectingProfile`）。
 
 - 账号信息区（固定不滚动）：用户名（可复制）、密码（点眼睛 reveal，**30 秒自动隐藏**，有密码时显示 ••••，可复制；加载中禁用）、备注、上次刷新时间、上次登录时间、初次登录时间（`firstLoginAt`，首次探测到 Ready 时回填，历史账号为空隐藏）、Session 到期时间（按 `lastLoginAt + sessionTtlHours` 计算，24 小时内标 near expiry；ttl=0 表示永不过期则隐藏）。
 
 - **会话保活块**（仅 persistent 账号显示，紧凑单行）：开关 + 模式（每 N 小时 / 每天定时）+ 参数（小时数 1..=8760 / 时刻 HH:MM）+ 下次执行时间（`Intl.DateTimeFormat` 本地化）；变更即时保存（saving 期间禁用）+「日志」按钮打开账号日志对话框（见 §16）。ephemeral 账号不显示。
 
-- 底部操作行：代理开关（Switch `proxyEnabled`）、浏览器互通（Globe，语义见交互图 B1/B2）、管理外部应用（Settings）、刷新当前账号。
+- 底部操作行：登录指纹采样（Fingerprint）、代理开关（Switch `proxyEnabled`）、浏览器互通（Globe，语义见交互图 B1/B2）、管理外部应用（Settings）、刷新当前账号。
 
 ## 6. 对话框与弹层
 
@@ -115,7 +117,9 @@
 
 - **外部应用管理面板**：列出已授权外部 App 及其账号绑定，可吊销授权（`removeExternalApp`）。
 
-- **AuthProxyDialog（外部登录代理）**：展示来源 host、匹配站点候选（exact / sso / manual 置信度）、选择既有账号或「新建账号」；确认后调用 `proxyLogin`/`proxyLoginNewAccount`，后端拉起隔离 WebView 完成登录，命中 return URL 后把原始 callback 交还外部 App。
+- **AuthProxyDialog（外部登录代理）**：展示来源 host、匹配站点候选（exact / sso / manual 置信度），自动候选优先，全部已知站点都可手动选择；既有账号只显示 `proxyEnabled` 项。候选由后端同一 canonical snapshot 返回并用于签发 ticket，ticket 绑定候选账号及其站点；后端启动前按当前 snapshot 复核代理状态、站点归属与候选资格，站点变更或账号移站后需重新发起。新账号按目标 host 自动归组，不依赖已有站点，账号名称可留空并使用默认名称；选新账号后仍可切回已有账号。确认后调用 `proxyLogin`/`proxyLoginNewAccount`，后端拉起隔离 WebView 完成登录；若请求包含 OAuth state，只有恰好一个完全匹配的回调 `state` 参数才会交还原始 callback。
+
+- **FingerprintConfirmDialog / FingerprintDetailDialog**：采样确认弹窗显示目标账号与特征数量；二级明细列出 Cookie 名称、域/path/HttpOnly/值长度及 storage 键名/值长度，任何凭据值均不返回。
 
 - **交互细节**
 
@@ -202,9 +206,11 @@
 
 ## 12. 数据模型（关键类型）
 
-- `RelayStation`：id / remark / website / createdAt / loginDetection / exclusivityMode? / authProfile? / probeFailureCount? / sessionTtlHours?（0=永久，默认 720）/ networkProxy?。
+- `RelayStation`：id / remark / website / createdAt / loginDetection / exclusivityMode? / authProfile? / loginFingerprint?（摘要）/ probeFailureCount? / sessionTtlHours?（0=永久，默认 720）/ networkProxy?。
 
-- `StationAccount`：id / stationId / username / notes / phone / tgAccount / linkedAccount / inviteLink / loginMethods / status / lastLoginAt / lastRefreshedAt / createdAt / hasPassword / accountType?(persistent|ephemeral) / website? / session? / exclusivityGroup? / proxyEnabled? / externalAppIds? / refreshSchedule?(`{enabled, mode: {type:"interval", hours}|{type:"daily", minuteOfDay}}`,None=未配置) / nextRefreshAtTs?(UTC Unix 秒) / firstLoginAt?(首次探测到 Ready 的时间)。
+- `StationAccount`：id / stationId / username / notes / phone / tgAccount / linkedAccount / inviteLink / loginMethods / status / statusReason?（`fingerprintMissing`）/ lastLoginAt / lastRefreshedAt / createdAt / hasPassword / accountType?(persistent|ephemeral) / website? / session? / exclusivityGroup? / proxyEnabled? / externalAppIds? / refreshSchedule?(`{enabled, mode: {type:"interval", hours}|{type:"daily", minuteOfDay}}`,None=未配置) / nextRefreshAtTs?(UTC Unix 秒) / firstLoginAt?(首次探测到 Ready 的时间)。
+
+- `LoginFingerprintInfo`：站点级摘要（采样时间、账号 id、Cookie/storage 特征计数）；`LoginFingerprintDetail`：用户主动请求的特征名与形态元数据，不含 cookie/storage 值。
 
 - `AuthProfile`：cookieBased / tokenStorage(cookie|localStorage|sessionStorage|indexedDB|multiple|none) / csrfProtection / csrfExtraction / authType(sessionCookie|bearerOAuth|saml|openIdConnect|webSocket|unknown) / fingerprinting(none|basic|strict) / antiBot / antiBotProvider / ssoProvider / probeStrategy(httpFirst|httpOnly|webviewOnly|hybrid) / detectedAt / confidence。
 
@@ -244,11 +250,11 @@
 
 - 步骤 1：URL 前缀须为 `bench-auth://` / `http://` / `https://`，非法则内联 `role="alert"` 错误且不前进；**Enter 可触发解析**；解析中「下一步」转圈禁用（防重入）；解析/确认中**对话框不可关闭**（Esc/外点/关闭按钮被守卫）。
 
-- 步骤 2：站点下拉除后端匹配（exact/sso/manual 置信度）外，**还列出全部已知站点**（manual 置信度）供手动任选；仅一个匹配或仅一个站点时自动预选；站点列表加载失败内联错误 + 重载按钮（转圈）。
+- 步骤 2：站点下拉使用后端同一 canonical snapshot 返回的候选（exact/sso 自动匹配优先，所有其他站点标为 manual），不再并行加载第二份列表；唯一自动匹配优先预选，否则仅一个候选时预选。既有账号需选站点后选择，手动候选账号与自动候选账号都能通过同一 ticket 启动。新账号选项独立于站点选择，目标主机自动归组；无已有站点时仍可创建，账号名称可留空。
 
 - 步骤 3：展示 target host、return URL（截断 60 字符）、站点、账号 + 状态徽章；「打开返回 URL」按钮调 `openExternal`（失败仅 console.warn，静默）。
 
-- 站点/账号预加载在对话框打开时进行，`cancelled` 标记防卸载后 setState。
+- 候选和 ticket 在一次后端快照中生成；避免弹窗第二次加载站点/账号时出现候选与 ticket 授权范围不一致。
 
 ### 状态与边界补充
 

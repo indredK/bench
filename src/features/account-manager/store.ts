@@ -23,6 +23,7 @@ export const useAccountManagerStore = create<AccountManagerState & AccountManage
         accounts: typeof accounts === "function" ? accounts(state.accounts) : accounts,
       })),
     setLoading: (loading) => set({ loading }),
+    setReloading: (reloading) => set({ reloading }),
     setLoadError: (loadError) => set({ loadError }),
     setCapabilities: (capabilities) => set({ capabilities }),
     setSelectedStationId: (selectedStationId) => set({ selectedStationId }),

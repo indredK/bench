@@ -49,6 +49,7 @@ export function StationColumn({
   externalLoginDisabledReason,
   error,
   onRetryError,
+  retryLabel,
   onDismissError,
 }: {
   stations: RelayStation[]
@@ -71,7 +72,8 @@ export function StationColumn({
   quickLoginDisabledReason?: string
   externalLoginDisabledReason?: string
   error?: string | null
-  onRetryError?: () => void
+  onRetryError?: () => unknown
+  retryLabel?: string
   onDismissError?: () => void
 }) {
   const { t } = useTranslation()
@@ -122,7 +124,12 @@ export function StationColumn({
       />
       {error && (
         <div className="px-2 pt-2">
-          <InlineErrorBar message={error} onRetry={onRetryError} onDismiss={onDismissError} />
+          <InlineErrorBar
+            message={error}
+            onRetry={onRetryError}
+            retryLabel={retryLabel}
+            onDismiss={onDismissError}
+          />
         </div>
       )}
       <ScrollableArea className="min-h-0 flex-1 p-3" wrapperClassName="flex min-h-0 flex-1">

@@ -14,17 +14,6 @@ pub struct AuthProxyRequest {
     pub site: Option<String>,
 }
 
-/// 外部登录代理的结果
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthProxyResult {
-    pub token: String,
-    pub token_type: String,
-    pub state: Option<String>,
-    pub station_id: String,
-    pub account_id: String,
-}
-
 /// 解析 bench-auth://authorize URL 并提取参数。
 /// 格式: bench-auth://authorize?target=<url>&return=<url>&state=<str>&site=<station-id>
 pub fn parse_auth_proxy_url(input: &str) -> Result<AuthProxyRequest, String> {
@@ -197,15 +186,14 @@ pub fn callback_state_matches(actual: &str, expected_state: Option<&str>) -> boo
     let Some(expected_state) = expected_state else {
         return true;
     };
-    url::Url::parse(actual)
-        .ok()
-        .and_then(|url| {
-            url.query_pairs()
-                .find(|(key, _)| key == "state")
-                .map(|(_, value)| value.into_owned())
-        })
-        .map(|actual_state| actual_state == expected_state)
-        .unwrap_or(false)
+    let Ok(url) = url::Url::parse(actual) else {
+        return false;
+    };
+    let mut states = url
+        .query_pairs()
+        .filter(|(key, _)| key == "state")
+        .map(|(_, value)| value.into_owned());
+    matches!(states.next(), Some(state) if state == expected_state) && states.next().is_none()
 }
 
 /// 从一个 OAuth authorize/login 目标 URL 的 query 中提取「回调地址」。
@@ -423,6 +411,18 @@ mod tests {
         ));
         assert!(!callback_state_matches(
             "demo:/callback?code=abc",
+            Some("expected")
+        ));
+        assert!(!callback_state_matches(
+            "demo:/callback?state=expected&state=attacker",
+            Some("expected")
+        ));
+        assert!(!callback_state_matches(
+            "demo:/callback?state=attacker&state=expected",
+            Some("expected")
+        ));
+        assert!(!callback_state_matches(
+            "demo:/callback?state=expected&state=expected",
             Some("expected")
         ));
         assert!(callback_state_matches("demo:/callback?code=abc", None));

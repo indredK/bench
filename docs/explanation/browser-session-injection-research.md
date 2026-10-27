@@ -1,6 +1,6 @@
 # 浏览器会话注入（一键在浏览器中打开账号会话）调研与方案
 
-> 状态：**已调研、未实现、待确认**。本文是「一键打开浏览器并注入当前账号登录信息」需求的唯一调研与方案文档；确认后按项目规则把 F5 节任务同步 `docs/roadmap/planned/account-manager.md`，实施完成后回写 `design.md` 与 `product-specs/account-manager.md`。
+> 状态：本文保留原始调研与设计依据；CDP、托管 profile、IPC 和前端互通入口已在代码中实现。**执行进度、未完成项和验收证据以 [`planned/account-manager.md`](../roadmap/planned/account-manager.md) 为准**；本文 §6 的表格是原始任务拆分，不是实时状态清单。日常浏览器扩展路线已由 [D-029](./decisions.md#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) 提前纳入 I3/I5，与本文 CDP 隔离实例并行；TTL 清理与互斥方向仍待决定，真机验收完成前 capability 维持 `partial`。
 > 关联：`docs/modules/account-manager/design.md`（§5 加密与存储 / §7 前端边界）与交互图 [`docs/diagrams/account-manager-triangle.html`](../diagrams/account-manager-triangle.html)（三角流程语义）、`docs/roadmap/planned/account-manager.md`（F1–F4）、`src-tauri/src/browser_ext/`（bench-companion 扩展与 Native Messaging）。
 
 ---
@@ -54,7 +54,7 @@
 
 ### 3.1 方案总表
 
-|                        | **B. CDP + Bench 托管 profile**（推荐 M1）                                                                  | **A. bench-companion 扩展注入**（推荐 M3）                                                      | C. 直写浏览器 Cookies DB                                       | D. cookies.txt 明文导出               |
+|                        | **B. CDP + Bench 托管 profile**（隔离实例）                                                                 | **A. bench-companion 扩展注入**（日常浏览器；现行 I3/I5，见 D-029）                             | C. 直写浏览器 Cookies DB                                       | D. cookies.txt 明文导出               |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------- |
 | 原理                   | 以账号专属 `user-data-dir` 启动独立 Chromium 实例，经 CDP WebSocket `Network.setCookie` 注入后导航          | Bench 起 `127.0.0.1` 一次性桥，扩展收到任务后 `chrome.cookies.set` 注入**用户日常浏览器**       | 解密浏览器 Keychain Safe Storage，直写其 Cookies SQLite        | 导出 Netscape/JSON 文件，用户手动导入 |
 | 注入目标               | Bench 托管的隔离 profile                                                                                    | 用户日常浏览器 profile                                                                          | 用户日常浏览器 profile                                         | 任意（手动）                          |
@@ -66,18 +66,20 @@
 | 双平台                 | ✅ macOS/Windows 同一参数体系                                                                               | ✅ Chromium 系一致（Firefox 另算）                                                              | ❌ 每浏览器格式不同                                            | ✅                                    |
 | 浏览器版本敏感性       | 低（Chrome 136+ 仅禁默认 profile 的远程调试端口，自定义 `user-data-dir` 不受限——Playwright 长期依赖此路径） | 低                                                                                              | **高**（Chrome 130+ app-bound encryption 持续收紧）            | 低                                    |
 | 与既有工程边界         | ✅ 一致                                                                                                     | 需新增「本地桥」安全设计                                                                        | ❌ 违反「不改浏览器内部数据」（`browser_ext/mod.rs` 模块注释） | ❌ 违反 design.md §5 导出加密红线     |
-| 结论                   | **✅ M1/M2**                                                                                                | **◐ M3（进阶选项，需冲突警告 + 覆盖前备份）**                                                   | ❌ 排除                                                        | ❌ 排除                               |
+| 结论                   | **✅ 独立隔离端点**                                                                                         | **✅ 独立日常浏览器端点；注入前备份并提供回滚**                                                 | ❌ 排除                                                        | ❌ 排除                               |
 
-### 3.2 为什么 B 先行、A 进阶（而非反过来）
+### 3.2 两类浏览器端点的边界
+
+本节最初把扩展路线列为 M3；产品决策 [D-029](./decisions.md#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) 已将 I3/I5 提前纳入必做范围。两类端点用途不同，应并行存在，不应互相替代。
 
 1. **产品语义**：Bench 的核心定位是多账号**隔离**管理（独立 WebView data dir、账号互不可见是既有红线）。把账号 X 的 cookie 注入用户日常浏览器，会顶掉用户同站点的日常登录态——对「管理多账号」的产品是反向操作。B 方案的隔离 profile 恰好把「每账号独立 data directory」红线延伸到了系统浏览器。
 2. **安全边界**：B 的凭据链路全程在 Rust 内存与 loopback CDP 之内；A 必须把会话经本地 HTTP 下发给扩展（明文过 loopback、扩展进程持有凭据、前端需参与编排），边界破坏面显著更大。design.md §5「解密只发生在 Rust 内存」在 A 下需要新增例外条款。
 3. **工程与分发**：B 不动扩展（无需权限升级、无需用户重新确认扩展、无需 Web Store）；A 的扩展权限变更在 Chrome 上会触发「扩展已禁用」流程，用户教育成本高。
-4. **可演进性**：B 的 CDP 注入器（cookie/storage/UA 对齐）是纯 Rust 模块，M3 的扩展注入器可复用同一份「注入载荷序列化格式」，两条路线不冲突。
+4. **可演进性**：两条路线分别服务隔离 profile 和日常浏览器；CDP 留在 Rust，日常浏览器写入由扩展侧完成，两条路线不冲突。
 
-### 3.3 用户体验语义说明（需产品确认的一点）
+### 3.3 用户体验语义说明
 
-方案 B 打开的是「用户自己的 Chrome/Edge/Brave 应用 + Bench 专属档案」：地址栏、下载、登录的站点都在，但书签/日常扩展/历史不共享。这**不是**用户日常浏览器的既有窗口。对「以账号 X 的身份浏览站点」的用途，隔离档案反而是优势（干净、无污染、多账号并行）；若用户明确希望「合流进日常浏览器」，由 M3 的方案 A 满足（带冲突警告）。**此语义差异需在 UI 弹窗中明确告知，避免「为什么我的书签不见了」类反馈。**
+方案 B 打开的是「用户自己的 Chrome/Edge/Brave 应用 + Bench 专属档案」：地址栏、下载、登录的站点都在，但书签/日常扩展/历史不共享。这**不是**用户日常浏览器的既有窗口。对「以账号 X 的身份浏览站点」的用途，隔离档案支持干净的多账号环境；若用户需要使用日常 profile，则走扩展端点 I3/I5。**UI 必须明确说明当前打开的是哪类浏览器端点，避免用户以为书签或日常登录态会共享。**
 
 ---
 
@@ -99,7 +101,7 @@
 │   2. restore_session() 内存解密 canonical session │
 │   3. 浏览器可执行文件定位（cfg 双平台）            │
 │   4. profile 目录：$APPCONFIG/browser-sessions/   │
-│      <accountId>/（按账号隔离，TTL 联动清理）      │
+│      <accountId>/（按账号隔离；TTL 策略待 D-B 决定）│
 │   5. spawn: <chrome> --user-data-dir=<profile>    │
 │      --no-first-run --remote-debugging-port=0     │
 │      --window-size=1280,900 about:blank           │

@@ -7,11 +7,14 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
 
 interface MultiNodePanelProps {
   loading: boolean
   loadingNodes: boolean
+  agentAction: "add" | `remove:${string}` | null
+  nodesLoadFailed: boolean
   result: MultiNodeDnsResult | null
   nodes: ProbeNode[]
   toolEnabled: boolean
@@ -25,6 +28,8 @@ interface MultiNodePanelProps {
 export function MultiNodePanel({
   loading,
   loadingNodes,
+  agentAction,
+  nodesLoadFailed,
   result,
   nodes,
   toolEnabled,
@@ -75,13 +80,30 @@ export function MultiNodePanel({
               disabled={loadingNodes}
               onClick={onRefreshNodes}
             >
-              {t("networkProbe.nodes.refresh")}
+              {loadingNodes
+                ? t("networkProbe.nodes.refreshingAction")
+                : t("networkProbe.nodes.refresh")}
             </Button>
           </div>
 
           <div className="space-y-2">
             <p className="text-sm font-medium">{t("networkProbe.nodes.listTitle")}</p>
-            <ul className="space-y-1 font-mono text-xs">
+            {loadingNodes || nodesLoadFailed || nodes.length === 0 ? (
+              <p className="text-muted-foreground text-xs" role="status" aria-live="polite">
+                {loadingNodes
+                  ? nodes.length > 0
+                    ? t("networkProbe.nodes.refreshing")
+                    : t("networkProbe.nodes.loading")
+                  : nodesLoadFailed
+                    ? t("networkProbe.nodes.loadFailed")
+                    : t("networkProbe.nodes.empty")}
+              </p>
+            ) : null}
+            <ul
+              className="max-h-72 space-y-1 overflow-auto font-mono text-xs"
+              aria-label={t("networkProbe.nodes.listTitle")}
+              aria-busy={loadingNodes}
+            >
               {nodes.map((n) => (
                 <li key={n.id} className="flex flex-wrap items-center gap-2">
                   <span>
@@ -93,9 +115,12 @@ export function MultiNodePanel({
                       type="button"
                       size="sm"
                       variant="outline"
+                      disabled={loadingNodes}
                       onClick={() => onRemoveAgent(n.id)}
                     >
-                      {t("networkProbe.nodes.removeAgent")}
+                      {agentAction === `remove:${n.id}`
+                        ? t("networkProbe.nodes.working")
+                        : t("networkProbe.nodes.removeAgent")}
                     </Button>
                   ) : null}
                 </li>
@@ -122,10 +147,12 @@ export function MultiNodePanel({
               <CommandHint hint={t("networkProbe.cmd.addAgent")}>
                 <Button
                   type="button"
-                  disabled={!label.trim() || !endpoint.trim()}
+                  disabled={loadingNodes || !label.trim() || !endpoint.trim()}
                   onClick={() => onAddAgent(label.trim(), endpoint.trim())}
                 >
-                  {t("networkProbe.nodes.addAgent")}
+                  {agentAction === "add"
+                    ? t("networkProbe.nodes.working")
+                    : t("networkProbe.nodes.addAgent")}
                 </Button>
               </CommandHint>
             </div>
@@ -142,9 +169,15 @@ export function MultiNodePanel({
               ms: result.elapsedMs.toFixed(0),
             })}
           </p>
-          <ul aria-label={t("networkProbe.nodes.answersLabel")} className="space-y-2 text-sm">
-            {result.answers.map((a) => (
-              <li key={a.nodeId} className="rounded-md border px-3 py-2">
+          <VirtualizedResultList
+            items={result.answers}
+            getKey={(answer) => answer.nodeId}
+            ariaLabel={t("networkProbe.nodes.answersLabel")}
+            className="space-y-2 text-sm"
+            itemClassName="rounded-md border px-3 py-2"
+            estimatedItemHeight={72}
+            renderItem={(a) => (
+              <>
                 <div className="font-medium">
                   {a.nodeLabel}{" "}
                   <span
@@ -174,9 +207,9 @@ export function MultiNodePanel({
                     <pre className="mt-1 overflow-auto font-mono">{a.detail}</pre>
                   </details>
                 ) : null}
-              </li>
-            ))}
-          </ul>
+              </>
+            )}
+          />
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : (

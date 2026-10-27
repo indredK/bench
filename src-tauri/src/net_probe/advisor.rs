@@ -123,17 +123,19 @@ pub fn build_opinions(items: &[HealthCheckItem]) -> Vec<HealthOpinion> {
         ));
     }
 
-    if status("reach.captive") == "fail" || status("reach.captive") == "warn" {
-        let st = status("reach.captive");
-        if st == "fail" {
-            out.push(opinion(
-                "captive",
-                "critical",
-                &["reach.captive"],
-                "networkProbe.advisor.captive.title",
-                "networkProbe.advisor.captive.body",
-            ));
-        }
+    let captive_status = status("reach.captive");
+    if captive_status == "fail" || captive_status == "warn" {
+        out.push(opinion(
+            "captive",
+            if captive_status == "fail" {
+                "critical"
+            } else {
+                "warn"
+            },
+            &["reach.captive"],
+            "networkProbe.advisor.captive.title",
+            "networkProbe.advisor.captive.body",
+        ));
     }
 
     if out.is_empty() && status("diff.dns_vs_ip") == "pass" {
@@ -206,5 +208,58 @@ mod tests {
             Some("Fake-IP / enhanced mode likely"),
         )]);
         assert!(opinions.iter().any(|o| o.id == "fake-ip-active"));
+    }
+
+    #[test]
+    fn captive_warning_emits_a_non_critical_advisory() {
+        let opinions = build_opinions(&[item(
+            "reach.captive",
+            "warn",
+            Some("Unexpected redirect to a portal-like page"),
+        )]);
+        let captive = opinions.iter().find(|o| o.id == "captive").unwrap();
+
+        assert_eq!(captive.severity, "warn");
+        assert_eq!(captive.related_keys, ["reach.captive"]);
+    }
+
+    #[test]
+    fn captive_failure_emits_a_critical_advisory() {
+        let opinions = build_opinions(&[item(
+            "reach.captive",
+            "fail",
+            Some("Possible captive portal (HTTP 302)"),
+        )]);
+        let captive = opinions.iter().find(|o| o.id == "captive").unwrap();
+
+        assert_eq!(captive.severity, "critical");
+    }
+
+    #[test]
+    fn dns_resolver_failure_emits_dns_advisory() {
+        let opinions = build_opinions(&[item("dns.resolve_name", "fail", None)]);
+
+        assert!(opinions.iter().any(|o| o.id == "dns-broken"));
+    }
+
+    #[test]
+    fn dns_ip_comparison_maps_uplink_and_lan_details() {
+        for (detail, expected_id) in [
+            ("Public IP lookup failed", "dns-vs-ip-uplink"),
+            ("Gateway unavailable", "dns-vs-ip-lan"),
+        ] {
+            let opinions = build_opinions(&[item("diff.dns_vs_ip", "fail", Some(detail))]);
+            assert!(opinions.iter().any(|o| o.id == expected_id), "{detail}");
+        }
+    }
+
+    #[test]
+    fn incomplete_or_unrecognized_results_do_not_claim_all_clear() {
+        let opinions = build_opinions(&[
+            item("diff.dns_vs_ip", "skip", None),
+            item("reach.captive", "skip", Some("Probe unavailable")),
+        ]);
+
+        assert!(opinions.is_empty());
     }
 }

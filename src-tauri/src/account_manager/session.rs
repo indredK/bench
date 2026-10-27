@@ -726,15 +726,17 @@ mod tests {
     /// 钥匙串/解密读不回 ≠ 会话过期：只降级状态，密文必须留下（A1 数据丢失回归）。
     #[test]
     fn unreadable_session_is_downgraded_but_not_deleted() {
-        let mut snapshot = AccountManagerSnapshot::default();
-        snapshot.accounts = vec![
-            account("expired", Some(blob("a"))),
-            account("unreadable", Some(blob("b"))),
-        ];
-        snapshot.sessions = HashMap::from([
-            ("expired".to_string(), blob("a")),
-            ("unreadable".to_string(), blob("b")),
-        ]);
+        let mut snapshot = AccountManagerSnapshot {
+            accounts: vec![
+                account("expired", Some(blob("a"))),
+                account("unreadable", Some(blob("b"))),
+            ],
+            sessions: HashMap::from([
+                ("expired".to_string(), blob("a")),
+                ("unreadable".to_string(), blob("b")),
+            ]),
+            ..AccountManagerSnapshot::default()
+        };
 
         apply_clear_targets(
             &mut snapshot,

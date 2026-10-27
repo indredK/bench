@@ -42,25 +42,24 @@
 
 ### 3.1 哪些要包、哪些不要
 
-| 能力                                                                  | 供给方式                              | 说明                                           |
-| --------------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------- |
-| TCP connect 降级扫描、污染里的 DNS/hosts/轻量 TLS、WHOIS、DNSSEC 只读 | **主包或轻量编译**                    | 无重内核依赖时可进主包；勿强行拆下载           |
-| SYN stealth、深度 ARP、指纹增强                                       | 可选包 `adv-scanner` 和/或本机 `nmap` | 首次点击若 `missing_pack` 且无 nmap → 安装向导 |
-| 诊断抓包                                                              | 可选包 `pcap-diag`                    | 依赖 libpcap + 通常需特权                      |
-| 正式特权 helper                                                       | 可选包 `priv-helper`                  | 公证前仅提示限制（D-010）                      |
+| 能力                                                                  | 供给方式                             | 说明                                                          |
+| --------------------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------- |
+| TCP connect 降级扫描、污染里的 DNS/hosts/轻量 TLS、WHOIS、DNSSEC 只读 | **主包或轻量编译**                   | 无重内核依赖时可进主包；勿强行拆下载                          |
+| Nmap SYN / 服务与 OS 指纹                                             | 用户本机已安装的 Nmap                | 不捆绑；缺失时基础 TCP connect 仍可用，指纹状态为 unavailable |
+| 深度 ARP、未来的特权扫描                                              | 可选包 `adv-scanner` / `priv-helper` | 仅在代码确实调用对应 sidecar 后才可报告 supported             |
+| 诊断抓包                                                              | 可选包 `pcap-diag`                   | 依赖 libpcap + 通常需特权                                     |
+| 正式特权 helper                                                       | 可选包 `priv-helper`                 | 公证前仅提示限制（D-010）                                     |
 
 ### 3.2 点击流（强制）
 
 ```text
 用户打开「端口扫描」
   → getNetworkProbeCapabilities()
-  → tool=missing_pack 且无 external nmap
-      → PackInstallDialog：用途 / 体积 / 版本 / 签名来源 / Gatekeeper 提示
-      → 用户同意 → installCapabilityPack(packId)  // 无 URL 参数
-      → 后端读 canonical manifest → 下载到 App Support → 校验 hash/签名
-      → 刷新 capabilities → 若仍需特权再走提权/降级
-  → tool=degraded（仅有 connect）→ 可直接跑，并提示「安装 adv-scanner 可启用 SYN」
-  → tool=supported → 正常扫描
+  → externalTools.nmap=found → 优先 Nmap；否则以 `degraded` 显示内置 TCP connect
+  → Nmap SYN 权限不足 → 改用 Nmap `-sT`，明确显示连接扫描降级
+  → Nmap 缺失 / 失败 / 超时 → 内置 TCP connect，扫描不中断
+  → 用户勾选服务 / OS 指纹 → 先确认额外探测；只对已安装 Nmap 启用
+  → 其他工具确实缺少必需 sidecar 时才打开 PackInstallDialog
 ```
 
 ### 3.3 IPC（Post-MVP）
@@ -77,7 +76,7 @@ uninstallCapabilityPack(packId): void
 ### 3.4 UX 文案要点
 
 - 说「可选组件 / 能力包」，**不说**「下载某个 crate / 动态库随便挂载」。
-- 同时探测到本机 `nmap` 时：优先提示「检测到 nmap，可直接增强」；仍允许安装官方 sidecar（二选一或并存由 capabilities 决定）。
+- capabilities 只把当前代码真正会调用的引擎标为 `supported`；本机 Nmap 是可选 CLI，不作为能力包下载。Nmap 在用时标 `supported`，指纹标 `partial`（OS 还依赖 RAW 权限）；sidecar 未接入具体工具前不报告其可用。
 - 提供「管理已安装组件」入口（设置或安全 Tab 页脚）：版本、卸载。
 
 ---
@@ -118,20 +117,24 @@ src-tauri/src/net_probe/
 
 ### 5.1 端口扫描（`scanPorts`）
 
-| 模式        | 条件             | 行为                                                                           |
-| ----------- | ---------------- | ------------------------------------------------------------------------------ |
-| SYN stealth | 有 RAW/pcap 特权 | 发 SYN，pcap 匹配 SYN-ACK/RST；**不回 RST 完成握手**（减少日志噪音，仍属探测） |
-| TCP connect | 无特权默认       | `connect()` 超时矩阵；能力标 `degraded`                                        |
+| 模式             | 条件                                       | 行为                                                           |
+| ---------------- | ------------------------------------------ | -------------------------------------------------------------- |
+| Nmap SYN         | PATH 中检测到 Nmap，且 RAW socket 可用     | 单主机 `-sS -Pn` 扫描用户指定端口；不运行 NSE 脚本             |
+| Nmap TCP connect | Nmap 可用但 SYN 权限不足                   | 降级为 `-sT`；仍可选择轻量服务探测，不尝试 OS 探测             |
+| 内置 TCP connect | Nmap 缺失、失败、超时、输出超限或 XML 无效 | Tokio connect 并发上限 32、每端口超时 800ms；能力标 `degraded` |
 
 护栏：
 
-- 默认目标：RFC1918 / 本机 / 用户显式单个公网 host。
-- 大端口范围、公网、大 CIDR：二次确认 + 速率硬顶 + 并发上限。
-- 进度 event：`port-sample`（port、state、serviceHint?）；`cancelScan` 幂等。
+- 后端只接受一个 IP literal 或 DNS hostname，拒绝 CIDR、Nmap IPv4 各段范围（即使域名解析器会把它当普通域名）与逗号分隔目标；端口表达式最多 4096 字节，最多 256 个去重端口。
+- 公网目标、超过 64 个端口或开启指纹时先展示目标、完整端口表达式、端口数、速率/并发限制和超时，再要求确认；没有 CIDR 扫描入口。
+- DNS hostname 在 3 秒内解析一次并固定到首个 IP；Nmap 接收该 IP 并使用 `-n -Pn`，不做反向 DNS 或额外主机发现。Nmap 以参数数组启动，不经过 shell；端口扫描限速 `--max-rate 50`、并行探测上限 16、最多 1 次重试、host timeout 30 秒；子进程总时限 35 秒、stdout/stderr 分别限 1 MiB / 128 KiB，取消时杀掉子进程。服务/OS 指纹探测有各自的时序，不受端口扫描的 `--max-rate` 完全约束，因此只在用户勾选后启用，OS 最多尝试一次，整个进程受 35 秒上限约束。
+- 进度 event：`port-sample`（port、state、serviceHint、识别来源、风险标签）；`cancelScan` 幂等。Nmap 和内置扫描复用一个 session ID，降级时取消仍指向当前扫描。
 
 库：`socket2` + `pnet`/`etherparse` + 可选 `pcap`；无 turnkey「完整 nmap」Rust 库——可接受薄封装或 nmap CLI fallback。
 
-指纹（可选同面板）：匹配常见 banner/端口→服务名风险标签；**不做**漏洞利用。
+指纹默认关闭。用户显式勾选并确认后，已安装 Nmap 才运行 `-sV --version-light` 服务探测和 `-O --osscan-limit --max-os-tries 1` OS 探测；若降级到 `-sT`，跳过 OS 探测；不启用 NSE 或漏洞检测脚本。无 Nmap 时完成基础扫描并返回 `unavailable` 指纹状态。
+
+服务来源明确区分 Nmap 服务探测、Nmap 服务表和常见端口号推测。产品名/版本/OS 都是远程目标提供或 Nmap 推测的数据，不能当作身份凭证；风险标签只附在 `open` 端口，且仅提示复核暴露与访问控制，不代表漏洞。
 
 ### 5.2 污染检测（`pollution` 聚合）
 
@@ -159,11 +162,15 @@ src-tauri/src/net_probe/
 
 ### 5.4 DNSSEC / DoH·DoT
 
-| 能力   | 实现要点                                                          |
-| ------ | ----------------------------------------------------------------- |
-| DNSSEC | `hickory-resolver` 开启验证；结果：secure / bogus / insecure      |
-| DoH    | HTTPS POST/GET 到可信 DoH URL（可配）；测延迟与是否被劫持到非 TLS |
-| DoT    | TLS 853；证书校验                                                 |
+| 能力   | 实现要点                                                                                                                                                                          |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DNSSEC | Hickory `dnssec-ring` 在本机用内置 root trust anchor 验证 DoH wire-format 响应；只在全部查询 RRset 验证成功时显示 secure，签名错误为 bogus，安全链缺失为 insecure，其余为 unknown |
+| DoH    | Hickory `https-ring` 通过 RFC 8484 wire format 请求 Cloudflare `/dns-query`；本地执行 DNSSEC 验证，单次探测总截止时间 5 秒                                                        |
+| DoT    | Hickory TLS resolver 连接 Cloudflare DoT hostname；`webpki-roots` 验证 TLS 证书，只有握手与 DNS 查询都成功才标记可用，不把 TCP 端口连通当成 DoT 成功                              |
+
+DNSSEC 面板的有限状态须由 zh/en locale 映射，未知值显示本地化「未知」。DoH 使用标准 DNS wire format，不依赖提供商专有 JSON 字段；本地验证只有在完整 RRset / 否定证明均有证据时才给出确定状态。SERVFAIL、缺少认证否定证明或网络错误都不能单独证明 DNSSEC bogus。resolver 原始诊断和命令提示默认收在折叠的技术详情中。DoH、DoT、DNSSEC 统一使用 Hickory resolver。
+
+协议与实现依据：[RFC 8484](https://www.rfc-editor.org/rfc/rfc8484)、[Hickory DNS](https://github.com/hickory-dns/hickory-dns)。Cloudflare 也建议关键用途使用标准 wire format，因为其 DoH JSON schema 没有 IETF 标准且可能变化：[Cloudflare DoH JSON 文档](https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/make-api-requests/dns-json/)。
 
 系统是否已启用加密 DNS：可读 Network Extension / 配置描述（能读多少算多少；读不到则 `partial`）。
 
@@ -215,8 +222,10 @@ uninstallCapabilityPack(packId): void
 
 - [ ] 授权声明可持久化；未确认前不可启动 Adv 扫描
 - [ ] D-017：`missing_pack` → 安装向导 → manifest 校验；前端不能传下载 URL
-- [ ] 本机 nmap 探测与 sidecar 并存策略有明确 capabilities 语义
-- [ ] SYN→connect 降级路径单测 + 真机
+- [x] 本机 Nmap 和尚未接入的 sidecar 分开声明；能力状态必须匹配实际执行路径
+- [x] capabilities 的 Nmap/pack 状态与当前真正可调用的扫描引擎一致；端口扫描仅在 Nmap 可运行时标为 `supported`，否则标为 `degraded`
+- [x] 自动化覆盖完整 `scanPorts` 在 Nmap 缺失时回退到 loopback TCP connect，并以 fake executable 覆盖 RAW 权限失败后重试 `-sT`；另外覆盖参数隔离/指纹开关、输出截断、超时/取消终止子进程、无效 XML、单主机校验、hostname 单次解析及风险标签。Nmap 真实安装路径和应用内扫描仍需 macOS 真机复验
+- [x] 指纹默认关闭；前端回归覆盖 opt-in 与确认，Rust 参数回归覆盖 `-sV --version-light` / 有限 `-O`、TCP 降级不运行 OS 探测，且不添加 NSE 脚本
 - [ ] 无攻击类 API；代码审不出现投毒/注入/爆破入口
 - [ ] pcap 默认统计模式；落盘需显式开关
 - [ ] 速率/CIDR/端口硬顶后端强制（不信任前端）
@@ -227,7 +236,7 @@ uninstallCapabilityPack(packId): void
 ## 9. 参考
 
 - NETworkManager Port Scanner / WiFi Analyzer：分工具、可配置速率
-- nmap host discovery & port states（语义对照，非捆绑义务）
+- [Nmap service/version detection](https://nmap.org/book/man-version-detection.html)、[OS detection](https://nmap.org/book/man-os-detection.html)、[target specification](https://nmap.org/book/man-target-specification.html)、[timing and performance](https://nmap.org/book/man-performance.html)（官方语义对照，非捆绑义务）
 - rust-pcap · pnet · hickory DNSSEC
 - Apple Network Extension（加密 DNS / 透明代理——只读检测，不实现自有 VPN 攻击面）
 - [D-017](../../explanation/decisions.md) 可选能力包 · [design §9.7](./design.md)

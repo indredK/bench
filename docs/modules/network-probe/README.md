@@ -5,7 +5,7 @@
 
 代码：`src/features/network-probe/` · 后端 `src-tauri/src/net_probe/`
 
-定位：完整网络探测与故障排查（急救箱 + 专业探测），对标 360 断网急救箱 / NETworkManager / 安全探测工具链（**仅检测、不攻击**）；macOS 主路径，Windows 降级，Linux 非目标。状态：模块 1.0 / MVP A+B 已闭环；Post-MVP 测速·多节点·安全·发现主路径已交付，指纹增强与特权 helper 仍待。
+定位：完整网络探测与故障排查（急救箱 + 专业探测），对标 360 断网急救箱 / NETworkManager / 安全探测工具链（**仅检测、不攻击**）；macOS 主路径，Windows 降级，Linux 非目标。状态：模块 1.0 / MVP A+B 已闭环；Post-MVP 测速·多节点·安全·发现主路径已实现；当前源码 macOS 隔离包已验证 Nmap TCP connect 降级、指纹确认与风险提示，RAW 权限下 SYN 成功及超时/无效输出桌面降级仍待；特权 helper 仍待实现，详见[规划](../../roadmap/planned/network-probe.md)。
 
 ## 文档索引
 

@@ -76,6 +76,7 @@ export function useNetworkProbeController() {
   const loadingSites = useNetworkProbeStore((s) => s.loadingSites)
   const loadingHealth = useNetworkProbeStore((s) => s.loadingHealth)
   const loadingFix = useNetworkProbeStore((s) => s.loadingFix)
+  const loadingServices = useNetworkProbeStore((s) => s.loadingServices)
   const loadingOffline = useNetworkProbeStore((s) => s.loadingOffline)
   const loadingTraceroute = useNetworkProbeStore((s) => s.loadingTraceroute)
   const loadingIpv6 = useNetworkProbeStore((s) => s.loadingIpv6)
@@ -92,7 +93,9 @@ export function useNetworkProbeController() {
   const loadingPcap = useNetworkProbeStore((s) => s.loadingPcap)
   const loadingMultiNode = useNetworkProbeStore((s) => s.loadingMultiNode)
   const loadingNodes = useNetworkProbeStore((s) => s.loadingNodes)
-  const error = useNetworkProbeStore((s) => s.error)
+  const agentAction = useNetworkProbeStore((s) => s.agentAction)
+  const errors = useNetworkProbeStore((s) => s.errors)
+  const clearError = useNetworkProbeStore((s) => s.clearError)
   const setL1 = useNetworkProbeStore((s) => s.setL1)
   const setL2 = useNetworkProbeStore((s) => s.setL2)
   const setOfflineSub = useNetworkProbeStore((s) => s.setOfflineSub)
@@ -210,7 +213,8 @@ export function useNetworkProbeController() {
   const runWhois = useCallback((query: string) => networkProbeUseCases.runWhois(query), [])
   const runDnssec = useCallback((domain: string) => networkProbeUseCases.runDnssec(domain), [])
   const runPortScan = useCallback(
-    (target: string, ports: string) => networkProbeUseCases.runPortScan(target, ports),
+    (target: string, ports: string, fingerprint: boolean) =>
+      networkProbeUseCases.runPortScan(target, ports, fingerprint),
     [],
   )
   const probeNat = useCallback(() => networkProbeUseCases.probeNat(), [])
@@ -238,7 +242,10 @@ export function useNetworkProbeController() {
     (packId: string) => networkProbeUseCases.installCapabilityPackVerifyFail(packId),
     [],
   )
-  const authorizeSecurity = useCallback(() => setSecurityAuthorized(true), [setSecurityAuthorized])
+  const authorizeSecurity = useCallback(() => {
+    clearError("networkProbe.errors.securityAuthRequired")
+    setSecurityAuthorized(true)
+  }, [clearError, setSecurityAuthorized])
   const revokeSecurity = useCallback(() => setSecurityAuthorized(false), [setSecurityAuthorized])
   const resetDefaults = useCallback(() => networkProbeUseCases.resetDefaults(), [])
 
@@ -334,6 +341,7 @@ export function useNetworkProbeController() {
     loadingSites,
     loadingHealth,
     loadingFix,
+    loadingServices,
     loadingOffline,
     loadingTraceroute,
     loadingIpv6,
@@ -350,7 +358,9 @@ export function useNetworkProbeController() {
     loadingPcap,
     loadingMultiNode,
     loadingNodes,
-    error,
+    agentAction,
+    errors,
+    clearError,
     selectL1,
     selectL2,
     selectOfflineSub,
