@@ -125,7 +125,7 @@ src-tauri/src/net_probe/
 护栏：
 
 - 默认目标：RFC1918 / 本机 / 用户显式单个公网 host。
-- 端口扫描只接受单个 IP 地址或主机名；CIDR、通配符、IP octet range 和多目标列表由 Rust IPC 拒绝，稳定错误码为 `PORT_SCAN_SINGLE_HOST_REQUIRED`。大端口范围或公网目标的二次确认展示精确目标、端口范围、速率与最长/估算时长；Rust IPC 再按目标类型和解析去重后的端口数判断风险，公网 IP、主机名或超过 64 个端口缺少 `highRiskConfirmed` 时在创建扫描会话前返回 `HIGH_RISK_CONFIRMATION_REQUIRED`。该字段只表示 UI 确认意图，不是抵御被攻陷 renderer 的授权凭据。内置 TCP 每目标端口连接至少间隔 50ms（约 20 次/秒），最多 32 并发且单连接超时 800ms。Nmap 普通端口扫描使用 `--scan-delay 50ms` 与 30s host timeout；显式指纹模式的服务 / OS 阶段由 Nmap 自身时序控制，50ms 不代表整次指纹扫描的总速率上限。
+- 端口扫描只接受单个 IP 地址或主机名；CIDR、通配符、IP octet range 和多目标列表由 Rust IPC 拒绝，稳定错误码为 `PORT_SCAN_SINGLE_HOST_REQUIRED`。IPv6 字面量在 Nmap 普通与指纹扫描中显式传 `-6`，内置 TCP fallback 使用带方括号的 IPv6 socket 地址。大端口范围或公网目标的二次确认展示精确目标、端口范围、速率与最长/估算时长；Rust IPC 再按目标类型和解析去重后的端口数判断风险，公网 IP、主机名或超过 64 个端口缺少 `highRiskConfirmed` 时在创建扫描会话前返回 `HIGH_RISK_CONFIRMATION_REQUIRED`。该字段只表示 UI 确认意图，不是抵御被攻陷 renderer 的授权凭据。内置 TCP 每目标端口连接至少间隔 50ms（约 20 次/秒），最多 32 并发且单连接超时 800ms。Nmap 普通端口扫描使用 `--scan-delay 50ms` 与 30s host timeout；显式指纹模式的服务 / OS 阶段由 Nmap 自身时序控制，50ms 不代表整次指纹扫描的总速率上限。
 - 进度 event：`port-sample`（port、state、serviceHint?）；`cancelScan` 幂等。
 
 库：`socket2` + `pnet`/`etherparse` + 可选 `pcap`；无 turnkey「完整 nmap」Rust 库——可接受薄封装或 nmap CLI fallback。

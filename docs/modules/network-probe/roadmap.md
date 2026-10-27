@@ -7,6 +7,8 @@
 
 **NAT 当前范围**：基于 `rtc-stun` 的多服务器 STUN Binding 映射观察已实现；仅报告每源映射 / 超时 / 失败，不推断 NAT 类型。macOS 隔离 QA 使用 loopback responder 完成一次 UI 真机验收；RFC 5780 分类仍是后续规划。
 
+**IPv6 端口扫描**：Nmap 对 IPv6 字面量在普通扫描和指纹扫描中传 `-6`；内置 TCP fallback 使用 `[IPv6]:port` 格式。macOS `[::1]:48765` loopback 真机验证通过：Nmap 普通扫描报告 open，轻量服务指纹识别 Python SimpleHTTPServer；Bench fallback 与地址族参数也有回归测试。测试服务随后停止。扫描仍限定单主机，不接受 CIDR。
+
 **硬性红线**（不实现 · 法律/合规约束，详见 design.md §12.3.2）：主动攻击能力——ARP 欺骗**攻击** / MITM 流量**注入** / **DoS** / 密码**爆破**，违法绝不构建；仅提供对应检测/防御版本（`detectArpSpoofing` / `checkSsl.mitmSuspected` / 暴露面评估）。
 
 **端口扫描确认补充（2026-10-25）**：高风险目标和大范围确认由 Rust IPC 按真实目标与去重端口数复核，未确认时不创建扫描会话；用户选定本期限定单主机，CIDR / 多目标语法由 IPC 拒绝；loopback 指纹真机验收已完成。

@@ -225,7 +225,11 @@ async fn wait_for_probe_slot(
 }
 
 async fn probe_one(host: String, port: u16, timeout_ms: u64) -> PortSampleEvent {
-    let addr = format!("{host}:{port}");
+    let addr = if matches!(IpAddr::from_str(&host), Ok(IpAddr::V6(_))) {
+        format!("[{host}]:{port}")
+    } else {
+        format!("{host}:{port}")
+    };
     let started = Instant::now();
     match timeout(Duration::from_millis(timeout_ms), TcpStream::connect(addr)).await {
         Ok(Ok(_stream)) => PortSampleEvent {
@@ -290,7 +294,8 @@ async fn try_nmap_syn<R: Runtime>(
     let args = |scan: &str| {
         let mut args = vec!["-Pn".to_string(), scan.to_string()];
         append_nmap_scan_limits(&mut args);
-        args.extend(["-p".to_string(), port_arg.clone(), target.to_string()]);
+        args.extend(["-p".to_string(), port_arg.clone()]);
+        append_nmap_target(&mut args, target);
         args
     };
 
@@ -565,9 +570,16 @@ fn fingerprint_nmap_args(scan: &str, ports: &str, target: &str, detect_os: bool)
         ports.to_string(),
         "-oX".to_string(),
         "-".to_string(),
-        target.to_string(),
     ]);
+    append_nmap_target(&mut args, target);
     args
+}
+
+fn append_nmap_target(args: &mut Vec<String>, target: &str) {
+    if matches!(IpAddr::from_str(target), Ok(IpAddr::V6(_))) {
+        args.push("-6".to_string());
+    }
+    args.push(target.to_string());
 }
 
 fn append_nmap_scan_limits(args: &mut Vec<String>) {
@@ -1293,6 +1305,26 @@ mod tests {
         assert_eq!(output.output.stderr, b"std");
         assert!(output.stderr_exceeded_limit);
     }
+
+    #[tokio::test]
+    async fn built_in_probe_connects_to_an_ipv6_literal() {
+        let listener = tokio::net::TcpListener::bind("[::1]:0")
+            .await
+            .expect("bind IPv6 loopback listener");
+        let port = listener
+            .local_addr()
+            .expect("read IPv6 loopback address")
+            .port();
+        let accept = tokio::spawn(async move { listener.accept().await });
+
+        let sample = super::probe_one("::1".to_string(), port, 1_000).await;
+
+        assert_eq!(sample.state, "open");
+        accept
+            .await
+            .expect("listener task should complete")
+            .expect("accept connection");
+    }
 }
 
 fn is_high_risk_scan_target(target: &str) -> bool {
@@ -1555,6 +1587,26 @@ mod fingerprint_tests {
         assert!(!connect_args
             .iter()
             .any(|arg| arg == "-sC" || arg == "-A" || arg.starts_with("--script")));
+    }
+
+    #[test]
+    fn nmap_enables_ipv6_for_normal_and_fingerprint_scans() {
+        let mut normal_args = vec!["-Pn".to_string(), "-sS".to_string()];
+        append_nmap_target(&mut normal_args, "2001:db8::1");
+        assert_eq!(normal_args, ["-Pn", "-sS", "-6", "2001:db8::1"]);
+
+        let fingerprint_args = fingerprint_nmap_args("-sT", "443", "::1", false);
+        assert!(fingerprint_args.iter().any(|argument| argument == "-6"));
+        assert_eq!(fingerprint_args.last().map(String::as_str), Some("::1"));
+    }
+
+    #[test]
+    fn nmap_keeps_ipv4_and_hostname_address_family_defaults() {
+        for target in ["127.0.0.1", "example.com"] {
+            let mut args = Vec::new();
+            append_nmap_target(&mut args, target);
+            assert_eq!(args, [target], "unexpected family switch for {target}");
+        }
     }
 
     #[test]
