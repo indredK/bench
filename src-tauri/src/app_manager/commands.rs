@@ -7,6 +7,7 @@ use super::types::{
 use super::{empty_scan_result, linux, locked_operation_result, macos, sources, windows};
 use crate::error::{AppError, AppResult};
 use serde::Serialize;
+use std::io::Read;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -196,11 +197,17 @@ fn serialize_inventory_snapshot(result: &ScanResult) -> Option<Vec<u8>> {
     if bytes.len() <= INVENTORY_CACHE_MAX_BYTES {
         return Some(bytes);
     }
+    serialize_inventory_snapshot_without_icons(result)
+}
+
+fn serialize_inventory_snapshot_without_icons(result: &ScanResult) -> Option<Vec<u8>> {
     let mut stripped = result.clone();
     for app in &mut stripped.apps {
         app.icon_base64 = None;
     }
-    let stripped_bytes = write(INVENTORY_SCHEMA_VERSION, &stripped)?;
+    let mut stamped = stripped;
+    stamped.schema_version = INVENTORY_SCHEMA_VERSION;
+    let stripped_bytes = serde_json::to_vec(&stamped).ok()?;
     if stripped_bytes.len() > INVENTORY_CACHE_MAX_BYTES {
         eprintln!(
             "[app-manager] inventory cache exceeds {} bytes even without icons; skipping cache",
@@ -231,13 +238,66 @@ fn decode_inventory_snapshot(bytes: &[u8]) -> Option<ScanResult> {
     Some(snapshot)
 }
 
+/// 读取缓存前先检查元数据，并限制实际读取量以覆盖检查后的文件增长竞态。
+fn read_bounded_inventory_snapshot(path: &std::path::Path) -> Option<Vec<u8>> {
+    let max_bytes = INVENTORY_CACHE_MAX_BYTES as u64;
+    let metadata = std::fs::metadata(path).ok()?;
+    if metadata.len() > max_bytes {
+        eprintln!(
+            "[app-manager] inventory cache is {} bytes; limit is {max_bytes}; ignoring",
+            metadata.len()
+        );
+        return None;
+    }
+
+    let file = std::fs::File::open(path).ok()?;
+    let mut bytes = Vec::new();
+    file.take(max_bytes + 1).read_to_end(&mut bytes).ok()?;
+    if bytes.len() as u64 > max_bytes {
+        eprintln!(
+            "[app-manager] inventory cache grew beyond {max_bytes} bytes while reading; ignoring"
+        );
+        return None;
+    }
+    Some(bytes)
+}
+
 /// 尽力持久化扫描快照。应用图标的 base64 体积不可控(单应用可达数百 KB),
-/// 序列化整体超限时剥离图标重写一次, 避免缓存膨胀拖慢启动恢复。
+/// 序列化超限或首次写入失败时剥离图标最多重试一次, 避免缓存膨胀拖慢启动恢复。
 fn persist_inventory_snapshot(result: &ScanResult) {
+    let Ok(path) = inventory_cache_path() else {
+        return;
+    };
+    persist_inventory_snapshot_with_writer(result, |bytes| {
+        crate::persistence::atomic_write(&path, bytes)
+    });
+}
+
+fn persist_inventory_snapshot_with_writer<F>(result: &ScanResult, mut write: F)
+where
+    F: FnMut(&[u8]) -> std::io::Result<()>,
+{
     let Some(bytes) = serialize_inventory_snapshot(result) else {
         return;
     };
-    let _ = inventory_cache_path().map(|path| crate::persistence::atomic_write(&path, &bytes));
+    let first_error = match write(&bytes) {
+        Ok(()) => return,
+        Err(error) => error,
+    };
+
+    let Some(stripped_bytes) = serialize_inventory_snapshot_without_icons(result) else {
+        eprintln!("[app-manager] inventory cache write failed: {first_error}");
+        return;
+    };
+    if stripped_bytes == bytes {
+        eprintln!("[app-manager] inventory cache write failed: {first_error}");
+        return;
+    }
+    if let Err(retry_error) = write(&stripped_bytes) {
+        eprintln!(
+            "[app-manager] inventory cache write failed after iconless retry: {first_error}; {retry_error}"
+        );
+    }
 }
 
 /// 读取上一次会话持久化的扫描快照; 只读缓存, 不触发扫描。
@@ -249,27 +309,27 @@ pub async fn get_cached_app_inventory(
 ) -> AppResult<Option<ScanResult>> {
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        if let Some(cached) = state.get_cached_scan() {
-            return Ok(Some(cached));
-        }
-        let path = match inventory_cache_path() {
-            Ok(path) => path,
-            Err(_) => return Ok(None),
-        };
-        let bytes = match std::fs::read(&path) {
-            Ok(bytes) => bytes,
-            Err(_) => return Ok(None),
-        };
-        let Some(snapshot) = decode_inventory_snapshot(&bytes) else {
-            return Ok(None);
-        };
-        // 对齐会话内 revision 单调性, 确保本次会话后续扫描的 revision 严格更大,
-        // 前端按 revision 做的变更检测不会被回退值干扰。
-        restore_revision_floor(&state, &snapshot);
-        Ok(Some(snapshot))
+        Ok(load_cached_inventory_snapshot(&state, inventory_cache_path))
     })
     .await
     .map_err(|e| AppError::internal(format!("get_cached_app_inventory: {e}")))?
+}
+
+/// 优先读取会话内存缓存，否则尝试恢复磁盘快照。路径由调用方提供，便于用隔离临时目录测试。
+fn load_cached_inventory_snapshot<F>(state: &AppManagerState, resolve_path: F) -> Option<ScanResult>
+where
+    F: FnOnce() -> AppResult<std::path::PathBuf>,
+{
+    if let Some(cached) = state.get_cached_scan() {
+        return Some(cached);
+    }
+    let path = resolve_path().ok()?;
+    let bytes = read_bounded_inventory_snapshot(&path)?;
+    let snapshot = decode_inventory_snapshot(&bytes)?;
+    // 对齐会话内 revision 单调性, 确保本次会话后续扫描的 revision 严格更大,
+    // 前端按 revision 做的变更检测不会被回退值干扰。
+    restore_revision_floor(state, &snapshot);
+    Some(snapshot)
 }
 
 /// 快照恢复后抬高 revision 下限, 保证本会话内 revision 单调递增。
@@ -1080,6 +1140,77 @@ mod tests {
     }
 
     #[test]
+    fn missing_or_corrupt_disk_snapshot_returns_none_and_scan_can_continue() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let missing_path = directory.path().join("missing.json");
+        let corrupt_path = directory.path().join("corrupt.json");
+        std::fs::write(&corrupt_path, b"{not json").expect("write corrupt fixture");
+        let state = AppManagerState::new();
+
+        assert!(load_cached_inventory_snapshot(&state, || Ok(missing_path)).is_none());
+        assert!(load_cached_inventory_snapshot(&state, || Ok(corrupt_path)).is_none());
+
+        // 缓存不可用不污染会话状态，后续扫描仍能建立新的 revision。
+        let next = state.cache_scan_result(empty_scan_result());
+        assert_eq!(next.revision, 1);
+    }
+
+    #[test]
+    fn cache_path_resolution_failure_returns_none_and_scan_can_continue() {
+        let state = AppManagerState::new();
+
+        assert!(load_cached_inventory_snapshot(&state, || {
+            Err(AppError::io("configuration directory unavailable"))
+        })
+        .is_none());
+
+        let next = state.cache_scan_result(empty_scan_result());
+        assert_eq!(next.revision, 1);
+    }
+
+    #[test]
+    fn unreadable_disk_snapshot_returns_none() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let state = AppManagerState::new();
+
+        // 目录本身不能作为快照文件读取；I/O 错误按缓存未命中处理。
+        assert!(
+            load_cached_inventory_snapshot(&state, || Ok(directory.path().to_path_buf())).is_none()
+        );
+    }
+
+    #[test]
+    fn oversized_disk_snapshot_is_rejected_before_decode() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let path = directory.path().join("oversized.json");
+        std::fs::File::create(&path)
+            .expect("create sparse fixture")
+            .set_len(INVENTORY_CACHE_MAX_BYTES as u64 + 1)
+            .expect("size sparse fixture");
+        let state = AppManagerState::new();
+
+        assert!(load_cached_inventory_snapshot(&state, || Ok(path)).is_none());
+        assert_eq!(state.inventory_revision(), 0);
+    }
+
+    #[test]
+    fn disk_snapshot_restores_data_and_revision_floor() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let path = directory.path().join("inventory.json");
+        let mut snapshot = snapshot_with_icons(None);
+        snapshot.revision = 7;
+        let bytes = serialize_inventory_snapshot(&snapshot).expect("serialize snapshot");
+        std::fs::write(&path, bytes).expect("write snapshot");
+        let state = AppManagerState::new();
+
+        let restored =
+            load_cached_inventory_snapshot(&state, || Ok(path)).expect("restore snapshot");
+        assert_eq!(restored.revision, 7);
+        let next = state.cache_scan_result(empty_scan_result());
+        assert!(next.revision > restored.revision);
+    }
+
+    #[test]
     fn decode_accepts_legacy_cache_without_schema_version() {
         // 旧格式:序列化时不带 schemaVersion 字段 (serde default → 0)。
         let mut snapshot = snapshot_with_icons(None);
@@ -1138,6 +1269,28 @@ mod tests {
     }
 
     #[test]
+    fn persist_retries_once_without_icons_after_write_failure() {
+        let snapshot = snapshot_with_icons(Some("A".repeat(1024)));
+        let mut attempts = 0;
+        let mut writes = Vec::new();
+
+        persist_inventory_snapshot_with_writer(&snapshot, |bytes| {
+            attempts += 1;
+            writes.push(bytes.to_vec());
+            if attempts == 1 {
+                Err(std::io::Error::other("simulated write failure"))
+            } else {
+                Ok(())
+            }
+        });
+
+        assert_eq!(attempts, 2, "write retry is bounded to one fallback");
+        assert!(writes[0].len() > writes[1].len());
+        let fallback = decode_inventory_snapshot(&writes[1]).expect("decode fallback");
+        assert!(fallback.apps.iter().all(|app| app.icon_base64.is_none()));
+    }
+
+    #[test]
     fn revision_restored_from_snapshot_stays_monotonic() {
         let state = AppManagerState::new();
         // 本会话已进行一次扫描 → revision = 1。
@@ -1158,9 +1311,19 @@ mod tests {
     #[test]
     fn memory_cache_hit_takes_precedence_over_disk_snapshot() {
         let state = AppManagerState::new();
-        state.cache_scan_result(empty_scan_result());
-        // 内存缓存存在即优先于磁盘快照 (get_cached_scan 先于磁盘解码)。
-        let hit = state.get_cached_scan().expect("memory cache");
-        assert_eq!(hit.revision, state.inventory_revision());
+        let expected = state.cache_scan_result(empty_scan_result());
+        let mut path_was_resolved = false;
+
+        let hit = load_cached_inventory_snapshot(&state, || {
+            path_was_resolved = true;
+            Ok(std::path::PathBuf::from("unused.json"))
+        })
+        .expect("memory cache");
+
+        assert_eq!(hit.revision, expected.revision);
+        assert!(
+            !path_was_resolved,
+            "disk path should not be resolved on memory hit"
+        );
     }
 }

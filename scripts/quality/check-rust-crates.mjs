@@ -89,7 +89,7 @@ function collectLocalModules(dir, modules = new Set()) {
 function collectLocalFunctions(dir, functions = new Set()) {
   for (const filePath of walkRsFiles(dir)) {
     const content = readFileSync(filePath, "utf8")
-    const cleaned = content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")
+    const cleaned = maskRustNonCode(content)
     const fnRegex = /\b(fn)\s+([a-z0-9_]+)\s*(<[^>]*>)?\s*\(/gi
     let fnMatch
     while ((fnMatch = fnRegex.exec(cleaned)) !== null) {
@@ -150,8 +150,7 @@ const LINT_NAMESPACES = new Set(["clippy", "rustfmt"])
 function collectUseImports(dir, imports = new Set()) {
   for (const filePath of walkRsFiles(dir)) {
     const content = readFileSync(filePath, "utf8")
-    // Strip comments to avoid matching inside them
-    const cleaned = content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")
+    const cleaned = maskRustNonCode(content)
 
     // Match `use <path>::{<items>};` and `use <path>::<item>;`
     // We only care about the final segment(s) — those are the names in scope.
@@ -198,14 +197,23 @@ function isSnakeCase(name) {
   return /^[a-z][a-z0-9_]*$/.test(name) && name !== name.toUpperCase()
 }
 
+function maskRustNonCode(source) {
+  const preserveLines = (text) => text.replace(/[^\r\n]/g, " ")
+
+  // Mask raw and regular Rust strings before comments so URL-like values do
+  // not make the comment pass discard source that follows them.
+  return source
+    .replace(/(?<![\w])(?:br|r)(#{0,})"[\s\S]*?"\1/g, preserveLines)
+    .replace(/(?<![\w])b?"(?:\\.|[^"\\])*"/gs, preserveLines)
+    .replace(/\/\/.*$/gm, preserveLines)
+    .replace(/\/\*[\s\S]*?\*\//g, preserveLines)
+}
+
 function scanFile(filePath, declaredCrates, localModules, localFunctions, useImports) {
   const rawContent = readFileSync(filePath, "utf8")
-  // Strip comments and `use ...;` declarations so we only scan actual usage,
-  // not import statements (which legitimately reference crate paths).
-  const content = rawContent
-    .replace(/\/\/.*$/gm, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\buse\s+[\s\S]*?;/g, "")
+  // Mask comments and string literals, then remove `use ...;` declarations
+  // which legitimately reference crate paths.
+  const content = maskRustNonCode(rawContent).replace(/\buse\s+[\s\S]*?;/g, "")
   const issues = []
   const seen = new Set() // dedupe within a file
 

@@ -34,9 +34,17 @@ import type {
   PortProcessDetail,
   ProcessFingerprint,
   ProcessNode,
+  ProcessChildrenPage,
   SystemInfoData,
 } from "@/lib/tauri/types"
 import type { AppUpdateInfo, AppUpdateInstallResult } from "@/lib/tauri/types/updater"
+import type {
+  LanDiscoveryProgressEvent,
+  LanServicesProgressEvent,
+  LanServicesResult,
+  ProxyVpnStatus,
+  SiteSampleResult,
+} from "@/lib/tauri/types/network-probe"
 import type {
   AccountManagerCapabilities,
   AccountManagerCapability,
@@ -76,6 +84,12 @@ describe("Tauri contracts", () => {
     expect(rustCommands).toEqual(frontendCommands)
   })
 
+  it("declares argument keys for every Tauri command", () => {
+    expect(Object.keys(TAURI_COMMAND_ARG_KEYS).sort()).toEqual(
+      Object.keys(TAURI_COMMAND_CONTRACTS).sort(),
+    )
+  })
+
   it("keeps frontend command args aligned with Rust command function parameters", () => {
     // workspace 成员 crates/（bench-capabilities / bench-host）同样承载 IPC DTO，
     // 与 src-tauri/src 一起纳入对齐扫描（DTO 迁移到能力内核后此目录不可缺）。
@@ -112,6 +126,65 @@ describe("Tauri contracts", () => {
     const rustStructFields = parseRustStructFields(rustSource)
 
     const checks: Array<[string, string, string[]]> = [
+      [
+        "LanDiscoveryProgressEvent",
+        "camel",
+        dtoKeys<LanDiscoveryProgressEvent>([
+          "sessionId",
+          "phase",
+          "checkedHosts",
+          "totalHosts",
+          "discoveredNeighbors",
+        ]),
+      ],
+      [
+        "LanServicesProgressEvent",
+        "camel",
+        dtoKeys<LanServicesProgressEvent>(["sessionId", "phase", "discoveredServices"]),
+      ],
+      [
+        "LanServicesResult",
+        "camel",
+        dtoKeys<LanServicesResult>([
+          "items",
+          "cancelled",
+          "sessionId",
+          "message",
+          "elapsedMs",
+          "commandHint",
+        ]),
+      ],
+      [
+        "SiteSampleResult",
+        "camel",
+        dtoKeys<SiteSampleResult>([
+          "id",
+          "target",
+          "channel",
+          "ok",
+          "degraded",
+          "icmpRttMs",
+          "httpStatus",
+          "httpTtfbMs",
+          "downloadMbps",
+          "downloadBytes",
+          "error",
+        ]),
+      ],
+      [
+        "ProxyVpnStatus",
+        "camel",
+        dtoKeys<ProxyVpnStatus>([
+          "proxyEnabled",
+          "proxyStatusKnown",
+          "proxyDetail",
+          "vpnInterfacesKnown",
+          "vpnIfaces",
+          "defaultRouteKnown",
+          "defaultViaTunnel",
+          "commandHint",
+        ]),
+      ],
       [
         "AccountManagerCapability",
         "camel",
@@ -353,7 +426,20 @@ describe("Tauri contracts", () => {
       [
         "ProcessNode",
         "snake",
-        dtoKeys<ProcessNode>(["pid", "ppid", "name", "command", "children"]),
+        dtoKeys<ProcessNode>([
+          "pid",
+          "ppid",
+          "name",
+          "command",
+          "identity",
+          "has_children",
+          "children",
+        ]),
+      ],
+      [
+        "ProcessChildrenPage",
+        "snake",
+        dtoKeys<ProcessChildrenPage>(["parent_pid", "children", "next_after_pid"]),
       ],
       ["ProcessFingerprint", "snake", dtoKeys<ProcessFingerprint>(["category", "name", "icon"])],
       [

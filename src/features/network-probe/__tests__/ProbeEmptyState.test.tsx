@@ -113,6 +113,8 @@ function renderTestPanel(
         loading={loading}
         result={null}
         hasError={hasError}
+        toolEnabled
+        toolStatus="supported"
         onRun={vi.fn()}
         dualFrom="test"
       />,
@@ -156,6 +158,8 @@ describe("network-probe result empty states", () => {
       proxyVpn: null,
       ipv6: null,
       mtu: null,
+      mtuToolEnabled: true,
+      mtuToolStatus: "supported",
       onRunAll: vi.fn(),
       onOpenMtu: vi.fn(),
     }

@@ -16,29 +16,39 @@ import { useTranslation } from "react-i18next"
 
 interface OfflinePanelProps {
   loading: boolean
+  disabled?: boolean
   focus: NetworkProbeOfflineSub
   captive: CaptivePortalResult | null
   publicIp: PublicIpInfo | null
   proxyVpn: ProxyVpnStatus | null
   ipv6: Ipv6StackResult | null
   mtu: PathMtuResult | null
+  mtuToolEnabled: boolean
+  mtuToolStatus?: string
+  compactSummary?: boolean
   onRunAll: () => void
   onOpenMtu: () => void
 }
 
 export function OfflinePanel({
   loading,
+  disabled = false,
   focus,
   captive,
   publicIp,
   proxyVpn,
   ipv6,
   mtu,
+  mtuToolEnabled,
+  mtuToolStatus,
+  compactSummary = false,
   onRunAll,
   onOpenMtu,
 }: OfflinePanelProps) {
   const { t } = useTranslation()
   const show = (id: NetworkProbeOfflineSub) => focus === "all" || focus === id
+  const mtuMessage =
+    mtu?.status === "unsupported" ? t("networkProbe.mtu.unsupportedMessage") : mtu?.message
 
   return (
     <ProbePanelShell
@@ -49,7 +59,7 @@ export function OfflinePanel({
             <p className="text-muted-foreground text-sm">{t("networkProbe.offline.hint")}</p>
           ) : null}
           <CommandHint hint={t("networkProbe.cmd.offlineBundle")}>
-            <Button type="button" disabled={loading} onClick={onRunAll}>
+            <Button type="button" disabled={loading || disabled} onClick={onRunAll}>
               {loading ? t("networkProbe.offline.running") : t("networkProbe.offline.run")}
             </Button>
           </CommandHint>
@@ -58,9 +68,9 @@ export function OfflinePanel({
     >
       {show("captive") ? (
         <section className="space-y-1 rounded-lg border px-3 py-2 text-sm">
-          <h3 className="text-xs font-semibold tracking-wide uppercase">
+          <h4 className="text-xs font-semibold tracking-wide uppercase">
             {t("networkProbe.offline.captiveTitle")}
-          </h3>
+          </h4>
           {captive ? (
             <>
               <div>
@@ -80,11 +90,11 @@ export function OfflinePanel({
         </section>
       ) : null}
 
-      {show("egress") ? (
+      {show("egress") && !compactSummary ? (
         <section className="space-y-1 rounded-lg border px-3 py-2 text-sm">
-          <h3 className="text-xs font-semibold tracking-wide uppercase">
+          <h4 className="text-xs font-semibold tracking-wide uppercase">
             {t("networkProbe.offline.egressTitle")}
-          </h3>
+          </h4>
           {publicIp ? (
             <>
               <div>
@@ -115,29 +125,41 @@ export function OfflinePanel({
 
       {show("proxy") ? (
         <section className="space-y-1 rounded-lg border px-3 py-2 text-sm">
-          <h3 className="text-xs font-semibold tracking-wide uppercase">
+          <h4 className="text-xs font-semibold tracking-wide uppercase">
             {t("networkProbe.offline.proxyTitle")}
-          </h3>
+          </h4>
           {proxyVpn ? (
             <>
               <div>
                 {t("networkProbe.offline.proxy")}:{" "}
-                {proxyVpn.proxyEnabled
-                  ? t("networkProbe.offline.proxyOn")
-                  : t("networkProbe.offline.proxyOff")}
+                {!proxyVpn.proxyStatusKnown
+                  ? t("networkProbe.offline.proxyUnknown")
+                  : proxyVpn.proxyEnabled
+                    ? t("networkProbe.offline.proxyOn")
+                    : t("networkProbe.offline.proxyOff")}
               </div>
-              {proxyVpn.proxyDetail ? (
+              {!proxyVpn.proxyStatusKnown ? (
+                <p className="text-muted-foreground text-xs">
+                  {t("networkProbe.offline.proxyUnknownDetail")}
+                </p>
+              ) : proxyVpn.proxyDetail ? (
                 <p className="text-muted-foreground text-xs">{proxyVpn.proxyDetail}</p>
               ) : null}
               <div>
                 {t("networkProbe.offline.vpn")}:{" "}
-                {proxyVpn.vpnIfaces.length > 0
-                  ? proxyVpn.vpnIfaces.join(", ")
-                  : t("networkProbe.offline.vpnNone")}
+                {!proxyVpn.vpnInterfacesKnown
+                  ? t("networkProbe.offline.vpnUnknown")
+                  : proxyVpn.vpnIfaces.length > 0
+                    ? proxyVpn.vpnIfaces.join(", ")
+                    : t("networkProbe.offline.vpnNone")}
               </div>
               {proxyVpn.defaultViaTunnel ? (
                 <p className="text-xs text-amber-700 dark:text-amber-400">
                   {t("networkProbe.offline.viaTunnel")}
+                </p>
+              ) : !proxyVpn.defaultRouteKnown ? (
+                <p className="text-muted-foreground text-xs">
+                  {t("networkProbe.offline.defaultRouteUnknown")}
                 </p>
               ) : null}
               <p className="text-muted-foreground font-mono text-[10px]">{proxyVpn.commandHint}</p>
@@ -148,11 +170,11 @@ export function OfflinePanel({
         </section>
       ) : null}
 
-      {show("ipv6") ? (
+      {show("ipv6") && !compactSummary ? (
         <section className="space-y-1 rounded-lg border px-3 py-2 text-sm">
-          <h3 className="text-xs font-semibold tracking-wide uppercase">
+          <h4 className="text-xs font-semibold tracking-wide uppercase">
             {t("networkProbe.offline.ipv6Title")}
-          </h3>
+          </h4>
           {ipv6 ? (
             <>
               <div>
@@ -175,16 +197,30 @@ export function OfflinePanel({
         </section>
       ) : null}
 
-      {show("mtu") ? (
+      {show("mtu") && !compactSummary ? (
         <section className="space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold tracking-wide uppercase">
+            <h4 className="text-xs font-semibold tracking-wide uppercase">
               {t("networkProbe.offline.mtuTitle")}
-            </h3>
-            <Button type="button" variant="outline" size="sm" onClick={onOpenMtu}>
+            </h4>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!mtuToolEnabled}
+              onClick={onOpenMtu}
+            >
               {t("networkProbe.offline.openMtu")}
             </Button>
           </div>
+          {!mtuToolEnabled ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.caps.toolDisabled", {
+                tool: "pathMtu",
+                status: mtuToolStatus ?? "unsupported",
+              })}
+            </p>
+          ) : null}
           {mtu ? (
             <>
               <div>
@@ -196,7 +232,7 @@ export function OfflinePanel({
                 </span>
                 {mtu.pathMtu != null ? <span className="font-mono"> · {mtu.pathMtu}</span> : null}
               </div>
-              {mtu.message ? <p className="text-muted-foreground text-xs">{mtu.message}</p> : null}
+              {mtuMessage ? <p className="text-muted-foreground text-xs">{mtuMessage}</p> : null}
               <p className="text-muted-foreground font-mono text-[10px]">{mtu.commandHint}</p>
             </>
           ) : (

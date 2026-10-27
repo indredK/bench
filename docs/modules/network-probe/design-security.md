@@ -123,6 +123,8 @@ src-tauri/src/net_probe/
 | SYN stealth | 有 RAW/pcap 特权 | 发 SYN，pcap 匹配 SYN-ACK/RST；**不回 RST 完成握手**（减少日志噪音，仍属探测） |
 | TCP connect | 无特权默认       | `connect()` 超时矩阵；能力标 `degraded`                                        |
 
+若使用本机 `nmap`，必须经共享 subprocess wrapper 执行：输出有上限、命令有超时、取消时终止并回收进程树；超时/不支持时自动降级到内置 TCP connect。当前端口扫描只调用本机 nmap 或内置 TCP connect；能力包 registry 记录本身不能提升 `portScan` 状态，直到 sidecar 确实接入执行器。取消结果需在面板中以本地化终态展示，不得继续展示旧扫描的开放端口统计。
+
 护栏：
 
 - 默认目标：RFC1918 / 本机 / 用户显式单个公网 host。
@@ -131,7 +133,9 @@ src-tauri/src/net_probe/
 
 库：`socket2` + `pnet`/`etherparse` + 可选 `pcap`；无 turnkey「完整 nmap」Rust 库——可接受薄封装或 nmap CLI fallback。
 
-指纹（可选同面板）：匹配常见 banner/端口→服务名风险标签；**不做**漏洞利用。
+`serviceHint` 当前只是端口表或常见端口映射给出的**候选服务名**，不是从服务 banner 验证的指纹；只对确认开放的端口展示，closed / filtered 不显示服务名。界面必须明确显示“可能的服务”，不能据此断言具体服务、版本、OS 或漏洞。S3-6 的主动服务 / OS 指纹与风险标注仍未实现；实现前必须提供单独的明确启用与目标授权确认、速率 / 超时上限、置信度和“不代表漏洞结论”文案，并继续禁止漏洞脚本。
+
+依赖评估：Nmap 是成熟的主动服务 / OS 探测器，但其官方文档提示 `-sV` / `-O` 比基础端口扫描更具侵入性，且 Nmap Public Source License 不允许未经授权将 Nmap 再分发到商业软件；当前只探测用户本机已有的 nmap，不得把它或数据库打入 Bench 安装包。`praetorian-inc/fingerprintx` 有 Apache-2.0 许可且适合对已开放端口做服务识别，但它是 Go 工具 / 库，不提供 OS 指纹；将其接入需要评估跨平台 sidecar 和额外主动探测确认。Rust 项目 `huginn-net` 提供被动 p0f 风格 TCP/OS 指纹，依赖抓到的网络流量，且其 README 说明 p0f 数据库仍是 2012 年版本；它不替代本面板需要的主动服务识别。不得仅为完成该清单项就引入尚未评审的 sidecar，也不得用端口号推断 OS。参见 [Nmap OS detection](https://nmap.org/book/man-os-detection.html)、[Nmap legal notices](https://nmap.org/book/man-legal.html)、[Nmap legal issues](https://nmap.org/book/legal-issues.html)、[Fingerprintx](https://github.com/praetorian-inc/fingerprintx) 与 [huginn-net](https://github.com/biandratti/huginn-net)。
 
 ### 5.2 污染检测（`pollution` 聚合）
 
@@ -154,6 +158,10 @@ src-tauri/src/net_probe/
 | 默认           | **只累计计数器**：retrans / out-of-order / RST / TLS alert（若可解析）                    |
 | 全量 pcap 落盘 | 默认关；显式开启 + 用户选路径 + 体积上限                                                  |
 | 过滤器         | BPF 字符串白名单校验；禁止空过滤对全接口长时间抓                                          |
+
+当前实现只通过共享 subprocess wrapper 运行 `tcpdump` 计数，默认最多 5 秒或 200 包；窗口先到即结束并解析已刷新的有界输出，因此零包是合法采样结果。无工具或 BPF 权限不足返回本地化错误，非零退出不会伪装成零包成功。完整 `libpcap` / `pcap-diag` sidecar 尚未接入，因此 registry 安装标记不能改变 `pcap` 能力状态，当前不提供完整 pcap 落盘。
+
+依赖评估：后续完整抓包优先采用成熟的 [`rust-pcap`](https://github.com/rust-pcap/pcap) 封装，避免自写 libpcap FFI。它提供设备枚举、BPF、抓包句柄及文件读写；依赖系统 libpcap（macOS 随系统提供、Linux 需开发库）或 Windows Npcap，链接和权限仍须按平台打包与验收。当前计数模式不引入该原生依赖，也不增加未经接入的 pcap sidecar marker；待 D-017 明确平台分发、授权/提权和真机权限路径后再接入。
 
 隐私：info 日志禁止打完整 payload；UI 默认不展示原始 hex。
 
@@ -217,7 +225,7 @@ uninstallCapabilityPack(packId): void
 - [ ] D-017：`missing_pack` → 安装向导 → manifest 校验；前端不能传下载 URL
 - [ ] 本机 nmap 探测与 sidecar 并存策略有明确 capabilities 语义
 - [ ] SYN→connect 降级路径单测 + 真机
-- [ ] 无攻击类 API；代码审不出现投毒/注入/爆破入口
+- [x] 无攻击类 API；代码审不出现投毒/注入/爆破入口
 - [ ] pcap 默认统计模式；落盘需显式开关
 - [ ] 速率/CIDR/端口硬顶后端强制（不信任前端）
 - [ ] 与 port-manager 边界测试：占用 vs 存活

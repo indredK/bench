@@ -37,6 +37,7 @@ const ERROR_ROUTES: Record<string, readonly ErrorRoute[]> = {
     route("security", "ports"),
     route("security", "pcap"),
     route("discover", "arp"),
+    route("discover", "lan-svc"),
     route("discover", "nodes"),
   ],
   "networkProbe.errors.servicesFailed": [route("basic", "fix")],
@@ -64,6 +65,8 @@ const ERROR_ROUTES: Record<string, readonly ErrorRoute[]> = {
   ],
   "networkProbe.errors.pollutionFailed": [route("security", "pollution")],
   "networkProbe.errors.pcapFailed": [route("security", "pcap")],
+  "networkProbe.errors.pcapPermissionRequired": [route("security", "pcap")],
+  "networkProbe.errors.pcapTcpdumpUnavailable": [route("security", "pcap")],
   "networkProbe.errors.whoisFailed": [route("security", "whois")],
   "networkProbe.errors.dnssecFailed": [route("security", "dnssec")],
   "networkProbe.errors.portsFailed": [route("security", "ports")],
@@ -72,7 +75,10 @@ const ERROR_ROUTES: Record<string, readonly ErrorRoute[]> = {
   "networkProbe.errors.lanFailed": [route("discover", "arp")],
   "networkProbe.errors.lanSvcFailed": [route("discover", "lan-svc")],
   "networkProbe.errors.nodesFailed": [route("discover", "nodes")],
+  "networkProbe.errors.agentMetadataBlocked": [route("discover", "nodes")],
+  "networkProbe.errors.agentLimitReached": [route("discover", "nodes")],
   "networkProbe.errors.multiNodeFailed": [route("discover", "nodes")],
+  "networkProbe.nodes.targetInvalid": [route("discover", "nodes")],
   "networkProbe.errors.agentFailed": [route("discover", "nodes")],
   "networkProbe.errors.packsFailed": [route("sites", "packs")],
 }
@@ -86,6 +92,7 @@ const CANCEL_ROUTES: Record<NetworkProbeKind, readonly ErrorRoute[]> = {
   ports: [route("security", "ports")],
   pcap: [route("security", "pcap")],
   lan: [route("discover", "arp")],
+  lanServices: [route("discover", "lan-svc")],
   multiNode: [route("discover", "nodes")],
 }
 
@@ -101,6 +108,18 @@ export function isNetworkProbeErrorVisible(
     error.key.endsWith(".cancelFailed") && error.scope
       ? CANCEL_ROUTES[error.scope]
       : ERROR_ROUTES[error.key]
+  // The integrated BasicView mounts all six formerly separate L2 panels at once.
+  // Keep errors from any visible basic section in its shared status banner.
+  if (l1 === "basic" && l2 === "integrated") {
+    return (
+      routes?.some(
+        (candidate) =>
+          candidate.l1 === "basic" &&
+          (!candidate.offlineSubs || candidate.offlineSubs.includes("all")),
+      ) ?? true
+    )
+  }
+
   // Keep unclassified module-level errors visible until an explicit panel is assigned.
   if (!routes) return true
 

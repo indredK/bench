@@ -2,7 +2,7 @@
  * Feature Store / 功能状态: store state and simple actions; 只存状态与简单动作.
  */
 import { create } from "zustand"
-import type { PortProcessDetail } from "@/lib/tauri/types/port-manager"
+import type { KillPidResult, PortProcessDetail } from "@/lib/tauri/types/port-manager"
 import type { LocalizedError } from "@/lib/errors"
 
 export const MAX_TRACKED_PORTS = 20
@@ -33,8 +33,9 @@ interface PortManagerState {
   portStates: PortState[]
   portDetails: PortProcessDetail[]
   killing: boolean
-  portKillMessages: Record<number, string[]>
+  portKillResults: Record<number, KillPidResult[]>
   error: LocalizedError | null
+  alertsError: LocalizedError | null
   showEmptyPorts: boolean
   highlightPort: number | null
   scanSession: number
@@ -47,6 +48,7 @@ interface PortManagerState {
   setInputError: (error: string) => void
   setKilling: (killing: boolean) => void
   setError: (error: LocalizedError | null) => void
+  setAlertsError: (error: LocalizedError | null) => void
   setShowEmptyPorts: (show: boolean) => void
   setHighlightPort: (port: number | null) => void
   setScanMode: (mode: PortScanMode) => void
@@ -63,8 +65,9 @@ export const usePortManagerStore = create<PortManagerState>((set) => ({
   portStates: [],
   portDetails: [],
   killing: false,
-  portKillMessages: {},
+  portKillResults: {},
   error: null,
+  alertsError: null,
   showEmptyPorts: true,
   highlightPort: null,
   scanSession: 0,
@@ -77,6 +80,7 @@ export const usePortManagerStore = create<PortManagerState>((set) => ({
   setInputError: (error) => set({ inputError: error }),
   setKilling: (killing) => set({ killing }),
   setError: (error) => set({ error }),
+  setAlertsError: (alertsError) => set({ alertsError }),
   setShowEmptyPorts: (show) => set({ showEmptyPorts: show }),
   setHighlightPort: (port) => set({ highlightPort: port }),
   setScanMode: (mode) => set({ scanMode: mode }),
@@ -84,10 +88,19 @@ export const usePortManagerStore = create<PortManagerState>((set) => ({
   setAlertsEnabled: (enabled) => set({ alertsEnabled: enabled }),
 
   removePort: (port) =>
-    set((state) => ({
-      portStates: state.portStates.filter((ps) => ps.port !== port),
-      portDetails: state.portDetails.filter((d) => d.port !== port),
-    })),
+    set((state) => {
+      const portStates = state.portStates.filter((ps) => ps.port !== port)
+      const hasTrackedPorts = portStates.length > 0
+      return {
+        portStates,
+        portDetails: state.portDetails.filter((d) => d.port !== port),
+        portKillResults: Object.fromEntries(
+          Object.entries(state.portKillResults).filter(([key]) => Number(key) !== port),
+        ),
+        alertsEnabled: hasTrackedPorts && state.alertsEnabled,
+        alertsError: hasTrackedPorts ? state.alertsError : null,
+      }
+    }),
 
   clearAll: () =>
     set((state) => ({
@@ -97,7 +110,9 @@ export const usePortManagerStore = create<PortManagerState>((set) => ({
       inputError: "",
       portStates: [],
       portDetails: [],
-      portKillMessages: {},
+      portKillResults: {},
       error: null,
+      alertsEnabled: false,
+      alertsError: null,
     })),
 }))

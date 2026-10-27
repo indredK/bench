@@ -6,6 +6,7 @@ use super::types::{
     NetworkProbeCapabilities,
 };
 use crate::error::{AppError, AppResult};
+use crate::subprocess::run_status_with_timeout;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -109,8 +110,11 @@ fn platform_id() -> &'static str {
 }
 
 fn nmap_status() -> String {
-    match Command::new("nmap").arg("-V").output() {
-        Ok(out) if out.status.success() => "found".into(),
+    match run_status_with_timeout(
+        Command::new("nmap").arg("-V"),
+        std::time::Duration::from_secs(3),
+    ) {
+        Ok(_) => "found".into(),
         _ => "not_found".into(),
     }
 }
@@ -271,50 +275,18 @@ pub fn uninstall_capability_pack(app: &AppHandle<impl Runtime>, pack_id: String)
     Ok(())
 }
 
-/// 能力位判定：**只有真正带回二进制的 sidecar 安装**才算可用。
-/// marker 记录只代表「装过一条本地安装记录」，把它算成 supported 会让前端
-/// 在什么都没解锁的情况下全绿（SYN 扫描/富 pcap 依旧降级）。
-pub fn is_pack_installed(app: &AppHandle<impl Runtime>, pack_id: &str) -> bool {
-    packs_dir(app)
-        .ok()
-        .and_then(|dir| read_installed(&dir, pack_id))
-        .is_some_and(|record| record.mode != "marker")
-}
-
-fn optional_tool_statuses(
-    adv_installed: bool,
-    pcap_installed: bool,
-    nmap_found: bool,
-) -> [(&'static str, &'static str); 4] {
+fn optional_tool_statuses(nmap_found: bool) -> [(&'static str, &'static str); 4] {
     [
         (
             "portScan",
-            if nmap_found || adv_installed {
-                "supported"
-            } else {
-                "degraded"
-            },
+            if nmap_found { "supported" } else { "degraded" },
         ),
         // ARP cache and the bounded TCP sweep are the always-available fallback.
         ("arp", "degraded"),
-        (
-            "pcap",
-            if pcap_installed {
-                "supported"
-            } else {
-                "degraded"
-            },
-        ),
-        (
-            "fingerprint",
-            if adv_installed {
-                "degraded"
-            } else if nmap_found {
-                "unsupported"
-            } else {
-                "missing_pack"
-            },
-        ),
+        // The current path only returns tcpdump counters; pcap-diag is not dispatched yet.
+        ("pcap", "degraded"),
+        // Port-table names are hints only; service/OS fingerprinting is not implemented yet.
+        ("fingerprint", "degraded"),
     ]
 }
 
@@ -342,9 +314,14 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
     tools.insert("probeTarget".into(), s("supported"));
     tools.insert("sitesProbe".into(), s("supported"));
     tools.insert("healthScan".into(), s("supported"));
-    tools.insert("flushDns".into(), s("supported"));
-    tools.insert("switchDns".into(), s("supported"));
-    tools.insert("renewDhcp".into(), s("supported"));
+    let macos_only = if cfg!(target_os = "macos") {
+        "supported"
+    } else {
+        "unsupported"
+    };
+    tools.insert("flushDns".into(), s(macos_only));
+    tools.insert("switchDns".into(), s(macos_only));
+    tools.insert("renewDhcp".into(), s(macos_only));
     tools.insert("detectCaptive".into(), s("supported"));
     tools.insert("publicIp".into(), s("supported"));
     tools.insert("proxyVpn".into(), s("supported"));
@@ -356,14 +333,7 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
             s("unsupported")
         },
     );
-    tools.insert(
-        "resetNetworkStack".into(),
-        if cfg!(target_os = "macos") {
-            s("supported")
-        } else {
-            s("unsupported")
-        },
-    );
+    tools.insert("resetNetworkStack".into(), s(macos_only));
     tools.insert(
         "checkIpv6".into(),
         if cfg!(target_os = "macos") {
@@ -394,17 +364,11 @@ pub fn build_capabilities(app: Option<&AppHandle<impl Runtime>>) -> NetworkProbe
     tools.insert("multiNode".into(), s("partial")); // Globalping + agent registry
     tools.insert("agent".into(), s("partial"));
 
-    let adv_installed = app
-        .map(|a| is_pack_installed(a, "adv-scanner"))
-        .unwrap_or(false);
-    let pcap_installed = app
-        .map(|a| is_pack_installed(a, "pcap-diag"))
-        .unwrap_or(false);
     let nmap = nmap_status();
 
-    // TCP connect/ARP cache/tcpdump counters remain explicit degraded fallbacks until optional
-    // scanner binaries are actually available.
-    for (tool, status) in optional_tool_statuses(adv_installed, pcap_installed, nmap == "found") {
+    // Only promote a tool after its installed implementation is actually dispatched. A pack
+    // registry record alone must not turn the current TCP/tcpdump fallbacks green.
+    for (tool, status) in optional_tool_statuses(nmap == "found") {
         tools.insert(tool.into(), s(status));
     }
 
@@ -439,38 +403,32 @@ mod tests {
     use crate::error::AppError;
     use std::collections::HashMap;
 
-    fn status_map(
-        adv_installed: bool,
-        pcap_installed: bool,
-        nmap_found: bool,
-    ) -> HashMap<&'static str, &'static str> {
-        optional_tool_statuses(adv_installed, pcap_installed, nmap_found)
-            .into_iter()
-            .collect()
+    fn status_map(nmap_found: bool) -> HashMap<&'static str, &'static str> {
+        optional_tool_statuses(nmap_found).into_iter().collect()
     }
 
     #[test]
     fn missing_optional_tools_keep_the_supported_fallbacks_degraded() {
-        let statuses = status_map(false, false, false);
+        let statuses = status_map(false);
 
         assert_eq!(statuses.get("portScan"), Some(&"degraded"));
         assert_eq!(statuses.get("arp"), Some(&"degraded"));
         assert_eq!(statuses.get("pcap"), Some(&"degraded"));
-        assert_eq!(statuses.get("fingerprint"), Some(&"missing_pack"));
+        assert_eq!(statuses.get("fingerprint"), Some(&"degraded"));
     }
 
     #[test]
-    fn detected_nmap_and_installed_packs_only_unlock_their_declared_paths() {
-        let nmap_only = status_map(false, false, true);
+    fn detected_nmap_only_promotes_the_path_that_is_actually_invoked() {
+        let nmap_only = status_map(true);
         assert_eq!(nmap_only.get("portScan"), Some(&"supported"));
         assert_eq!(nmap_only.get("pcap"), Some(&"degraded"));
-        assert_eq!(nmap_only.get("fingerprint"), Some(&"unsupported"));
+        assert_eq!(nmap_only.get("fingerprint"), Some(&"degraded"));
 
-        let packs = status_map(true, true, false);
-        assert_eq!(packs.get("portScan"), Some(&"supported"));
-        assert_eq!(packs.get("arp"), Some(&"degraded"));
-        assert_eq!(packs.get("pcap"), Some(&"supported"));
-        assert_eq!(packs.get("fingerprint"), Some(&"degraded"));
+        let no_nmap = status_map(false);
+        assert_eq!(no_nmap.get("portScan"), Some(&"degraded"));
+        assert_eq!(no_nmap.get("arp"), Some(&"degraded"));
+        assert_eq!(no_nmap.get("pcap"), Some(&"degraded"));
+        assert_eq!(no_nmap.get("fingerprint"), Some(&"degraded"));
     }
 
     #[test]

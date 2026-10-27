@@ -1,26 +1,50 @@
 /**
  * Feature UI / 功能界面: path MTU / PMTUD panel (dual entry with Offline).
  */
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
-import type { PathMtuResult } from "@/lib/tauri/types/network-probe"
+import type { MtuTarget, PathMtuResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
 interface MtuPanelProps {
   loading: boolean
   result: PathMtuResult | null
   hasError?: boolean
+  toolEnabled: boolean
+  toolStatus?: string
+  mtuTargets?: MtuTarget[]
   onRun: (target: string) => void
   dualFrom?: "offline" | "test"
 }
 
-export function MtuPanel({ loading, result, hasError = false, onRun, dualFrom }: MtuPanelProps) {
+export function MtuPanel({
+  loading,
+  result,
+  hasError = false,
+  toolEnabled,
+  toolStatus,
+  mtuTargets,
+  onRun,
+  dualFrom,
+}: MtuPanelProps) {
   const { t } = useTranslation()
-  const [target, setTarget] = useState("1.1.1.1")
+  const [target, setTarget] = useState(mtuTargets?.[0]?.target ?? "1.1.1.1")
+  const previousTargets = useRef<MtuTarget[] | undefined>(undefined)
+  useEffect(() => {
+    const previous = previousTargets.current
+    const wasConfigured = previous?.some((item) => item.target === target) ?? target === "1.1.1.1"
+    if (mtuTargets?.length && wasConfigured && !mtuTargets.some((item) => item.target === target)) {
+      setTarget(mtuTargets[0]!.target)
+    }
+    previousTargets.current = mtuTargets
+  }, [mtuTargets, target])
+  const resultMessage =
+    result?.status === "unsupported" ? t("networkProbe.mtu.unsupportedMessage") : result?.message
 
   return (
     <ProbePanelShell
@@ -28,12 +52,42 @@ export function MtuPanel({ loading, result, hasError = false, onRun, dualFrom }:
       toolbar={
         <>
           <p className="text-muted-foreground text-sm">{t("networkProbe.mtu.hint")}</p>
+          {!toolEnabled ? (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t("networkProbe.caps.toolDisabled", {
+                tool: "pathMtu",
+                status: toolStatus ?? "unsupported",
+              })}
+            </p>
+          ) : null}
           {dualFrom ? (
             <p className="text-muted-foreground text-xs">
               {t(`networkProbe.dualEntry.from.${dualFrom}`)}
             </p>
           ) : null}
           <div className="flex flex-wrap items-end gap-2">
+            {mtuTargets?.length ? (
+              <label className="min-w-[10rem] flex-1 space-y-1">
+                <span className="text-xs font-medium">{t("networkProbe.mtu.preset")}</span>
+                <select
+                  className="border-input bg-background text-foreground focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={mtuTargets.find((item) => item.target === target)?.id ?? ""}
+                  onChange={(event) => {
+                    const selected = mtuTargets.find((item) => item.id === event.target.value)
+                    setTarget(selected?.target ?? "")
+                  }}
+                  disabled={loading || !toolEnabled}
+                  aria-label={t("networkProbe.mtu.preset")}
+                >
+                  <option value="">{t("networkProbe.mtu.custom")}</option>
+                  {mtuTargets.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.id} — {item.target}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <div className="min-w-[12rem] flex-1 space-y-1">
               <label className="text-xs font-medium" htmlFor="np-mtu-target">
                 {t("networkProbe.mtu.target")}
@@ -44,19 +98,19 @@ export function MtuPanel({ loading, result, hasError = false, onRun, dualFrom }:
                 onChange={(e) => setTarget(e.target.value)}
                 placeholder={t("networkProbe.mtu.targetPlaceholder")}
                 autoComplete="off"
+                disabled={loading || !toolEnabled}
               />
             </div>
-            <Button
-              type="button"
-              disabled={loading || !target.trim()}
-              onClick={() => onRun(target)}
-            >
-              {loading ? t("networkProbe.mtu.running") : t("networkProbe.mtu.run")}
-            </Button>
+            <CommandHint hint={t("networkProbe.cmd.mtu", { target: target.trim() || "…" })}>
+              <Button
+                type="button"
+                disabled={loading || !toolEnabled || !target.trim()}
+                onClick={() => onRun(target)}
+              >
+                {loading ? t("networkProbe.mtu.running") : t("networkProbe.mtu.run")}
+              </Button>
+            </CommandHint>
           </div>
-          <p className="text-muted-foreground font-mono text-xs">
-            {t("networkProbe.cmd.mtu", { target: target.trim() || "…" })}
-          </p>
         </>
       }
     >
@@ -77,20 +131,22 @@ export function MtuPanel({ loading, result, hasError = false, onRun, dualFrom }:
                 })}
               </span>
             </div>
-            <div className="text-muted-foreground text-xs">
-              {t("networkProbe.mtu.meta", {
-                ip: result.resolvedIp,
-                method: result.method,
-                ms: result.elapsedMs.toFixed(0),
-              })}
-            </div>
+            {result.resolvedIp ? (
+              <div className="text-muted-foreground text-xs">
+                {t("networkProbe.mtu.meta", {
+                  ip: result.resolvedIp,
+                  method: result.method,
+                  ms: result.elapsedMs.toFixed(0),
+                })}
+              </div>
+            ) : null}
             {result.pathMtu != null ? (
               <div className="mt-1 font-mono text-sm">
                 {t("networkProbe.mtu.pathMtu", { value: result.pathMtu })}
               </div>
             ) : null}
-            {result.message ? (
-              <p className="text-muted-foreground mt-1 text-xs">{result.message}</p>
+            {resultMessage ? (
+              <p className="text-muted-foreground mt-1 text-xs">{resultMessage}</p>
             ) : null}
             <p className="text-muted-foreground font-mono text-[10px]">{result.commandHint}</p>
           </div>
@@ -127,7 +183,7 @@ export function MtuPanel({ loading, result, hasError = false, onRun, dualFrom }:
             </div>
           ) : null}
         </div>
-      ) : !loading && !hasError ? (
+      ) : !loading && !hasError && toolEnabled ? (
         <ProbeEmptyState>{t("networkProbe.mtu.empty")}</ProbeEmptyState>
       ) : null}
     </ProbePanelShell>

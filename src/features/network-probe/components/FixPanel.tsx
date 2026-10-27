@@ -3,6 +3,7 @@
  */
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { CommandHint } from "@/components/common/CommandHint"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { TripleDestructiveConfirm } from "@/components/common/TripleDestructiveConfirm"
 import { Button } from "@/components/ui/button"
@@ -10,10 +11,14 @@ import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelS
 import { ProbeSystemDetails } from "@/features/network-probe/components/ProbeSystemDetails"
 import type { DnsPreset, FixResult } from "@/lib/tauri/types/network-probe"
 
+type FixToolId = "flushDns" | "switchDns" | "renewDhcp" | "resetNetworkStack"
+
 interface FixPanelProps {
   loading: boolean
   loadingServices: boolean
   openingSettings: boolean
+  toolEnabled: Record<FixToolId, boolean>
+  toolStatus: Partial<Record<FixToolId, string>>
   services: string[]
   dnsPresets: DnsPreset[]
   lastResult: FixResult | null
@@ -23,15 +28,17 @@ interface FixPanelProps {
   onRenewDhcp: (service: string) => Promise<void>
   onResetNetworkStack: (service: string) => Promise<void>
   onOpenSettings: () => void
+  embedded?: boolean
+  active?: boolean
 }
 
 type PendingAction =
   | { kind: "flush" }
-  | { kind: "switch-step1" }
-  | { kind: "switch-step2" }
-  | { kind: "renew-step1" }
-  | { kind: "renew-step2" }
-  | { kind: "reset" }
+  | { kind: "switch-step1"; service: string; servers: string[] }
+  | { kind: "switch-step2"; service: string; servers: string[] }
+  | { kind: "renew-step1"; service: string }
+  | { kind: "renew-step2"; service: string }
+  | { kind: "reset"; service: string }
   | null
 
 const RESET_PHRASE = "RESET"
@@ -40,6 +47,8 @@ export function FixPanel({
   loading,
   loadingServices,
   openingSettings,
+  toolEnabled,
+  toolStatus,
   services,
   dnsPresets,
   lastResult,
@@ -49,6 +58,8 @@ export function FixPanel({
   onRenewDhcp,
   onResetNetworkStack,
   onOpenSettings,
+  embedded = false,
+  active = true,
 }: FixPanelProps) {
   const { t } = useTranslation()
   const getActionLabel = (action: string) => {
@@ -69,16 +80,19 @@ export function FixPanel({
   const [serviceSelectionRequired, setServiceSelectionRequired] = useState(false)
   const [presetId, setPresetId] = useState(dnsPresets[0]?.id ?? "")
   const [pending, setPending] = useState<PendingAction>(null)
+  const serviceActionsAvailable =
+    toolEnabled.switchDns || toolEnabled.renewDhcp || toolEnabled.resetNetworkStack
 
   useEffect(() => {
-    onLoadServices()
-  }, [onLoadServices])
+    if (active && serviceActionsAvailable) onLoadServices()
+  }, [active, onLoadServices, serviceActionsAvailable])
 
   useEffect(() => {
     if (services.length === 0) {
       if (service) {
         setService("")
         setServiceSelectionRequired(true)
+        setPending((current) => (current?.kind === "flush" ? current : null))
       }
       return
     }
@@ -86,6 +100,7 @@ export function FixPanel({
     if (service) {
       setService("")
       setServiceSelectionRequired(true)
+      setPending((current) => (current?.kind === "flush" ? current : null))
       return
     }
     if (serviceSelectionRequired) return
@@ -98,130 +113,186 @@ export function FixPanel({
   }, [services, service, serviceSelectionRequired])
 
   useEffect(() => {
-    if (!presetId && dnsPresets[0]) setPresetId(dnsPresets[0].id)
+    if (dnsPresets.some((preset) => preset.id === presetId)) return
+    setPresetId(dnsPresets[0]?.id ?? "")
   }, [dnsPresets, presetId])
 
   const selectedPreset = dnsPresets.find((p) => p.id === presetId)
   const servers = selectedPreset ? [selectedPreset.address] : []
   const serviceAvailable = service !== "" && services.includes(service)
+  const switchStep1 = pending?.kind === "switch-step1" ? pending : null
+  const switchStep2 = pending?.kind === "switch-step2" ? pending : null
+  const renewStep1 = pending?.kind === "renew-step1" ? pending : null
+  const renewStep2 = pending?.kind === "renew-step2" ? pending : null
+  const resetPending = pending?.kind === "reset" ? pending : null
 
   return (
     <ProbePanelShell
+      embedded={embedded}
       toolbar={
         <>
           <p className="text-muted-foreground text-sm">{t("networkProbe.fix.hint")}</p>
+          {(
+            [
+              ["flushDns", "networkProbe.fix.flush"],
+              ["switchDns", "networkProbe.fix.switchDns"],
+              ["renewDhcp", "networkProbe.fix.renewDhcp"],
+              ["resetNetworkStack", "networkProbe.fix.resetStack"],
+            ] as const
+          ).map(([tool, labelKey]) =>
+            toolEnabled[tool] ? null : (
+              <p key={tool} className="text-xs text-amber-700 dark:text-amber-400">
+                {t("networkProbe.caps.toolDisabled", {
+                  tool: t(labelKey),
+                  status: toolStatus[tool] ?? "unsupported",
+                })}
+              </p>
+            ),
+          )}
 
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="min-w-[12rem] flex-1 space-y-1">
-              <label className="text-xs font-medium" htmlFor="np-fix-service">
-                {t("networkProbe.fix.service")}
-              </label>
-              <select
-                id="np-fix-service"
-                className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
-                value={service}
-                onChange={(e) => {
-                  setServiceSelectionRequired(false)
-                  setService(e.target.value)
-                }}
-                disabled={loading || loadingServices || services.length === 0}
+          {serviceActionsAvailable ? (
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[12rem] flex-1 space-y-1">
+                <label className="text-xs font-medium" htmlFor="np-fix-service">
+                  {t("networkProbe.fix.service")}
+                </label>
+                <select
+                  id="np-fix-service"
+                  className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+                  value={service}
+                  onChange={(e) => {
+                    setServiceSelectionRequired(false)
+                    setPending(null)
+                    setService(e.target.value)
+                  }}
+                  disabled={
+                    loading ||
+                    loadingServices ||
+                    services.length === 0 ||
+                    !serviceActionsAvailable ||
+                    pending !== null
+                  }
+                >
+                  {!service ? (
+                    <option value="" disabled>
+                      {loadingServices
+                        ? t("networkProbe.fix.loadingServices")
+                        : services.length === 0
+                          ? t("networkProbe.fix.servicesEmpty")
+                          : t("networkProbe.fix.selectService")}
+                    </option>
+                  ) : null}
+                  {services.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={
+                  loading || loadingServices || !serviceActionsAvailable || pending !== null
+                }
+                onClick={onLoadServices}
               >
-                {!service ? (
-                  <option value="" disabled>
-                    {loadingServices
-                      ? t("networkProbe.fix.loadingServices")
-                      : services.length === 0
-                        ? t("networkProbe.fix.servicesEmpty")
-                        : t("networkProbe.fix.selectService")}
-                  </option>
-                ) : null}
-                {services.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                {loadingServices
+                  ? t("networkProbe.fix.loadingServices")
+                  : services.length === 0
+                    ? t("networkProbe.fix.loadServices")
+                    : t("networkProbe.fix.refreshServices")}
+              </Button>
+              <div className="min-w-[10rem] flex-1 space-y-1">
+                <label className="text-xs font-medium" htmlFor="np-fix-dns">
+                  {t("networkProbe.fix.dnsPreset")}
+                </label>
+                <select
+                  id="np-fix-dns"
+                  className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+                  value={presetId}
+                  onChange={(e) => {
+                    setPending(null)
+                    setPresetId(e.target.value)
+                  }}
+                  disabled={pending !== null}
+                >
+                  {dnsPresets.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.id} · {p.address}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={loading || loadingServices}
-              onClick={onLoadServices}
-            >
-              {loadingServices
-                ? t("networkProbe.fix.loadingServices")
-                : services.length === 0
-                  ? t("networkProbe.fix.loadServices")
-                  : t("networkProbe.fix.refreshServices")}
-            </Button>
-            <div className="min-w-[10rem] flex-1 space-y-1">
-              <label className="text-xs font-medium" htmlFor="np-fix-dns">
-                {t("networkProbe.fix.dnsPreset")}
-              </label>
-              <select
-                id="np-fix-dns"
-                className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
-                value={presetId}
-                onChange={(e) => setPresetId(e.target.value)}
-              >
-                {dnsPresets.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.id} · {p.address}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <Button type="button" disabled={loading} onClick={() => setPending({ kind: "flush" })}>
-              {t("networkProbe.fix.flush")}
-            </Button>
-            <Button
-              type="button"
-              disabled={loading || !serviceAvailable || servers.length === 0}
-              onClick={() => setPending({ kind: "switch-step1" })}
+            <CommandHint hint={t("networkProbe.cmd.flushDns")}>
+              <Button
+                type="button"
+                disabled={loading || !toolEnabled.flushDns || pending !== null}
+                onClick={() => setPending({ kind: "flush" })}
+              >
+                {t("networkProbe.fix.flush")}
+              </Button>
+            </CommandHint>
+            <CommandHint
+              hint={t("networkProbe.cmd.switchDns", {
+                service: service || "…",
+                servers: servers.join(",") || "…",
+              })}
             >
-              {t("networkProbe.fix.switchDns")}
-            </Button>
-            <Button
-              type="button"
-              disabled={loading || !serviceAvailable}
-              onClick={() => setPending({ kind: "renew-step1" })}
+              <Button
+                type="button"
+                disabled={
+                  loading ||
+                  !toolEnabled.switchDns ||
+                  !serviceAvailable ||
+                  servers.length === 0 ||
+                  pending !== null
+                }
+                onClick={() => setPending({ kind: "switch-step1", service, servers: [...servers] })}
+              >
+                {t("networkProbe.fix.switchDns")}
+              </Button>
+            </CommandHint>
+            <CommandHint hint={t("networkProbe.cmd.renewDhcp", { service: service || "…" })}>
+              <Button
+                type="button"
+                disabled={
+                  loading || !toolEnabled.renewDhcp || !serviceAvailable || pending !== null
+                }
+                onClick={() => setPending({ kind: "renew-step1", service })}
+              >
+                {t("networkProbe.fix.renewDhcp")}
+              </Button>
+            </CommandHint>
+            <CommandHint
+              hint={t("networkProbe.cmd.resetNetworkStack", { service: service || "…" })}
             >
-              {t("networkProbe.fix.renewDhcp")}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={loading || !serviceAvailable}
-              onClick={() => setPending({ kind: "reset" })}
-            >
-              {t("networkProbe.fix.resetStack")}
-            </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={
+                  loading || !toolEnabled.resetNetworkStack || !serviceAvailable || pending !== null
+                }
+                onClick={() => setPending({ kind: "reset", service })}
+              >
+                {t("networkProbe.fix.resetStack")}
+              </Button>
+            </CommandHint>
             <Button
               type="button"
               variant="outline"
-              disabled={openingSettings}
+              disabled={openingSettings || pending !== null}
               onClick={onOpenSettings}
             >
               {openingSettings
                 ? t("networkProbe.fix.openingSettings")
                 : t("networkProbe.fix.openSettings")}
             </Button>
-          </div>
-
-          <div className="text-muted-foreground space-y-0.5 font-mono text-xs">
-            <div>{t("networkProbe.cmd.flushDns")}</div>
-            <div>
-              {t("networkProbe.cmd.switchDns", {
-                service: service || "…",
-                servers: servers.join(",") || "…",
-              })}
-            </div>
-            <div>{t("networkProbe.cmd.renewDhcp", { service: service || "…" })}</div>
-            <div>{t("networkProbe.cmd.resetNetworkStack", { service: service || "…" })}</div>
           </div>
         </>
       }
@@ -264,29 +335,31 @@ export function FixPanel({
         confirmLabel={t("networkProbe.fix.confirm.next")}
         cancelLabel={t("networkProbe.fix.confirm.cancel")}
         onConfirm={async () => {
-          window.setTimeout(() => setPending({ kind: "switch-step2" }), 320)
+          if (!switchStep1) return
+          const { service, servers } = switchStep1
+          window.setTimeout(() => setPending({ kind: "switch-step2", service, servers }), 320)
         }}
       />
 
       <DestructiveConfirmDialog
-        open={pending?.kind === "switch-step2"}
+        open={switchStep2 !== null}
         onOpenChange={(open) => !open && setPending(null)}
         title={t("networkProbe.fix.confirm.switchStep2Title")}
         description={t("networkProbe.fix.confirm.switchStep2Desc", {
-          service,
-          servers: servers.join(", "),
+          service: switchStep2?.service ?? "",
+          servers: switchStep2?.servers.join(", ") ?? "",
         })}
         consequence={t("networkProbe.fix.confirm.switchStep2Consequence")}
         confirmLabel={t("networkProbe.fix.confirm.confirm")}
         cancelLabel={t("networkProbe.fix.confirm.cancel")}
         loading={loading}
         onConfirm={async () => {
-          await onSwitchDns(service, servers)
+          if (switchStep2) await onSwitchDns(switchStep2.service, switchStep2.servers)
         }}
       />
 
       <DestructiveConfirmDialog
-        open={pending?.kind === "renew-step1"}
+        open={renewStep1 !== null}
         onOpenChange={(open) => !open && setPending(null)}
         title={t("networkProbe.fix.confirm.renewStep1Title")}
         description={t("networkProbe.fix.confirm.renewStep1Desc")}
@@ -294,26 +367,30 @@ export function FixPanel({
         confirmLabel={t("networkProbe.fix.confirm.next")}
         cancelLabel={t("networkProbe.fix.confirm.cancel")}
         onConfirm={async () => {
-          window.setTimeout(() => setPending({ kind: "renew-step2" }), 320)
+          if (!renewStep1) return
+          const { service } = renewStep1
+          window.setTimeout(() => setPending({ kind: "renew-step2", service }), 320)
         }}
       />
 
       <DestructiveConfirmDialog
-        open={pending?.kind === "renew-step2"}
+        open={renewStep2 !== null}
         onOpenChange={(open) => !open && setPending(null)}
         title={t("networkProbe.fix.confirm.renewStep2Title")}
-        description={t("networkProbe.fix.confirm.renewStep2Desc", { service })}
+        description={t("networkProbe.fix.confirm.renewStep2Desc", {
+          service: renewStep2?.service ?? "",
+        })}
         consequence={t("networkProbe.fix.confirm.renewStep2Consequence")}
         confirmLabel={t("networkProbe.fix.confirm.confirm")}
         cancelLabel={t("networkProbe.fix.confirm.cancel")}
         loading={loading}
         onConfirm={async () => {
-          await onRenewDhcp(service)
+          if (renewStep2) await onRenewDhcp(renewStep2.service)
         }}
       />
 
       <TripleDestructiveConfirm
-        open={pending?.kind === "reset"}
+        open={resetPending !== null}
         onOpenChange={(open) => !open && setPending(null)}
         step1={{
           title: t("networkProbe.fix.confirm.resetStep1Title"),
@@ -322,7 +399,9 @@ export function FixPanel({
         }}
         step2={{
           title: t("networkProbe.fix.confirm.resetStep2Title"),
-          description: t("networkProbe.fix.confirm.resetStep2Desc", { service }),
+          description: t("networkProbe.fix.confirm.resetStep2Desc", {
+            service: resetPending?.service ?? "",
+          }),
           consequence: t("networkProbe.fix.confirm.resetStep2Consequence"),
         }}
         step3={{
@@ -339,7 +418,7 @@ export function FixPanel({
         cancelLabel={t("networkProbe.fix.confirm.cancel")}
         loading={loading}
         onConfirm={async () => {
-          await onResetNetworkStack(service)
+          if (resetPending) await onResetNetworkStack(resetPending.service)
         }}
       />
     </ProbePanelShell>

@@ -8,6 +8,7 @@ import { systemSettingsUseCases } from "@/features/system-settings/services/syst
 import { useSettingAction } from "@/features/system-settings/hooks/useSettingAction"
 import { getErrorMessage } from "@/lib/tauri/errors"
 import type { SystemInfoData } from "@/lib/tauri/types/system-info"
+import { parseUnixTimestampInput } from "@/features/dev-toolbox/services/parse-unix-timestamp"
 
 export type ToolboxTab = "port-manager" | "env-detector" | "devtools" | "diagnostics" | "info"
 
@@ -22,9 +23,10 @@ export function useDevToolboxController() {
   const [hashInput, setHashInput] = useState("")
   const [hashAlgo, setHashAlgo] = useState("sha256")
   const [hashOutput, setHashOutput] = useState("")
-  const [tsInput, setTsInput] = useState("")
+  const [tsInput, setTsInputState] = useState("")
   const [tsFormat, setTsFormat] = useState("datetime")
   const [tsOutput, setTsOutput] = useState("")
+  const [timestampTouched, setTimestampTouched] = useState(false)
   const [uuidOutput, setUuidOutput] = useState("")
 
   // ── Diagnostics sub-tab state ──
@@ -37,6 +39,20 @@ export function useDevToolboxController() {
   const [systemInfoError, setSystemInfoError] = useState("")
 
   const [activeTab, setActiveTab] = useState<ToolboxTab>("port-manager")
+
+  const timestampInput = parseUnixTimestampInput(tsInput)
+  const setTsInput = (value: string) => {
+    setTsInputState(value)
+    setTsOutput("")
+    setTimestampTouched(false)
+  }
+  const touchTimestampInput = () => {
+    setTimestampTouched(true)
+  }
+  const setTimestampFormat = (value: string) => {
+    setTsFormat(value)
+    setTsOutput("")
+  }
 
   // ⌘R / 右键菜单「刷新」按**当前路由**的 feature id 找 handler，而路由始终停在
   // /dev-toolbox；子页面把 handler 注册在 port-manager / env-detector 名下，
@@ -108,8 +124,9 @@ export function useDevToolboxController() {
   }
 
   const handleTimestamp = async () => {
+    if (!timestampInput.ok) return
     const r = await run("devtools.timestamp", () =>
-      systemSettingsUseCases.timestampConvert(parseInt(tsInput) || 0, tsFormat),
+      systemSettingsUseCases.timestampConvert(timestampInput.timestamp, tsFormat),
     )
     if (r !== undefined) setTsOutput(r)
   }
@@ -148,7 +165,10 @@ export function useDevToolboxController() {
     tsInput,
     setTsInput,
     tsFormat,
-    setTsFormat,
+    setTsFormat: setTimestampFormat,
+    timestampInputValid: timestampInput.ok,
+    timestampInputError: timestampInput.ok || !timestampTouched ? null : timestampInput.reason,
+    touchTimestampInput,
     tsOutput,
     uuidOutput,
     // devtools handlers

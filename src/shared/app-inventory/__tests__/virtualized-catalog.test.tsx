@@ -85,6 +85,20 @@ describe("virtualized catalog scale (A2-6)", () => {
     expect(renderedRows.length).toBeLessThan(80)
   })
 
+  it.each([50, 500])("keeps %i rows within the virtualized viewport", (count) => {
+    mockViewport()
+    const { container } = renderCatalog(makeRows(count))
+
+    expect(container.querySelector("[data-virtual-table]")).toHaveAttribute(
+      "data-total-count",
+      String(count),
+    )
+    const renderedRows = container.querySelectorAll("[data-row-id]")
+    expect(renderedRows.length).toBeGreaterThan(0)
+    expect(renderedRows.length).toBeLessThan(count)
+    expect(renderedRows.length).toBeLessThan(80)
+  })
+
   it("stays bounded and responsive when a search filter narrows the data set", () => {
     mockViewport()
     const all = makeRows(2000)

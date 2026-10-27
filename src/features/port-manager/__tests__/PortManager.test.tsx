@@ -6,6 +6,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import React from "react"
 import PortManager from "../page"
+import { usePortManagerStore } from "../store"
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -17,7 +18,11 @@ vi.mock("react-i18next", () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {
         "portManager.title": "Kill Port Processes",
+        "portManager.modeLocal": "Local",
+        "portManager.modeRemote": "Remote",
         "portManager.targetPorts": "Target Port(s)",
+        "portManager.remoteHostLabel": "Remote host",
+        "portManager.remoteCheckHint": "Direct TCP check · no system proxy · 3s per port",
         "portManager.placeholder": "e.g. 3000 or 3000-4000 or 3000,8080,9000-9010",
         "portManager.scanButton": "Add to Scan",
         "portManager.scanResultsTitle": "Process Details ({{count}} ports)",
@@ -33,6 +38,7 @@ vi.mock("react-i18next", () => ({
         "portManager.hideEmpty": "Hide Free Ports",
         "portManager.showEmpty": "Show All Ports",
         "portManager.chipScrollTo": "Scroll to port {{port}} details",
+        "portManager.rescanPort": "Rescan port {{port}}",
         "portManager.clearSelectedPorts": "Clear Selected Ports",
         "portManager.invalidInput": "Only digits, commas, and hyphens allowed",
         "portManager.invalidRangeFormat": "Invalid range format",
@@ -93,6 +99,8 @@ vi.mock("@/components/ui/button", () => ({
     variant,
     size,
     className,
+    "aria-label": ariaLabel,
+    "aria-pressed": ariaPressed,
   }: {
     children: React.ReactNode
     onClick?: () => void
@@ -100,10 +108,14 @@ vi.mock("@/components/ui/button", () => ({
     variant?: string
     size?: string
     className?: string
+    "aria-label"?: string
+    "aria-pressed"?: boolean
   }) => (
     <button
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
+      aria-pressed={ariaPressed}
       className={className}
       data-variant={variant}
       data-size={size}
@@ -125,6 +137,8 @@ vi.mock("@/components/ui/input", () => ({
         disabled,
         id,
         autoComplete,
+        "aria-label": ariaLabel,
+        "aria-describedby": ariaDescribedBy,
       }: {
         className?: string
         placeholder?: string
@@ -134,12 +148,16 @@ vi.mock("@/components/ui/input", () => ({
         disabled?: boolean
         id?: string
         autoComplete?: string
+        "aria-label"?: string
+        "aria-describedby"?: string
       },
       ref: React.Ref<HTMLInputElement>,
     ) => (
       <input
         ref={ref}
         id={id}
+        aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
         className={className}
         placeholder={placeholder}
         value={value}
@@ -239,6 +257,7 @@ vi.mock("lucide-react", () => ({
 describe("PortManager", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    usePortManagerStore.setState(usePortManagerStore.getInitialState(), true)
   })
 
   it("renders the port manager title", () => {
@@ -251,6 +270,21 @@ describe("PortManager", () => {
     const input = screen.getByTestId("port-input")
     expect(input).toBeInTheDocument()
     expect(input).toHaveAttribute("placeholder", "e.g. 3000 or 3000-4000 or 3000,8080,9000-9010")
+  })
+
+  it("provides accessible labels for inputs and mode buttons", async () => {
+    render(<PortManager />)
+
+    expect(screen.getByRole("textbox", { name: "Target Port(s)" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Local$/ })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByRole("button", { name: /Remote$/ })).toHaveAttribute("aria-pressed", "false")
+
+    await userEvent.click(screen.getByRole("button", { name: /Remote$/ }))
+
+    const remoteHost = screen.getByRole("textbox", { name: "Remote host" })
+    expect(remoteHost).toHaveAttribute("aria-describedby", "port-manager-remote-host-hint")
+    expect(screen.getByText("Direct TCP check · no system proxy · 3s per port")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Remote$/ })).toHaveAttribute("aria-pressed", "true")
   })
 
   it("renders common port buttons", () => {
@@ -281,5 +315,50 @@ describe("PortManager", () => {
       .getAllByTestId("tooltip")
       .find((el) => el.getAttribute("data-open") === "true")
     expect(tooltip).toHaveAttribute("data-open", "true")
+  })
+
+  it("disables port chip actions while a kill is in progress", () => {
+    usePortManagerStore.setState({
+      killing: true,
+      portStates: [{ port: 3000, status: "success" }],
+    })
+    render(<PortManager />)
+
+    expect(screen.getByRole("button", { name: "Rescan port {{port}}" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Remove port {{port}}" })).toBeDisabled()
+  })
+
+  it("exposes the chip scroll action as a keyboard-accessible button", () => {
+    usePortManagerStore.setState({
+      portStates: [{ port: 3000, status: "success" }],
+    })
+    render(<PortManager />)
+
+    expect(
+      screen.getByRole("button", { name: "Scroll to port {{port}} details" }),
+    ).toBeInTheDocument()
+  })
+
+  it("disables chip rescans during a scan while keeping port removal available", () => {
+    usePortManagerStore.setState({
+      killing: false,
+      portStates: [{ port: 3000, status: "scanning" }],
+    })
+    render(<PortManager />)
+
+    expect(screen.getByRole("button", { name: "Rescan port {{port}}" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Remove port {{port}}" })).toBeEnabled()
+  })
+
+  it("disables destructive kill actions while a scan is active", () => {
+    usePortManagerStore.setState({
+      scanMode: "local",
+      killing: false,
+      portStates: [{ port: 3000, status: "scanning" }],
+      portDetails: [{ port: 3000, pids: [123], process_trees: [], fingerprint: null, error: null }],
+    })
+    render(<PortManager />)
+
+    expect(screen.getByRole("button", { name: "Free All Ports" })).toBeDisabled()
   })
 })

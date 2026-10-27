@@ -25,6 +25,11 @@ pub struct SubprocessError {
     pub exit_code: Option<i32>,
 }
 
+pub struct CapturedOutput {
+    pub output: Output,
+    pub reached_time_limit: bool,
+}
+
 pub fn run_status_with_timeout(
     command: &mut Command,
     timeout: Duration,
@@ -81,6 +86,23 @@ pub fn run_output_with_timeout(
     timeout: Duration,
     abort: Option<Arc<AtomicBool>>,
 ) -> Result<Output, SubprocessError> {
+    let captured = run_output_for_window(command, timeout, abort)?;
+    if captured.reached_time_limit {
+        return Err(SubprocessError {
+            kind: SubprocessErrorKind::Timeout,
+            exit_code: None,
+        });
+    }
+    Ok(captured.output)
+}
+
+/// Capture for at most `window`, returning the bounded output available when the window ends.
+/// This is for sampling workflows where a quiet interval is a valid, possibly empty result.
+pub fn run_output_for_window(
+    command: &mut Command,
+    window: Duration,
+    abort: Option<Arc<AtomicBool>>,
+) -> Result<CapturedOutput, SubprocessError> {
     command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -106,7 +128,7 @@ pub fn run_output_with_timeout(
         .map(|mut stderr| std::thread::spawn(move || read_capped(&mut stderr)));
     let started_at = Instant::now();
 
-    let status = loop {
+    let (status, reached_time_limit) = loop {
         if let Some(flag) = &abort {
             if flag.load(Ordering::SeqCst) {
                 terminate_process_tree(&mut child);
@@ -120,16 +142,14 @@ pub fn run_output_with_timeout(
             }
         }
         match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) if started_at.elapsed() >= timeout => {
+            Ok(Some(status)) => break (status, false),
+            Ok(None) if started_at.elapsed() >= window => {
                 terminate_process_tree(&mut child);
-                let _ = child.wait();
-                join_reader(stdout_reader);
-                join_reader(stderr_reader);
-                return Err(SubprocessError {
-                    kind: SubprocessErrorKind::Timeout,
+                let status = child.wait().map_err(|_| SubprocessError {
+                    kind: SubprocessErrorKind::Wait,
                     exit_code: None,
-                });
+                })?;
+                break (status, true);
             }
             Ok(None) => std::thread::sleep(POLL_INTERVAL),
             Err(_) => {
@@ -148,11 +168,21 @@ pub fn run_output_with_timeout(
     let _ = child.wait();
     let stdout = collect_reader(stdout_reader)?;
     let stderr = collect_reader(stderr_reader)?;
-    Ok(Output {
-        status,
-        stdout,
-        stderr,
+    Ok(CapturedOutput {
+        output: Output {
+            status,
+            stdout,
+            stderr,
+        },
+        reached_time_limit,
     })
+}
+
+/// Output capped at this length may be truncated; parsers must fail closed instead of
+/// treating an incomplete system snapshot as a complete empty/partial result.
+pub fn output_may_be_truncated(output: &Output) -> bool {
+    output.stdout.len() >= MAX_CAPTURE_BYTES as usize
+        || output.stderr.len() >= MAX_CAPTURE_BYTES as usize
 }
 
 /// 只保留前 `MAX_CAPTURE_BYTES`，但持续排空剩余输出：
@@ -190,26 +220,45 @@ fn collect_reader(
 fn terminate_process_tree(child: &mut std::process::Child) {
     #[cfg(target_os = "windows")]
     {
-        let _ = Command::new("taskkill")
-            .args(["/PID", &child.id().to_string(), "/T", "/F"])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+        let mut command = Command::new("taskkill");
+        command.args(["/PID", &child.id().to_string(), "/T", "/F"]);
+        let _ = run_termination_command(&mut command, Duration::from_secs(1));
     }
 
     #[cfg(unix)]
     {
-        let process_group = format!("-{}", child.id());
-        let _ = Command::new("kill")
-            .args(["-TERM", &process_group])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+        if let Ok(process_group) = i32::try_from(child.id()) {
+            // SAFETY: every Unix child is launched in its own process group above;
+            // a negative PID targets only that group and SIGKILL carries no pointer.
+            // Timeout/cancel cleanup must not leave a descendant holding a pipe open.
+            let _ = unsafe { libc::kill(-process_group, libc::SIGKILL) };
+        }
     }
 
     let _ = child.kill();
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn run_termination_command(command: &mut Command, timeout: Duration) -> bool {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    let Ok(mut child) = command.spawn() else {
+        return false;
+    };
+    let started_at = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return status.success(),
+            Ok(None) if started_at.elapsed() < timeout => std::thread::sleep(POLL_INTERVAL),
+            Ok(None) | Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return false;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -225,6 +274,61 @@ mod tests {
             Duration::from_millis(25),
         )
         .expect_err("command should time out");
+
+        assert_eq!(error.kind, SubprocessErrorKind::Timeout);
+        assert!(started_at.elapsed() < Duration::from_secs(2));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn termination_utility_wait_is_bounded() {
+        let started_at = Instant::now();
+        let completed = run_termination_command(
+            Command::new("sh").args(["-c", "exec sleep 60"]),
+            Duration::from_millis(100),
+        );
+        assert!(!completed);
+        assert!(started_at.elapsed() < Duration::from_secs(2));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn output_capture_kills_a_timed_out_process() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "sleep 30"]);
+
+        let started_at = Instant::now();
+        let error = run_output_with_timeout(&mut command, Duration::from_millis(25), None)
+            .expect_err("output command should time out");
+
+        assert_eq!(error.kind, SubprocessErrorKind::Timeout);
+        assert!(started_at.elapsed() < Duration::from_secs(2));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn output_window_returns_flushed_partial_output_when_the_window_ends() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "printf partial; sleep 30"]);
+
+        let started_at = Instant::now();
+        let captured = run_output_for_window(&mut command, Duration::from_millis(25), None)
+            .expect("window end should return the available sample output");
+
+        assert!(captured.reached_time_limit);
+        assert_eq!(captured.output.stdout, b"partial");
+        assert!(started_at.elapsed() < Duration::from_secs(2));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn output_timeout_kills_descendants_that_ignore_soft_termination() {
+        let mut command = Command::new("sh");
+        command.args(["-c", "trap '' TERM; (trap '' TERM; exec sleep 30) & wait"]);
+
+        let started_at = Instant::now();
+        let error = run_output_with_timeout(&mut command, Duration::from_millis(25), None)
+            .expect_err("output command should time out");
 
         assert_eq!(error.kind, SubprocessErrorKind::Timeout);
         assert!(started_at.elapsed() < Duration::from_secs(2));
@@ -312,5 +416,6 @@ mod tests {
             .expect("capture should succeed");
         assert!(output.status.success());
         assert_eq!(output.stdout.len(), MAX_CAPTURE_BYTES as usize);
+        assert!(output_may_be_truncated(&output));
     }
 }

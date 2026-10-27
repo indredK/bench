@@ -10,6 +10,7 @@ import { SettingGroup } from "@/components/ui/setting-group"
 import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
@@ -76,6 +77,9 @@ export default function DevToolbox(_props: DevToolboxProps) {
     tsFormat,
     setTsFormat,
     tsOutput,
+    timestampInputValid,
+    timestampInputError,
+    touchTimestampInput,
     uuidOutput,
     handleJsonPretty,
     handleJsonMinify,
@@ -179,11 +183,28 @@ export default function DevToolbox(_props: DevToolboxProps) {
       </SettingGroup>
       <SettingGroup title={t("systemSettings.devtools.timestampTitle")}>
         <div className="space-y-2 py-2">
+          <Label htmlFor="dev-toolbox-timestamp">
+            {t("systemSettings.devtools.timestampLabel")}
+          </Label>
           <Input
+            id="dev-toolbox-timestamp"
+            required
             value={tsInput}
             onChange={(e) => setTsInput(e.target.value)}
+            onBlur={touchTimestampInput}
             placeholder={t("systemSettings.devtools.timestampPlaceholder")}
+            aria-invalid={timestampInputError !== null}
+            aria-describedby={timestampInputError ? "dev-toolbox-timestamp-error" : undefined}
           />
+          {timestampInputError ? (
+            <p id="dev-toolbox-timestamp-error" role="alert" className="text-destructive text-xs">
+              {t(
+                timestampInputError === "required"
+                  ? "systemSettings.devtools.timestampRequired"
+                  : "systemSettings.devtools.timestampInvalid",
+              )}
+            </p>
+          ) : null}
           <div className="flex items-center gap-2">
             <Select value={tsFormat} onValueChange={setTsFormat}>
               <SelectTrigger className="h-8 text-xs">
@@ -198,7 +219,12 @@ export default function DevToolbox(_props: DevToolboxProps) {
                 <SelectItem value="iso">{t("systemSettings.devtools.formatIso")}</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" disabled={applying} onClick={handleTimestamp}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={applying || !timestampInputValid}
+              onClick={handleTimestamp}
+            >
               {t("systemSettings.devtools.convert")}
             </Button>
           </div>

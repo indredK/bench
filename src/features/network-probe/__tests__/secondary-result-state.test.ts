@@ -116,6 +116,7 @@ beforeEach(() => {
   listenToPlatformEvent.mockReset().mockResolvedValue(() => {})
   useNetworkProbeStore.getState().setSecurityAuthorized(true)
   useNetworkProbeStore.getState().setError(null)
+  useNetworkProbeStore.setState({ commandLog: [] })
 })
 
 describe("network-probe secondary single-run result state", () => {
@@ -128,5 +129,40 @@ describe("network-probe secondary single-run result state", () => {
 
     await run
     expect(scenario.result()).toBeNull()
+    expect(useNetworkProbeStore.getState().commandLog.at(-1)).toMatch(/ failed$/)
+  })
+
+  it("maps pcap permission failures to an actionable localized error", async () => {
+    runPcapDiag.mockRejectedValueOnce({
+      code: "PCAP_PRIVILEGE",
+      message: "Permission denied",
+    })
+
+    await networkProbeUseCases.runPcapDiag()
+
+    expect(useNetworkProbeStore.getState().error?.key).toBe(
+      "networkProbe.errors.pcapPermissionRequired",
+    )
+  })
+
+  it("records a cancelled pcap sample as cancelled rather than complete", async () => {
+    runPcapDiag.mockResolvedValueOnce({
+      mode: "unavailable",
+      packets: 0,
+      tcpRst: 0,
+      retransHint: 0,
+      outOfOrderHint: 0,
+      cancelled: true,
+      sessionId: "pcap-session",
+      message: "Capture cancelled.",
+      elapsedMs: 20,
+      commandHint: "startPacketCapture(local)",
+    })
+
+    await networkProbeUseCases.runPcapDiag()
+
+    expect(useNetworkProbeStore.getState().pcapResult?.cancelled).toBe(true)
+    expect(useNetworkProbeStore.getState().commandLog.at(-1)).toMatch(/cancelled/)
+    expect(useNetworkProbeStore.getState().commandLog.at(-1)).not.toMatch(/ done /)
   })
 })

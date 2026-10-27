@@ -3,7 +3,9 @@
 //! 统一断言跨扫描 appId 稳定性、partial merge 语义、warning 契约与
 //! 图标解析 fail-safe。真机层面的启动/权限/fixture 仍归 R02 D 类验收。
 
-use super::domain::{build_scan_result, empty_scan_result, platform_capabilities};
+use super::domain::{
+    build_scan_result, empty_scan_result, finalize_scan_result, platform_capabilities,
+};
 use super::types::{ProviderState, ProviderStatus};
 use super::utils::{deduplicate, make_app_id};
 
@@ -57,31 +59,36 @@ fn failed_provider_marks_scan_partial_and_keeps_succeeded_apps() {
     assert!(result.complete);
     assert_eq!(result.apps.len(), 1);
 
-    // 一个 provider 失败 → complete=false, 但已成功扫描到的应用保留。
-    result.providers = vec![ProviderStatus {
-        provider: "spotlight".to_string(),
-        state: ProviderState::Failed,
-        error_code: Some("SPOTLIGHT_QUERY_FAILED".to_string()),
-    }];
-    result.complete &= result
-        .providers
-        .iter()
-        .all(|p| p.state == ProviderState::Ok || p.state == ProviderState::Unsupported);
+    // 实际生产聚合 helper: 一个 provider 失败 → complete=false, 成功条目仍保留。
+    finalize_scan_result(
+        &mut result,
+        vec![ProviderStatus {
+            provider: "spotlight".to_string(),
+            state: ProviderState::Failed,
+            error_code: Some("SPOTLIGHT_QUERY_FAILED".to_string()),
+        }],
+        false,
+    );
     assert!(!result.complete);
     assert_eq!(result.apps.len(), 1);
 
-    // Unsupported (不可用) 不算 partial —— 对齐 build_update_report 契约。
-    // complete 由当前 providers 重新聚合, 而非累计 &= (真实扫描逐次赋值)。
-    result.providers = vec![ProviderStatus {
-        provider: "homebrew".to_string(),
-        state: ProviderState::Unsupported,
-        error_code: Some("HOMEBREW_UNAVAILABLE".to_string()),
-    }];
-    result.complete = result
-        .providers
-        .iter()
-        .all(|p| p.state == ProviderState::Ok || p.state == ProviderState::Unsupported);
-    assert!(result.complete);
+    // Unsupported (不可用) 不算 partial；用独立扫描结果验证本轮聚合语义。
+    let mut unsupported_result = build_scan_result(
+        Vec::new(),
+        platform_capabilities(false, false, false, false, false),
+        10,
+        0,
+    );
+    finalize_scan_result(
+        &mut unsupported_result,
+        vec![ProviderStatus {
+            provider: "homebrew".to_string(),
+            state: ProviderState::Unsupported,
+            error_code: Some("HOMEBREW_UNAVAILABLE".to_string()),
+        }],
+        false,
+    );
+    assert!(unsupported_result.complete);
 }
 
 #[test]
@@ -89,10 +96,23 @@ fn scan_cancelled_produces_warning_not_empty_success() {
     // 取消契约: cancelled 扫描必须携带 SCAN_CANCELLED warning 且 complete=false,
     // 前端据此区分 "已取消" 与 "全部完成" (禁止折叠为空态成功)。
     let mut result = empty_scan_result();
-    result.complete = false;
-    result.warnings.push("SCAN_CANCELLED".to_string());
+    result.apps.push(scan_once(
+        "com.example.cancelled",
+        "/Applications/Cancelled.app",
+        "Cancelled",
+    ));
+    finalize_scan_result(
+        &mut result,
+        vec![ProviderStatus {
+            provider: "filesystem".to_string(),
+            state: ProviderState::Ok,
+            error_code: None,
+        }],
+        true,
+    );
     assert!(!result.complete);
     assert!(result.warnings.iter().any(|w| w == "SCAN_CANCELLED"));
+    assert_eq!(result.apps.len(), 1, "partial results survive cancellation");
 }
 
 #[test]
@@ -100,11 +120,25 @@ fn macos_root_unreadable_produces_warning_code() {
     // unreadable root 的扫描端行为由 macos scan 的 read_dir 失败路径
     // 聚合为 MACOS_SCAN_ROOT_UNREADABLE warning (而非 error/panic)。
     // 这里断言该 warning code 的机器可读格式保持稳定。
-    let unreadable = "/System/Volumes/Data/.bench-unreadable-probe";
-    let warning = format!("MACOS_SCAN_ROOT_UNREADABLE:{unreadable}");
-    let (code, payload) = warning.split_once(':').expect("warning carries payload");
-    assert_eq!(code, "MACOS_SCAN_ROOT_UNREADABLE");
-    assert_eq!(payload, unreadable);
+    let unreadable = std::path::Path::new("/System/Volumes/Data/.bench-unreadable-probe");
+    let read_result: std::io::Result<()> = Err(std::io::Error::new(
+        std::io::ErrorKind::PermissionDenied,
+        "simulated denied root",
+    ));
+    let mut warnings = Vec::new();
+
+    assert!(!super::macos::is_scan_root_readable(
+        unreadable,
+        &read_result,
+        &mut warnings
+    ));
+    assert_eq!(
+        warnings,
+        vec![format!(
+            "MACOS_SCAN_ROOT_UNREADABLE:{}",
+            unreadable.display()
+        )]
+    );
 }
 
 #[cfg(target_os = "macos")]

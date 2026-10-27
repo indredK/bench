@@ -1,7 +1,37 @@
-use super::types::{DefaultRouteInfo, LocalNetworkSummary, NetworkInterfaceInfo};
+use super::types::{
+    DefaultRouteInfo, LocalNetworkSummary, NetworkInterfaceInfo, NetworkSummaryField,
+};
 use crate::error::{AppError, AppResult};
 #[cfg(target_os = "macos")]
-use std::process::Command;
+use crate::subprocess::{output_may_be_truncated, run_output_with_timeout, SubprocessErrorKind};
+#[cfg(target_os = "macos")]
+use std::process::{Command, Output};
+#[cfg(target_os = "macos")]
+use std::time::Duration;
+
+#[cfg(target_os = "macos")]
+const SYSTEM_NETWORK_COMMAND_TIMEOUT: Duration = Duration::from_secs(2);
+
+#[cfg(target_os = "macos")]
+pub(super) fn run_system_network_command(
+    program: &str,
+    command: &mut Command,
+) -> Result<Output, String> {
+    let output = run_output_with_timeout(
+        command.env("LC_ALL", "C").env("LANG", "C"),
+        SYSTEM_NETWORK_COMMAND_TIMEOUT,
+        None,
+    )
+    .map_err(|error| match error.kind {
+        SubprocessErrorKind::Spawn => format!("{program} failed to start"),
+        SubprocessErrorKind::Timeout => format!("{program} timed out"),
+        _ => format!("{program} failed while collecting output"),
+    })?;
+    if output_may_be_truncated(&output) {
+        return Err(format!("{program} output exceeded the capture limit"));
+    }
+    Ok(output)
+}
 
 pub fn collect_local_summary() -> AppResult<LocalNetworkSummary> {
     let ifaces = if_addrs::get_if_addrs().map_err(|e| AppError::io(format!("if_addrs: {e}")))?;
@@ -38,14 +68,24 @@ pub fn collect_local_summary() -> AppResult<LocalNetworkSummary> {
         }
     }
 
-    let route = collect_default_route().unwrap_or(DefaultRouteInfo {
-        gateway: None,
-        interface: None,
-        present: false,
+    let mut unavailable_fields = Vec::new();
+    let route = match collect_default_route() {
+        Ok(route) => route,
+        Err(error) => {
+            if error.code != "UNSUPPORTED" {
+                unavailable_fields.push(NetworkSummaryField::Gateway);
+            }
+            empty_default_route()
+        }
+    };
+    let dns_servers = collect_dns_servers().unwrap_or_else(|()| {
+        unavailable_fields.push(NetworkSummaryField::DnsServers);
+        Vec::new()
     });
-
-    let dns_servers = collect_dns_servers();
-    let (wifi_ssid, wifi_signal_dbm) = collect_wifi_info();
+    let (wifi_ssid, wifi_signal_dbm) = collect_wifi_info().unwrap_or_else(|()| {
+        unavailable_fields.push(NetworkSummaryField::Wifi);
+        (None, None)
+    });
 
     Ok(LocalNetworkSummary {
         interfaces,
@@ -55,16 +95,29 @@ pub fn collect_local_summary() -> AppResult<LocalNetworkSummary> {
         dns_servers,
         wifi_ssid,
         wifi_signal_dbm,
+        unavailable_fields,
     })
+}
+
+fn empty_default_route() -> DefaultRouteInfo {
+    DefaultRouteInfo {
+        gateway: None,
+        interface: None,
+        present: false,
+    }
 }
 
 pub fn collect_default_route() -> AppResult<DefaultRouteInfo> {
     #[cfg(target_os = "macos")]
     {
-        let output = Command::new("route")
-            .args(["-n", "get", "default"])
-            .output()
-            .map_err(|e| AppError::io(format!("route: {e}")))?;
+        let output = run_system_network_command(
+            "route",
+            Command::new("/sbin/route").args(["-n", "get", "default"]),
+        )
+        .map_err(AppError::io)?;
+        if !output.status.success() {
+            return Err(AppError::io("route exited with a non-zero status"));
+        }
         let text = String::from_utf8_lossy(&output.stdout);
         Ok(parse_route_get_default(&text))
     }
@@ -115,12 +168,16 @@ pub fn is_tunnel_iface(name: &str) -> bool {
         || lower.starts_with("tap")
 }
 
-fn collect_dns_servers() -> Vec<String> {
+fn collect_dns_servers() -> Result<Vec<String>, ()> {
     #[cfg(target_os = "macos")]
     {
-        let output = Command::new("scutil").args(["--dns"]).output();
-        let Ok(output) = output else {
-            return Vec::new();
+        let output = run_system_network_command(
+            "scutil --dns",
+            Command::new("/usr/sbin/scutil").args(["--dns"]),
+        )
+        .map_err(|_| ())?;
+        if !output.status.success() {
+            return Err(());
         };
         let text = String::from_utf8_lossy(&output.stdout);
         let mut servers = Vec::new();
@@ -139,22 +196,23 @@ fn collect_dns_servers() -> Vec<String> {
                 break;
             }
         }
-        servers
+        Ok(servers)
     }
     #[cfg(not(target_os = "macos"))]
     {
-        Vec::new()
+        Ok(Vec::new())
     }
 }
 
-fn collect_wifi_info() -> (Option<String>, Option<i32>) {
+fn collect_wifi_info() -> Result<(Option<String>, Option<i32>), ()> {
     #[cfg(target_os = "macos")]
     {
         let airport = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport";
-        let output = Command::new(airport).args(["-I"]).output();
-        let Ok(output) = output else {
-            return (None, None);
-        };
+        let output = run_system_network_command("airport", Command::new(airport).args(["-I"]))
+            .map_err(|_| ())?;
+        if !output.status.success() {
+            return Err(());
+        }
         let text = String::from_utf8_lossy(&output.stdout);
         let mut ssid = None;
         let mut signal = None;
@@ -171,17 +229,36 @@ fn collect_wifi_info() -> (Option<String>, Option<i32>) {
                 _ => {}
             }
         }
-        (ssid, signal)
+        Ok((ssid, signal))
     }
     #[cfg(not(target_os = "macos"))]
     {
-        (None, None)
+        Ok((None, None))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{is_tunnel_iface, parse_route_get_default};
+    use crate::net_probe::types::{LocalNetworkSummary, NetworkSummaryField};
+
+    #[test]
+    fn summary_serializes_unavailable_fields_with_stable_ipc_names() {
+        let summary = LocalNetworkSummary {
+            interfaces: Vec::new(),
+            primary_ipv4: None,
+            primary_ipv6: None,
+            gateway: None,
+            dns_servers: Vec::new(),
+            wifi_ssid: None,
+            wifi_signal_dbm: None,
+            unavailable_fields: vec![NetworkSummaryField::DnsServers],
+        };
+
+        let json = serde_json::to_value(summary).expect("summary should serialize");
+
+        assert_eq!(json["unavailableFields"], serde_json::json!(["dnsServers"]));
+    }
 
     #[test]
     fn route_with_gateway_is_present() {

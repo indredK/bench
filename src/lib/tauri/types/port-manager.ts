@@ -6,15 +6,17 @@ export interface KillPidResult {
   success: boolean
   message: string
   /** Stable identifier the UI branches on; missing on success.
-   *  Known values: PID_GONE | PID_REUSED | PERMISSION_DENIED | SELF_KILL | CHILD_KILL | KILL_FAILED | SPAWN_FAILED */
+   *  Known values: PID_GONE | PID_REUSED | PERMISSION_DENIED | SELF_KILL | CHILD_KILL | CHILD_KILL_FAILED | INVALID_PID | IDENTITY_UNAVAILABLE | KILL_FAILED | SPAWN_FAILED */
   error_code?: string | null
 }
 
 export interface KillTarget {
   pid: number
-  /** Process name observed at scan time. Backend rejects with PID_REUSED if the
-   *  live process now has a different name, preventing accidental sshd kills. */
+  /** Process name observed at scan time. Required for termination: the backend
+   *  refuses to signal a PID when the scan-time identity is unavailable. */
   expected_name: string | null
+  /** Opaque backend token binding this PID to the process observed during scan. */
+  expected_identity: string | null
 }
 
 export interface ProcessNode {
@@ -22,7 +24,16 @@ export interface ProcessNode {
   ppid: number
   name: string
   command: string
+  /** Opaque process identity for safe termination; never shown in the UI. */
+  identity: string | null
+  has_children: boolean
   children: ProcessNode[]
+}
+
+export interface ProcessChildrenPage {
+  parent_pid: number
+  children: ProcessNode[]
+  next_after_pid: number | null
 }
 
 export interface ProcessFingerprint {

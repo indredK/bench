@@ -88,7 +88,7 @@ IPC：`startTraceroute` · event `network-probe://hop`
 ### 期望
 
 - `probePathMtu` / `getPublicIpInfo` 单实现双入口
-- 导航记忆：`offlineSub` 与测试 L2 可分别记住
+- 导航记忆：基础视角记住当前页内区块；测试 L2 记住当前面板
 - 代理/VPN 开启时出口 IP 与预期不符应可对照「上不了网 · 代理/VPN」
 
 ### 映射

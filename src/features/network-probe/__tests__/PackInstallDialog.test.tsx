@@ -73,4 +73,21 @@ describe("capability pack install feedback", () => {
     expect(screen.queryByRole("button", { name: "networkProbe.packs.verifyFail" })).toBeNull()
     expect(screen.getByRole("button", { name: "networkProbe.packs.install" })).toBeInTheDocument()
   })
+
+  it("disables pack actions while a refresh or mutation is running", () => {
+    render(
+      <PackInstallDialog
+        open
+        packs={packs}
+        busy
+        onOpenChange={vi.fn()}
+        onInstall={vi.fn()}
+        onUninstall={vi.fn()}
+        onRefresh={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole("button", { name: "networkProbe.packs.refresh" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "networkProbe.packs.installing" })).toBeDisabled()
+  })
 })

@@ -144,6 +144,16 @@ pub struct LocalNetworkSummary {
     pub wifi_ssid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wifi_signal_dbm: Option<i32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unavailable_fields: Vec<NetworkSummaryField>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum NetworkSummaryField {
+    Gateway,
+    DnsServers,
+    Wifi,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -459,6 +469,39 @@ pub struct ScanSessionEvent {
     pub kind: String,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum LanDiscoveryProgressPhase {
+    Preparing,
+    Scanning,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LanDiscoveryProgressEvent {
+    pub session_id: String,
+    pub phase: LanDiscoveryProgressPhase,
+    pub checked_hosts: usize,
+    pub total_hosts: usize,
+    pub discovered_neighbors: usize,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum LanServicesProgressPhase {
+    Preparing,
+    Mdns,
+    Ssdp,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LanServicesProgressEvent {
+    pub session_id: String,
+    pub phase: LanServicesProgressPhase,
+    pub discovered_services: usize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FixResult {
@@ -498,9 +541,16 @@ pub struct PublicIpInfo {
 #[serde(rename_all = "camelCase")]
 pub struct ProxyVpnStatus {
     pub proxy_enabled: bool,
+    /// False means the OS proxy state could not be inspected; `proxy_enabled` is then not authoritative.
+    #[serde(default)]
+    pub proxy_status_known: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proxy_detail: Option<String>,
+    #[serde(default)]
+    pub vpn_interfaces_known: bool,
     pub vpn_ifaces: Vec<String>,
+    #[serde(default)]
+    pub default_route_known: bool,
     pub default_via_tunnel: bool,
     pub command_hint: String,
 }
@@ -734,11 +784,12 @@ pub struct ArpNeighbor {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LanDiscoveryResult {
+    /// arp-cache | arp-cache+tcp-sweep | tcp-sweep | not-run
     pub mode: String,
     pub neighbors: Vec<ArpNeighbor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
-    /// none | quiet | permission | isolation | unknown
+    /// quiet | permission | isolation | scope | non-private-scope | no-peers | no-interface
     #[serde(skip_serializing_if = "Option::is_none")]
     pub empty_reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -767,6 +818,8 @@ pub struct LanServiceItem {
 #[serde(rename_all = "camelCase")]
 pub struct LanServicesResult {
     pub items: Vec<LanServiceItem>,
+    pub cancelled: bool,
+    pub session_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     pub elapsed_ms: f64,
@@ -791,6 +844,25 @@ pub struct PcapDiagResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GlobalpingRateLimitInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub consumed: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remaining: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wait_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credits_consumed: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credits_remaining: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_cost: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeDnsAnswer {
     pub node_id: String,
     pub node_label: String,
@@ -800,6 +872,8 @@ pub struct NodeDnsAnswer {
     pub detail: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub failure_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate_limit: Option<GlobalpingRateLimitInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -811,4 +885,70 @@ pub struct MultiNodeDnsResult {
     pub session_id: String,
     pub cancelled: bool,
     pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingMeasurementResult {
+    pub target: String,
+    pub measurement_type: String,
+    pub probes: Vec<GlobalpingProbeMeasurement>,
+    pub elapsed_ms: f64,
+    pub session_id: String,
+    pub cancelled: bool,
+    pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingProbeMeasurement {
+    pub node_id: String,
+    pub node_label: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ping_stats: Option<GlobalpingPingStats>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_status_code: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_status_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_timings: Option<GlobalpingHttpTimings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rate_limit: Option<GlobalpingRateLimitInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingPingStats {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_rtt_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avg_rtt_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_rtt_ms: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub loss_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub packets_sent: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub packets_received: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalpingHttpTimings {
+    pub total_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dns_ms: Option<u64>,
+    pub tcp_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tls_ms: Option<u64>,
+    pub first_byte_ms: u64,
+    pub download_ms: u64,
 }

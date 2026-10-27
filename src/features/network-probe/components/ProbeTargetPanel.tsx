@@ -35,6 +35,12 @@ export function ProbeTargetPanel({
     result?.http?.error ||
     (!result?.tls?.handshakeOk && result?.tls?.detail),
   )
+  const resultKindKey =
+    result?.kind === "host"
+      ? "networkProbe.probe.kindValues.host"
+      : result?.kind === "url"
+        ? "networkProbe.probe.kindValues.url"
+        : "networkProbe.probe.kindValues.unknown"
 
   return (
     <ProbePanelShell
@@ -72,7 +78,7 @@ export function ProbeTargetPanel({
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div>
-            {t("networkProbe.probe.kind")}: <span className="font-medium">{result.kind}</span>
+            {t("networkProbe.probe.kind")}: <span className="font-medium">{t(resultKindKey)}</span>
           </div>
           {result.icmp ? (
             <div>

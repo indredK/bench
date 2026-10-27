@@ -58,7 +58,7 @@ Post-MVP-Adv
 
 ---
 
-## S-SEC-03 · 扫描自有 NAS 端口（含缺包安装）
+## S-SEC-03 · 扫描自有 NAS 端口（基础 TCP 降级 / 可选 Nmap）
 
 ### 背景
 
@@ -67,26 +67,28 @@ Post-MVP-Adv
 ### 前置
 
 - 授权声明已确认
-- capabilities：`scanPorts = missing_pack`；`externalTools.nmap = not_found`
+- 本机无 nmap 时 `portScan = degraded`，基础 TCP connect 始终可用
+- 只有检测到本机 nmap 时 `portScan = supported`；已登记能力包但未接入执行器不能提升为 `supported`
 
 ### 步骤
 
 1. 「端口扫描」输入 NAS 的 RFC1918 地址与端口范围
-2. 出现 `PackInstallDialog`：用途/体积/版本/签名/Gatekeeper 提示
-3. 同意安装 → 后端按 manifest 下载校验（**前端不传 URL**）
-4. 安装后若仍无特权：以 TCP connect 降级跑通，并标注 `degraded`
-5. 有特权后可选 SYN 路径；中途取消
+2. 超过 64 个端口时先确认范围；用户授权后开始扫描
+3. 无 nmap 时直接以 TCP connect 扫描并显示 `degraded` 提示
+4. 检测到本机 nmap 时尝试 `-sS`，不具备权限则回退到 nmap `-sT`，不可用或异常再回退内置 TCP connect
+5. 任一执行路径都可取消；取消后清空开放端口统计并显示本地化终态
 
 ### 期望
 
-- 大范围/公网目标需二次确认 + 速率硬顶
-- 安装成功刷新 capabilities；安装≠自动 root
+- 大范围/公网目标需二次确认；后端端口数量、并发和超时有硬上限
+- 本机 nmap 是可选 fallback；Bench 不捆绑或下载它
+- `adv-scanner` 当前只有未发布制品的 marker，不改变扫描能力；正式 sidecar 接入前不能给扫描状态升档
 - 结果无 Kill/进程树（边界：port-manager）
-- 命令日志含 `// missing_pack` → `installCapabilityPack` → `scanPorts`
+- 命令日志只记录脱敏目标与扫描终态，不得把 `serviceHint` 当作版本指纹
 
 ### 映射
 
-Pack：`adv-scanner`；可选本机 nmap fallback（另测：装 brew nmap 后应可 `found` 并增强）
+依赖：本机 nmap 可选；`adv-scanner` sidecar 待发布和接入后另行验收
 档位：Post-MVP-Adv
 
 ---
@@ -99,8 +101,8 @@ Pack：`adv-scanner`；可选本机 nmap fallback（另测：装 brew nmap 后�
 
 ### 前置
 
-- 可能 `pcap-diag` 为 `missing_pack` → 先走安装流（同 S-SEC-03）
-- 可能需特权
+- 当前能力标记为 `degraded`：只尝试本机 `tcpdump` 的计数模式，不会声称运行完整 libpcap sidecar
+- 本机没有 `tcpdump` 或权限不足时，显示可操作的失败状态；不会先要求安装只有 marker 的 pack
 
 ### 步骤
 
@@ -112,8 +114,9 @@ Pack：`adv-scanner`；可选本机 nmap fallback（另测：装 brew nmap 后�
 ### 期望
 
 - 默认统计模式；info 日志无完整 payload
+- 默认 5 秒或 200 包采样上限先到即结束；窗口内没有包时成功显示 0 包，不将静默网络报成超时失败
 - 取消会终止当前 tcpdump 进程，不需等待采样时长或超时；界面显示本地化取消状态
-- 无包/无特权 → `missing_pack`/`unsupported`，不伪装
+- `tcpdump` 缺失 / 无权限 → 明确失败，不伪装为成功；`pcap-diag` 只有在 sidecar 实际接入执行器后才允许把能力升为 `supported`
 - BPF 过滤白名单；禁止无过滤长时间抓全盘
 
 ### 档位

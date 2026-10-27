@@ -11,6 +11,7 @@ import type { ReactNode } from "react"
 import type { NavigationItem } from "@/features/types"
 import type { NavigationLayoutId } from "@/lib/navigationLayout"
 import Sidebar from "./Sidebar"
+import { MAIN_CONTENT_ID } from "./SkipToMainLink"
 import TopTabNavigation from "./TopTabNavigation"
 import BottomTabNavigation from "./BottomTabNavigation"
 
@@ -31,7 +32,9 @@ export function NavigationShell({
 }: NavigationShellProps) {
   const content = (
     <div className="bg-background flex flex-1 flex-col overflow-hidden">
-      <div className="flex-1 overflow-hidden p-4">{children}</div>
+      <main id={MAIN_CONTENT_ID} tabIndex={-1} className="min-h-0 flex-1 overflow-hidden p-4">
+        {children}
+      </main>
     </div>
   )
 

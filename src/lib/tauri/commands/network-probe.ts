@@ -1,7 +1,7 @@
 /**
  * IPC Commands / 通信命令: wrap typed invokes only; 只封装 Tauri 调用.
  */
-import type { DefaultsOverride } from "@/lib/tauri/types/network-probe"
+import type { DefaultsOverride, GlobalpingMeasurementResult } from "@/lib/tauri/types/network-probe"
 import { TAURI_COMMANDS } from "@/lib/tauri/contracts"
 import { invokeTauriCommand } from "@/lib/tauri/invoke"
 
@@ -79,6 +79,10 @@ export function sitesProbe(packId: string) {
 
 export function sitesProbeCustom(targets: string[]) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.sitesProbeCustom, { targets })
+}
+
+export function monitorSites(targets: string[]) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.monitorSites, { targets })
 }
 
 export function runHealthScan() {
@@ -195,6 +199,32 @@ export function runPcapDiag(durationSecs?: number | null) {
 
 export function compareDnsMulti(domain: string, locations?: string[] | null) {
   return invokeTauriCommand(TAURI_COMMANDS.networkProbe.compareDnsMulti, { domain, locations })
+}
+
+export function globalpingMeasure(
+  measurementType: "ping" | "http",
+  target: string,
+  httpMethod?: "GET" | "HEAD",
+  locations?: string[] | null,
+): Promise<GlobalpingMeasurementResult> {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.globalpingMeasure, {
+    measurementType,
+    target,
+    httpMethod,
+    locations,
+  })
+}
+
+export function getGlobalpingTokenStatus() {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.globalpingTokenStatus)
+}
+
+export function saveGlobalpingToken(token: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.saveGlobalpingToken, { token })
+}
+
+export function clearGlobalpingToken() {
+  return invokeTauriCommand(TAURI_COMMANDS.networkProbe.clearGlobalpingToken)
 }
 
 export function addAgent(label: string, endpoint: string) {

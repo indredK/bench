@@ -5,9 +5,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { loadSystemInfo, jsonFormat } = vi.hoisted(() => ({
+const { loadSystemInfo, jsonFormat, timestampConvert } = vi.hoisted(() => ({
   loadSystemInfo: vi.fn(),
   jsonFormat: vi.fn(),
+  timestampConvert: vi.fn(),
 }))
 
 vi.mock("@/features/system-settings/services/system-info.use-cases", () => ({
@@ -15,7 +16,7 @@ vi.mock("@/features/system-settings/services/system-info.use-cases", () => ({
 }))
 
 vi.mock("@/features/system-settings/services/system-settings.use-cases", () => ({
-  systemSettingsUseCases: { jsonFormat },
+  systemSettingsUseCases: { jsonFormat, timestampConvert },
 }))
 
 vi.mock("@/features/system-settings/hooks/useSettingAction", () => ({
@@ -30,6 +31,7 @@ import { useDevToolboxController } from "@/features/dev-toolbox/hooks/useDevTool
 beforeEach(() => {
   loadSystemInfo.mockReset().mockResolvedValue({ cpu: "Apple M2", memory: "16GB" })
   jsonFormat.mockReset()
+  timestampConvert.mockReset()
 })
 
 describe("useDevToolboxController (A4-4)", () => {
@@ -79,5 +81,36 @@ describe("useDevToolboxController (A4-4)", () => {
     expect(jsonFormat).toHaveBeenCalledWith('{"a":1}', true)
     expect(jsonFormat).toHaveBeenCalledWith('{"a":1}', false)
     expect(result.current.jsonOutput).toBe('{"a":1}')
+  })
+
+  it("blocks invalid timestamp input and clears output when input or format changes", async () => {
+    timestampConvert.mockResolvedValue("2023-11-14 22:13:20 UTC")
+    const { result } = renderHook(() => useDevToolboxController())
+
+    expect(result.current.timestampInputValid).toBe(false)
+    expect(result.current.timestampInputError).toBeNull()
+    act(() => result.current.touchTimestampInput())
+    expect(result.current.timestampInputError).toBe("required")
+    act(() => result.current.setTsInput("1700000000"))
+    expect(result.current.timestampInputError).toBeNull()
+
+    await act(async () => result.current.handleTimestamp())
+    expect(timestampConvert).toHaveBeenCalledWith(1_700_000_000, "datetime")
+    expect(result.current.tsOutput).toBe("2023-11-14 22:13:20 UTC")
+
+    act(() => result.current.setTsInput("1700000000tail"))
+    expect(result.current.timestampInputError).toBeNull()
+    act(() => result.current.touchTimestampInput())
+    expect(result.current.timestampInputError).toBe("invalid")
+    expect(result.current.tsOutput).toBe("")
+    await act(async () => result.current.handleTimestamp())
+    expect(timestampConvert).toHaveBeenCalledOnce()
+
+    act(() => result.current.setTsInput("1700000000"))
+    await act(async () => result.current.handleTimestamp())
+    expect(result.current.tsOutput).toBe("2023-11-14 22:13:20 UTC")
+
+    act(() => result.current.setTsFormat("iso"))
+    expect(result.current.tsOutput).toBe("")
   })
 })

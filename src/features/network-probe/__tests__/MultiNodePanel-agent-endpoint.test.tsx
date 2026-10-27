@@ -1,16 +1,44 @@
 import type { ReactNode } from "react"
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { MultiNodePanel } from "@/features/network-probe/components/MultiNodePanel"
-import type { MultiNodeDnsResult, ProbeNode } from "@/lib/tauri/types/network-probe"
+import type {
+  GlobalpingMeasurementResult,
+  MultiNodeDnsResult,
+  ProbeNode,
+} from "@/lib/tauri/types/network-probe"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, options?: Record<string, unknown>) => {
+      if (key === "networkProbe.nodes.httpResponse") {
+        return `HTTP ${options?.code} ${options?.name}`
+      }
       if (key === "networkProbe.nodes.meta") {
         const count = Number(options?.count ?? 0)
         const resultNoun = count === 1 ? "node result" : "node results"
         return `${options?.domain} · ${count} ${resultNoun} · ${options?.ms} ms`
+      }
+      if (key === "networkProbe.nodes.rateLimitRemaining") {
+        return `${options?.count} rate limit points remaining`
+      }
+      if (key === "networkProbe.nodes.rateLimitLimit") {
+        return `window limit ${options?.count} points`
+      }
+      if (key === "networkProbe.nodes.rateLimitConsumed") {
+        return `${options?.count} rate limit points consumed`
+      }
+      if (key === "networkProbe.nodes.creditsRemaining") {
+        return `${options?.count} credits remaining`
+      }
+      if (key === "networkProbe.nodes.creditsConsumed") {
+        return `${options?.count} credits consumed`
+      }
+      if (key === "networkProbe.nodes.requestCost") {
+        return `request cost: ${options?.count}`
+      }
+      if (key === "networkProbe.nodes.rateLimitWait") {
+        return `resets in about ${options?.count} seconds`
       }
       return key
     },
@@ -44,11 +72,18 @@ function createProps(nodes: ProbeNode[] = [localNode]) {
     canCancel: false,
     cancelling: false,
     result: null as MultiNodeDnsResult | null,
+    globalpingResult: null as GlobalpingMeasurementResult | null,
     nodes,
+    globalpingTokenConfigured: null as boolean | null,
+    loadingGlobalpingToken: false,
     toolEnabled: true,
     onCompare: vi.fn(),
+    onMeasureGlobalping: vi.fn(),
     onCancel: vi.fn(),
     onRefreshNodes: vi.fn(),
+    onRefreshGlobalpingTokenStatus: vi.fn(async () => true),
+    onSaveGlobalpingToken: vi.fn(async () => true),
+    onClearGlobalpingToken: vi.fn(async () => true),
     onAddAgent: vi.fn(),
     onRemoveAgent: vi.fn(),
   }
@@ -61,11 +96,11 @@ describe("MultiNodePanel agent endpoints", () => {
     const props = createProps()
     render(<MultiNodePanel {...props} loading canCancel />)
 
-    expect(screen.getByRole("status")).toHaveTextContent("networkProbe.nodes.stopWaitingHint")
+    expect(screen.getByText("networkProbe.nodes.stopWaitingHint")).toBeInTheDocument()
     fireEvent.click(screen.getByRole("button", { name: "common.cancel" }))
 
     expect(props.onCancel).toHaveBeenCalledOnce()
-    expect(screen.getByPlaceholderText("networkProbe.nodes.domainPlaceholder")).toBeDisabled()
+    expect(screen.getByPlaceholderText("networkProbe.nodes.targetPlaceholder.dns")).toBeDisabled()
   })
 
   it("uses singular metadata when there is exactly one node result", () => {
@@ -87,6 +122,57 @@ describe("MultiNodePanel agent endpoints", () => {
     }
     render(<MultiNodePanel {...props} />)
 
+    expect(screen.getByText("example.com · 1 node result · 12 ms")).toBeInTheDocument()
+  })
+
+  it("keeps results visible while node and credential settings are collapsed", () => {
+    const props = createProps()
+    props.result = {
+      domain: "example.com",
+      answers: [
+        {
+          nodeId: "local",
+          nodeLabel: "This Mac",
+          ok: true,
+          answers: ["192.0.2.1"],
+        },
+      ],
+      elapsedMs: 12,
+      sessionId: "session-1",
+      cancelled: false,
+      commandHint: "",
+    }
+    render(<MultiNodePanel {...props} />)
+
+    const settings = screen.getByText("networkProbe.nodes.settingsTitle")
+    expect(settings).toBeVisible()
+    expect(settings.tagName).toBe("SUMMARY")
+    expect(settings.parentElement).toHaveProperty("open", false)
+    expect(screen.getByText("192.0.2.1")).toBeVisible()
+    expect(screen.getByPlaceholderText("networkProbe.nodes.token.placeholder")).not.toBeVisible()
+  })
+
+  it("labels streamed rows as partial while the comparison is still running", () => {
+    const props = createProps()
+    props.loading = true
+    props.result = {
+      domain: "example.com",
+      answers: [
+        {
+          nodeId: "local",
+          nodeLabel: "This Mac",
+          ok: true,
+          answers: ["192.0.2.1"],
+        },
+      ],
+      elapsedMs: 12,
+      sessionId: "session-1",
+      cancelled: false,
+      commandHint: "",
+    }
+    render(<MultiNodePanel {...props} />)
+
+    expect(screen.getByText("networkProbe.nodes.partialResults")).toHaveAttribute("role", "status")
     expect(screen.getByText("example.com · 1 node result · 12 ms")).toBeInTheDocument()
   })
 
@@ -120,6 +206,61 @@ describe("MultiNodePanel agent endpoints", () => {
     expect(screen.getByText(/192\.0\.2\.1/)).toBeInTheDocument()
     expect(screen.getByText("networkProbe.nodes.failures.request")).toBeInTheDocument()
     expect(screen.queryByText(/3 answers/)).not.toBeInTheDocument()
+  })
+
+  it("shows rate-limit details returned by Globalping", () => {
+    const props = createProps()
+    props.result = {
+      domain: "example.com",
+      answers: [
+        {
+          nodeId: "globalping",
+          nodeLabel: "Globalping",
+          ok: false,
+          answers: [],
+          failureKind: "quota",
+          rateLimit: {
+            limit: 250,
+            consumed: 3,
+            remaining: 0,
+            waitSeconds: 3600,
+            creditsConsumed: 2,
+            creditsRemaining: 18,
+            requestCost: 1,
+          },
+        },
+      ],
+      elapsedMs: 25,
+      sessionId: "session-1",
+      cancelled: false,
+      commandHint: "",
+    }
+    render(<MultiNodePanel {...props} />)
+
+    const rateLimitStatus = screen
+      .getAllByRole("status")
+      .find((status) => status.textContent?.includes("networkProbe.nodes.rateLimitTitle"))
+    expect(rateLimitStatus).toBeDefined()
+    expect(rateLimitStatus?.textContent).toContain(
+      "0 rate limit points remaining · window limit 250 points · 3 rate limit points consumed · 18 credits remaining · 2 credits consumed · request cost: 1 · resets in about 3600 seconds",
+    )
+  })
+
+  it("keeps token checks user-triggered and clears the one-time input after saving", async () => {
+    const props = createProps()
+    render(<MultiNodePanel {...props} />)
+
+    expect(props.onRefreshGlobalpingTokenStatus).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText("networkProbe.nodes.token.title"))
+    const input = screen.getByLabelText("networkProbe.nodes.token.placeholder")
+    const token = "gp_secret-token-for-test"
+    fireEvent.change(input, { target: { value: token } })
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.token.save" }))
+
+    await waitFor(() => expect(props.onSaveGlobalpingToken).toHaveBeenCalledWith(token))
+    expect(input).toHaveValue("")
+    expect(screen.queryByText(token)).not.toBeInTheDocument()
+    expect(props.onRefreshGlobalpingTokenStatus).not.toHaveBeenCalled()
   })
 
   it("accepts WSS and submits the self-hosted endpoint", () => {
@@ -170,6 +311,35 @@ describe("MultiNodePanel agent endpoints", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "networkProbe.nodes.endpointError.credentials",
     )
+    expect(screen.getByRole("button", { name: "networkProbe.nodes.addAgent" })).toBeDisabled()
+    expect(props.onAddAgent).not.toHaveBeenCalled()
+  })
+
+  it("rejects agent endpoints over the backend UTF-8 byte limit before submitting", () => {
+    const props = createProps()
+    render(<MultiNodePanel {...props} />)
+
+    fireEvent.change(screen.getByLabelText("networkProbe.nodes.labelPlaceholder"), {
+      target: { value: "Lab" },
+    })
+    fireEvent.change(screen.getByLabelText("networkProbe.nodes.endpointPlaceholder"), {
+      target: { value: `wss://agent.example.test/${"路".repeat(700)}` },
+    })
+
+    expect(screen.getByRole("alert")).toHaveTextContent("networkProbe.nodes.endpointError.tooLong")
+    expect(screen.getByRole("button", { name: "networkProbe.nodes.addAgent" })).toBeDisabled()
+    expect(props.onAddAgent).not.toHaveBeenCalled()
+  })
+
+  it("rejects agent labels over 80 Unicode characters before submitting", () => {
+    const props = createProps()
+    render(<MultiNodePanel {...props} />)
+
+    fireEvent.change(screen.getByLabelText("networkProbe.nodes.labelPlaceholder"), {
+      target: { value: "界".repeat(81) },
+    })
+
+    expect(screen.getByRole("alert")).toHaveTextContent("networkProbe.nodes.labelError.tooLong")
     expect(screen.getByRole("button", { name: "networkProbe.nodes.addAgent" })).toBeDisabled()
     expect(props.onAddAgent).not.toHaveBeenCalled()
   })
@@ -317,5 +487,61 @@ describe("MultiNodePanel agent endpoints", () => {
 
     expect(screen.getByText("networkProbe.nodes.failures.request")).toBeInTheDocument()
     expect(screen.queryByText("networkProbe.nodes.failures.localRequest")).not.toBeInTheDocument()
+  })
+
+  it("runs remote Ping through the Multi-node panel", () => {
+    const props = createProps()
+    render(<MultiNodePanel {...props} />)
+
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.mode.ping" }))
+    expect(screen.getByPlaceholderText("networkProbe.nodes.targetPlaceholder.ping")).toHaveValue(
+      "iana.org",
+    )
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.runMode.ping" }))
+
+    expect(props.onMeasureGlobalping).toHaveBeenCalledWith("ping", "iana.org", undefined)
+    expect(props.onCompare).not.toHaveBeenCalled()
+  })
+
+  it("runs HTTP measurements with the selected safe method and renders result metrics", () => {
+    const props = createProps()
+    props.globalpingResult = {
+      target: "https://example.com/status",
+      measurementType: "http",
+      probes: [
+        {
+          nodeId: "gp-0",
+          nodeLabel: "Globalping · Frankfurt/DE",
+          status: "finished",
+          resolvedAddress: "203.0.113.9",
+          httpStatusCode: 200,
+          httpStatusName: "OK",
+          httpTimings: {
+            totalMs: 120,
+            tcpMs: 32,
+            firstByteMs: 40,
+            downloadMs: 8,
+          },
+        },
+      ],
+      elapsedMs: 121,
+      sessionId: "session-1",
+      cancelled: false,
+      commandHint: "globalping http",
+    }
+    render(<MultiNodePanel {...props} />)
+    expect(screen.queryByText("HTTP 200 OK")).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.mode.http" }))
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "HEAD" } })
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.nodes.runMode.http" }))
+
+    expect(props.onMeasureGlobalping).toHaveBeenCalledWith(
+      "http",
+      "https://www.iana.org/domains",
+      "HEAD",
+    )
+    expect(screen.getByText("HTTP 200 OK")).toBeInTheDocument()
+    expect(screen.getByText("networkProbe.nodes.remoteStatus.finished")).toBeInTheDocument()
   })
 })

@@ -9,8 +9,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
 import { MAX_PORT_RANGE_INPUT_BYTES, validatePortRange } from "@/features/network-probe/port-range"
 import type { PortSampleEvent, PortScanResult } from "@/lib/tauri/types/network-probe"
+
+const portStateLabelKeys: Record<string, string> = {
+  open: "networkProbe.ports.state.open",
+  closed: "networkProbe.ports.state.closed",
+  filtered: "networkProbe.ports.state.filtered",
+  error: "networkProbe.ports.state.error",
+  unknown: "networkProbe.ports.state.unknown",
+}
 
 interface PortScanPanelProps {
   loading: boolean
@@ -59,6 +68,8 @@ export function PortScanPanel({
   const open = result?.openPorts?.length
     ? result.openPorts
     : samples.filter((s) => s.state === "open").map((s) => s.port)
+  const scanComplete = result !== null && !loading && !result.cancelled
+  const showOpenCount = !result?.cancelled && (open.length > 0 || scanComplete)
 
   const portValidation = useMemo(() => validatePortRange(ports), [ports])
   const portCount = portValidation.valid ? portValidation.count : 0
@@ -159,24 +170,41 @@ export function PortScanPanel({
         </>
       }
     >
-      {open.length > 0 ? (
-        <p className="text-sm font-medium">
-          {t("networkProbe.ports.openList", { ports: open.join(", ") })}
+      {showOpenCount ? (
+        <p
+          role={scanComplete ? "status" : undefined}
+          aria-live={scanComplete ? "polite" : undefined}
+          className="text-sm font-medium"
+        >
+          {t("networkProbe.ports.openCount", { count: open.length })}
         </p>
       ) : null}
-      {result?.message ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">{result.message}</p>
+      {result?.mode === "nmap-syn-or-connect" && !result.cancelled ? (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {t("networkProbe.ports.nmapHint")}
+        </p>
+      ) : null}
+      {result?.cancelled ? (
+        <p role="status" className="text-muted-foreground text-sm">
+          {t("networkProbe.ports.cancelled")}
+        </p>
       ) : null}
       {samples.length > 0 ? (
-        <ul className="text-muted-foreground space-y-0.5 font-mono text-xs">
-          {samples.map((s) => (
-            <li key={`${s.port}-${s.state}`}>
-              {s.port}: {s.state}
-              {s.serviceHint ? ` (${s.serviceHint})` : ""}
+        <VirtualizedResultList
+          ariaLabel={t("networkProbe.ports.resultsLabel")}
+          className="text-muted-foreground font-mono text-xs"
+          items={samples}
+          getItemKey={(sample) => `${sample.port}-${sample.state}`}
+          renderItem={(s) => (
+            <>
+              {s.port}: {t(portStateLabelKeys[s.state] ?? portStateLabelKeys.unknown)}
+              {s.serviceHint
+                ? ` · ${t("networkProbe.ports.possibleService", { service: s.serviceHint })}`
+                : ""}
               {s.rttMs != null ? ` · ${s.rttMs.toFixed(0)} ms` : ""}
-            </li>
-          ))}
-        </ul>
+            </>
+          )}
+        />
       ) : null}
       {result?.commandHint ? (
         <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>

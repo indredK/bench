@@ -14,14 +14,20 @@ pub async fn check_ipv6_stack() -> AppResult<Ipv6StackResult> {
     let started = Instant::now();
     let command_hint = "checkIpv6Stack(local)".to_string();
 
-    let (link_local, global) = collect_local_ipv6();
+    let local_ipv6_task = tauri::async_runtime::spawn_blocking(collect_local_ipv6);
+    let ndp_task = tauri::async_runtime::spawn_blocking(probe_ndp);
     let (aaaa_ok, aaaa_addrs) = lookup_aaaa(AAAA_NAME).await;
 
     let icmpv6 = ping_once(IPV6_REACH_TARGET).await;
     let icmpv4 = ping_once(IPV4_REACH_TARGET).await;
     let http_v6 = probe_http_v6().await;
 
-    let (ndp_status, ndp_detail) = probe_ndp();
+    let (link_local, global) = local_ipv6_task.await.map_err(|error| {
+        crate::error::AppError::task_failed(format!("collect local IPv6: {error}"))
+    })??;
+    let (ndp_status, ndp_detail) = ndp_task.await.map_err(|error| {
+        crate::error::AppError::task_failed(format!("probe NDP table: {error}"))
+    })?;
 
     let traceroute_note = if icmpv6.as_ref().is_some_and(|(ok, _)| *ok) {
         Some(
@@ -92,10 +98,8 @@ pub async fn check_ipv6_stack() -> AppResult<Ipv6StackResult> {
     })
 }
 
-fn collect_local_ipv6() -> (Vec<String>, Vec<String>) {
-    let Ok(ifaces) = if_addrs::get_if_addrs() else {
-        return (Vec::new(), Vec::new());
-    };
+fn collect_local_ipv6() -> std::io::Result<(Vec<String>, Vec<String>)> {
+    let ifaces = if_addrs::get_if_addrs()?;
     let mut link_local = Vec::new();
     let mut global = Vec::new();
     for iface in ifaces {
@@ -113,7 +117,7 @@ fn collect_local_ipv6() -> (Vec<String>, Vec<String>) {
             }
         }
     }
-    (link_local, global)
+    Ok((link_local, global))
 }
 
 async fn lookup_aaaa(name: &str) -> (bool, Vec<String>) {
@@ -157,7 +161,10 @@ async fn probe_http_v6() -> Option<bool> {
 fn probe_ndp() -> (String, Option<String>) {
     #[cfg(target_os = "macos")]
     {
-        match Command::new("ndp").args(["-an"]).output() {
+        match super::summary::run_system_network_command(
+            "ndp -an",
+            Command::new("/usr/sbin/ndp").args(["-an"]),
+        ) {
             Ok(out) if out.status.success() => {
                 let text = String::from_utf8_lossy(&out.stdout);
                 let lines: Vec<&str> = text
@@ -184,7 +191,10 @@ fn probe_ndp() -> (String, Option<String>) {
                     String::from_utf8_lossy(&out.stderr).trim()
                 )),
             ),
-            Err(e) => ("skip".into(), Some(format!("ndp unavailable: {e}"))),
+            Err(error) => (
+                "partial".into(),
+                Some(format!("ndp -an unavailable: {error}")),
+            ),
         }
     }
     #[cfg(not(target_os = "macos"))]

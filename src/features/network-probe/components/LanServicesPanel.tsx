@@ -4,24 +4,33 @@
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
+import { NetworkProbeCancelButton } from "@/features/network-probe/components/NetworkProbeCancelButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { ProbeSystemDetails } from "@/features/network-probe/components/ProbeSystemDetails"
-import type { LanServicesResult } from "@/lib/tauri/types/network-probe"
+import type { LanServicesProgressEvent, LanServicesResult } from "@/lib/tauri/types/network-probe"
 
 interface LanServicesPanelProps {
   loading: boolean
+  progress: LanServicesProgressEvent | null
   result: LanServicesResult | null
   toolEnabled: boolean
   toolStatus?: string
+  canCancel: boolean
+  cancelling: boolean
   onRun: () => void
+  onCancel: () => void
 }
 
 export function LanServicesPanel({
   loading,
+  progress,
   result,
   toolEnabled,
   toolStatus,
+  canCancel,
+  cancelling,
   onRun,
+  onCancel,
 }: LanServicesPanelProps) {
   const { t } = useTranslation()
   const protocolLabel = (protocol: string) => {
@@ -36,6 +45,13 @@ export function LanServicesPanel({
   }
   const isProtocolError = (item: LanServicesResult["items"][number]) =>
     (item.protocol === "mdns" || item.protocol === "ssdp") && !item.serviceType && !item.host
+  const progressLabel = progress
+    ? progress.phase === "preparing"
+      ? t("networkProbe.lanSvc.preparing")
+      : progress.phase === "mdns"
+        ? t("networkProbe.lanSvc.progressMdns", { count: progress.discoveredServices })
+        : t("networkProbe.lanSvc.progressSsdp", { count: progress.discoveredServices })
+    : null
 
   return (
     <ProbePanelShell
@@ -54,11 +70,26 @@ export function LanServicesPanel({
               {t("networkProbe.lanSvc.readOnlyHint")}
             </p>
           )}
-          <CommandHint hint={t("networkProbe.cmd.lanSvc")}>
-            <Button type="button" disabled={loading || !toolEnabled} onClick={onRun}>
-              {loading ? t("networkProbe.lanSvc.running") : t("networkProbe.lanSvc.run")}
-            </Button>
-          </CommandHint>
+          <div className="flex flex-wrap items-center gap-2">
+            <CommandHint hint={t("networkProbe.cmd.lanSvc")}>
+              <Button type="button" disabled={loading || !toolEnabled} onClick={onRun}>
+                {loading ? t("networkProbe.lanSvc.running") : t("networkProbe.lanSvc.run")}
+              </Button>
+            </CommandHint>
+            {loading ? (
+              <NetworkProbeCancelButton
+                label={t("networkProbe.lanSvc.cancel")}
+                cancelling={cancelling}
+                disabled={!canCancel}
+                onCancel={onCancel}
+              />
+            ) : null}
+          </div>
+          {loading && progressLabel ? (
+            <p role="status" aria-live="polite" className="text-muted-foreground text-xs">
+              {progressLabel}
+            </p>
+          ) : null}
         </>
       }
     >
@@ -66,14 +97,24 @@ export function LanServicesPanel({
         <div className="space-y-2">
           <p className="text-muted-foreground text-xs">
             {t("networkProbe.lanSvc.meta", {
-              count: result.items.length,
+              count: result.items.filter((item) => !isProtocolError(item)).length,
               ms: result.elapsedMs.toFixed(0),
             })}
           </p>
+          {result.cancelled ? (
+            <p role="status" className="text-muted-foreground text-sm">
+              {t("networkProbe.lanSvc.cancelled")}
+            </p>
+          ) : null}
           {result.items.length === 0 ? (
-            <p className="text-muted-foreground text-sm">{t("networkProbe.lanSvc.empty")}</p>
+            result.cancelled ? null : (
+              <p className="text-muted-foreground text-sm">{t("networkProbe.lanSvc.empty")}</p>
+            )
           ) : (
-            <ul className="space-y-1 font-mono text-xs">
+            <ul
+              aria-label={t("networkProbe.lanSvc.resultsLabel")}
+              className="space-y-1 font-mono text-xs"
+            >
               {result.items.map((it, idx) => {
                 const protocol = protocolLabel(it.protocol)
                 return (

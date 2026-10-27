@@ -8,6 +8,7 @@ import { useTauriHashLocation } from "@/lib/routing/tauri-hash-location"
 import { AnimatePresence, motion } from "motion/react"
 import { useTranslation } from "react-i18next"
 import NavigationShell from "./components/layout/NavigationShell"
+import { SkipToMainLink } from "./components/layout/SkipToMainLink"
 import { CustomTitlebar } from "./components/layout/CustomTitlebar"
 import { GlobalContextMenu } from "@/shared/context-menu/GlobalContextMenu"
 import { useDefaultContextMenu } from "@/shared/context-menu/useContextMenuRegistration"
@@ -244,6 +245,7 @@ function App() {
         <AuthProxyNavigationListener />
         <GlobalContextMenu className="app-root bg-background flex h-screen overflow-hidden">
           <div className="flex flex-1 flex-col overflow-hidden">
+            <SkipToMainLink />
             <CustomTitlebar />
             <div className="flex flex-1 overflow-hidden">
               <NavigationShell

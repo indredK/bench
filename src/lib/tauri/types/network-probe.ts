@@ -68,7 +68,10 @@ export interface LocalNetworkSummary {
   dnsServers: string[]
   wifiSsid?: string
   wifiSignalDbm?: number
+  unavailableFields?: NetworkSummaryField[]
 }
+
+export type NetworkSummaryField = "gateway" | "dnsServers" | "wifi"
 
 export interface DefaultRouteInfo {
   gateway?: string
@@ -267,8 +270,11 @@ export interface PublicIpInfo {
 
 export interface ProxyVpnStatus {
   proxyEnabled: boolean
+  proxyStatusKnown: boolean
   proxyDetail?: string
+  vpnInterfacesKnown: boolean
   vpnIfaces: string[]
+  defaultRouteKnown: boolean
   defaultViaTunnel: boolean
   commandHint: string
 }
@@ -483,6 +489,14 @@ export interface ArpNeighbor {
   source: string
 }
 
+export interface LanDiscoveryProgressEvent {
+  sessionId: string
+  phase: "preparing" | "scanning"
+  checkedHosts: number
+  totalHosts: number
+  discoveredNeighbors: number
+}
+
 export interface LanDiscoveryResult {
   mode: string
   neighbors: ArpNeighbor[]
@@ -506,9 +520,17 @@ export interface LanServiceItem {
 
 export interface LanServicesResult {
   items: LanServiceItem[]
+  cancelled: boolean
+  sessionId: string
   message?: string
   elapsedMs: number
   commandHint: string
+}
+
+export interface LanServicesProgressEvent {
+  sessionId: string
+  phase: "preparing" | "mdns" | "ssdp"
+  discoveredServices: number
 }
 
 export interface PcapDiagResult {
@@ -530,7 +552,17 @@ export interface NodeDnsAnswer {
   ok: boolean
   answers: string[]
   detail?: string
-  failureKind?: "quota" | "timeout" | "request" | "measurement" | "noAnswers"
+  failureKind?:
+    "quota" | "timeout" | "request" | "auth" | "credentialStore" | "measurement" | "noAnswers"
+  rateLimit?: {
+    limit?: number
+    consumed?: number
+    remaining?: number
+    waitSeconds?: number
+    creditsConsumed?: number
+    creditsRemaining?: number
+    requestCost?: number
+  }
 }
 
 export interface MultiNodeDnsResult {
@@ -540,4 +572,50 @@ export interface MultiNodeDnsResult {
   sessionId: string
   cancelled: boolean
   commandHint: string
+}
+
+export interface GlobalpingMeasurementResult {
+  target: string
+  measurementType: "ping" | "http"
+  probes: GlobalpingProbeMeasurement[]
+  elapsedMs: number
+  sessionId: string
+  cancelled: boolean
+  commandHint: string
+}
+
+export interface GlobalpingProbeMeasurement {
+  nodeId: string
+  nodeLabel: string
+  status: string
+  failureKind?: string
+  detail?: string
+  resolvedAddress?: string
+  pingStats?: {
+    minRttMs?: number
+    avgRttMs?: number
+    maxRttMs?: number
+    lossPercent?: number
+    packetsSent?: number
+    packetsReceived?: number
+  }
+  httpStatusCode?: number
+  httpStatusName?: string
+  httpTimings?: {
+    totalMs: number
+    dnsMs?: number
+    tcpMs: number
+    tlsMs?: number
+    firstByteMs: number
+    downloadMs: number
+  }
+  rateLimit?: {
+    limit?: number
+    consumed?: number
+    remaining?: number
+    waitSeconds?: number
+    creditsConsumed?: number
+    creditsRemaining?: number
+    requestCost?: number
+  }
 }

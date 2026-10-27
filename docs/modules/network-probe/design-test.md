@@ -33,7 +33,7 @@ components/TestView/
   TcpConnectPanel.tsx
   ProbeTargetPanel.tsx
   TraceroutePanel.tsx
-  MtuPanel.tsx          # 与 BasicView/OfflineSuite 共用
+  MtuPanel.tsx          # 与 BasicView 离线区块共用
   EgressPanel.tsx       # 同上
   SpeedTestPanel.tsx    # Post-MVP
 
@@ -99,7 +99,7 @@ Tokio TcpStream::connect 带 timeout
 
 1. 规范化 URL / host（拒绝 file://、危险 scheme）。
 2. 可选 ICMP（同 ping 引擎）。
-3. HTTP(S)：`reqwest` + `rustls`；记录状态码、TTFB、重定向终局。
+3. HTTP(S)：`reqwest` + `rustls`；读取响应头后记录状态码、TTFB、重定向终局；自定义目标不读取响应体，避免仅为展示状态而无限下载或缓冲大响应。
 4. HTTPS 轻量 TLS：证书 notAfter、subject/SAN 与 host 是否匹配；**完整 MITM 链分析留给安全 Tab**。
 
 ### 3.5 Traceroute / MTR（`startTraceroute`）
@@ -159,7 +159,7 @@ UI：测试入口与「上不了网」入口共用面板组件；面包屑标明
 ## 5. 前端 UX
 
 - 目标输入：最近 N 条历史（本地，脱敏）；一键填 `1.1.1.1` / `cloudflare.com`。
-- 结果区下方固定 `CommandHint` + 写入命令日志。
+- 结果区下方固定 `CommandHint` + 写入命令日志；URL 凭据、路径、query 和 fragment 以脱敏占位显示，解析失败的 URL 输入不原样写入日志。
 - Ping/Traceroute：实时表 + 停止按钮；离开面板**不**自动 clear 结果（导航记忆 §3.1）。
 - 长跳点表 >50：虚拟化（Polish 可延后，但接口预留）。
 - 测速面板标 `Post`，不进 MVP 验收。

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { Button } from "@/components/ui/button"
+import { ReportHistoryComparison } from "@/features/network-probe/components/ReportHistoryComparison"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import type { HealthScanResult } from "@/lib/tauri/types/network-probe"
 
@@ -15,6 +16,7 @@ interface ReportPanelProps {
   onClearLog: () => void
   onClearHistory: () => void
   onGoTree: () => void
+  embedded?: boolean
 }
 
 function toMarkdown(result: HealthScanResult, tTitle: string): string {
@@ -64,13 +66,16 @@ export function ReportPanel({
   onClearLog,
   onClearHistory,
   onGoTree,
+  embedded = false,
 }: ReportPanelProps) {
   const { t } = useTranslation()
   const stamp = useMemo(() => new Date().toISOString().replace(/[:.]/g, "-"), [health])
   const [clearConfirmation, setClearConfirmation] = useState<"history" | "log" | null>(null)
+  const SectionHeading = embedded ? "h4" : "h3"
 
   return (
     <ProbePanelShell
+      embedded={embedded}
       toolbar={
         <>
           <p className="text-muted-foreground text-sm">{t("networkProbe.report.hint")}</p>
@@ -131,9 +136,9 @@ export function ReportPanel({
     >
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-xs font-semibold tracking-wide uppercase">
+          <SectionHeading className="text-xs font-semibold tracking-wide uppercase">
             {t("networkProbe.report.historyTitle")}
-          </h3>
+          </SectionHeading>
           {history.length > 0 ? (
             <Button
               type="button"
@@ -163,11 +168,13 @@ export function ReportPanel({
         )}
       </section>
 
+      <ReportHistoryComparison history={history} onGoTree={onGoTree} embedded={embedded} />
+
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-xs font-semibold tracking-wide uppercase">
+          <SectionHeading className="text-xs font-semibold tracking-wide uppercase">
             {t("networkProbe.report.logTitle")}
-          </h3>
+          </SectionHeading>
           <Button
             type="button"
             variant="ghost"

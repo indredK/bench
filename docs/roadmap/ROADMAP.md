@@ -313,7 +313,7 @@ pnpm run clippy:be
 1. 增加 Playwright 或等价项目，用 mock repository 渲染纯前端状态；覆盖 1024x768、1280x800、1440x900、Windows 125%/150% 等效 viewport。
 2. 覆盖 Quick Launch 搜索/刷新/启动、App Manager 更新/partial、Account Manager 三栏/窄屏 Sheet、Updater 下载/取消/失败。
 3. 每条路径覆盖 loading skeleton、refresh 保留旧数据、empty、failed/retry、partial、unsupported、cancelled、长中英文和语言切换。
-4. 增加 axe 自动检查；人工验证 Tab 顺序、焦点恢复、Escape、icon-only accessible name、对话框 focus trap 和屏幕阅读器 smoke。
+4. 增加 axe 自动检查；人工验证 main landmark 与 skip-to-main、Tab 顺序、页内导航焦点转移、焦点恢复、Escape、icon-only accessible name、对话框 focus trap 和屏幕阅读器 smoke。
 5. 截图 diff 必须人工查看；检查 overflow、重叠、空白截图和非预期布局位移，禁止无条件更新 baseline。
 
 **禁止**：伪百分比、只有 spinner 的首载、把失败折叠为空态、用 viewport 缩放字号、无审查接受全部截图。

@@ -58,7 +58,7 @@
 │  services/network-probe.repository.ts (IPC+events) │
 │  services/network-probe.advisor.ts (扫描意见)    │
 │  services/network-probe.sites.ts (站点库)        │
-│  components/{NodeSelector,BasicView/,AdvancedView/,HealthReport} │
+│  components/{NodeSelector,BasicView.tsx,AdvancedView/,HealthReport} │
 └──────────────────────┬──────────────────────────┘
                         │ typed IPC + Tauri events
 ┌─ 后端 src-tauri/src/net_probe/ ─┐
@@ -114,11 +114,11 @@
 
 ### 3.1 信息架构：三级功能树（强制布局）
 
-> 对照 [`prototype.html`](./prototype.html)。树形导航，L1 保持五个稳定领域，避免继续拆分成零散一级入口。
+> [`prototype.html`](./prototype.html) 保留旧版面板切换的交互示意，不代表 P5-4 的 BasicView 排布；当前基础视角以本节与 [design-basic.md](./design-basic.md) 为准。L1 保持五个稳定领域，避免继续拆分成零散一级入口。
 
 ```
 顶栏 L1（一级 · 5 个）    →  选中后刷新底栏
-底栏 L2（二级）            →  选中后刷新中间
+底栏 L2（二级）            →  基础视角滚动到页内区块；其他 L1 切换中间面板
 中间 L3（内容页）          →  该功能的最终界面
 ```
 
@@ -143,10 +143,11 @@
 #### 交互规则
 
 1. 切换 L1 → 底栏 L2 整表替换为该一级 children；**恢复该 L1 上次选中的 L2**（若无记录则默认第一个）。
-2. 切换 L2 → 仅中间 L3 换页，并写入该 L1 下的「上次 L2」记忆。
-3. 面包屑：`安全 / 端口扫描 / 内容`（含子页时带 · 子页名）。
-4. `nodeId`、命令日志属壳层 chrome。
-5. Post-MVP 项标 `Post`，不进 MVP 验收；可分布在「安全 / 发现 / 测试」。
+2. 基础视角是单页纵向整合：六个 L2 面板同时按概览、体检、建议、离线诊断、修复、报告顺序呈现；底栏 L2 点击滚动到区块，滚动位置反向更新高亮和 `l2ByL1.basic`。
+3. 其他 L1 切换 L2 时仅替换中间面板，并写入该 L1 下的「上次 L2」记忆。
+4. 面包屑：其他 L1 显示 `安全 / 端口扫描 / 内容`（含子页时带 · 子页名）；基础视角显示统一标题与页面说明。
+5. `nodeId`、命令日志属壳层 chrome。
+6. Post-MVP 项标 `Post`，不进 MVP 验收；可分布在「安全 / 发现 / 测试」。
 
 #### 导航记忆（强制 · 来回查看）
 
@@ -155,18 +156,18 @@
 | 记忆项                         | 作用域                                                  | 行为                                                       |
 | ------------------------------ | ------------------------------------------------------- | ---------------------------------------------------------- |
 | 当前 `l1Id`                    | 模块会话（建议 `sessionStorage`；可选持久化到模块设置） | 离开 feature 再进入时恢复上次一级                          |
-| 各 L1 下上次 `l2Id`            | `Record<l1Id, l2Id>`                                    | 切回该 L1 时底栏高亮并打开对应 L3                          |
-| 「上不了网」子页 `offlineSub`  | 随基础视角记忆                                          | 切走再回来仍停在 Captive/MTU 等子页                        |
-| （建议）各 L3 最近一次运行结果 | 面板级 store，不随导航清空                              | 来回查看仍能看到上次 Ping/体检结果，直到主动清除或新跑覆盖 |
+| 各 L1 下上次 `l2Id`            | `Record<l1Id, l2Id>`                                    | 切回时恢复底栏位置；基础视角恢复页内区块，其他 L1 恢复面板 |
+| （兼容）旧版 `offlineSub`      | 旧 sessionStorage 字段                                  | 当前集成页忽略该字段；离线诊断始终显示完整内容             |
+| （建议）各面板最近一次运行结果 | 面板级 store，不随导航清空                              | 来回查看仍能看到上次结果，直到主动清除或新跑覆盖           |
 
 **实现要点**
 
-- store 示例字段：`nav: { l1Id, l2ByL1: Record<string,string>, offlineSub }`；controller 切换时只改 nav，不重置各面板结果缓存。
+- store 示例字段保留旧 sessionStorage 兼容：`nav: { l1Id, l2ByL1: Record<string,string>, offlineSub? }`；当前页面导航仅依赖 `l1Id/l2ByL1`，controller 切换时不重置面板结果缓存。
 - L2 若已从树中移除（版本升级），回退到该 L1 的第一个合法 L2。
 - 命令日志可保留会话内历史，与导航记忆独立。
-- 原型：[`prototype.html`](./prototype.html) 已用内存 map 演示「按 L1 记住 L2」。
+- 旧版交互原型：[`prototype.html`](./prototype.html) 仍演示按 L1 记忆 L2；基础视角单页锚点行为以当前实现和 [design-basic.md](./design-basic.md) 为准。
 
-#### L2 全表（原型与实现对齐）
+#### L2 全表（导航 id）
 
 | L1       | L2                                                                                |
 | -------- | --------------------------------------------------------------------------------- |
@@ -176,7 +177,7 @@
 | 安全     | 端口扫描(Post) · 污染检测(Post) · 包级诊断(Post) · DNSSEC/DoH(Post) · WHOIS(Post) |
 | 发现     | ARP 发现(Post) · 局域网服务(Post) · NAT(Post) · NTP(Post) · 多节点对比(Post)      |
 
-组件：`FeatureTreeL1`（5 项）· `FeatureTreeL2` · 各 L3 面板（`OfflineSuite` 含子路由；`MtuPanel`/`EgressPanel` 双入口）。命令透明见 §3.5。
+组件：`FeatureTreeL1`（5 项）· `FeatureTreeL2` · `BasicView` 六区块单页 · 其他各 L3 面板（离线区块复用 `MtuPanel` / `EgressPanel`，测试页亦可单独访问）。命令透明见 §3.5。
 
 ### 3.2 安全 / 发现面板（原 AdvancedView · Post-MVP 为主）
 
@@ -264,7 +265,7 @@ MVP：`listProbeNodes` 至少返回 `local`；选中非 local 时 UI 提示「�
 
 ### 4.3 多节点对比（Post-MVP-C）
 
-同一 `(target, tool)` 结果入 `store.byNode`；并排展示（例：本机 DNS 正常、探点 A 污染）。
+Globalping 通过固定 HTTPS REST API 执行 DNS、Ping、HTTP；多节点面板按模式直接调用独立 IPC，不经过通用顶栏 `nodeId` 路由。DNS 比较本机与 Globalping；Ping / HTTP 仅从 Globalping 公共探点运行。实现细节、安全约束、结果与轮询契约见 [design-discover.md §3.5](./design-discover.md)。自有 agent 目前只检查 HTTPS / WSS 健康状态，远程测量执行与鉴权仍列在 C2-3。
 
 ### 4.4 自有 agent 协议草图（Post-MVP-C）
 
@@ -290,9 +291,9 @@ MVP：`listProbeNodes` 至少返回 `local`；选中非 local 时 UI 提示「�
 
 ### 5.2 ARP 发现（Post-MVP-Adv）
 
-本机 CIDR（默认 `/24`）ARP Request；补 ICMP；可选 rDNS。
+规划中的特权版本使用当前接口 CIDR 发送 ARP Request 并补充 ICMP。当前降级实现由 `netdev` 读取默认接口、网关和实际 IPv4 前缀；macOS 使用 `arp -an`、Windows 使用 `GetIpNetTable2(AF_INET)` 读取邻居缓存，再合并 TCP connect 探测。Windows 通过 `InterfaceIndex` 将缓存记录归属到接口；缓存 API 失败时降级到 TCP-only。默认路由指向隧道时，仅在能唯一识别物理 RFC 1918 私网接口时回退，否则不猜测、不扫描。仅对 RFC 1918 私网、含其他主机地址且不大于 `/24` 的子网探测 TCP 80/443/22；私有 `/32` 主机路由返回 `no-peers`；不发送原始 ARP 请求。Windows 原生缓存读取仍待真机验收。
 
-**护栏**：默认 CIDR = 当前接口前缀；禁止无确认扫超大前缀（如 `/8`）。
+**护栏**：默认 CIDR = 已确认接口的实际前缀；禁止静默把大网段截成 `/24`。大于 `/24` 的网段及非 RFC 1918 IPv4 范围只显示同网段系统缓存并跳过主动探测。结果页显示本地化的发现模式与跳过原因，不展示后端自由文本。
 
 ### 5.3 污染检测（Post-MVP-Adv）
 
@@ -361,6 +362,8 @@ L0→L3 编排，部分并行；`healthEvent` 流式；`CancellationToken`；结
 ### 5.6 站点延迟探针（MVP-A，§12.5）
 
 并发 ICMP（`surge-ping`）+ HTTP（`reqwest`）；流式 `siteSample`；禁 ICMP 时 HTTP 兜底。支持预设库 + **自定义目标**（与 §5.7 共用引擎）。
+
+自定义站点输入与监控目标共用 `validate_probe_input`：单项最大 2048 UTF-8 字节，只接受 host 或 HTTP(S) URL；scheme 大小写不敏感，裸 IPv6 经 URL 解析时补方括号。列表按规范化 URL 去重、最多 24 项；达到上限时禁用添加并提示移除一项。读取 sessionStorage 时过滤超限 / 空值、合并重复项并截断条目数，避免旧数据绕过 IPC 上限。
 
 ### 5.7 基础鉴别工具（MVP 强制 · 易漏补齐）
 
@@ -480,7 +483,7 @@ src/features/network-probe/
     network-probe.sites.ts
   components/
     NodeSelector.tsx
-    BasicView/{NetworkSummaryHeader,SiteLatencyBoard,HealthTree,ScanOpinion,ComprehensiveScan,QuickTools}.tsx
+    BasicView.tsx                   # overview/tree/opinion/offline/fix/report 单页容器
     AdvancedView/...
     HealthReport.tsx
     TripleDestructiveConfirm.tsx   // 或 shared/common
@@ -691,6 +694,14 @@ MVP-B traceroute：主包内 `trippy-core`；有特权走完整路径；无特�
 
 其余内置资源（推荐 DNS、Captive、公网 IP API、reach 目标、MTU/STUN/NTP）统一见 [defaults.md](./defaults.md)。
 
+### 12.6 持续站点监控与阈值告警（P5-2）
+
+- 监控目标仅从自定义站点选择 1–3 个；开始时将选择快照到监控会话，不得探测未选择的其他自定义站点。一次用户开始动作后立即采样，此后每 60 秒一次，顺序探测且不允许周期重叠。HTTP URL 走 HTTP 状态 / TTFB；host 复用站点探针 ICMP + HTTPS 降级路径。前端每次只为一个目标发起 IPC，每个目标有 15 秒总截止时间，三目标周期最多 45 秒；监控专用后端路径不得读取 HTTP 响应体，不测吞吐。
+- 可用性状态机：初始样本建立 baseline；连续 2 次失败产生 down 转换，连续 2 次成功产生恢复转换，每次转换最多通知一次。失败样本不参与 latency baseline。
+- 延迟指标优先 ICMP RTT，其次 HTTP TTFB。前 5 个成功且有指标的样本固定 baseline 为中位数；预警线 `max(1000 ms, baseline × 2)`，连续 3 个样本越线告警，连续 3 个样本回线恢复；monitor session 结束后 baseline 丢弃。
+- 监控只在站点面板挂载且窗口可见期间有效。前端按目标逐个调用后端；隐藏、页面卸载或停止监控后，不再派发当前周期的后续目标，当前单目标请求可在 15 秒上限内结束，但其结果与通知丢弃。窗口重新可见时，若旧目标请求尚未结束，则待其结束后立即从首个目标开始新周期，再恢复 60 秒间隔；页面卸载 / app 退出停止调度。监控状态不落盘。
+- 通知权限只在用户主动开始时请求；每周期复核授权，撤权 / 通知错误停止监控并提示。目标最多 3 个、串行调用，提供明确停止入口；告警文案仅含本地化状态、延迟、阈值和主机标签，不含原始 URL。返回给 renderer 的站点样本 target 也须先脱敏：不回显 userinfo，路径、query 和 fragment 以占位符呈现；网络请求仍使用原目标。
+
 ---
 
 ## 13. 模块边界（与既有功能）
@@ -750,21 +761,23 @@ MVP-B traceroute：主包内 `trippy-core`；有特权走完整路径；无特�
 
 改本模块前自检：
 
-- [ ] **可选能力包 §9.7 / D-017**：未把 MVP 工具改成下载项；Adv 走 pack/`missing_pack`；下载 URL/hash 仅后端 manifest；安装≠提权。
-- [ ] Health 扫描覆盖 §5.4.1 全部 key（不可探测项用 `skip`）；含 §5.4.2 DNS/IP 对照合成结论。
-- [ ] **Defaults [defaults.md](./defaults.md)**：内置 DNS/Captive/公网 IP/站点包可加载；多源故障转移；用户可覆盖可重置；场景不依赖手工填 URL。
-- [ ] §5.7 基础工具（TCP connect、自定义探测、摘要、hosts、防火墙只读、打开系统设置）已实现或显式 unsupported。
-- [ ] **命令透明 §3.5**：关键操作有 hover IPC 提示；运行后有可复制/可浏览的命令日志或 `commandHint`。
-- [ ] 未违反 ARCHITECTURE §2（尤其禁止组件直调 `invoke`、散装错误判断、顶层 `t()`）。
-- [ ] 新 command / event 已进 contracts + Rust handler + TS typed wrapper + DTO。
-- [ ] `cancelScan` 幂等；扫描有防重入；listener 可清理。
-- [ ] 能力状态走矩阵；`unsupported`/`degraded` 不伪装成功。
-- [ ] 高危修复确认步数符合 §3.4；后端有复核。
-- [ ] 未越过 §13 边界（尤其 port-manager Kill、双份 ping）。
-- [ ] 未实现 §12.3.2 攻击能力。
-- [ ] 依赖变更不破坏 guarded crate。
-- [ ] 文档：roadmap 勾选/移除与代码一致；方向性取舍回写 DECISIONS。
-- [ ] 验证：`pnpm run lint:fe`、`pnpm run test:critical`；有 Rust 时 `cargo clippy -- -D warnings`。
+- [x] **可选能力包 §9.7 / D-017**：未把 MVP 工具改成下载项；Adv 走 pack/`missing_pack`；下载 URL/hash 仅后端 manifest；安装≠提权。
+- [x] Health 扫描覆盖 §5.4.1 全部 key（不可探测项用 `skip`）；含 §5.4.2 DNS/IP 对照合成结论。
+- [x] **Defaults [defaults.md](./defaults.md)**：内置 DNS/Captive/公网 IP/站点包可加载；多源故障转移；用户可覆盖可重置；场景不依赖手工填 URL。
+- [x] §5.7 基础工具（TCP connect、自定义探测、摘要、hosts、防火墙只读、打开系统设置）已实现或显式 unsupported。
+- [x] **命令透明 §3.5**：关键操作有 hover IPC 提示；运行后有可复制/可浏览的命令日志或 `commandHint`。
+- [x] 未违反 ARCHITECTURE §2（尤其禁止组件直调 `invoke`、散装错误判断、顶层 `t()`）。
+- [x] 新 command / event 已进 contracts + Rust handler + TS typed wrapper + DTO。
+- [x] `cancelScan` 幂等；扫描有防重入；listener 可清理。
+- [x] 能力状态走矩阵；`unsupported`/`degraded` 不伪装成功。
+- [x] 高危修复确认步数符合 §3.4；后端有复核。
+- [x] 未越过 §13 边界（尤其 port-manager Kill、双份 ping）。
+- [x] 未实现 §12.3.2 攻击能力。
+- [x] 依赖变更不破坏 guarded crate。
+- [x] 文档：roadmap 勾选/移除与代码一致；方向性取舍回写 DECISIONS。
+- [x] 验证：`pnpm run lint:fe`、`pnpm run test:critical`；有 Rust 时 `cargo clippy -- -D warnings`。
+
+本次检查表核对代码结构与静态自动化；S-DIS-02、S-X-33、Globalping / Keychain 界面和 Windows 运行时要求仍须分别完成真机验收。安全分册 §8 的 Adv 准入清单保持未关闭，直到特权签名 / 公证与对应实现范围完成。
 
 ---
 

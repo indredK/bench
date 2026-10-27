@@ -3,9 +3,15 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { PortScanPanel } from "@/features/network-probe/components/PortScanPanel"
 import { MAX_PORT_RANGE_INPUT_BYTES, validatePortRange } from "@/features/network-probe/port-range"
+import type { PortScanResult } from "@/lib/tauri/types/network-probe"
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, values?: Record<string, string>) =>
+      key === "networkProbe.ports.possibleService" && values?.service
+        ? `${key}: ${values.service}`
+        : key,
+  }),
 }))
 
 vi.mock("@/components/common/CommandHint", () => ({
@@ -86,5 +92,73 @@ describe("network-probe port range validation", () => {
     expect(runButton).toBeEnabled()
     fireEvent.click(runButton)
     expect(props.onRun).toHaveBeenCalledWith("127.0.0.1", "80,443")
+  })
+
+  it("shows an open-port count while keeping per-port details available", () => {
+    const result: PortScanResult = {
+      target: "127.0.0.1",
+      mode: "tcp-connect",
+      openPorts: [80, 443],
+      samples: [
+        { port: 22, state: "closed" },
+        { port: 80, state: "open", serviceHint: "http", rttMs: 3 },
+        { port: 443, state: "open", serviceHint: "https", rttMs: 4 },
+      ],
+      cancelled: false,
+      sessionId: "session-1",
+      commandHint: "scanPorts",
+    }
+    render(<PortScanPanel {...createProps()} result={result} />)
+
+    expect(screen.getByText("networkProbe.ports.openCount")).toBeInTheDocument()
+    expect(screen.getByText("22: networkProbe.ports.state.closed")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "80: networkProbe.ports.state.open · networkProbe.ports.possibleService: http · 3 ms",
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "443: networkProbe.ports.state.open · networkProbe.ports.possibleService: https · 4 ms",
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it("politely announces zero open ports after a completed scan", () => {
+    const result: PortScanResult = {
+      target: "127.0.0.1",
+      mode: "tcp-connect",
+      openPorts: [],
+      samples: [{ port: 22, state: "closed" }],
+      cancelled: false,
+      sessionId: "session-closed-only",
+      commandHint: "scanPorts",
+    }
+    const props = createProps()
+    const view = render(<PortScanPanel {...props} loading result={result} />)
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument()
+    view.rerender(<PortScanPanel {...props} result={result} />)
+
+    expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite")
+    expect(screen.getByRole("status")).toHaveTextContent("networkProbe.ports.openCount")
+  })
+
+  it("shows a localized terminal state when a scan is cancelled", () => {
+    const result: PortScanResult = {
+      target: "127.0.0.1",
+      mode: "nmap-syn-or-connect",
+      openPorts: [80],
+      samples: [{ port: 80, state: "open" }],
+      cancelled: true,
+      sessionId: "session-cancelled",
+      message: "Port scan cancelled.",
+      commandHint: "scanPorts",
+    }
+    render(<PortScanPanel {...createProps()} result={result} />)
+
+    expect(screen.getByRole("status")).toHaveTextContent("networkProbe.ports.cancelled")
+    expect(screen.queryByText("networkProbe.ports.openCount")).not.toBeInTheDocument()
+    expect(screen.queryByText("Port scan cancelled.")).not.toBeInTheDocument()
   })
 })

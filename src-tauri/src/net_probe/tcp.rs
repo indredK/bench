@@ -23,11 +23,10 @@ pub async fn tcp_connect(
         .clamp(100, MAX_TIMEOUT_MS);
     let command_hint = format!("tcpConnect(local, '{host}', {port}, {timeout_ms})");
 
-    let addr_str = format!("{host}:{port}");
     let addrs = match tokio::task::spawn_blocking({
-        let addr_str = addr_str.clone();
+        let resolver_host = host.clone();
         move || {
-            addr_str
+            (resolver_host.as_str(), port)
                 .to_socket_addrs()
                 .map(|iter| iter.collect::<Vec<_>>())
         }
@@ -100,5 +99,23 @@ pub async fn tcp_connect(
             message: Some(format!("Timed out after {timeout_ms}ms")),
             command_hint,
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tcp_connect;
+
+    #[tokio::test]
+    async fn tcp_connect_resolves_ipv6_loopback_targets() {
+        let listener = match tokio::net::TcpListener::bind("[::1]:0").await {
+            Ok(listener) => listener,
+            Err(_) => return, // IPv6 loopback may be disabled in the test environment.
+        };
+        let port = listener.local_addr().unwrap().port();
+
+        let result = tcp_connect("::1".into(), port, Some(1_000)).await.unwrap();
+
+        assert_eq!(result.status, "ok");
     }
 }

@@ -1,6 +1,6 @@
 use super::types::{
-    AllowedActions, AppInfo, LaunchTarget, PlatformCapabilities, ProviderStatus, ScanResult,
-    SourceEvidence, SourceType,
+    AllowedActions, AppInfo, LaunchTarget, PlatformCapabilities, ProviderState, ProviderStatus,
+    ScanResult, SourceEvidence, SourceType,
 };
 use super::utils::name_match_confidence;
 use std::collections::HashMap;
@@ -413,6 +413,37 @@ pub fn build_scan_result(
         complete: true,
         providers: Vec::<ProviderStatus>::new(),
         warnings: Vec::new(),
+    }
+}
+
+/// Finish a provider scan while preserving earlier incompleteness and cancelled partial results.
+pub(crate) fn finalize_scan_result(
+    result: &mut ScanResult,
+    providers: Vec<ProviderStatus>,
+    cancelled: bool,
+) {
+    if cancelled {
+        mark_scan_cancelled(result);
+    }
+    let providers_complete = providers.iter().all(|provider| {
+        matches!(
+            provider.state,
+            ProviderState::Ok | ProviderState::Unsupported
+        )
+    });
+    result.complete &= providers_complete;
+    result.providers = providers;
+}
+
+/// Mark a cancelled scan explicitly while retaining any entries collected before cancellation.
+pub(crate) fn mark_scan_cancelled(result: &mut ScanResult) {
+    result.complete = false;
+    if !result
+        .warnings
+        .iter()
+        .any(|warning| warning == "SCAN_CANCELLED")
+    {
+        result.warnings.push("SCAN_CANCELLED".to_string());
     }
 }
 

@@ -38,6 +38,8 @@ fn seed_cards() -> Vec<CommandCard> {
         kind: CardKind::ShellAdmin,
         command: "osascript -e 'set theApp to choose application with prompt \"选择要以管理员权限打开的应用\"\nset appPath to POSIX path of (theApp as alias)\ndo shell script \"open -a \" & quoted form of appPath'".to_string(),
         icon: Some("shield".to_string()),
+        group: String::new(),
+        tags: Vec::new(),
         created_at: 0,
         updated_at: 0,
         market: None,
@@ -67,7 +69,11 @@ pub fn load_cards() -> AppResult<Vec<CommandCard>> {
     }
     let file: CardsFile = serde_json::from_value(value)
         .map_err(|_| AppError::new("PERSISTENCE_CORRUPT", "cards are invalid"))?;
-    Ok(merge_seeds(file.cards))
+    let mut cards = merge_seeds(file.cards);
+    for card in &mut cards {
+        card.normalize_classification();
+    }
+    Ok(cards)
 }
 
 /// 将缺失的内置卡片按 id 合并进现有列表（用户删除过的不会重复出现需单独跟踪，这里以存在性为准）。
@@ -84,9 +90,17 @@ fn merge_seeds(mut cards: Vec<CommandCard>) -> Vec<CommandCard> {
 /// 原子写入全部卡片。
 pub fn save_cards(cards: &[CommandCard]) -> AppResult<()> {
     let path = store_path()?;
+    let cards: Vec<CommandCard> = cards
+        .iter()
+        .cloned()
+        .map(|mut card| {
+            card.normalize_classification();
+            card
+        })
+        .collect();
     let file = CardsFile {
         schema_version: SCHEMA_VERSION,
-        cards: cards.to_vec(),
+        cards,
     };
     let json =
         serde_json::to_vec_pretty(&file).map_err(|_| AppError::io("Cannot serialize cards"))?;
@@ -101,9 +115,17 @@ pub fn save_cards(cards: &[CommandCard]) -> AppResult<()> {
 
 /// 将给定卡片导出（合并内置示例）为 JSON 文件，返回导出条数。
 pub fn export_cards_to_path(path: &std::path::Path, cards: &[CommandCard]) -> AppResult<usize> {
+    let cards: Vec<CommandCard> = cards
+        .iter()
+        .cloned()
+        .map(|mut card| {
+            card.normalize_classification();
+            card
+        })
+        .collect();
     let file = CardsFile {
         schema_version: SCHEMA_VERSION,
-        cards: cards.to_vec(),
+        cards,
     };
     let json =
         serde_json::to_vec_pretty(&file).map_err(|_| AppError::io("Cannot serialize cards"))?;
@@ -141,8 +163,11 @@ pub fn import_cards_from_path(path: &std::path::Path) -> AppResult<Vec<CommandCa
             "import file was written by a newer version",
         ));
     }
-    let imported: CardsFile = serde_json::from_value(value)
+    let mut imported: CardsFile = serde_json::from_value(value)
         .map_err(|_| AppError::new("PERSISTENCE_CORRUPT", "import file is invalid"))?;
+    for card in &mut imported.cards {
+        card.normalize_classification();
+    }
 
     let mut existing = load_cards()?;
     let index: std::collections::HashMap<String, usize> = existing

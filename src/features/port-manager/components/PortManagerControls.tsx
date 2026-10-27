@@ -60,6 +60,7 @@ export function PortManagerControls({
           className="rounded-lg"
           onClick={() => onScanModeChange("local")}
           disabled={killing}
+          aria-pressed={scanMode === "local"}
         >
           <Monitor size={14} className="mr-1" />
           {t("portManager.modeLocal")}
@@ -71,25 +72,33 @@ export function PortManagerControls({
           className="rounded-lg"
           onClick={() => onScanModeChange("remote")}
           disabled={killing}
+          aria-pressed={scanMode === "remote"}
         >
           <Globe size={14} className="mr-1" />
           {t("portManager.modeRemote")}
         </Button>
       </div>
       {scanMode === "remote" && (
-        <div className="relative flex-1">
-          <Globe
-            size={14}
-            className="text-muted-foreground absolute top-1/2 left-2.5 -translate-y-1/2"
-          />
-          <Input
-            className="pl-8"
-            placeholder={t("portManager.remoteHostPlaceholder")}
-            value={remoteHost}
-            onChange={onRemoteHostChange}
-            disabled={killing}
-            autoComplete="off"
-          />
+        <div className="flex-1">
+          <div className="relative">
+            <Globe
+              size={14}
+              className="text-muted-foreground absolute top-1/2 left-2.5 -translate-y-1/2"
+            />
+            <Input
+              className="pl-8"
+              placeholder={t("portManager.remoteHostPlaceholder")}
+              aria-label={t("portManager.remoteHostLabel")}
+              aria-describedby="port-manager-remote-host-hint"
+              value={remoteHost}
+              onChange={onRemoteHostChange}
+              disabled={killing}
+              autoComplete="off"
+            />
+          </div>
+          <p id="port-manager-remote-host-hint" className="text-muted-foreground mt-1 text-xs">
+            {t("portManager.remoteCheckHint")}
+          </p>
         </div>
       )}
       <div className="flex flex-wrap items-start gap-2.5">
@@ -99,6 +108,7 @@ export function PortManagerControls({
             id="port-input"
             className="pr-9"
             placeholder={t("portManager.placeholder")}
+            aria-label={t("portManager.targetPorts")}
             value={inputValue}
             onChange={onInputChange}
             onKeyDown={onInputKeyDown}
@@ -185,6 +195,8 @@ export function PortManagerCommonPorts({
 
 export function PortManagerPortChip({
   port,
+  rescanDisabled,
+  removeDisabled,
   statusClassName,
   statusIcon,
   onScrollTo,
@@ -192,6 +204,8 @@ export function PortManagerPortChip({
   onRemove,
 }: {
   port: number
+  rescanDisabled: boolean
+  removeDisabled: boolean
   statusClassName: string
   statusIcon: React.ReactNode
   onScrollTo: () => void
@@ -200,19 +214,28 @@ export function PortManagerPortChip({
 }) {
   const { t } = useTranslation()
   return (
-    <span
+    <div
       className={cn(
-        "inline-flex animate-[chip-in_0.12s_ease-out] cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-[13px] leading-[22px] font-medium whitespace-nowrap transition-colors",
+        "inline-flex animate-[chip-in_0.12s_ease-out] items-center gap-1 rounded-md border px-2 py-0.5 text-[13px] leading-[22px] font-medium whitespace-nowrap transition-colors",
         statusClassName,
       )}
-      onClick={onScrollTo}
     >
-      <span className="w-4 shrink-0 text-center">{statusIcon}</span>
-      <span>{port}</span>
+      <Button
+        type="button"
+        variant="ghost"
+        aria-label={t("portManager.chipScrollTo", { port })}
+        onClick={onScrollTo}
+        className="h-auto gap-1 rounded-sm p-0 text-inherit hover:bg-transparent"
+      >
+        <span className="w-4 shrink-0 text-center">{statusIcon}</span>
+        <span>{port}</span>
+      </Button>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
+            disabled={rescanDisabled}
+            aria-label={t("portManager.rescanPort", { port })}
             onClick={(event) => {
               event.stopPropagation()
               onRescan()
@@ -228,6 +251,8 @@ export function PortManagerPortChip({
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
+            disabled={removeDisabled}
+            aria-label={t("portManager.removePort", { port })}
             onClick={(event) => {
               event.stopPropagation()
               onRemove()
@@ -242,6 +267,6 @@ export function PortManagerPortChip({
         </TooltipTrigger>
         <TooltipContent>{t("portManager.removePort", { port })}</TooltipContent>
       </Tooltip>
-    </span>
+    </div>
   )
 }

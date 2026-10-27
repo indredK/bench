@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { LanServicesPanel } from "@/features/network-probe/components/LanServicesPanel"
+import { MtuPanel } from "@/features/network-probe/components/MtuPanel"
 import { NtpPanel } from "@/features/network-probe/components/NtpPanel"
 import { PcapDiagPanel } from "@/features/network-probe/components/PcapDiagPanel"
 import { TraceroutePanel } from "@/features/network-probe/components/TraceroutePanel"
@@ -17,6 +18,12 @@ vi.mock("react-i18next", () => ({
       }
       if (key === "networkProbe.lanSvc.protocolError") {
         return `${key} ${String(options?.protocol ?? "")}`
+      }
+      if (key === "networkProbe.lanSvc.meta") {
+        return `${key} ${String(options?.count ?? "")}`
+      }
+      if (key === "networkProbe.lanSvc.progressMdns") {
+        return `${key} ${String(options?.count ?? "")}`
       }
       return key
     },
@@ -39,6 +46,74 @@ vi.mock("@/features/network-probe/components/ProbePanelShell", () => ({
 afterEach(() => cleanup())
 
 describe("network-probe system result panels", () => {
+  it("disables MTU inputs when the platform capability is unsupported", () => {
+    render(
+      <MtuPanel
+        loading={false}
+        result={null}
+        toolEnabled={false}
+        toolStatus="unsupported"
+        onRun={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole("textbox", { name: "networkProbe.mtu.target" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "networkProbe.mtu.run" })).toBeDisabled()
+    expect(screen.getByText("networkProbe.caps.toolDisabled")).toBeInTheDocument()
+  })
+
+  it("offers configured MTU targets as presets while keeping the target editable", () => {
+    render(
+      <MtuPanel
+        loading={false}
+        result={null}
+        toolEnabled
+        mtuTargets={[
+          { id: "mtu-gateway", target: "gateway" },
+          { id: "mtu-custom", target: "192.0.2.15" },
+        ]}
+        onRun={vi.fn()}
+      />,
+    )
+
+    fireEvent.change(screen.getByRole("combobox", { name: "networkProbe.mtu.preset" }), {
+      target: { value: "mtu-custom" },
+    })
+    expect(screen.getByRole("textbox", { name: "networkProbe.mtu.target" })).toHaveValue(
+      "192.0.2.15",
+    )
+    fireEvent.change(screen.getByRole("textbox", { name: "networkProbe.mtu.target" }), {
+      target: { value: "198.51.100.7" },
+    })
+    expect(screen.getByRole("combobox", { name: "networkProbe.mtu.preset" })).toHaveValue("")
+  })
+
+  it("replaces raw unsupported MTU details with localized copy", () => {
+    render(
+      <MtuPanel
+        loading={false}
+        result={{
+          target: "1.1.1.1",
+          resolvedIp: "",
+          status: "unsupported",
+          method: "none",
+          steps: [],
+          message: "MTU quick probe is only implemented on macOS for MVP",
+          elapsedMs: 0,
+          commandHint: "probePathMtu(local)",
+        }}
+        toolEnabled={false}
+        toolStatus="unsupported"
+        onRun={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText("networkProbe.mtu.unsupportedMessage")).toBeInTheDocument()
+    expect(
+      screen.queryByText("MTU quick probe is only implemented on macOS for MVP"),
+    ).not.toBeInTheDocument()
+  })
+
   it("localizes unavailable traceroute state and hides backend detail", () => {
     const systemMessage = "Traceroute unavailable. Permission denied (raw OS detail)."
 
@@ -202,25 +277,83 @@ describe("network-probe system result panels", () => {
               detail: systemMessage,
             },
           ],
+          cancelled: false,
+          sessionId: "lan-services-session",
           message: "Read-only discovery. No UPnP Write / AddPortMapping actions are exposed.",
           elapsedMs: 20,
           commandHint: "browseLanServices(local)",
         }}
+        progress={null}
         toolEnabled
+        canCancel={false}
+        cancelling={false}
         onRun={vi.fn()}
+        onCancel={vi.fn()}
       />,
     )
 
     expect(screen.getAllByRole("listitem")[0]).toHaveTextContent(
       "networkProbe.lanSvc.protocolError networkProbe.lanSvc.protocol.mdns",
     )
+    expect(
+      screen.getByRole("list", { name: "networkProbe.lanSvc.resultsLabel" }),
+    ).toBeInTheDocument()
     expect(screen.queryByText("(mDNS error)")).not.toBeInTheDocument()
+    expect(screen.getByText("networkProbe.lanSvc.meta 0")).toBeInTheDocument()
     expect(screen.getByText(systemMessage).closest("details")).not.toHaveAttribute("open")
     expect(
       screen.queryByText(
         "Read-only discovery. No UPnP Write / AddPortMapping actions are exposed.",
       ),
     ).not.toBeInTheDocument()
+  })
+
+  it("shows cancellable LAN service progress and keeps an empty cancelled result distinct", () => {
+    const onCancel = vi.fn()
+    const { rerender } = render(
+      <LanServicesPanel
+        loading
+        progress={{
+          sessionId: "lan-services-session",
+          phase: "mdns",
+          discoveredServices: 2,
+        }}
+        result={null}
+        toolEnabled
+        canCancel
+        cancelling={false}
+        onRun={vi.fn()}
+        onCancel={onCancel}
+      />,
+    )
+
+    expect(screen.getByRole("status")).toHaveTextContent("networkProbe.lanSvc.progressMdns 2")
+    expect(screen.getByRole("button", { name: "networkProbe.lanSvc.cancel" })).toBeEnabled()
+
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.lanSvc.cancel" }))
+    expect(onCancel).toHaveBeenCalledOnce()
+
+    rerender(
+      <LanServicesPanel
+        loading={false}
+        progress={null}
+        result={{
+          items: [],
+          cancelled: true,
+          sessionId: "lan-services-session",
+          elapsedMs: 80,
+          commandHint: "browseLanServices(local)",
+        }}
+        toolEnabled
+        canCancel={false}
+        cancelling={false}
+        onRun={vi.fn()}
+        onCancel={onCancel}
+      />,
+    )
+
+    expect(screen.getByText("networkProbe.lanSvc.cancelled")).toBeInTheDocument()
+    expect(screen.queryByText("networkProbe.lanSvc.empty")).not.toBeInTheDocument()
   })
 
   it("localizes packet diagnostic modes and hides raw capture messages", () => {

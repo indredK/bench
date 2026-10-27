@@ -233,7 +233,10 @@
       "uuidTitle": "UUID Generator",
       "generateUuid": "Generate UUID v4",
       "timestampTitle": "Timestamp Converter",
+      "timestampLabel": "Unix timestamp (seconds)",
       "timestampPlaceholder": "Unix timestamp (e.g. 1700000000)",
+      "timestampRequired": "Enter a Unix timestamp.",
+      "timestampInvalid": "Enter a valid safe integer in seconds, without decimals or other characters.",
       "convert": "Convert",
       "formatFullDateTime": "Full DateTime",
       "formatDateOnly": "Date Only",
@@ -1121,11 +1124,18 @@
     "title": "Kill Port Processes",
     "modeLocal": "Local",
     "modeRemote": "Remote",
-    "remoteHostPlaceholder": "e.g. example.com or 192.168.1.1",
+    "remoteHostPlaceholder": "e.g. example.com or [2001:db8::1]",
+    "remoteCheckHint": "Direct from this device, without the system proxy; up to 3 seconds per port. IPv4 / IPv6 supported.",
+    "remoteHostLabel": "Remote host",
     "remoteResultHint": "Remote port check — no process details available",
     "alertsEnable": "Enable occupation alerts",
     "alertsDisable": "Disable occupation alerts",
     "alertsMinPorts": "Add ports first to enable alerts",
+    "alertsRequestingPermission": "Requesting notification permission…",
+    "alertsPermissionDenied": "System notification permission was not granted. Alerts remain off. Allow Bench to send notifications in System Settings, then try again.",
+    "alertsPermissionFailed": "System notification permission could not be checked or requested. Alerts remain off. Check notification settings and try again.",
+    "alertsPermissionRevoked": "System notification permission is unavailable. Occupation alerts have been turned off. Allow Bench to send notifications in System Settings, then try again.",
+    "alertsDeliveryFailed": "A system notification could not be sent. Occupation alerts have been turned off. Check notification settings and try again.",
     "occupationAlertTitle": "Port occupied",
     "occupationAlertBody": "Port {{port}} is now in use",
     "targetPorts": "Target Port(s)",
@@ -1155,6 +1165,7 @@
     "tooManyPorts": "Maximum 100 ports allowed",
     "portsAlreadyAdded": "These ports are already in the scan list",
     "rescan": "Rescan",
+    "rescanPort": "Rescan port {{port}}",
     "removePort": "Remove port {{port}}",
     "dismissError": "Dismiss",
     "rescanAll": "Rescan All",
@@ -1167,10 +1178,25 @@
     "statusEmpty": "Free",
     "statusError": "Error",
     "statusEnded": "Ended",
+    "killSucceeded": "PID {{pid}} terminated",
+    "killFailed": "Could not terminate PID {{pid}}",
+    "killErrors": {
+      "PID_GONE": "PID {{pid}} no longer exists. Scan again.",
+      "PID_REUSED": "PID {{pid}} has a different process identity. Termination was refused.",
+      "PERMISSION_DENIED": "Permission denied when terminating PID {{pid}}",
+      "SELF_KILL": "Bench cannot terminate its own process (PID {{pid}})",
+      "CHILD_KILL": "Bench cannot terminate its child process (PID {{pid}})",
+      "CHILD_KILL_FAILED": "PID {{pid}} was terminated, but one or more child processes may remain. Rescan the port.",
+      "INVALID_PID": "PID {{pid}} is invalid. Termination was refused.",
+      "IDENTITY_UNAVAILABLE": "The scanned identity for PID {{pid}} is unavailable. Termination was refused.",
+      "KILL_FAILED": "Failed to terminate PID {{pid}}",
+      "SPAWN_FAILED": "Could not start the system command to terminate PID {{pid}}"
+    },
     "errors": {
       "desktopOnly": "Port management is only available in the desktop app.",
       "killOneFailed": "Failed to free the selected port.",
       "killAllFailed": "Failed to free one or more selected ports.",
+      "tooManyKillTargets": "You can free at most {{max}} processes at a time. Select fewer ports and try again.",
       "remoteHostRequired": "Remote host is required for remote scanning."
     },
     "confirmKillPortTitle": "Free port {{port}}?",
@@ -1183,7 +1209,12 @@
     "pid": "PID {{pid}}",
     "portOwner": "PORT OWNER",
     "rootProcess": "ROOT",
-    "clearInput": "Clear input"
+    "clearInput": "Clear input",
+    "loadingProcessChildren": "Loading child processes…",
+    "loadMoreProcessChildren": "Load up to {{count}} more",
+    "processTreeLoadFailed": "Could not load this process branch. Rescan and retry.",
+    "processTreeCycleTruncated": "Process tree loop detected; expansion stopped",
+    "retry": "Retry"
   },
   "systemInfo": {
     "title": "System Information",
@@ -1246,6 +1277,7 @@
       "linux": "Linux"
     },
     "appTitle": "Bench - DevTools",
+    "skipToMain": "Skip to main content",
     "close": "Close",
     "cancel": "Cancel",
     "remove": "Remove",
@@ -1465,7 +1497,20 @@
     },
     "builtin": "Built-in",
     "reorder": "Drag to reorder",
+    "reorderFilteredDisabled": "Clear filters to reorder cards",
     "reordered": "Card order updated",
+    "openDetails": "Open details for {{title}}",
+    "moreTags": "{{count}} more tags",
+    "filters": {
+      "search": "Search titles, descriptions, commands, groups, or tags",
+      "group": "Group",
+      "allGroups": "All groups",
+      "tag": "Tag",
+      "allTags": "All tags",
+      "clear": "Clear filters",
+      "noResults": "No command cards match these filters.",
+      "resultCount": "Showing {{visible}} of {{total}} cards"
+    },
     "actions": {
       "run": "Run",
       "copy": "Copy",
@@ -1480,9 +1525,17 @@
       "titlePlaceholder": "e.g. Patch Claude with Chinese pack",
       "fieldDescription": "Description",
       "descriptionPlaceholder": "Optional. Briefly explain what this command does",
+      "fieldGroup": "Group",
+      "groupPlaceholder": "e.g. Networking, Developer Tools",
+      "groupHint": "Up to 80 characters ({{count}} / 80)",
+      "fieldTags": "Tags",
+      "tagsPlaceholder": "e.g. local, debug, frequent",
+      "tagsHint": "Separate with commas; up to 12 tags, 40 characters each.",
       "fieldKind": "Action type",
       "suggestion": "This looks more like \"{{kind}}\". Switch to it?",
       "applySuggestion": "Apply",
+      "parametersHint": "Wrap variable names in double braces; up to 20 unique variables. Values are inserted verbatim without shell escaping. Use trusted values and review the full command.",
+      "parametersFound": "Values required before running: {{names}}",
       "command": {
         "shell": "Command",
         "shellAdmin": "Command (runs with admin privileges)",
@@ -1494,6 +1547,20 @@
         "shellAdmin": "e.g. osascript -e 'do shell script ...'",
         "copy": "e.g. git log --oneline --graph --all",
         "open": "e.g. ~/Documents or https://example.com"
+      }
+    },
+    "parameters": {
+      "title": "Enter parameters for “{{title}}”",
+      "description": "Fill in the values used by this command template, then review the resolved command before running it.",
+      "field": "Variable: {{name}}",
+      "preview": "Command for this run",
+      "rawSubstitutionHint": "Values are inserted verbatim without shell escaping. Use trusted values and review the full command; handle quoting according to the target shell syntax.",
+      "run": "Continue",
+      "errors": {
+        "invalidSyntax": "Invalid placeholder. Names must start with a letter or underscore and contain only letters, numbers, or underscores (up to 40 characters).",
+        "tooManyParameters": "A command can use at most 20 unique variables.",
+        "invalidValue": "This value is too long or contains control characters. Edit it and try again.",
+        "commandTooLong": "The resolved command is too long. Shorten the parameter values."
       }
     },
     "confirmRun": {
@@ -1584,7 +1651,7 @@
     "nodeSelect": {
       "label": "Probe origin",
       "local": "This Mac",
-      "localOnlyHint": "Remote probe execution isn't implemented yet — every probe still runs on this Mac."
+      "localOnlyHint": "General probes still run on this device. Use Discover → Multi-node for Globalping DNS, Ping, and HTTP; self-hosted agents currently report connectivity only."
     },
     "sideLog": {
       "title": "Command log",
@@ -1626,11 +1693,14 @@
       "pcap": "Packet diagnostics",
       "dnssec": "DNSSEC / DoH",
       "whois": "WHOIS",
-      "arp": "ARP discovery",
+      "arp": "LAN neighbor discovery",
       "lan-svc": "LAN services",
       "nat": "NAT type",
       "ntp": "NTP",
       "nodes": "Multi-node"
+    },
+    "basic": {
+      "viewDescription": "Overview, health checks, advice, offline diagnostics, fixes, and reports are grouped on this page."
     },
     "overview": {
       "refresh": "Refresh",
@@ -1638,6 +1708,12 @@
       "openSettings": "Open system network settings",
       "openingSettings": "Opening settings…",
       "empty": "No summary yet. Refresh to load local network state.",
+      "partialData": "Some network details could not be read; the rest of the summary is available.",
+      "unavailableFields": {
+        "gateway": "Gateway",
+        "dnsServers": "DNS servers",
+        "wifi": "Wi‑Fi"
+      },
       "ipv4": "IPv4",
       "ipv6": "IPv6",
       "gateway": "Gateway",
@@ -1716,6 +1792,11 @@
       "run": "Probe",
       "running": "Probing…",
       "kind": "Input kind",
+      "kindValues": {
+        "host": "Host",
+        "url": "URL",
+        "unknown": "Unknown input"
+      },
       "icmp": "ICMP",
       "icmpOk": "ok · {{ms}} ms · {{ip}}",
       "icmpFail": "fail — {{error}}",
@@ -1744,6 +1825,8 @@
       "customInput": "URL or host",
       "customPlaceholder": "https://registry.npmjs.org",
       "customAdd": "Add",
+      "customTargetTooLong": "Targets must be at most {{maxBytes}} UTF-8 bytes.",
+      "customSiteLimitReached": "You can add up to {{max}} custom sites. Remove one to add another.",
       "customRun": "Run custom",
       "customRemove": "Remove",
       "customEmpty": "No custom sites yet.",
@@ -1752,6 +1835,46 @@
         "cn-friendly": "CN-friendly",
         "dev": "Developer",
         "official": "Official sites"
+      }
+    },
+    "siteMonitor": {
+      "title": "Continuous site monitoring",
+      "hint": "Check selected custom sites every {{interval}} seconds, up to {{max}}. Runs only while this panel is open and the window is visible.",
+      "thresholdHint": "Alert after 2 consecutive failures. Latency is calibrated from the first 5 successful samples; alert after 3 samples above max(1000 ms, 2× baseline).",
+      "selectTargets": "Select sites to monitor",
+      "noTargets": "Add a custom site first, then select it for monitoring.",
+      "start": "Start monitoring",
+      "starting": "Requesting notification permission…",
+      "stop": "Stop monitoring",
+      "active": "Monitoring",
+      "paused": "Paused while window is hidden",
+      "checking": "Checking…",
+      "off": "Not running",
+      "lastChecked": "Last check: {{time}}",
+      "reachableMs": "Reachable · {{ms}} ms",
+      "reachable": "Reachable",
+      "unreachable": "Unreachable",
+      "errors": {
+        "desktopOnly": "Continuous monitoring is available in the Bench desktop app only.",
+        "targetsRequired": "Select at least one custom site.",
+        "tooManyTargets": "You can monitor up to {{max}} sites.",
+        "targetsChanged": "The selected sites changed before monitoring started. Select them again.",
+        "permissionDenied": "Notification permission was denied. Monitoring did not start.",
+        "permissionRevoked": "Notification permission was revoked. Monitoring stopped.",
+        "permissionFailed": "Could not check notification permission. Monitoring stopped.",
+        "probeFailed": "A site check failed. Monitoring stopped.",
+        "probeUnavailable": "The site probe is unavailable. Monitoring stopped.",
+        "deliveryFailed": "The system notification failed. Monitoring stopped."
+      },
+      "notifications": {
+        "downTitle": "Site unreachable",
+        "downBody": "{{target}} failed consecutive checks.",
+        "recoveredTitle": "Site recovered",
+        "recoveredBody": "{{target}} is reachable again.",
+        "slowTitle": "Site response is slow",
+        "slowBody": "{{target}} responded in {{latency}} ms, above the {{threshold}} ms threshold.",
+        "latencyRecoveredTitle": "Site response recovered",
+        "latencyRecoveredBody": "{{target}} response returned to {{latency}} ms."
       }
     },
     "official": {
@@ -1850,7 +1973,9 @@
         "fail": "fail",
         "skip": "skip",
         "error": "error"
-      }
+      },
+      "proxyStatusUnavailable": "System proxy settings could not be read.",
+      "vpnStatusUnavailable": "VPN tunnel status could not be determined."
     },
     "opinion": {
       "hint": "Actionable advice from the latest health scan.",
@@ -1993,8 +2118,12 @@
       "proxy": "System proxy",
       "proxyOn": "enabled",
       "proxyOff": "disabled",
+      "proxyUnknown": "unknown",
+      "proxyUnknownDetail": "System proxy status is unavailable on this device or could not be read.",
       "vpn": "VPN-like interfaces",
       "vpnNone": "none",
+      "vpnUnknown": "unknown",
+      "defaultRouteUnknown": "Default route path could not be inspected.",
       "viaTunnel": "Default route appears to go through a tunnel.",
       "ipv6Title": "IPv6",
       "mtuTitle": "MTU / PMTUD",
@@ -2039,10 +2168,13 @@
     "mtu": {
       "hint": "Path MTU via DF binary search (macOS ping -D). Marks blackhole when large packets time out without Fragmentation Needed.",
       "target": "Target",
+      "preset": "Target preset",
+      "custom": "Custom target",
       "targetPlaceholder": "1.1.1.1 or gateway",
       "run": "Probe MTU",
       "running": "Probing…",
       "empty": "No MTU probe yet.",
+      "unsupportedMessage": "Path MTU probing is currently available on macOS only.",
       "status": "Status",
       "statusValue": {
         "ok": "ok",
@@ -2160,13 +2292,23 @@
       "fail": "unreachable / failed"
     },
     "ports": {
-      "hint": "TCP connect scan of a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",
-      "degradedHint": "Degraded mode: TCP connect only. Install adv-scanner / nmap for SYN stealth.",
+      "hint": "Scan only hosts you own or are authorized to test. Up to 256 ports; scans can be cancelled.",
+      "degradedHint": "Uses TCP connect; if local nmap has SYN permission, it tries SYN and otherwise falls back. No exploit scripts run.",
+      "nmapHint": "This scan used local nmap: SYN when permitted, otherwise TCP connect. No exploit scripts run.",
       "target": "Target",
       "range": "Ports",
       "run": "Scan ports",
       "running": "Scanning…",
+      "cancelled": "Port scan cancelled.",
       "cancel": "Cancel",
+      "state": {
+        "open": "Open",
+        "closed": "Closed",
+        "filtered": "Filtered",
+        "error": "Error",
+        "unknown": "Unknown"
+      },
+      "possibleService": "Possible service: {{service}}",
       "validation": {
         "empty": "Enter at least one port or range.",
         "invalidFormat": "Use ports like 80,443,8000-8010.",
@@ -2175,24 +2317,49 @@
         "tooMany": "Scan at most 256 unique ports.",
         "tooLong": "Port input is too long (maximum 2048 bytes)."
       },
-      "openList": "Open: {{ports}}",
+      "openCount": "Open ports: {{count}}",
+      "resultsLabel": "Port scan results",
       "confirmTitle": "Confirm port scan scope",
       "confirmDesc": "Target {{target}} · about {{count}} ports. Public hosts or large ranges need an extra confirm.",
-      "confirmConsequence": "Only scan assets you own or are authorized to test. TCP connect only (no SYN).",
+      "confirmConsequence": "Only scan assets you own or are authorized to test. Uses TCP connect or nmap SYN when permitted; no exploit scripts run.",
       "confirmRun": "Scan anyway"
     },
     "arp": {
-      "hint": "List neighbors from the OS ARP/neighbor cache (degraded discovery).",
-      "degradedHint": "Degraded: cache only. Privileged ARP sweep needs adv-scanner.",
-      "run": "Refresh ARP cache",
-      "running": "Reading…",
-      "empty": "No neighbors in the ARP cache.",
-      "emptyQuiet": "No neighbors found — quiet network, or probes were filtered.",
+      "hint": "Discover neighbors on the current IPv4 subnet. The available discovery sources depend on your platform.",
+      "degradedHint": "Degraded discovery probes TCP 80/443/22, up to /24; it sends no raw ARP requests. Scan only networks you are authorized to inspect.",
+      "run": "Scan current subnet",
+      "running": "Scanning…",
+      "preparing": "Identifying the active interface and reading the neighbor cache…",
+      "progress": "Checked {{checked}} of {{total}} addresses · Neighbor count: {{count}}",
+      "progressLabel": "LAN scan progress",
+      "empty": "No neighbors were returned.",
+      "emptyQuiet": "No neighbors responded — the network may be quiet, isolated, or filtering connection probes.",
       "emptyIsolation": "Only the gateway responded — guest Wi‑Fi / client isolation is likely.",
-      "emptyPermission": "No usable IPv4 — check Local Network permission in System Settings.",
+      "emptyPermission": "The operating system denied local network access. Review Bench's privacy or firewall permissions and try again.",
+      "noInterface": "Bench could not identify one active non-tunnel IPv4 subnet. Connect to a local network or review your VPN / network adapters and try again.",
+      "scopeSkipped": "The current subnet is wider than /24. TCP probes were skipped; only the system cache is shown.",
+      "scopeSkippedNoCache": "The current subnet is wider than /24. TCP probes were skipped, and the system neighbor cache could not be read.",
+      "nonPrivateScopeSkipped": "The selected interface is outside RFC 1918 private IPv4 ranges (for example, public or link-local addresses). Active TCP probes were skipped; only the system cache is shown.",
+      "nonPrivateScopeSkippedNoCache": "The selected interface is outside RFC 1918 private IPv4 ranges (for example, public or link-local addresses). Active TCP probes were skipped, and the system neighbor cache could not be read.",
+      "noPeers": "The selected /32 host route has no other IPv4 addresses to probe; only the system cache is shown.",
+      "noPeersNoCache": "The selected /32 host route has no other IPv4 addresses to probe, and the system neighbor cache could not be read.",
       "openSettings": "Open system network settings",
       "cidr": "Sweep CIDR: {{cidr}}",
-      "meta": "{{count}} neighbors · mode={{mode}} · {{ms}} ms",
+      "meta": "{{count}} neighbors · mode: {{mode}} · {{ms}} ms",
+      "resultsLabel": "LAN neighbors",
+      "mode": {
+        "cache": "system cache",
+        "cacheAndTcp": "system cache + TCP probes",
+        "tcpOnly": "TCP probes only",
+        "notRun": "not run",
+        "unknown": "discovery"
+      },
+      "source": {
+        "cache": "system cache",
+        "tcpSweep": "TCP probes",
+        "unknown": "other source"
+      },
+      "commandDetails": "Command details",
       "cancelled": "LAN discovery was cancelled mid-sweep."
     },
     "lanSvc": {
@@ -2200,7 +2367,14 @@
       "readOnlyHint": "Read-only discovery. No UPnP Write / AddPortMapping actions are exposed.",
       "run": "Browse LAN services",
       "running": "Browsing…",
+      "cancel": "Cancel browse",
+      "cancelling": "Stopping browse…",
+      "preparing": "Preparing mDNS and SSDP discovery…",
+      "progressMdns": "Browsing mDNS services · {{count}} found",
+      "progressSsdp": "Browsing SSDP devices · {{count}} found",
+      "cancelled": "Browse cancelled. Any services already found are shown.",
       "empty": "No mDNS/SSDP responses in the listen window.",
+      "resultsLabel": "Discovered local services",
       "meta": "{{count}} services · {{ms}} ms",
       "protocolError": "{{protocol}} discovery failed",
       "protocol": {
@@ -2210,8 +2384,8 @@
       }
     },
     "pcap": {
-      "hint": "Short counter-only packet sample (RST / retransmit hints). Full pcap write stays opt-in.",
-      "degradedHint": "Degraded: tcpdump counters when available. Install pcap-diag for richer diagnostics.",
+      "hint": "Packet and RST counters only. The default sample stops after 5 seconds or 200 packets, whichever comes first. This build does not save full pcap files or retain payloads.",
+      "degradedHint": "Degraded: counters require local tcpdump and BPF permission. The pcap-diag sidecar is not wired in; its install marker does not add functionality.",
       "run": "Sample packet counters",
       "running": "Capturing…",
       "mode": "Mode",
@@ -2229,26 +2403,92 @@
       }
     },
     "nodes": {
-      "hint": "Compare DNS answers from this Mac and Globalping locations. HTTPS/WSS agents currently report reachability only; remote probes are not available yet.",
-      "run": "Compare DNS (multi-node)",
-      "running": "Comparing…",
+      "modeLabel": "Remote measurement type",
+      "mode": {
+        "dns": "DNS",
+        "ping": "Ping",
+        "http": "HTTP"
+      },
+      "modeHint": {
+        "dns": "Compare DNS answers from this device and Globalping locations.",
+        "ping": "Measure round-trip time and packet loss from public Globalping probes.",
+        "http": "Request a public HTTP(S) endpoint from Globalping probes and compare response status and timings. Query strings, fragments, and credentials are not supported."
+      },
+      "settingsTitle": "Node and credential settings",
+      "runMode": {
+        "dns": "Compare DNS across nodes",
+        "ping": "Run remote Ping",
+        "http": "Run remote HTTP"
+      },
+      "targetLabel": {
+        "dns": "Domain to look up",
+        "ping": "Public hostname or IP address",
+        "http": "Public HTTP(S) URL"
+      },
+      "targetPlaceholder": {
+        "dns": "example.com",
+        "ping": "iana.org or public IP",
+        "http": "https://www.iana.org/domains"
+      },
+      "httpMethod": "Request method",
+      "targetInvalid": "Invalid target. DNS requires a domain name and rejects known local or reserved names; custom private domains may still look valid, so do not submit names that are not approved for public disclosure. Ping accepts only a public hostname or IP; HTTP accepts a public HTTP(S) URL without credentials, query strings, or fragments.",
+      "httpMethodOptions": {
+        "get": "GET",
+        "head": "HEAD"
+      },
+      "privacyNotice": "Globalping measurements, including targets, options, and results, are public. Do not submit private URLs, account data, or confidential information; only public targets are supported.",
+      "running": "Running…",
+      "remoteStatus": {
+        "finished": "Completed",
+        "failed": "Failed"
+      },
+      "resolvedAddress": "Resolved address: {{address}}",
+      "pingStats": "RTT min/avg/max {{min}}/{{avg}}/{{max}} ms · loss {{loss}}% · received {{received}}/{{sent}} packets",
+      "httpResponse": "HTTP {{code}} {{name}}",
+      "httpTimings": "Total {{total}} ms · DNS {{dns}} · TCP {{tcp}} · TLS {{tls}} · first byte {{firstByte}} · download {{download}} ms",
+      "partialResults": "Showing this device and completed probes while the remaining probes run.",
       "stopWaitingHint": "Stopping ends local polling. A measurement already submitted to Globalping may continue running.",
       "cancelled": "Stopped waiting. Results received before stopping are shown.",
       "technicalDetails": "Technical details",
       "failures": {
         "quota": "Globalping quota or rate limit reached.",
+        "auth": "Globalping rejected the saved token. Check that it is valid, or remove it to use anonymous quota.",
+        "credentialStore": "Bench could not read the Globalping token from the system credential store; no remote request was sent.",
         "timeout": "The Globalping measurement timed out; this app waits up to 20 seconds.",
         "request": "The Globalping request could not be completed.",
         "measurement": "This probe could not complete the DNS measurement.",
+        "remoteMeasurement": "This probe could not complete the remote measurement.",
         "noAnswers": "This probe returned no DNS answer.",
         "localRequest": "The local DNS lookup failed.",
         "localTimeout": "The local DNS lookup exceeded the 5-second wait limit."
+      },
+      "rateLimitTitle": "Globalping rate limit details",
+      "rateLimitRemaining": "{{count}} rate limit points remaining",
+      "rateLimitLimit": "window limit {{count}} points",
+      "rateLimitConsumed": "{{count}} rate limit points consumed",
+      "creditsRemaining": "{{count}} credits remaining",
+      "creditsConsumed": "{{count}} credits consumed",
+      "requestCost": "request cost: {{count}}",
+      "rateLimitWait": "resets in about {{count}} seconds",
+      "token": {
+        "title": "Globalping API token (optional)",
+        "hint": "The token is stored only in the system Keychain. Bench sends it in Authorization only to api.globalping.io; it is not written to app storage or command logs. The first status check or DNS, Ping, or HTTP measurement using a saved token may prompt for Keychain access.",
+        "placeholder": "Paste a Globalping token",
+        "statusUnknown": "The system Keychain has not been checked.",
+        "statusConfigured": "A token is configured in the system Keychain.",
+        "statusMissing": "No token is stored; anonymous quota will be used.",
+        "check": "Check Keychain",
+        "save": "Save token",
+        "clear": "Remove token",
+        "saved": "Token saved to the system Keychain.",
+        "cleared": "Token removed from the system Keychain.",
+        "failed": "Token operation failed. Check system Keychain permissions."
       },
       "working": "Working…",
       "refresh": "Refresh nodes",
       "listTitle": "Probe nodes",
       "addTitle": "Add agent",
-      "addHint": "Endpoint must use HTTPS or WSS (https:// or wss://). Arbitrary shell actions are rejected.",
+      "addHint": "Use HTTPS or WSS. Health checks connect directly without the system proxy and block cloud metadata endpoints. Arbitrary shell actions are rejected.",
       "labelPlaceholder": "Label",
       "domainPlaceholder": "example.com",
       "endpointPlaceholder": "https:// or wss://agent.example:8443",
@@ -2262,8 +2502,7 @@
         "local": "This device",
         "globalpingWorld": "Globalping · World",
         "globalpingUs": "Globalping · United States",
-        "globalpingEurope": "Globalping · Europe",
-        "globalpingAsia": "Globalping · Asia"
+        "globalpingEurope": "Globalping · Europe"
       },
       "agentReachable": "Reachable",
       "agentUnreachable": "Unavailable",
@@ -2274,7 +2513,12 @@
       "endpointError": {
         "invalid": "Enter a valid HTTPS or WSS URL.",
         "scheme": "Use HTTPS or WSS; plaintext connections are not supported.",
-        "credentials": "Credentials, query parameters, and fragments are not supported in the endpoint URL. Remove them and try again."
+        "credentials": "Credentials, query parameters, and fragments are not supported in the endpoint URL. Remove them and try again.",
+        "tooLong": "The endpoint URL must be 2048 UTF-8 bytes or shorter."
+      },
+      "labelError": {
+        "invalid": "The label cannot contain control characters.",
+        "tooLong": "The label must be 80 characters or fewer."
       },
       "addAgent": "Add agent",
       "removeAgent": "Remove",
@@ -2328,6 +2572,25 @@
         "cancel": "Keep history"
       },
       "historyItem": "{{session}}… · {{count}} checks · {{ms}} ms · {{opinions}} opinions",
+      "comparison": {
+        "title": "Compare snapshots",
+        "hint": "Compare statuses by check identifier. Options are ordered newest first; no overall health score or check details are shown.",
+        "needsTwoSnapshots": "At least two non-cancelled health snapshots are needed. Run another health scan to compare.",
+        "snapshotA": "Snapshot A",
+        "snapshotB": "Snapshot B",
+        "snapshotOption": "#{{position}} · {{session}}… · {{count}} checks",
+        "tableCaption": "Health snapshot status comparison",
+        "check": "Check",
+        "change": "Change",
+        "missing": "Not present",
+        "noChecks": "These snapshots have no check items to compare.",
+        "changeType": {
+          "same": "Unchanged",
+          "changed": "Status changed",
+          "only-a": "Only in snapshot A",
+          "only-b": "Only in snapshot B"
+        }
+      },
       "privacyHint": "Exports may include public IP, Wi‑Fi SSID, hosts overrides, and local addresses. Share only with people you trust."
     },
     "traceroute": {
@@ -2387,7 +2650,7 @@
       "whois": "whois('{{query}}')",
       "dnssec": "checkDnsSec('{{domain}}')",
       "scanPorts": "scanPorts(local, '{{target}}', '{{ports}}') // tcp-connect",
-      "arp": "scanLan(local) // arp-cache",
+      "arp": "scanLan(local) // arp-cache + TCP connect (80,443,22; max /24)",
       "lanSvc": "browseLanServices(local) // mDNS+SSDP",
       "pcap": "startPacketCapture(local) // tcpdump counters",
       "compareDns": "dnsLookup(multi, domain)",
@@ -2423,6 +2686,69 @@
         "privHelper": "Privileged helper service (priv-helper; notarization required for trust)."
       }
     },
+    "defaults": {
+      "manage": "Default resources",
+      "title": "Manage default resources",
+      "description": "Edit the DNS, site, and probe lists used by Network Probe. Saving updates only the selected category.",
+      "categoriesLabel": "Default resource categories",
+      "categoryHint": "Saved changes apply to future probes. Built-in lists can evolve with Bench; user overrides remain until reset.",
+      "categories": {
+        "dnsPresets": "DNS presets",
+        "sitePacks": "Site packs",
+        "reachTargets": "Reachability targets",
+        "captiveProbes": "Captive portal probes",
+        "publicIpApis": "Public IP services",
+        "mtuTargets": "MTU targets"
+      },
+      "fields": {
+        "id": "ID",
+        "address": "DNS address",
+        "region": "Region",
+        "pack": "Site pack",
+        "target": "Target",
+        "channel": "Probe method",
+        "kind": "Target type",
+        "url": "HTTPS / HTTP URL",
+        "expectStatus": "Expected status",
+        "format": "Response format"
+      },
+      "options": {
+        "probeMethod": {
+          "http": "HTTP(S)",
+          "icmp": "ICMP"
+        },
+        "targetType": {
+          "ipv4": "IPv4 address",
+          "name": "Hostname"
+        },
+        "format": {
+          "json-ip": "JSON IP field",
+          "text": "Plain-text IP"
+        }
+      },
+      "rowField": "Item {{index}}, {{field}}",
+      "add": "Add item",
+      "remove": "Remove item",
+      "removeItem": "Remove item {{index}}",
+      "addPack": "Add site pack",
+      "removePack": "Remove current pack",
+      "empty": "This category has no items yet.",
+      "limitReached": "This category allows up to {{max}} entries.",
+      "packLimitReached": "The 32-site-pack limit has been reached.",
+      "save": "Save category",
+      "saved": "Saved. Future probes will use this list.",
+      "reset": "Restore all built-in lists",
+      "resetTitle": "Restore built-in defaults?",
+      "resetDescription": "This removes all custom default lists and restores the resources shipped with Bench.",
+      "resetConfirm": "Restore built-in lists",
+      "validation": {
+        "required": "Keep at least one item; an empty list disables the corresponding probe.",
+        "invalidId": "IDs may use lowercase letters, digits, dots, underscores, and hyphens, and must start with a letter or digit.",
+        "duplicateId": "IDs must be unique within a category or site pack.",
+        "limitExceeded": "Each reach-target kind allows at most 3 candidates; captive probes and public IP APIs allow 3 each.",
+        "invalidValue": "Check the IP address, URL, target type, probe method, and status code. Public IP services require HTTPS."
+      }
+    },
     "caps": {
       "banner": "platform={{platform}} · privilege={{privilege}} (tools from capabilities matrix)",
       "toolDisabled": "{{tool}} status={{status}} — action disabled by capabilities matrix",
@@ -2430,7 +2756,8 @@
     },
     "badge": {
       "post": "Post",
-      "planning": "Planned"
+      "planning": "Planned",
+      "multiNodeOnly": "Multi-node only"
     },
     "capabilitiesLine": "capabilities: {{value}}",
     "coming": {
@@ -2469,9 +2796,16 @@
       "lanFailed": "LAN discovery failed.",
       "lanSvcFailed": "LAN service browse failed.",
       "pcapFailed": "Packet diagnostics failed.",
+      "pcapPermissionRequired": "This user cannot read the packet capture interface (BPF), so sampling did not complete. This build has no installable privileged capture helper.",
+      "pcapTcpdumpUnavailable": "No usable local tcpdump was found, so counter sampling cannot run.",
       "nodesFailed": "Failed to list probe nodes.",
       "multiNodeFailed": "Multi-node DNS compare failed.",
-      "agentFailed": "Agent registry operation failed."
+      "globalpingTokenFailed": "The secure Globalping token storage operation failed.",
+      "agentFailed": "Agent registry operation failed.",
+      "agentMetadataBlocked": "This endpoint targets or resolves to a cloud metadata service, so registration was blocked.",
+      "agentLimitReached": "You can save up to 256 agents. Remove nodes you no longer use first.",
+      "agentRegistryLimitExceeded": "The local agent registry has more than 256 entries, so loading stopped to avoid excessive network checks. Back up agents.json, close Bench, remove old records, then reopen the app.",
+      "agentRegistryTooLarge": "The local agent registry exceeds 1 MiB, so loading stopped. Back up agents.json, inspect it while Bench is closed, then reopen the app."
     }
   },
   "extensionCenter": {

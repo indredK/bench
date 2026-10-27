@@ -75,7 +75,7 @@ function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
         inputError={controller.inputError}
         portStates={controller.portStates}
         portDetails={controller.portDetails}
-        portKillMessages={controller.portKillMessages}
+        portKillResults={controller.portKillResults}
         error={controller.error}
         killing={controller.killing}
         isScanning={controller.isScanning}
@@ -86,6 +86,8 @@ function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
         scanMode={controller.scanMode}
         remoteHost={controller.remoteHost}
         alertsEnabled={controller.alertsEnabled}
+        alertsError={controller.alertsError}
+        requestingAlertsPermission={controller.requestingAlertsPermission}
         onScanModeChange={controller.setScanMode}
         onRemoteHostChange={controller.handleRemoteHostChange}
         onToggleAlerts={controller.handleToggleAlerts}
@@ -101,6 +103,7 @@ function PortManager({ feature }: { feature?: { desktopOnly?: boolean } }) {
         onKillAll={handleKillAllRequest}
         onScrollToPort={controller.scrollToPort}
         onKillPort={handleKillPortRequest}
+        onLoadProcessChildren={controller.queryProcessChildren}
         onRemovePort={controller.removePort}
         onClearError={controller.clearError}
         statusIconFor={controller.statusIconFor}

@@ -9,6 +9,7 @@ import {
   type NetworkProbeOfflineSub,
   useNetworkProbeStore,
 } from "@/features/network-probe/store"
+import type { DefaultsOverride } from "@/lib/tauri/types/network-probe"
 import { canUseTauriCommands } from "@/platform/capabilities"
 
 function toolStatus(tools: Record<string, string> | undefined, key: string): string | undefined {
@@ -24,6 +25,7 @@ export function useNetworkProbeController() {
   const nav = useNetworkProbeStore((s) => s.nav)
   const capabilities = useNetworkProbeStore((s) => s.capabilities)
   const capabilityPacks = useNetworkProbeStore((s) => s.capabilityPacks)
+  const loadingCapabilityPacks = useNetworkProbeStore((s) => s.loadingCapabilityPacks)
   const packProgressText = useNetworkProbeStore((s) => s.packProgressText)
   const packInstallResult = useNetworkProbeStore((s) => s.packInstallResult)
   const defaults = useNetworkProbeStore((s) => s.defaults)
@@ -62,9 +64,14 @@ export function useNetworkProbeController() {
   const natResult = useNetworkProbeStore((s) => s.natResult)
   const ntpResult = useNetworkProbeStore((s) => s.ntpResult)
   const lanResult = useNetworkProbeStore((s) => s.lanResult)
+  const lanProgress = useNetworkProbeStore((s) => s.lanProgress)
   const lanServicesResult = useNetworkProbeStore((s) => s.lanServicesResult)
+  const lanServicesProgress = useNetworkProbeStore((s) => s.lanServicesProgress)
   const pcapResult = useNetworkProbeStore((s) => s.pcapResult)
   const multiNodeDnsResult = useNetworkProbeStore((s) => s.multiNodeDnsResult)
+  const globalpingMeasurementResult = useNetworkProbeStore((s) => s.globalpingMeasurementResult)
+  const globalpingTokenConfigured = useNetworkProbeStore((s) => s.globalpingTokenConfigured)
+  const loadingGlobalpingToken = useNetworkProbeStore((s) => s.loadingGlobalpingToken)
   const probeNodes = useNetworkProbeStore((s) => s.probeNodes)
   const reportHistory = useNetworkProbeStore((s) => s.reportHistory)
   const securityAuthorized = useNetworkProbeStore((s) => s.securityAuthorized)
@@ -98,11 +105,15 @@ export function useNetworkProbeController() {
     lan:
       activeSessionIdByKind.lan != null &&
       cancelRequestedSessionIdByKind.lan === activeSessionIdByKind.lan,
+    lanServices:
+      activeSessionIdByKind.lanServices != null &&
+      cancelRequestedSessionIdByKind.lanServices === activeSessionIdByKind.lanServices,
     multiNode:
       activeSessionIdByKind.multiNode != null &&
       cancelRequestedSessionIdByKind.multiNode === activeSessionIdByKind.multiNode,
   }
   const commandLog = useNetworkProbeStore((s) => s.commandLog)
+  const loadingBootstrap = useNetworkProbeStore((s) => s.loadingBootstrap)
   const loadingSummary = useNetworkProbeStore((s) => s.loadingSummary)
   const loadingTcp = useNetworkProbeStore((s) => s.loadingTcp)
   const loadingPing = useNetworkProbeStore((s) => s.loadingPing)
@@ -150,8 +161,8 @@ export function useNetworkProbeController() {
   )
 
   const selectL2 = useCallback(
-    (id: string) => {
-      setL2(id)
+    (id: string, options?: { preserveError?: boolean }) => {
+      setL2(id, options)
     },
     [setL2],
   )
@@ -164,6 +175,8 @@ export function useNetworkProbeController() {
   )
 
   const refreshOverview = useCallback(() => networkProbeUseCases.refreshOverview(), [])
+  const autoLoadOverview = useCallback(() => networkProbeUseCases.autoLoadOverview(), [])
+  const retryBootstrap = useCallback(() => networkProbeUseCases.bootstrap(), [])
   const runTcpConnect = useCallback(
     (host: string, port: number) => networkProbeUseCases.runTcpConnect(host, port),
     [],
@@ -272,6 +285,20 @@ export function useNetworkProbeController() {
     (domain: string) => networkProbeUseCases.compareDnsMulti(domain),
     [],
   )
+  const measureGlobalping = useCallback(
+    (measurementType: "ping" | "http", target: string, httpMethod?: "GET" | "HEAD") =>
+      networkProbeUseCases.measureGlobalping(measurementType, target, httpMethod),
+    [],
+  )
+  const refreshGlobalpingTokenStatus = useCallback(
+    () => networkProbeUseCases.refreshGlobalpingTokenStatus(),
+    [],
+  )
+  const saveGlobalpingToken = useCallback(
+    (token: string) => networkProbeUseCases.saveGlobalpingToken(token),
+    [],
+  )
+  const clearGlobalpingToken = useCallback(() => networkProbeUseCases.clearGlobalpingToken(), [])
   const addAgent = useCallback(
     (label: string, endpoint: string) => networkProbeUseCases.addAgent(label, endpoint),
     [],
@@ -286,6 +313,10 @@ export function useNetworkProbeController() {
   )
   const authorizeSecurity = useCallback(() => setSecurityAuthorized(true), [setSecurityAuthorized])
   const revokeSecurity = useCallback(() => setSecurityAuthorized(false), [setSecurityAuthorized])
+  const saveDefaultsOverride = useCallback(
+    (overrideData: DefaultsOverride) => networkProbeUseCases.saveDefaultsOverride(overrideData),
+    [],
+  )
   const resetDefaults = useCallback(() => networkProbeUseCases.resetDefaults(), [])
 
   const l2Id = nav.l2ByL1[nav.l1Id]
@@ -297,11 +328,17 @@ export function useNetworkProbeController() {
     offlineSub: nav.offlineSub,
     capabilities,
     capabilityPacks,
+    loadingCapabilityPacks,
     packProgressText,
     packInstallResult,
     toolEnabled: {
       ping: toolEnabled(tools, "ping"),
       traceroute: toolEnabled(tools, "traceroute"),
+      pathMtu: toolEnabled(tools, "pathMtu"),
+      flushDns: toolEnabled(tools, "flushDns"),
+      switchDns: toolEnabled(tools, "switchDns"),
+      renewDhcp: toolEnabled(tools, "renewDhcp"),
+      resetNetworkStack: toolEnabled(tools, "resetNetworkStack"),
       sitesProbe: toolEnabled(tools, "sitesProbe"),
       speedTest: toolEnabled(tools, "speedTest"),
       pollution: toolEnabled(tools, "pollution"),
@@ -318,6 +355,11 @@ export function useNetworkProbeController() {
     toolStatus: {
       ping: toolStatus(tools, "ping"),
       traceroute: toolStatus(tools, "traceroute"),
+      pathMtu: toolStatus(tools, "pathMtu"),
+      flushDns: toolStatus(tools, "flushDns"),
+      switchDns: toolStatus(tools, "switchDns"),
+      renewDhcp: toolStatus(tools, "renewDhcp"),
+      resetNetworkStack: toolStatus(tools, "resetNetworkStack"),
       sitesProbe: toolStatus(tools, "sitesProbe"),
       speedTest: toolStatus(tools, "speedTest"),
       pollution: toolStatus(tools, "pollution"),
@@ -367,15 +409,21 @@ export function useNetworkProbeController() {
     natResult,
     ntpResult,
     lanResult,
+    lanProgress,
     lanServicesResult,
+    lanServicesProgress,
     pcapResult,
     multiNodeDnsResult,
+    globalpingMeasurementResult,
+    globalpingTokenConfigured,
+    loadingGlobalpingToken,
     probeNodes,
     reportHistory,
     securityAuthorized,
     activeSessionIdByKind,
     cancellingByKind,
     commandLog,
+    loadingBootstrap,
     loadingSummary,
     loadingTcp,
     loadingPing,
@@ -408,6 +456,8 @@ export function useNetworkProbeController() {
     selectL2,
     selectOfflineSub,
     refreshOverview,
+    autoLoadOverview,
+    retryBootstrap,
     runTcpConnect,
     runPing,
     runDnsLookup,
@@ -446,12 +496,17 @@ export function useNetworkProbeController() {
     runPcapDiag,
     refreshProbeNodes,
     compareDnsMulti,
+    measureGlobalping,
+    refreshGlobalpingTokenStatus,
+    saveGlobalpingToken,
+    clearGlobalpingToken,
     addAgent,
     removeAgent,
     installCapabilityPackVerifyFail,
     authorizeSecurity,
     revokeSecurity,
     clearReportHistory,
+    saveDefaultsOverride,
     resetDefaults,
   }
 }

@@ -1,3 +1,5 @@
+# Local dependencies may be a directory or a shared workspace symlink.
+/node_modules
 node_modules/
 dist/
 

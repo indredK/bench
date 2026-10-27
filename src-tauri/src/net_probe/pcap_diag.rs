@@ -1,5 +1,5 @@
 //! Diagnostic packet stats (S-SEC-04) — short tcpdump sample when available.
-//! Full libpcap path remains pack-gated; this is a degraded counter-only mode.
+//! Full libpcap path is planned; this is a degraded counter-only mode.
 
 use super::types::{PcapDiagResult, ScanSessionEvent};
 use crate::error::{AppError, AppResult};
@@ -47,22 +47,19 @@ pub async fn run_pcap_diag<R: Runtime>(
             }
             Ok(stats)
         }
-        Err(e) => Ok(PcapDiagResult {
+        Err(e) if cancelled || e.code == "PCAP_CANCELLED" => Ok(PcapDiagResult {
             mode: "unavailable".into(),
             packets: 0,
             tcp_rst: 0,
             retrans_hint: 0,
             out_of_order_hint: 0,
-            cancelled,
+            cancelled: true,
             session_id,
-            message: Some(if cancelled {
-                "Capture cancelled.".into()
-            } else {
-                e.to_string()
-            }),
+            message: Some("Capture cancelled.".into()),
             elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
             command_hint,
         }),
+        Err(error) => Err(error),
     }
 }
 
@@ -70,44 +67,73 @@ fn run_tcpdump_sample(
     duration_secs: u32,
     abort: std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> AppResult<PcapDiagResult> {
-    // tcpdump -c limits packets; -tttt for timestamps. No payload dump to disk by default.
+    // Stop when either the packet cap or the requested sampling window is reached.
+    // `-l` flushes each packet line so a quiet-window timeout can return partial counters.
     let count = (duration_secs * 40).clamp(40, 400);
-    // `-c` 只封顶**包数**：网络空闲时永远凑不满，tcpdump 会一直挂着。必须另外给
-    // 墙钟上限（采样时长 + 收尾余量），否则这个探测永久转圈，且每重试一次就泄漏
-    // 一个 blocking 线程和一个 tcpdump 子进程。
     let mut command = Command::new("tcpdump");
     command.args([
         "-nn",
+        "-l",
         "-c",
         &count.to_string(),
         "-tttt",
         "tcp or udp or icmp",
     ]);
-    let budget = std::time::Duration::from_secs(u64::from(duration_secs) + 10);
-    let output = crate::subprocess::run_output_with_timeout(&mut command, budget, Some(abort))
-        .map_err(|error| match error.kind {
-            crate::subprocess::SubprocessErrorKind::Spawn => AppError::new(
-                "PCAP_NO_TCPDUMP",
-                format!("tcpdump unavailable or not permitted: {error:?}"),
-            ),
-            crate::subprocess::SubprocessErrorKind::Timeout => AppError::new(
-                "PCAP_TIMEOUT",
-                format!("tcpdump did not finish within {}s", duration_secs + 10),
-            ),
-            crate::subprocess::SubprocessErrorKind::Aborted => {
-                AppError::new("PCAP_CANCELLED", "Capture cancelled.")
-            }
-            other => AppError::new("PCAP_FAILED", format!("tcpdump failed: {other:?}")),
-        })?;
+    let captured = crate::subprocess::run_output_for_window(
+        &mut command,
+        std::time::Duration::from_secs(u64::from(duration_secs)),
+        Some(abort),
+    )
+    .map_err(|error| match error.kind {
+        crate::subprocess::SubprocessErrorKind::Spawn => AppError::new(
+            "PCAP_NO_TCPDUMP",
+            format!("tcpdump unavailable or not permitted: {error:?}"),
+        ),
+        crate::subprocess::SubprocessErrorKind::Timeout => {
+            AppError::new("PCAP_TIMEOUT", "Packet sampling window expired.")
+        }
+        crate::subprocess::SubprocessErrorKind::Aborted => {
+            AppError::new("PCAP_CANCELLED", "Capture cancelled.")
+        }
+        other => AppError::new("PCAP_FAILED", format!("tcpdump failed: {other:?}")),
+    })?;
 
-    let text = String::from_utf8_lossy(&output.stderr).to_string()
-        + &String::from_utf8_lossy(&output.stdout);
+    let output = captured.output;
+    parse_tcpdump_output(
+        output.status.success(),
+        captured.reached_time_limit,
+        output.status.code(),
+        &output.stdout,
+        &output.stderr,
+    )
+}
+
+fn parse_tcpdump_output(
+    success: bool,
+    capture_window_reached: bool,
+    exit_code: Option<i32>,
+    stdout: &[u8],
+    stderr: &[u8],
+) -> AppResult<PcapDiagResult> {
+    let text = String::from_utf8_lossy(stderr).to_string() + &String::from_utf8_lossy(stdout);
     if text.to_ascii_lowercase().contains("permission")
         || text.to_ascii_lowercase().contains("not permitted")
     {
         return Err(AppError::new(
             "PCAP_PRIVILEGE",
-            "Packet capture needs privilege / BPF access (or install pcap-diag pack).",
+            "Packet capture needs privilege / BPF access; this build has no installed capture helper.",
+        ));
+    }
+    if !success && !capture_window_reached {
+        return Err(AppError::new(
+            "PCAP_FAILED",
+            format!(
+                "tcpdump exited unsuccessfully (status {}).",
+                exit_code.map_or_else(
+                    || "terminated by signal".to_string(),
+                    |code| code.to_string()
+                )
+            ),
         ));
     }
 
@@ -148,4 +174,50 @@ fn run_tcpdump_sample(
         elapsed_ms: 0.0,
         command_hint: String::new(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn permission_denial_is_reported_as_a_specific_error() {
+        let error = parse_tcpdump_output(false, false, Some(1), b"", b"tcpdump: Permission denied")
+            .expect_err("permission denial must not become an empty successful sample");
+
+        assert_eq!(error.code, "PCAP_PRIVILEGE");
+    }
+
+    #[test]
+    fn unsuccessful_tcpdump_exit_is_not_reported_as_zero_packet_success() {
+        let error = parse_tcpdump_output(false, false, Some(2), b"", b"tcpdump: bad filter")
+            .expect_err("nonzero exit must not become a successful empty sample");
+
+        assert_eq!(error.code, "PCAP_FAILED");
+        assert!(error.message.contains("status 2"));
+    }
+
+    #[test]
+    fn successful_tcpdump_output_counts_packets_and_rst_flags() {
+        let result = parse_tcpdump_output(
+            true,
+            false,
+            Some(0),
+            b"12:00:00.000 IP 192.0.2.1.80 > 192.0.2.2.50000: Flags [R.]\n",
+            b"1 packet captured\n",
+        )
+        .expect("a successful sample should be parsed");
+
+        assert_eq!(result.packets, 1);
+        assert_eq!(result.tcp_rst, 1);
+    }
+
+    #[test]
+    fn quiet_sampling_window_can_return_a_valid_empty_result() {
+        let result = parse_tcpdump_output(false, true, None, b"", b"")
+            .expect("reaching the requested sample window is a valid terminal state");
+
+        assert_eq!(result.mode, "tcpdump-counters");
+        assert_eq!(result.packets, 0);
+    }
 }

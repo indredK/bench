@@ -23,7 +23,12 @@ import {
   chipStatusClasses,
   commonPorts,
 } from "@/features/port-manager/hooks/usePortManagerController"
-import type { PortProcessDetail } from "@/lib/tauri/types/port-manager"
+import type {
+  KillPidResult,
+  PortProcessDetail,
+  ProcessChildrenPage,
+  ProcessNode,
+} from "@/lib/tauri/types/port-manager"
 import type { PortScanMode, PortScanStatus } from "@/features/port-manager/store"
 
 interface PortManagerPageContentProps {
@@ -36,7 +41,7 @@ interface PortManagerPageContentProps {
   inputError: string
   portStates: { port: number; status: PortScanStatus }[]
   portDetails: PortProcessDetail[]
-  portKillMessages: Record<number, string[]>
+  portKillResults: Record<number, KillPidResult[]>
   error: string
   killing: boolean
   isScanning: boolean
@@ -47,6 +52,8 @@ interface PortManagerPageContentProps {
   scanMode: PortScanMode
   remoteHost: string
   alertsEnabled: boolean
+  alertsError: string
+  requestingAlertsPermission: boolean
   onScanModeChange: (mode: PortScanMode) => void
   onRemoteHostChange: (event: React.ChangeEvent<HTMLInputElement>) => void
   onToggleAlerts: () => void
@@ -62,6 +69,10 @@ interface PortManagerPageContentProps {
   onKillAll: () => void
   onScrollToPort: (port: number) => void
   onKillPort: (port: number, pids: number[]) => void
+  onLoadProcessChildren: (
+    node: Pick<ProcessNode, "pid" | "ppid" | "name" | "identity">,
+    afterPid: number | null,
+  ) => Promise<ProcessChildrenPage>
   onRemovePort: (port: number) => void
   onClearError: () => void
   statusIconFor: (status: PortScanStatus) => React.ReactNode
@@ -77,7 +88,7 @@ export function PortManagerPageContent({
   inputError,
   portStates,
   portDetails,
-  portKillMessages,
+  portKillResults,
   error,
   killing,
   isScanning,
@@ -88,6 +99,8 @@ export function PortManagerPageContent({
   scanMode,
   remoteHost,
   alertsEnabled,
+  alertsError,
+  requestingAlertsPermission,
   onScanModeChange,
   onRemoteHostChange,
   onToggleAlerts,
@@ -103,6 +116,7 @@ export function PortManagerPageContent({
   onKillAll,
   onScrollToPort,
   onKillPort,
+  onLoadProcessChildren,
   onRemovePort,
   onClearError,
   statusIconFor,
@@ -173,6 +187,8 @@ export function PortManagerPageContent({
                   <PortManagerPortChip
                     key={ps.port}
                     port={ps.port}
+                    rescanDisabled={killing || isScanning}
+                    removeDisabled={killing}
                     statusClassName={chipStatusClasses[ps.status]}
                     statusIcon={statusIconFor(ps.status)}
                     onScrollTo={() => onScrollToPort(ps.port)}
@@ -225,17 +241,32 @@ export function PortManagerPageContent({
                   size="sm"
                   className="shrink-0 rounded-lg"
                   onClick={onToggleAlerts}
-                  disabled={portStates.length === 0 || killing}
+                  disabled={portStates.length === 0 || killing || requestingAlertsPermission}
+                  aria-label={t(
+                    requestingAlertsPermission
+                      ? "portManager.alertsRequestingPermission"
+                      : alertsEnabled
+                        ? "portManager.alertsDisable"
+                        : "portManager.alertsEnable",
+                  )}
                 >
-                  {alertsEnabled ? <Bell size={14} /> : <BellOff size={14} />}
+                  {requestingAlertsPermission ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : alertsEnabled ? (
+                    <Bell size={14} />
+                  ) : (
+                    <BellOff size={14} />
+                  )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
                 {portStates.length === 0
                   ? t("portManager.alertsMinPorts")
-                  : alertsEnabled
-                    ? t("portManager.alertsDisable")
-                    : t("portManager.alertsEnable")}
+                  : requestingAlertsPermission
+                    ? t("portManager.alertsRequestingPermission")
+                    : alertsEnabled
+                      ? t("portManager.alertsDisable")
+                      : t("portManager.alertsEnable")}
               </TooltipContent>
             </Tooltip>
             {portDetails.length > 0 && (
@@ -279,7 +310,7 @@ export function PortManagerPageContent({
                     size="sm"
                     className="min-w-[110px] shrink-0 rounded-lg"
                     onClick={onKillAll}
-                    disabled={killing || occupiedCount === 0}
+                    disabled={killing || isScanning || occupiedCount === 0}
                   >
                     {killing && <Loader2 className="size-3.5 animate-spin" />}
                     {t("portManager.killAllButton")}
@@ -294,6 +325,11 @@ export function PortManagerPageContent({
             )}
           </div>
         </CardHeader>
+        {alertsError ? (
+          <p role="alert" className="text-destructive px-6 pb-2 text-xs">
+            {alertsError}
+          </p>
+        ) : null}
         <CardContent className="flex min-h-0 flex-1 flex-col p-0">
           <ScrollableArea
             ref={scrollContainerRef}
@@ -370,11 +406,33 @@ export function PortManagerPageContent({
                                     <span>{detail.fingerprint.name}</span>
                                   </Badge>
                                 )}
-                                {portKillMessages[detail.port] && (
-                                  <span className="rounded bg-yellow-50 px-2 py-0.5 text-xs text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300">
-                                    {portKillMessages[detail.port].join(", ")}
-                                  </span>
-                                )}
+                                {portKillResults[detail.port]?.length ? (
+                                  <div
+                                    className="flex flex-wrap gap-1"
+                                    role="status"
+                                    aria-live="polite"
+                                  >
+                                    {portKillResults[detail.port].map((result) => (
+                                      <span
+                                        key={result.pid}
+                                        title={result.message}
+                                        className="rounded bg-yellow-50 px-2 py-0.5 text-xs text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300"
+                                      >
+                                        {result.success
+                                          ? t("portManager.killSucceeded", { pid: result.pid })
+                                          : t(
+                                              `portManager.killErrors.${result.error_code ?? "unknown"}`,
+                                              {
+                                                pid: result.pid,
+                                                defaultValue: t("portManager.killFailed", {
+                                                  pid: result.pid,
+                                                }),
+                                              },
+                                            )}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : null}
                               </div>
                               {!isRemoteMode && (
                                 <div className="flex gap-1.5">
@@ -385,7 +443,7 @@ export function PortManagerPageContent({
                                         size="sm"
                                         className="rounded-lg bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
                                         onClick={() => onKillPort(detail.port, detail.pids)}
-                                        disabled={killing}
+                                        disabled={killing || isScanning}
                                       >
                                         {t("portManager.killButton")}
                                       </Button>
@@ -415,7 +473,8 @@ export function PortManagerPageContent({
                                     key={tree.pid}
                                     node={tree}
                                     depth={0}
-                                    targetPid={detail.pids[0]}
+                                    targetPids={detail.pids}
+                                    loadChildren={onLoadProcessChildren}
                                   />
                                 ))}
                               </div>

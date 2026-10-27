@@ -1,11 +1,13 @@
 /**
  * Feature UI / 功能界面: overview panel for basic L1.
  */
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
+import { CommandHint } from "@/components/common/CommandHint"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
 import { cn } from "@/lib/utils"
+import type { NetworkSummaryField } from "@/lib/tauri/types/network-probe"
 
 interface OverviewPanelProps {
   loading: boolean
@@ -16,13 +18,16 @@ interface OverviewPanelProps {
     dnsServers: string[]
     wifiSsid?: string
     wifiSignalDbm?: number
+    unavailableFields?: NetworkSummaryField[]
     interfaces: { name: string; addrs: string[]; isLoopback: boolean }[]
   } | null
   firewall: { status: string; detail?: string } | null
   hostsSuspiciousCount: number
   openingSettings: boolean
+  onAutoLoadOverview: () => void
   onRefresh: () => void
   onOpenSettings: () => void
+  embedded?: boolean
 }
 
 export function OverviewPanel({
@@ -31,26 +36,26 @@ export function OverviewPanel({
   firewall,
   hostsSuspiciousCount,
   openingSettings,
+  onAutoLoadOverview,
   onRefresh,
   onOpenSettings,
+  embedded = false,
 }: OverviewPanelProps) {
   const { t } = useTranslation()
-  const autoLoadStarted = useRef(false)
-
   useEffect(() => {
-    if (!summary && !loading && !autoLoadStarted.current) {
-      autoLoadStarted.current = true
-      onRefresh()
-    }
-  }, [summary, loading, onRefresh])
+    if (!summary && !loading) onAutoLoadOverview()
+  }, [summary, loading, onAutoLoadOverview])
 
   return (
     <ProbePanelShell
+      embedded={embedded}
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" onClick={onRefresh} disabled={loading}>
-            {loading ? t("networkProbe.overview.refreshing") : t("networkProbe.overview.refresh")}
-          </Button>
+          <CommandHint hint={t("networkProbe.cmd.summary")}>
+            <Button type="button" size="sm" onClick={onRefresh} disabled={loading}>
+              {loading ? t("networkProbe.overview.refreshing") : t("networkProbe.overview.refresh")}
+            </Button>
+          </CommandHint>
           <Button
             type="button"
             size="sm"
@@ -62,9 +67,6 @@ export function OverviewPanel({
               ? t("networkProbe.overview.openingSettings")
               : t("networkProbe.overview.openSettings")}
           </Button>
-          <span className="text-muted-foreground font-mono text-xs">
-            {t("networkProbe.cmd.summary")}
-          </span>
         </div>
       }
     >
@@ -73,43 +75,58 @@ export function OverviewPanel({
       ) : null}
 
       {summary ? (
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <InfoCard label={t("networkProbe.overview.ipv4")} value={summary.primaryIpv4 ?? "—"} />
-          <InfoCard label={t("networkProbe.overview.ipv6")} value={summary.primaryIpv6 ?? "—"} />
-          <InfoCard label={t("networkProbe.overview.gateway")} value={summary.gateway ?? "—"} />
-          <InfoCard
-            label={t("networkProbe.overview.dns")}
-            value={summary.dnsServers.length ? summary.dnsServers.join(", ") : "—"}
-          />
-          <InfoCard
-            label={t("networkProbe.overview.wifi")}
-            value={
-              summary.wifiSsid
-                ? `${summary.wifiSsid}${
-                    summary.wifiSignalDbm != null ? ` (${summary.wifiSignalDbm} dBm)` : ""
-                  }`
-                : "—"
-            }
-          />
-          <InfoCard
-            label={t("networkProbe.overview.firewall")}
-            value={
-              firewall
-                ? t(`networkProbe.firewall.${firewall.status}`, {
-                    defaultValue: firewall.status,
-                  })
-                : "—"
-            }
-          />
-          <InfoCard
-            label={t("networkProbe.overview.hosts")}
-            value={t("networkProbe.overview.hostsCount", { count: hostsSuspiciousCount })}
-          />
-          <InfoCard
-            label={t("networkProbe.overview.ifaces")}
-            value={String(summary.interfaces.filter((i) => !i.isLoopback).length)}
-          />
-        </div>
+        <>
+          {summary.unavailableFields?.length ? (
+            <div
+              role="status"
+              className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3"
+            >
+              <p className="text-sm font-medium">{t("networkProbe.overview.partialData")}</p>
+              <ul className="text-muted-foreground mt-1 flex flex-wrap gap-x-3 text-xs">
+                {summary.unavailableFields.map((field) => (
+                  <li key={field}>{t(`networkProbe.overview.unavailableFields.${field}`)}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-2">
+            <InfoCard label={t("networkProbe.overview.ipv4")} value={summary.primaryIpv4 ?? "—"} />
+            <InfoCard label={t("networkProbe.overview.ipv6")} value={summary.primaryIpv6 ?? "—"} />
+            <InfoCard label={t("networkProbe.overview.gateway")} value={summary.gateway ?? "—"} />
+            <InfoCard
+              label={t("networkProbe.overview.dns")}
+              value={summary.dnsServers.length ? summary.dnsServers.join(", ") : "—"}
+            />
+            <InfoCard
+              label={t("networkProbe.overview.wifi")}
+              value={
+                summary.wifiSsid
+                  ? `${summary.wifiSsid}${
+                      summary.wifiSignalDbm != null ? ` (${summary.wifiSignalDbm} dBm)` : ""
+                    }`
+                  : "—"
+              }
+            />
+            <InfoCard
+              label={t("networkProbe.overview.firewall")}
+              value={
+                firewall
+                  ? t(`networkProbe.firewall.${firewall.status}`, {
+                      defaultValue: firewall.status,
+                    })
+                  : "—"
+              }
+            />
+            <InfoCard
+              label={t("networkProbe.overview.hosts")}
+              value={t("networkProbe.overview.hostsCount", { count: hostsSuspiciousCount })}
+            />
+            <InfoCard
+              label={t("networkProbe.overview.ifaces")}
+              value={String(summary.interfaces.filter((i) => !i.isLoopback).length)}
+            />
+          </div>
+        </>
       ) : null}
     </ProbePanelShell>
   )

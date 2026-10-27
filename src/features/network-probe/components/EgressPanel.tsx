@@ -2,6 +2,7 @@
  * Feature UI / 功能界面: public egress IP (dual entry with Offline).
  */
 import { useTranslation } from "react-i18next"
+import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbeEmptyState } from "@/features/network-probe/components/ProbeEmptyState"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
@@ -35,10 +36,11 @@ export function EgressPanel({
               {t(`networkProbe.dualEntry.from.${dualFrom}`)}
             </p>
           ) : null}
-          <Button type="button" disabled={loading} onClick={onRun}>
-            {loading ? t("networkProbe.egress.running") : t("networkProbe.egress.run")}
-          </Button>
-          <p className="text-muted-foreground font-mono text-xs">{t("networkProbe.cmd.egress")}</p>
+          <CommandHint hint={t("networkProbe.cmd.egress")}>
+            <Button type="button" disabled={loading} onClick={onRun}>
+              {loading ? t("networkProbe.egress.running") : t("networkProbe.egress.run")}
+            </Button>
+          </CommandHint>
         </>
       }
     >

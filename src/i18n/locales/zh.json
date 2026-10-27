@@ -233,7 +233,10 @@
       "uuidTitle": "UUID 生成器",
       "generateUuid": "生成 UUID v4",
       "timestampTitle": "时间戳转换",
+      "timestampLabel": "Unix 时间戳（秒）",
       "timestampPlaceholder": "Unix 时间戳（如 1700000000）",
+      "timestampRequired": "请输入 Unix 时间戳。",
+      "timestampInvalid": "请输入有效的安全整数秒数；不要包含小数或其他字符。",
       "convert": "转换",
       "formatFullDateTime": "完整日期时间",
       "formatDateOnly": "仅日期",
@@ -1121,11 +1124,18 @@
     "title": "终止端口进程",
     "modeLocal": "本地",
     "modeRemote": "远程",
-    "remoteHostPlaceholder": "例如 example.com 或 192.168.1.1",
+    "remoteHostPlaceholder": "例如 example.com 或 [2001:db8::1]",
+    "remoteCheckHint": "从本机直连检测，不使用系统代理；每个端口最多 3 秒。支持 IPv4 / IPv6。",
+    "remoteHostLabel": "远程主机",
     "remoteResultHint": "远程端口检测 — 无进程详情",
     "alertsEnable": "开启占用告警",
     "alertsDisable": "关闭占用告警",
     "alertsMinPorts": "请先添加端口再开启告警",
+    "alertsRequestingPermission": "正在请求通知权限…",
+    "alertsPermissionDenied": "未获得系统通知权限，告警保持关闭。请在系统设置中允许 Bench 发送通知后重试。",
+    "alertsPermissionFailed": "无法检查或请求系统通知权限，告警未开启。请检查系统通知设置后重试。",
+    "alertsPermissionRevoked": "系统通知权限已不可用，占用告警已关闭。请在系统设置中允许 Bench 发送通知后重试。",
+    "alertsDeliveryFailed": "系统通知发送失败，占用告警已关闭。请检查系统通知设置后重试。",
     "occupationAlertTitle": "端口已占用",
     "occupationAlertBody": "端口 {{port}} 已被占用",
     "targetPorts": "目标端口",
@@ -1155,6 +1165,7 @@
     "tooManyPorts": "最多支持添加 100 个端口",
     "portsAlreadyAdded": "这些端口已添加到扫描列表",
     "rescan": "重新扫描",
+    "rescanPort": "重新扫描端口 {{port}}",
     "removePort": "移除端口 {{port}}",
     "dismissError": "关闭",
     "rescanAll": "重新扫描全部",
@@ -1167,10 +1178,25 @@
     "statusEmpty": "空闲",
     "statusError": "扫描失败",
     "statusEnded": "已终止",
+    "killSucceeded": "已终止 PID {{pid}}",
+    "killFailed": "无法终止 PID {{pid}}",
+    "killErrors": {
+      "PID_GONE": "PID {{pid}} 已不存在，请重新扫描",
+      "PID_REUSED": "PID {{pid}} 的进程身份已变化，已拒绝终止",
+      "PERMISSION_DENIED": "没有权限终止 PID {{pid}}",
+      "SELF_KILL": "不能终止 Bench 自身进程（PID {{pid}}）",
+      "CHILD_KILL": "不能终止 Bench 的子进程（PID {{pid}}）",
+      "CHILD_KILL_FAILED": "PID {{pid}} 已终止，但部分子进程可能仍在运行。请重新扫描端口。",
+      "INVALID_PID": "PID {{pid}} 无效，已拒绝终止",
+      "IDENTITY_UNAVAILABLE": "无法确认 PID {{pid}} 的扫描时身份，已拒绝终止",
+      "KILL_FAILED": "终止 PID {{pid}} 失败",
+      "SPAWN_FAILED": "无法启动终止 PID {{pid}} 的系统命令"
+    },
     "errors": {
       "desktopOnly": "端口管理功能仅可在桌面版应用中使用。",
       "killOneFailed": "释放所选端口失败。",
       "killAllFailed": "释放一个或多个所选端口失败。",
+      "tooManyKillTargets": "一次最多释放 {{max}} 个进程，请缩小端口选择范围后重试。",
       "remoteHostRequired": "远程扫描需要填写远程主机。"
     },
     "confirmKillPortTitle": "释放端口 {{port}}？",
@@ -1183,7 +1209,12 @@
     "pid": "PID {{pid}}",
     "portOwner": "端口所有者",
     "rootProcess": "根进程",
-    "clearInput": "清除输入"
+    "clearInput": "清除输入",
+    "loadingProcessChildren": "正在加载子进程…",
+    "loadMoreProcessChildren": "再加载最多 {{count}} 项",
+    "processTreeLoadFailed": "加载此进程分支失败。请重新扫描后重试。",
+    "processTreeCycleTruncated": "检测到异常循环，已停止展开",
+    "retry": "重试"
   },
   "systemInfo": {
     "title": "系统信息",
@@ -1246,6 +1277,7 @@
       "linux": "Linux"
     },
     "appTitle": "Bench - DevTools",
+    "skipToMain": "跳转到主内容",
     "close": "关闭",
     "cancel": "取消",
     "remove": "移除",
@@ -1465,7 +1497,20 @@
     },
     "builtin": "内置",
     "reorder": "拖拽排序",
+    "reorderFilteredDisabled": "清除筛选后可调整卡片顺序",
     "reordered": "已调整卡片顺序",
+    "openDetails": "打开 {{title}} 详情",
+    "moreTags": "还有 {{count}} 个标签",
+    "filters": {
+      "search": "搜索标题、描述、命令、分组或标签",
+      "group": "分组",
+      "allGroups": "所有分组",
+      "tag": "标签",
+      "allTags": "所有标签",
+      "clear": "清除筛选",
+      "noResults": "没有符合条件的命令卡片。",
+      "resultCount": "显示 {{visible}} / {{total}} 张卡片"
+    },
     "actions": {
       "run": "运行",
       "copy": "复制",
@@ -1480,9 +1525,17 @@
       "titlePlaceholder": "例如：给 Claude 打中文补丁",
       "fieldDescription": "描述",
       "descriptionPlaceholder": "可选，简单说明这条命令的用途",
+      "fieldGroup": "分组",
+      "groupPlaceholder": "例如：网络、开发工具",
+      "groupHint": "最多 80 个字符（{{count}} / 80）",
+      "fieldTags": "标签",
+      "tagsPlaceholder": "例如：本机, 调试, 常用",
+      "tagsHint": "使用逗号分隔；最多 12 个标签，每个标签最多 40 个字符。",
       "fieldKind": "动作类型",
       "suggestion": "看起来这更像「{{kind}}」，要切换吗？",
       "applySuggestion": "应用建议",
+      "parametersHint": "在命令中用双花括号包住变量名；最多 20 个不同变量。值按原文写入命令，不做 shell 转义；仅填写可信值，并检查完整命令。",
+      "parametersFound": "运行前需要填写：{{names}}",
       "command": {
         "shell": "命令",
         "shellAdmin": "命令（将以管理员权限运行）",
@@ -1494,6 +1547,20 @@
         "shellAdmin": "例如：osascript -e 'do shell script ...'",
         "copy": "例如：git log --oneline --graph --all",
         "open": "例如：~/Documents 或 https://example.com"
+      }
+    },
+    "parameters": {
+      "title": "填写「{{title}}」的参数",
+      "description": "请填写命令模板需要的值，并在运行前检查展开后的完整命令。",
+      "field": "变量：{{name}}",
+      "preview": "本次执行的命令",
+      "rawSubstitutionHint": "变量值按原文写入命令，不做 shell 转义。仅填写可信值，并检查完整命令；Shell 模板需按目标 shell 语法处理引号。",
+      "run": "继续运行",
+      "errors": {
+        "invalidSyntax": "占位符格式无效；名称须以字母或下划线开头，且只含字母、数字或下划线（最多 40 位）。",
+        "tooManyParameters": "每条命令最多使用 20 个不同变量。",
+        "invalidValue": "变量值过长或含有控制字符，请修改后重试。",
+        "commandTooLong": "展开后的命令过长，请缩短变量值。"
       }
     },
     "confirmRun": {
@@ -1584,7 +1651,7 @@
     "nodeSelect": {
       "label": "探测原点",
       "local": "本机",
-      "localOnlyHint": "远端节点执行尚未实现，当前所有探测都在本机运行。"
+      "localOnlyHint": "通用探测仍在本机运行。Globalping DNS、Ping 和 HTTP 请在「发现 → 多节点」使用；自有 agent 目前仅检查连接状态。"
     },
     "sideLog": {
       "title": "命令日志",
@@ -1626,11 +1693,14 @@
       "pcap": "包级诊断",
       "dnssec": "DNSSEC / DoH",
       "whois": "WHOIS",
-      "arp": "ARP 发现",
+      "arp": "局域网邻居发现",
       "lan-svc": "局域网服务",
       "nat": "NAT 类型",
       "ntp": "NTP",
       "nodes": "多节点对比"
+    },
+    "basic": {
+      "viewDescription": "概览、体检、建议、离线诊断、修复和报告集中在此页。"
     },
     "overview": {
       "refresh": "刷新",
@@ -1638,6 +1708,12 @@
       "openSettings": "打开系统网络设置",
       "openingSettings": "正在打开设置…",
       "empty": "尚无摘要。点击刷新加载本机网络状态。",
+      "partialData": "部分网络信息读取失败；其余摘要仍可用。",
+      "unavailableFields": {
+        "gateway": "网关",
+        "dnsServers": "DNS 服务器",
+        "wifi": "Wi‑Fi"
+      },
       "ipv4": "IPv4",
       "ipv6": "IPv6",
       "gateway": "网关",
@@ -1716,6 +1792,11 @@
       "run": "探测",
       "running": "探测中…",
       "kind": "输入类型",
+      "kindValues": {
+        "host": "主机",
+        "url": "URL",
+        "unknown": "未知输入"
+      },
       "icmp": "ICMP",
       "icmpOk": "成功 · {{ms}} ms · {{ip}}",
       "icmpFail": "失败 — {{error}}",
@@ -1744,6 +1825,8 @@
       "customInput": "URL 或主机",
       "customPlaceholder": "https://registry.npmjs.org",
       "customAdd": "添加",
+      "customTargetTooLong": "目标最长 {{maxBytes}} 个 UTF-8 字节。",
+      "customSiteLimitReached": "最多添加 {{max}} 个自定义站点，请先移除一项。",
       "customRun": "探测自定义",
       "customRemove": "移除",
       "customEmpty": "尚无自定义站点。",
@@ -1752,6 +1835,46 @@
         "cn-friendly": "国内友好",
         "dev": "开发者",
         "official": "常用官网"
+      }
+    },
+    "siteMonitor": {
+      "title": "站点持续监控",
+      "hint": "每 {{interval}} 秒检查一次所选自定义站点，最多 {{max}} 个。仅在此面板打开且窗口可见时运行。",
+      "thresholdHint": "连续 2 次失败告警；延迟按前 5 次成功样本校准，连续 3 次超过 max(1000 ms, 基线 × 2) 后告警。",
+      "selectTargets": "选择要监控的站点",
+      "noTargets": "先添加自定义站点，再选择监控目标。",
+      "start": "开始监控",
+      "starting": "正在请求通知权限…",
+      "stop": "停止监控",
+      "active": "监控中",
+      "paused": "窗口隐藏时已暂停",
+      "checking": "正在检查…",
+      "off": "未运行",
+      "lastChecked": "上次检查：{{time}}",
+      "reachableMs": "可访问 · {{ms}} ms",
+      "reachable": "可访问",
+      "unreachable": "不可访问",
+      "errors": {
+        "desktopOnly": "持续监控仅支持 Bench 桌面应用。",
+        "targetsRequired": "至少选择一个自定义站点。",
+        "tooManyTargets": "最多可监控 {{max}} 个站点。",
+        "targetsChanged": "监控目标在启动前已变化，请重新选择。",
+        "permissionDenied": "通知权限未开启，持续监控未启动。",
+        "permissionRevoked": "通知权限已撤销，持续监控已停止。",
+        "permissionFailed": "无法检查通知权限，持续监控已停止。",
+        "probeFailed": "站点检查失败，持续监控已停止。",
+        "probeUnavailable": "站点探测能力不可用，持续监控已停止。",
+        "deliveryFailed": "系统通知发送失败，持续监控已停止。"
+      },
+      "notifications": {
+        "downTitle": "站点不可访问",
+        "downBody": "{{target}} 连续检查失败。",
+        "recoveredTitle": "站点已恢复",
+        "recoveredBody": "{{target}} 已恢复访问。",
+        "slowTitle": "站点响应变慢",
+        "slowBody": "{{target}} 响应 {{latency}} ms，高于 {{threshold}} ms 阈值。",
+        "latencyRecoveredTitle": "站点响应已恢复",
+        "latencyRecoveredBody": "{{target}} 响应已恢复至 {{latency}} ms。"
       }
     },
     "official": {
@@ -1850,7 +1973,9 @@
         "fail": "失败",
         "skip": "跳过",
         "error": "错误"
-      }
+      },
+      "proxyStatusUnavailable": "无法读取系统代理设置。",
+      "vpnStatusUnavailable": "无法确定 VPN 隧道状态。"
     },
     "opinion": {
       "hint": "基于最近一次体检的可操作建议。",
@@ -1993,8 +2118,12 @@
       "proxy": "系统代理",
       "proxyOn": "已开启",
       "proxyOff": "未开启",
+      "proxyUnknown": "无法读取",
+      "proxyUnknownDetail": "此设备暂不提供系统代理状态，或当前无法读取。",
       "vpn": "类 VPN 接口",
       "vpnNone": "无",
+      "vpnUnknown": "未知",
+      "defaultRouteUnknown": "无法读取默认路由路径。",
       "viaTunnel": "默认路由似乎经过隧道。",
       "ipv6Title": "IPv6",
       "mtuTitle": "MTU / PMTUD",
@@ -2039,10 +2168,13 @@
     "mtu": {
       "hint": "通过 DF 二分探测路径 MTU（macOS ping -D）。大包超时且无 Fragmentation Needed 时标黑洞。",
       "target": "目标",
+      "preset": "目标预设",
+      "custom": "自定义目标",
       "targetPlaceholder": "1.1.1.1 或 gateway",
       "run": "探测 MTU",
       "running": "探测中…",
       "empty": "尚未探测 MTU。",
+      "unsupportedMessage": "路径 MTU 探测当前仅在 macOS 上实现。",
       "status": "状态",
       "statusValue": {
         "ok": "正常",
@@ -2160,13 +2292,23 @@
       "fail": "不可达 / 失败"
     },
     "ports": {
-      "hint": "对自有或已授权主机做 TCP connect 端口扫描。最多 256 端口；可取消。",
-      "degradedHint": "降级模式：仅 TCP connect。安装 adv-scanner / nmap 可启用 SYN。",
+      "hint": "仅扫描自有或已授权主机。最多 256 个端口；可取消。",
+      "degradedHint": "使用 TCP connect；若本机 nmap 的 SYN 权限可用则尝试 SYN，否则自动降级。不会运行漏洞脚本。",
+      "nmapHint": "本次通过本机 nmap 扫描；SYN 权限可用时使用 SYN，否则使用 TCP connect。不会运行漏洞脚本。",
       "target": "目标",
       "range": "端口",
       "run": "扫描端口",
       "running": "扫描中…",
+      "cancelled": "端口扫描已取消。",
       "cancel": "取消",
+      "state": {
+        "open": "开放",
+        "closed": "关闭",
+        "filtered": "被过滤",
+        "error": "错误",
+        "unknown": "未知"
+      },
+      "possibleService": "可能的服务：{{service}}",
       "validation": {
         "empty": "请输入至少一个端口或范围。",
         "invalidFormat": "请按 80,443,8000-8010 的格式输入。",
@@ -2175,24 +2317,49 @@
         "tooMany": "最多扫描 256 个不同端口。",
         "tooLong": "端口输入过长（最多 2048 字节）。"
       },
-      "openList": "开放：{{ports}}",
+      "openCount": "开放端口：{{count}} 个",
+      "resultsLabel": "端口扫描结果",
       "confirmTitle": "确认端口扫描范围",
       "confirmDesc": "目标 {{target}} · 约 {{count}} 个端口。公网主机或较大范围需二次确认。",
-      "confirmConsequence": "仅扫描自有或已授权资产。当前为 TCP connect（无 SYN）。",
+      "confirmConsequence": "仅扫描自有或已授权资产。使用 TCP connect，或在本机 nmap 权限允许时使用 SYN；不会运行漏洞脚本。",
       "confirmRun": "仍然扫描"
     },
     "arp": {
-      "hint": "读取系统 ARP/邻居缓存中的局域网邻居（降级发现）。",
-      "degradedHint": "降级：仅缓存。特权 ARP 扫需 adv-scanner。",
-      "run": "刷新 ARP 缓存",
-      "running": "读取中…",
-      "empty": "ARP 缓存中无邻居。",
-      "emptyQuiet": "未发现邻居 — 可能是静网，或探测被过滤。",
+      "hint": "发现当前 IPv4 子网中的邻居；可用的发现来源取决于系统平台。",
+      "degradedHint": "降级发现：探测 TCP 80/443/22，网段最多 /24；不发送原始 ARP 请求。仅扫描你有权检查的网络。",
+      "run": "扫描当前子网",
+      "running": "扫描中…",
+      "preparing": "正在识别活动网卡并读取邻居缓存…",
+      "progress": "已检查 {{checked}}/{{total}} 个地址 · 邻居数 {{count}}",
+      "progressLabel": "局域网扫描进度",
+      "empty": "未返回邻居设备。",
+      "emptyQuiet": "未发现响应的邻居 — 可能是静网、客户端隔离或连接探测被过滤。",
       "emptyIsolation": "仅网关有响应 — 可能是访客 Wi‑Fi / 客户端隔离。",
-      "emptyPermission": "无可用 IPv4 — 请检查系统设置中的「本地网络」权限。",
+      "emptyPermission": "操作系统拒绝了本地网络访问。请检查 Bench 的隐私或防火墙权限后重试。",
+      "noInterface": "无法唯一识别当前活动的非隧道 IPv4 子网。请连接局域网，或检查 VPN / 网络适配器后重试。",
+      "scopeSkipped": "当前子网大于 /24；为限制扫描范围，已跳过 TCP 探测，仅显示系统缓存。",
+      "scopeSkippedNoCache": "当前子网大于 /24，已跳过 TCP 探测；系统邻居缓存读取失败。",
+      "nonPrivateScopeSkipped": "所选接口地址不属于 RFC 1918 私有 IPv4 范围（例如公网或链路本地地址）。为避免探测未授权范围，已跳过 TCP 主动探测，仅显示系统缓存。",
+      "nonPrivateScopeSkippedNoCache": "所选接口地址不属于 RFC 1918 私有 IPv4 范围（例如公网或链路本地地址），已跳过 TCP 探测；系统邻居缓存读取失败。",
+      "noPeers": "所选 /32 主机路由没有其他 IPv4 地址可探测，仅显示系统缓存。",
+      "noPeersNoCache": "所选 /32 主机路由没有其他 IPv4 地址可探测，且系统邻居缓存读取失败。",
       "openSettings": "打开系统网络设置",
       "cidr": "扫描网段：{{cidr}}",
-      "meta": "{{count}} 个邻居 · mode={{mode}} · {{ms}} ms",
+      "meta": "{{count}} 个邻居 · 发现方式：{{mode}} · {{ms}} ms",
+      "resultsLabel": "局域网邻居",
+      "mode": {
+        "cache": "系统缓存",
+        "cacheAndTcp": "系统缓存 + TCP 探测",
+        "tcpOnly": "仅 TCP 探测",
+        "notRun": "未执行探测",
+        "unknown": "发现"
+      },
+      "source": {
+        "cache": "系统缓存",
+        "tcpSweep": "TCP 探测",
+        "unknown": "其他来源"
+      },
+      "commandDetails": "命令详情",
       "cancelled": "局域网发现已在扫描中取消。"
     },
     "lanSvc": {
@@ -2200,7 +2367,14 @@
       "readOnlyHint": "只读发现。不暴露 UPnP Write / AddPortMapping。",
       "run": "浏览局域网服务",
       "running": "浏览中…",
+      "cancel": "取消浏览",
+      "cancelling": "正在停止浏览…",
+      "preparing": "正在准备 mDNS 和 SSDP 服务发现…",
+      "progressMdns": "正在浏览 mDNS 服务 · 已发现 {{count}} 个",
+      "progressSsdp": "正在浏览 SSDP 设备 · 已发现 {{count}} 个",
+      "cancelled": "浏览已取消，已发现的服务仍会显示。",
       "empty": "监听窗口内无 mDNS/SSDP 响应。",
+      "resultsLabel": "已发现的局域网服务",
       "meta": "{{count}} 个服务 · {{ms}} ms",
       "protocolError": "{{protocol}} 发现失败",
       "protocol": {
@@ -2210,8 +2384,8 @@
       }
     },
     "pcap": {
-      "hint": "短时只计计数器的抓包采样（RST / 重传提示）。完整 pcap 落盘保持可选。",
-      "degradedHint": "降级：可用时用 tcpdump 计数。安装 pcap-diag 可获得更丰富诊断。",
+      "hint": "只计数据包与 RST 提示；默认最多采样 5 秒或 200 个包，较早达到任一上限即结束。本版本不保存完整 pcap，也不会保留 payload。",
+      "degradedHint": "降级：仅在本机 tcpdump 与 BPF 权限可用时计数；pcap-diag sidecar 尚未接入，安装标记不会改变当前能力。",
       "run": "采样包计数",
       "running": "采集中…",
       "mode": "模式",
@@ -2229,26 +2403,92 @@
       }
     },
     "nodes": {
-      "hint": "对比本机与 Globalping 多地的 DNS 答案。HTTPS/WSS agent 当前仅检查可达性，尚不能执行远程探测。",
-      "run": "多节点对比 DNS",
-      "running": "对比中…",
+      "modeLabel": "远程探测类型",
+      "mode": {
+        "dns": "DNS",
+        "ping": "Ping",
+        "http": "HTTP"
+      },
+      "modeHint": {
+        "dns": "对比本机与 Globalping 多地的 DNS 答案。",
+        "ping": "从 Globalping 公共探点测量目标的往返延迟与丢包。",
+        "http": "从 Globalping 公共探点请求公开 HTTP(S) 端点并比较响应状态与时序。查询参数、片段和凭据不受支持。"
+      },
+      "settingsTitle": "节点与凭据设置",
+      "runMode": {
+        "dns": "多节点对比 DNS",
+        "ping": "运行远程 Ping",
+        "http": "运行远程 HTTP"
+      },
+      "targetLabel": {
+        "dns": "要查询的域名",
+        "ping": "公开主机名或 IP 地址",
+        "http": "公开 HTTP(S) URL"
+      },
+      "targetPlaceholder": {
+        "dns": "example.com",
+        "ping": "iana.org 或公网 IP",
+        "http": "https://www.iana.org/domains"
+      },
+      "httpMethod": "请求方法",
+      "targetInvalid": "目标无效。DNS 要求域名格式并拒绝已知内网/保留名称；自定义私有域名也可能符合格式，请勿提交未获准公开的名称。Ping 仅接受公网主机名或 IP；HTTP 仅接受不含凭据、查询参数或片段的公网 HTTP(S) URL。",
+      "httpMethodOptions": {
+        "get": "GET",
+        "head": "HEAD"
+      },
+      "privacyNotice": "Globalping 测量目标、选项和结果公开可见。请勿提交私密 URL、账号信息或机密数据；仅支持公网目标。",
+      "running": "运行中…",
+      "remoteStatus": {
+        "finished": "已完成",
+        "failed": "失败"
+      },
+      "resolvedAddress": "解析地址：{{address}}",
+      "pingStats": "RTT 最小/平均/最大 {{min}}/{{avg}}/{{max}} ms · 丢包 {{loss}}% · 收到 {{received}}/{{sent}} 包",
+      "httpResponse": "HTTP {{code}} {{name}}",
+      "httpTimings": "总计 {{total}} ms · DNS {{dns}} · TCP {{tcp}} · TLS {{tls}} · 首字节 {{firstByte}} · 下载 {{download}} ms",
+      "partialResults": "已显示本机及已完成探点的结果；其余探点仍在运行。",
       "stopWaitingHint": "停止等待会结束本机轮询；已提交给 Globalping 的探测仍可能继续运行。",
       "cancelled": "已停止等待，当前显示停止前已收到的结果。",
       "technicalDetails": "技术详情",
       "failures": {
         "quota": "Globalping 额度或速率限制已用尽。",
+        "auth": "Globalping 拒绝了已保存的 token。请检查 token 是否有效或移除后使用匿名额度。",
+        "credentialStore": "无法读取系统安全存储中的 Globalping token；本次未发起远程请求。",
         "timeout": "Globalping 远端测量超时；最长等待 20 秒。",
         "request": "无法完成 Globalping 请求。",
         "measurement": "该探点未能完成 DNS 测量。",
+        "remoteMeasurement": "该探点未能完成远程测量。",
         "noAnswers": "该探点未返回 DNS 答案。",
         "localRequest": "本机 DNS 查询失败。",
         "localTimeout": "本机 DNS 查询超过 5 秒等待上限。"
+      },
+      "rateLimitTitle": "Globalping 限额信息",
+      "rateLimitRemaining": "剩余 {{count}} 个限速积分",
+      "rateLimitLimit": "窗口上限 {{count}} 个积分",
+      "rateLimitConsumed": "已用 {{count}} 个限速积分",
+      "creditsRemaining": "剩余 {{count}} 个账户积分",
+      "creditsConsumed": "已用 {{count}} 个账户积分",
+      "requestCost": "本次请求成本 {{count}}",
+      "rateLimitWait": "约 {{count}} 秒后重置",
+      "token": {
+        "title": "Globalping API Token（可选）",
+        "hint": "Token 只保存在系统钥匙串中；Bench 仅在请求 api.globalping.io 时通过 Authorization 发送，不写入应用存储或命令日志。首次检查或使用已保存 Token 运行 DNS、Ping 或 HTTP 测量时，系统可能询问是否允许访问钥匙串。",
+        "placeholder": "粘贴 Globalping token",
+        "statusUnknown": "尚未检查系统钥匙串中的 token。",
+        "statusConfigured": "系统钥匙串中已配置 token。",
+        "statusMissing": "系统钥匙串中没有 token；将使用匿名额度。",
+        "check": "检查钥匙串",
+        "save": "保存 Token",
+        "clear": "移除 Token",
+        "saved": "Token 已保存到系统钥匙串。",
+        "cleared": "Token 已从系统钥匙串移除。",
+        "failed": "Token 操作失败，请检查系统钥匙串权限。"
       },
       "working": "处理中…",
       "refresh": "刷新节点",
       "listTitle": "探测节点",
       "addTitle": "添加 agent",
-      "addHint": "端点必须为 HTTPS 或 WSS（https:// 或 wss://）。任意 shell 动作会被拒绝。",
+      "addHint": "端点必须为 HTTPS 或 WSS。健康检查会直连且不使用系统代理，并拒绝云元数据地址。任意 shell 动作会被拒绝。",
       "labelPlaceholder": "名称",
       "domainPlaceholder": "example.com",
       "endpointPlaceholder": "https:// 或 wss://agent.example:8443",
@@ -2262,8 +2502,7 @@
         "local": "本机",
         "globalpingWorld": "Globalping · 全球",
         "globalpingUs": "Globalping · 美国",
-        "globalpingEurope": "Globalping · 欧洲",
-        "globalpingAsia": "Globalping · 亚洲"
+        "globalpingEurope": "Globalping · 欧洲"
       },
       "agentReachable": "可达",
       "agentUnreachable": "暂不可达",
@@ -2274,7 +2513,12 @@
       "endpointError": {
         "invalid": "请输入有效的 HTTPS 或 WSS 地址。",
         "scheme": "端点必须使用 HTTPS 或 WSS，明文连接不受支持。",
-        "credentials": "端点 URL 暂不支持用户名/密码、查询参数或片段，请移除后重试。"
+        "credentials": "端点 URL 暂不支持用户名/密码、查询参数或片段，请移除后重试。",
+        "tooLong": "端点 URL 不能超过 2048 个 UTF-8 字节。"
+      },
+      "labelError": {
+        "invalid": "标签不能包含控制字符。",
+        "tooLong": "标签不能超过 80 个字符。"
       },
       "addAgent": "添加 agent",
       "removeAgent": "移除",
@@ -2328,6 +2572,25 @@
         "cancel": "保留历史"
       },
       "historyItem": "{{session}}… · {{count}} 项检查 · {{ms}} ms · {{opinions}} 条建议",
+      "comparison": {
+        "title": "跨快照对比",
+        "hint": "按检查项标识比较状态。选项按最近到较早排序；不会推算整体健康度或展示检查详情。",
+        "needsTwoSnapshots": "至少需要两条未取消的体检快照才能对比。再运行一次一键体检。",
+        "snapshotA": "快照 A",
+        "snapshotB": "快照 B",
+        "snapshotOption": "第 {{position}} 条 · {{session}}… · {{count}} 项",
+        "tableCaption": "体检快照状态对比",
+        "check": "检查项",
+        "change": "变化",
+        "missing": "无此项",
+        "noChecks": "这两条快照没有检查项可比较。",
+        "changeType": {
+          "same": "未变化",
+          "changed": "状态变化",
+          "only-a": "仅在快照 A 中",
+          "only-b": "仅在快照 B 中"
+        }
+      },
       "privacyHint": "导出内容可能含公网 IP、Wi‑Fi SSID、hosts 异常与本机地址。请仅分享给可信对象。"
     },
     "traceroute": {
@@ -2387,7 +2650,7 @@
       "whois": "whois('{{query}}')",
       "dnssec": "checkDnsSec('{{domain}}')",
       "scanPorts": "scanPorts(local, '{{target}}', '{{ports}}') // tcp-connect",
-      "arp": "scanLan(local) // arp-cache",
+      "arp": "scanLan(local) // arp-cache + TCP connect (80,443,22; max /24)",
       "lanSvc": "browseLanServices(local) // mDNS+SSDP",
       "pcap": "startPacketCapture(local) // tcpdump counters",
       "compareDns": "dnsLookup(multi, domain)",
@@ -2423,6 +2686,69 @@
         "privHelper": "特权 helper 服务（priv-helper；正式信任需公证）。"
       }
     },
+    "defaults": {
+      "manage": "默认资源",
+      "title": "管理默认资源",
+      "description": "编辑 Network Probe 使用的 DNS、站点与探测名单。每次保存只更新当前类别。",
+      "categoriesLabel": "默认资源类别",
+      "categoryHint": "改动保存后立即用于后续探测；内置名单可随版本更新，用户覆盖会保留到重置。",
+      "categories": {
+        "dnsPresets": "DNS 预设",
+        "sitePacks": "站点包",
+        "reachTargets": "连通目标",
+        "captiveProbes": "强制门户",
+        "publicIpApis": "公网 IP 服务",
+        "mtuTargets": "MTU 目标"
+      },
+      "fields": {
+        "id": "标识",
+        "address": "DNS 地址",
+        "region": "区域",
+        "pack": "站点包",
+        "target": "目标",
+        "channel": "探测方式",
+        "kind": "目标类型",
+        "url": "HTTPS / HTTP 地址",
+        "expectStatus": "期望状态码",
+        "format": "响应格式"
+      },
+      "options": {
+        "probeMethod": {
+          "http": "HTTP(S)",
+          "icmp": "ICMP"
+        },
+        "targetType": {
+          "ipv4": "IPv4 地址",
+          "name": "主机名"
+        },
+        "format": {
+          "json-ip": "JSON IP 字段",
+          "text": "纯文本 IP"
+        }
+      },
+      "rowField": "第 {{index}} 项，{{field}}",
+      "add": "添加条目",
+      "remove": "删除条目",
+      "removeItem": "删除第 {{index}} 项",
+      "addPack": "添加站点包",
+      "removePack": "删除当前站点包",
+      "empty": "此类别还没有条目。",
+      "limitReached": "此类别最多配置 {{max}} 个条目。",
+      "packLimitReached": "已达到站点包 32 个的上限。",
+      "save": "保存此类别",
+      "saved": "已保存，新的探测会使用此名单。",
+      "reset": "恢复全部内置名单",
+      "resetTitle": "恢复内置默认资源？",
+      "resetDescription": "这会删除所有自定义默认名单，并恢复 Bench 随附的内置资源。",
+      "resetConfirm": "恢复内置名单",
+      "validation": {
+        "required": "至少保留一个条目；空名单会让对应探测不可用。",
+        "invalidId": "标识只能使用小写字母、数字、点、下划线和连字符，且必须以字母或数字开头。",
+        "duplicateId": "同一类别或站点包内的标识不能重复。",
+        "limitExceeded": "每种连通目标最多 3 个候选；强制门户和公网 IP 服务最多各配置 3 个。",
+        "invalidValue": "请检查 IP 地址、URL、目标类型、探测方式和状态码。公网 IP 服务必须使用 HTTPS。"
+      }
+    },
     "caps": {
       "banner": "platform={{platform}} · privilege={{privilege}}（工具状态来自能力矩阵）",
       "toolDisabled": "{{tool}} status={{status}} — 已按能力矩阵禁用",
@@ -2430,7 +2756,8 @@
     },
     "badge": {
       "post": "Post",
-      "planning": "规划中"
+      "planning": "规划中",
+      "multiNodeOnly": "多节点专用"
     },
     "capabilitiesLine": "capabilities: {{value}}",
     "coming": {
@@ -2469,9 +2796,16 @@
       "lanFailed": "局域网发现失败。",
       "lanSvcFailed": "局域网服务浏览失败。",
       "pcapFailed": "包级诊断失败。",
+      "pcapPermissionRequired": "当前用户没有读取抓包接口（BPF）的权限，因此未完成采样；本版本没有可安装的提权抓包 helper。",
+      "pcapTcpdumpUnavailable": "未找到可用的本机 tcpdump，无法运行计数采样。",
       "nodesFailed": "列举探测节点失败。",
       "multiNodeFailed": "多节点 DNS 对比失败。",
-      "agentFailed": "Agent 注册操作失败。"
+      "globalpingTokenFailed": "Globalping token 的安全存储操作失败。",
+      "agentFailed": "Agent 注册操作失败。",
+      "agentMetadataBlocked": "该端点指向或解析到云元数据服务，已阻止注册。",
+      "agentLimitReached": "最多保存 256 个 agent；请先移除不再使用的节点。",
+      "agentRegistryLimitExceeded": "本地 agent 注册表已有超过 256 个节点，已停止加载以避免大量网络检查。请先备份并在关闭 Bench 后从 agents.json 移除旧记录，再重新打开。",
+      "agentRegistryTooLarge": "本地 agent 注册表超过 1 MiB，已停止加载。请先备份并在关闭 Bench 后检查 agents.json，再重新打开。"
     }
   },
   "extensionCenter": {

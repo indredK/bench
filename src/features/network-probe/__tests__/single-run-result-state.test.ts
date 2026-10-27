@@ -48,11 +48,13 @@ import type {
 } from "@/lib/tauri/types/network-probe"
 
 function deferred<T>() {
+  let resolve: (value: T) => void = () => {}
   let reject: (error: Error) => void = () => {}
-  const promise = new Promise<T>((_, rejectPromise) => {
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
     reject = rejectPromise
   })
-  return { promise, reject }
+  return { promise, resolve, reject }
 }
 
 const previousDnsResult = {
@@ -95,7 +97,10 @@ const previousCaptive = {
 
 const previousProxyVpn = {
   proxyEnabled: false,
+  proxyStatusKnown: true,
+  vpnInterfacesKnown: true,
   vpnIfaces: [],
+  defaultRouteKnown: true,
   defaultViaTunnel: false,
   commandHint: "getProxyVpnStatus()",
 } satisfies ProxyVpnStatus
@@ -129,6 +134,7 @@ beforeEach(() => {
     loadingMtu: false,
     mtuResult: previousMtuResult,
     loadingOffline: false,
+    loadingIpv6: false,
     captiveResult: previousCaptive,
     publicIpInfo: previousPublicIp,
     proxyVpnStatus: previousProxyVpn,
@@ -173,6 +179,39 @@ describe("network-probe single-run result state", () => {
     expect(state.probeResult).toBeNull()
     expect(state.error?.key).toBe("networkProbe.errors.probeFailed")
     expect(state.loadingProbe).toBe(false)
+  })
+
+  it("logs a custom URL without credentials, path, query, or fragment values", async () => {
+    probeTarget.mockResolvedValue(previousProbeResult)
+
+    await networkProbeUseCases.runProbeTarget(
+      "https://alice:secret@example.com/private/reset-token?api_key=secret#session",
+    )
+
+    const log = useNetworkProbeStore.getState().commandLog.join("\n")
+    expect(log).toContain("https://example.com/[redacted-path]?[redacted]#[redacted]")
+    expect(log).not.toContain("alice")
+    expect(log).not.toContain("secret")
+    expect(log).not.toContain("reset-token")
+    expect(log).toContain("probeTarget done kind=url")
+  })
+
+  it("clears the previous IPv6 snapshot before a failed check", async () => {
+    const request = deferred<Ipv6StackResult>()
+    checkIpv6Stack.mockReturnValue(request.promise)
+
+    const run = networkProbeUseCases.checkIpv6Stack()
+
+    expect(useNetworkProbeStore.getState().ipv6Result).toBeNull()
+    expect(useNetworkProbeStore.getState().loadingIpv6).toBe(true)
+
+    request.reject(new Error("IPv6 probe failed"))
+    await run
+
+    const state = useNetworkProbeStore.getState()
+    expect(state.ipv6Result).toBeNull()
+    expect(state.error?.key).toBe("networkProbe.errors.ipv6Failed")
+    expect(state.loadingIpv6).toBe(false)
   })
 
   it("clears the previous path measurement before a failed MTU probe", async () => {
@@ -240,6 +279,73 @@ describe("network-probe single-run result state", () => {
     expect(state.proxyVpnStatus).toBeNull()
     expect(state.ipv6Result).toBeNull()
     expect(state.mtuResult).toBeNull()
+  })
+
+  it("keeps the offline bundle locked until every child settles after an early failure", async () => {
+    const failingProxyRequest = deferred<ProxyVpnStatus>()
+    const pendingPublicIpRequest = deferred<PublicIpInfo>()
+    detectCaptivePortal.mockResolvedValue({ status: "online", commandHint: "fresh captive" })
+    getPublicIpInfo.mockReturnValue(pendingPublicIpRequest.promise)
+    getProxyVpnStatus.mockReturnValue(failingProxyRequest.promise)
+    checkIpv6Stack.mockResolvedValue(previousIpv6)
+    probePathMtu.mockResolvedValue(previousMtuResult)
+
+    const run = networkProbeUseCases.runOfflineDiagnostics()
+    failingProxyRequest.reject(new Error("proxy status failed"))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(useNetworkProbeStore.getState().loadingOffline).toBe(true)
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.offlineFailed")
+    await networkProbeUseCases.runOfflineDiagnostics()
+    await networkProbeUseCases.refreshPublicIp()
+    expect(detectCaptivePortal).toHaveBeenCalledTimes(1)
+    expect(getPublicIpInfo).toHaveBeenCalledTimes(1)
+
+    pendingPublicIpRequest.resolve({ ip: "198.51.100.10", commandHint: "fresh egress" })
+    await run
+
+    const state = useNetworkProbeStore.getState()
+    expect(state.loadingOffline).toBe(false)
+    expect(state.error?.key).toBe("networkProbe.errors.offlineFailed")
+    expect(state.captiveResult).toBeNull()
+    expect(state.publicIpInfo).toBeNull()
+  })
+
+  it.each(["loadingIpv6", "loadingMtu"] as const)(
+    "does not start the offline bundle while a standalone %s check is running",
+    async (loadingFlag) => {
+      useNetworkProbeStore.setState({ [loadingFlag]: true })
+
+      await networkProbeUseCases.runOfflineDiagnostics()
+
+      const state = useNetworkProbeStore.getState()
+      expect(detectCaptivePortal).not.toHaveBeenCalled()
+      expect(getPublicIpInfo).not.toHaveBeenCalled()
+      expect(getProxyVpnStatus).not.toHaveBeenCalled()
+      expect(checkIpv6Stack).not.toHaveBeenCalled()
+      expect(probePathMtu).not.toHaveBeenCalled()
+      expect(state.loadingOffline).toBe(false)
+      expect(state.captiveResult).toEqual(previousCaptive)
+      expect(state.publicIpInfo).toEqual(previousPublicIp)
+      expect(state.proxyVpnStatus).toEqual(previousProxyVpn)
+      expect(state.ipv6Result).toEqual(previousIpv6)
+      expect(state.mtuResult).toEqual(previousMtuResult)
+    },
+  )
+
+  it("does not start standalone IPv6 or MTU checks while offline diagnostics are running", async () => {
+    useNetworkProbeStore.setState({ loadingOffline: true })
+
+    await networkProbeUseCases.checkIpv6Stack()
+    await networkProbeUseCases.probePathMtu("1.1.1.1")
+
+    const state = useNetworkProbeStore.getState()
+    expect(checkIpv6Stack).not.toHaveBeenCalled()
+    expect(probePathMtu).not.toHaveBeenCalled()
+    expect(state.loadingIpv6).toBe(false)
+    expect(state.loadingMtu).toBe(false)
+    expect(state.ipv6Result).toEqual(previousIpv6)
+    expect(state.mtuResult).toEqual(previousMtuResult)
   })
 
   it("keeps the active panel error when an older request fails later", async () => {

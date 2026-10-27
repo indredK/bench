@@ -32,6 +32,8 @@ pub async fn save_command_cards(cards: Vec<CommandCard>) -> AppResult<()> {
 #[tauri::command]
 pub async fn upsert_command_card(card: CommandCard) -> AppResult<Vec<CommandCard>> {
     tokio::task::spawn_blocking(move || {
+        let mut card = card;
+        card.normalize_classification();
         let mut cards = storage::load_cards()?;
         match cards.iter_mut().find(|c| c.id == card.id) {
             Some(existing) => *existing = card,

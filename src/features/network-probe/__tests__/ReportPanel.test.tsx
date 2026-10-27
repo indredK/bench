@@ -32,6 +32,7 @@ function renderReport(
   onClearHistory: () => void,
   onClearLog: () => void = vi.fn(),
   commandLog = ["2026-10-13T00:00:00.000Z startHealthScan(local)"],
+  embedded = false,
 ) {
   return render(
     <ReportPanel
@@ -41,11 +42,34 @@ function renderReport(
       onClearLog={onClearLog}
       onClearHistory={onClearHistory}
       onGoTree={vi.fn()}
+      embedded={embedded}
     />,
   )
 }
 
 describe("network-probe report clear confirmations", () => {
+  it("uses nested headings for report subsections in the integrated basic view", () => {
+    renderReport(vi.fn(), vi.fn(), undefined, true)
+
+    expect(
+      screen.getByRole("heading", { name: "networkProbe.report.historyTitle", level: 4 }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", { name: "networkProbe.report.logTitle", level: 4 }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", { name: "networkProbe.report.comparison.title", level: 4 }),
+    ).toBeInTheDocument()
+  })
+
+  it("keeps standalone report subsection headings at level three", () => {
+    renderReport(vi.fn())
+
+    expect(
+      screen.getByRole("heading", { name: "networkProbe.report.historyTitle", level: 3 }),
+    ).toBeInTheDocument()
+  })
+
   it("keeps history when the user cancels the confirmation", async () => {
     const onClearHistory = vi.fn()
     renderReport(onClearHistory)

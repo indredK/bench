@@ -435,13 +435,15 @@ pub async fn command_market_install(command_id: String) -> AppResult<()> {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    let card = CommandCard {
+    let mut card = CommandCard {
         id: doc.id.clone(),
         title: doc.title.clone(),
         description: doc.description.clone(),
         kind: doc.kind,
         command: doc.command.clone(),
         icon: doc.icon.clone(),
+        group: String::new(),
+        tags: Vec::new(),
         created_at: now,
         updated_at: now,
         market: Some(MarketProvenance {
@@ -449,6 +451,12 @@ pub async fn command_market_install(command_id: String) -> AppResult<()> {
             installed_at: now,
         }),
     };
+    preserve_local_classification(
+        &mut card,
+        existing
+            .iter()
+            .find(|existing_card| existing_card.id == command_id),
+    );
 
     // 落位：upsert 语义（已装 market 卡 → 覆盖升级；否则追加）。
     let mut cards = existing;
@@ -458,6 +466,13 @@ pub async fn command_market_install(command_id: String) -> AppResult<()> {
     }
     storage::save_cards(&cards)?;
     Ok(())
+}
+
+fn preserve_local_classification(replacement: &mut CommandCard, installed: Option<&CommandCard>) {
+    if let Some(installed) = installed {
+        replacement.group = installed.group.clone();
+        replacement.tags = installed.tags.clone();
+    }
 }
 
 #[cfg(test)]
@@ -480,6 +495,46 @@ mod tests {
             }
         ]
     }"#;
+
+    fn test_card(group: &str, tags: &[&str]) -> CommandCard {
+        CommandCard {
+            id: "market-card".to_string(),
+            title: "Card".to_string(),
+            description: String::new(),
+            kind: CardKind::Shell,
+            command: "echo card".to_string(),
+            icon: None,
+            group: group.to_string(),
+            tags: tags.iter().map(|tag| (*tag).to_string()).collect(),
+            created_at: 1,
+            updated_at: 1,
+            market: None,
+        }
+    }
+
+    #[test]
+    fn market_update_preserves_user_classification() {
+        let installed = test_card("Networking", &["local", "debug"]);
+        let mut replacement = test_card("", &[]);
+
+        preserve_local_classification(&mut replacement, Some(&installed));
+
+        assert_eq!(replacement.group, "Networking");
+        assert_eq!(
+            replacement.tags,
+            vec!["local".to_string(), "debug".to_string()]
+        );
+    }
+
+    #[test]
+    fn initial_market_install_uses_empty_classification() {
+        let mut replacement = test_card("", &[]);
+
+        preserve_local_classification(&mut replacement, None);
+
+        assert!(replacement.group.is_empty());
+        assert!(replacement.tags.is_empty());
+    }
 
     #[test]
     fn parses_and_validates_registry() {

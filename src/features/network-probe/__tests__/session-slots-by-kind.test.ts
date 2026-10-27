@@ -99,6 +99,7 @@ beforeEach(() => {
       ports: null,
       pcap: null,
       lan: null,
+      lanServices: null,
       multiNode: null,
     },
     cancelRequestedSessionIdByKind: {
@@ -110,6 +111,7 @@ beforeEach(() => {
       ports: null,
       pcap: null,
       lan: null,
+      lanServices: null,
       multiNode: null,
     },
     reportHistory: [],

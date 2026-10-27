@@ -74,7 +74,12 @@ import type {
   ScanResult,
 } from "@/lib/tauri/types/dev-cleaner"
 import type { EnvScanDonePayload } from "@/lib/tauri/types/env-detector"
-import type { KillPidResult, KillTarget, PortProcessDetail } from "@/lib/tauri/types/port-manager"
+import type {
+  KillPidResult,
+  KillTarget,
+  PortProcessDetail,
+  ProcessChildrenPage,
+} from "@/lib/tauri/types/port-manager"
 import type {
   CapabilityPackInfo,
   CapabilityPackInstallResult,
@@ -91,6 +96,7 @@ import type {
   ProbeNode,
   ProbeTargetResult,
   SitesProbeResult,
+  SiteSampleResult,
   SpeedSource,
   SpeedTestResult,
   HealthCheckItem,
@@ -111,10 +117,13 @@ import type {
   PortScanResult,
   NatProbeResult,
   NtpProbeResult,
+  LanDiscoveryProgressEvent,
   LanDiscoveryResult,
+  LanServicesProgressEvent,
   LanServicesResult,
   PcapDiagResult,
   MultiNodeDnsResult,
+  GlobalpingMeasurementResult,
 } from "@/lib/tauri/types/network-probe"
 import type { CardKind, RunResult } from "@/lib/tauri/types/command-center"
 import type {
@@ -256,6 +265,16 @@ export const TAURI_COMMAND_CONTRACTS = {
   query_port_processes: defineTauriCommand<{ ports: number[] }, PortProcessDetail[]>()(
     "query_port_processes",
   ),
+  query_process_children: defineTauriCommand<
+    {
+      pid: number
+      expectedPpid: number
+      expectedName: string
+      expectedIdentity: string | null
+      afterPid: number | null
+    },
+    ProcessChildrenPage
+  >()("query_process_children"),
   kill_processes: defineTauriCommand<{ targets: KillTarget[] }, KillPidResult[]>()(
     "kill_processes",
   ),
@@ -877,6 +896,24 @@ export const TAURI_COMMAND_CONTRACTS = {
     { domain: string; locations?: string[] | null },
     MultiNodeDnsResult
   >()("network_probe_compare_dns_multi"),
+  network_probe_globalping_measure: defineTauriCommand<
+    {
+      measurementType: "ping" | "http"
+      target: string
+      httpMethod?: "GET" | "HEAD" | null
+      locations?: string[] | null
+    },
+    GlobalpingMeasurementResult
+  >()("network_probe_globalping_measure"),
+  network_probe_globalping_token_status: defineTauriCommand<undefined, boolean>()(
+    "network_probe_globalping_token_status",
+  ),
+  network_probe_save_globalping_token: defineTauriCommand<{ token: string }, void>()(
+    "network_probe_save_globalping_token",
+  ),
+  network_probe_clear_globalping_token: defineTauriCommand<undefined, void>()(
+    "network_probe_clear_globalping_token",
+  ),
   network_probe_add_agent: defineTauriCommand<{ label: string; endpoint: string }, ProbeNode>()(
     "network_probe_add_agent",
   ),
@@ -914,6 +951,9 @@ export const TAURI_COMMAND_CONTRACTS = {
   ),
   network_probe_sites_probe_custom: defineTauriCommand<{ targets: string[] }, SitesProbeResult>()(
     "network_probe_sites_probe_custom",
+  ),
+  network_probe_monitor_sites: defineTauriCommand<{ targets: string[] }, SiteSampleResult[]>()(
+    "network_probe_monitor_sites",
   ),
   network_probe_run_health_scan: defineTauriCommand<undefined, HealthScanResult>()(
     "network_probe_run_health_scan",
@@ -1075,6 +1115,7 @@ export const TAURI_COMMANDS = {
   portManager: {
     getSystemInfo: commandName("get_system_info"),
     queryPortProcesses: commandName("query_port_processes"),
+    queryProcessChildren: commandName("query_process_children"),
     killProcesses: commandName("kill_processes"),
   },
   networkProbe: {
@@ -1101,6 +1142,10 @@ export const TAURI_COMMANDS = {
     browseLanServices: commandName("network_probe_browse_lan_services"),
     runPcapDiag: commandName("network_probe_run_pcap_diag"),
     compareDnsMulti: commandName("network_probe_compare_dns_multi"),
+    globalpingMeasure: commandName("network_probe_globalping_measure"),
+    globalpingTokenStatus: commandName("network_probe_globalping_token_status"),
+    saveGlobalpingToken: commandName("network_probe_save_globalping_token"),
+    clearGlobalpingToken: commandName("network_probe_clear_globalping_token"),
     addAgent: commandName("network_probe_add_agent"),
     removeAgent: commandName("network_probe_remove_agent"),
     rejectAgentAction: commandName("network_probe_reject_agent_action"),
@@ -1112,6 +1157,7 @@ export const TAURI_COMMANDS = {
     probeTarget: commandName("network_probe_probe_target"),
     sitesProbe: commandName("network_probe_sites_probe"),
     sitesProbeCustom: commandName("network_probe_sites_probe_custom"),
+    monitorSites: commandName("network_probe_monitor_sites"),
     runHealthScan: commandName("network_probe_run_health_scan"),
     cancelScan: commandName("network_probe_cancel_scan"),
     listNetworkServices: commandName("network_probe_list_network_services"),
@@ -1439,6 +1485,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   detect_env_tools: [],
   get_system_info: [],
   query_port_processes: ["ports"],
+  query_process_children: ["pid", "expectedPpid", "expectedName", "expectedIdentity", "afterPid"],
   kill_processes: ["targets"],
   list_command_cards: [],
   command_market_list: [],
@@ -1706,6 +1753,10 @@ export const TAURI_COMMAND_ARG_KEYS = {
   network_probe_browse_lan_services: [],
   network_probe_run_pcap_diag: ["durationSecs"],
   network_probe_compare_dns_multi: ["domain", "locations"],
+  network_probe_globalping_measure: ["measurementType", "target", "httpMethod", "locations"],
+  network_probe_globalping_token_status: [],
+  network_probe_save_globalping_token: ["token"],
+  network_probe_clear_globalping_token: [],
   network_probe_add_agent: ["label", "endpoint"],
   network_probe_remove_agent: ["agentId"],
   network_probe_reject_agent_action: ["action"],
@@ -1717,6 +1768,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   network_probe_probe_target: ["input"],
   network_probe_sites_probe: ["packId"],
   network_probe_sites_probe_custom: ["targets"],
+  network_probe_monitor_sites: ["targets"],
   network_probe_run_health_scan: [],
   network_probe_cancel_scan: ["sessionId"],
   network_probe_list_network_services: [],
@@ -1795,6 +1847,10 @@ export const TAURI_EVENTS = {
     healthItem: "network-probe:health-item",
     tracerouteHop: "network-probe:traceroute-hop",
     scanSession: "network-probe:scan-session",
+    lanDiscoveryProgress: "network-probe:lan-discovery-progress",
+    lanServicesProgress: "network-probe:lan-services-progress",
+    multiNodeProgress: "network-probe:multi-node-progress",
+    globalpingProgress: "network-probe:globalping-progress",
     siteSample: "network-probe:site-sample",
     pingSample: "network-probe:ping-sample",
     packProgress: "network-probe:pack-progress",
@@ -1840,5 +1896,9 @@ export interface TauriEventContracts {
   "network-probe:health-item": HealthCheckItem
   "network-probe:traceroute-hop": TracerouteHop
   "network-probe:scan-session": ScanSessionEvent
+  "network-probe:lan-discovery-progress": LanDiscoveryProgressEvent
+  "network-probe:lan-services-progress": LanServicesProgressEvent
+  "network-probe:multi-node-progress": MultiNodeDnsResult
+  "network-probe:globalping-progress": GlobalpingMeasurementResult
   "network-probe:ping-sample": PingSampleEvent
 }

@@ -19,6 +19,7 @@ interface HealthTreePanelProps {
   cancelling: boolean
   onRun: () => void
   onCancel: () => void
+  embedded?: boolean
 }
 
 export function HealthTreePanel({
@@ -29,13 +30,16 @@ export function HealthTreePanel({
   cancelling,
   onRun,
   onCancel,
+  embedded = false,
 }: HealthTreePanelProps) {
   const { t } = useTranslation()
   // 跑动中只渲染本轮 streaming: 旧 result 优先会把上一轮结论当成新一轮进度。
   const items = loading ? streamingItems : result?.items?.length ? result.items : streamingItems
+  const LayerHeading = embedded ? "h4" : "h3"
 
   return (
     <ProbePanelShell
+      embedded={embedded}
       toolbar={
         <>
           <p className="text-muted-foreground text-sm">{t("networkProbe.health.hint")}</p>
@@ -60,9 +64,6 @@ export function HealthTreePanel({
               </span>
             ) : null}
           </div>
-          <p className="text-muted-foreground font-mono text-xs">
-            {t("networkProbe.cmd.healthScan")}
-          </p>
         </>
       }
     >
@@ -75,9 +76,9 @@ export function HealthTreePanel({
           if (layerItems.length === 0) return null
           return (
             <section key={layer} className="space-y-1">
-              <h3 className="text-xs font-semibold tracking-wide uppercase">
+              <LayerHeading className="text-xs font-semibold tracking-wide uppercase">
                 {t(`networkProbe.health.layers.${layer}`)}
-              </h3>
+              </LayerHeading>
               <ul className="divide-border divide-y rounded-lg border text-sm">
                 {layerItems.map((row) => (
                   <li
@@ -91,8 +92,15 @@ export function HealthTreePanel({
                         })}
                       </div>
                       <code className="text-muted-foreground font-mono text-[10px]">{row.key}</code>
-                      {row.detail ? (
-                        <div className="text-muted-foreground text-xs">{row.detail}</div>
+                      {row.detail ||
+                      (row.status === "error" &&
+                        (row.key === "proxy.system" || row.key === "vpn.tunnel")) ? (
+                        <div className="text-muted-foreground text-xs">
+                          {row.detail ??
+                            (row.key === "proxy.system"
+                              ? t("networkProbe.health.proxyStatusUnavailable")
+                              : t("networkProbe.health.vpnStatusUnavailable"))}
+                        </div>
                       ) : null}
                       {row.commandHint ? (
                         <div className="text-muted-foreground/80 font-mono text-[10px]">

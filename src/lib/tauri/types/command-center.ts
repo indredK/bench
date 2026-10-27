@@ -11,6 +11,9 @@ export interface CommandCard {
   kind: CardKind
   command: string
   icon?: string | null
+  /** Optional in TypeScript for older fixtures/imports; Rust defaults missing values. */
+  group?: string
+  tags?: string[]
   createdAt: number
   updatedAt: number
   /** 命令市场来源（P5；缺省 = 本地手建卡片）。 */

@@ -9,6 +9,22 @@ export function queryPortProcesses(ports: number[]) {
   return invokeTauriCommand(TAURI_COMMANDS.portManager.queryPortProcesses, { ports })
 }
 
+export function queryProcessChildren(
+  pid: number,
+  expectedPpid: number,
+  expectedName: string,
+  expectedIdentity: string | null,
+  afterPid: number | null,
+) {
+  return invokeTauriCommand(TAURI_COMMANDS.portManager.queryProcessChildren, {
+    pid,
+    expectedPpid,
+    expectedName,
+    expectedIdentity,
+    afterPid,
+  })
+}
+
 export function killProcesses(targets: KillTarget[]) {
   return invokeTauriCommand(TAURI_COMMANDS.portManager.killProcesses, { targets })
 }

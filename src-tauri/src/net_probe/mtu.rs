@@ -2,75 +2,140 @@
 use super::types::PathMtuResult;
 #[cfg(target_os = "macos")]
 use super::types::{PathMtuProbeStep, PathMtuResult};
+#[cfg(target_os = "macos")]
 use super::validate::validate_host;
-use crate::error::{AppError, AppResult};
+#[cfg(target_os = "macos")]
+use crate::error::AppError;
+use crate::error::AppResult;
+#[cfg(target_os = "macos")]
+use crate::subprocess::{output_may_be_truncated, run_output_with_timeout, SubprocessErrorKind};
+#[cfg(target_os = "macos")]
 use std::net::IpAddr;
 #[cfg(target_os = "macos")]
 use std::process::Command;
+#[cfg(target_os = "macos")]
+use std::time::Duration;
 use std::time::Instant;
 
+#[cfg(target_os = "macos")]
 const IPV4_HEADER_ICMP: u16 = 28; // 20 IP + 8 ICMP
+#[cfg(target_os = "macos")]
 const IPV6_HEADER_ICMP: u16 = 48; // 40 IPv6 + 8 ICMPv6
 #[cfg(target_os = "macos")]
 const MIN_PAYLOAD: u16 = 64;
+#[cfg(target_os = "macos")]
 const MAX_PAYLOAD_V4: u16 = 1472; // 1500 - 28
+#[cfg(target_os = "macos")]
 const MAX_PAYLOAD_V6: u16 = 1452; // 1500 - 48
 
+#[cfg(not(target_os = "macos"))]
+fn unsupported_path_mtu_result(
+    target: String,
+    command_hint: String,
+    started: Instant,
+    message: &str,
+) -> PathMtuResult {
+    PathMtuResult {
+        target,
+        resolved_ip: String::new(),
+        status: "unsupported".into(),
+        path_mtu: None,
+        max_payload: None,
+        method: "none".into(),
+        steps: vec![],
+        message: Some(message.into()),
+        elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
+        command_hint,
+    }
+}
+
 pub async fn probe_path_mtu(target: String) -> AppResult<PathMtuResult> {
-    let mut target = target.trim().to_string();
-    if target.is_empty() || target == "gateway" {
-        target = resolve_gateway_target()?;
-    }
-    validate_host(&target)?;
-    let command_hint = format!("probePathMtu(local, '{target}')");
     let started = Instant::now();
-
-    let ip = super::ping::resolve_target_ip(&target).await?;
-    #[cfg(target_os = "macos")]
-    let (min_payload, max_payload, header) = match ip {
-        IpAddr::V4(_) => (MIN_PAYLOAD, MAX_PAYLOAD_V4, IPV4_HEADER_ICMP),
-        IpAddr::V6(_) => (MIN_PAYLOAD, MAX_PAYLOAD_V6, IPV6_HEADER_ICMP),
-    };
-
-    #[cfg(target_os = "macos")]
-    {
-        Ok(probe_macos_df(
-            target,
-            ip,
-            min_payload,
-            max_payload,
-            header,
-            command_hint,
-            started,
-        ))
-    }
-
     #[cfg(not(target_os = "macos"))]
     {
-        Ok(PathMtuResult {
+        let target = target.trim().to_string();
+        let command_hint = format!("probePathMtu(local, '{target}')");
+        return Ok(unsupported_path_mtu_result(
             target,
-            resolved_ip: ip.to_string(),
-            status: "unsupported".into(),
-            path_mtu: None,
-            max_payload: None,
-            method: "none".into(),
-            steps: vec![],
-            message: Some(
-                "Path MTU (DF binary search) is implemented on macOS for MVP; other platforms deferred."
-                    .into(),
-            ),
-            elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
             command_hint,
+            started,
+            "Path MTU probe is currently implemented on macOS only.",
+        ));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let mut target = target.trim().to_string();
+        if target.is_empty() || target == "gateway" {
+            target = tauri::async_runtime::spawn_blocking(resolve_gateway_target)
+                .await
+                .map_err(|error| {
+                    AppError::task_failed(format!("resolve MTU gateway: {error}"))
+                })??;
+        }
+        validate_host(&target)?;
+        let command_hint = format!("probePathMtu(local, '{target}')");
+        let ip = super::ping::resolve_target_ip(&target).await?;
+        let (min_payload, max_payload, header) = match ip {
+            IpAddr::V4(_) => (MIN_PAYLOAD, MAX_PAYLOAD_V4, IPV4_HEADER_ICMP),
+            IpAddr::V6(_) => (MIN_PAYLOAD, MAX_PAYLOAD_V6, IPV6_HEADER_ICMP),
+        };
+
+        tauri::async_runtime::spawn_blocking(move || {
+            probe_macos_df(
+                target,
+                ip,
+                min_payload,
+                max_payload,
+                header,
+                command_hint,
+                started,
+            )
         })
+        .await
+        .map_err(|error| AppError::task_failed(format!("probe path MTU: {error}")))
     }
 }
 
 /// Quick ladder for health scan (3 sizes) — avoids long binary search.
-pub async fn probe_path_mtu_health() -> AppResult<PathMtuResult> {
-    let target = "1.1.1.1".to_string();
-    let command_hint = "probePathMtu(local, '1.1.1.1')".to_string();
+pub async fn probe_path_mtu_health(target: String) -> AppResult<PathMtuResult> {
     let started = Instant::now();
-    let ip = super::ping::resolve_target_ip(&target).await?;
+    #[cfg(not(target_os = "macos"))]
+    {
+        let target = target.trim().to_string();
+        let command_hint = format!("probePathMtu(local, '{target}')");
+        return Ok(unsupported_path_mtu_result(
+            target,
+            command_hint,
+            started,
+            "MTU quick probe is currently implemented on macOS only.",
+        ));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let target = target.trim().to_string();
+        if target.is_empty() {
+            return Err(AppError::invalid_input("MTU probe target cannot be empty"));
+        }
+        let command_hint = format!("probePathMtu(local, '{target}')");
+        let ip = super::ping::resolve_target_ip(&target).await?;
+
+        tauri::async_runtime::spawn_blocking(move || {
+            probe_macos_df_ladder(target, ip, command_hint, started)
+        })
+        .await
+        .map_err(|error| AppError::task_failed(format!("probe health MTU: {error}")))
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn probe_macos_df_ladder(
+    target: String,
+    ip: IpAddr,
+    command_hint: String,
+    started: Instant,
+) -> PathMtuResult {
     let header = match ip {
         IpAddr::V4(_) => IPV4_HEADER_ICMP,
         IpAddr::V6(_) => IPV6_HEADER_ICMP,
@@ -87,81 +152,60 @@ pub async fn probe_path_mtu_health() -> AppResult<PathMtuResult> {
             MAX_PAYLOAD_V6,
         ],
     };
-
-    #[cfg(target_os = "macos")]
-    {
-        let mut steps = Vec::new();
-        let mut best_ok: Option<u16> = None;
-        let mut saw_timeout_after_ok = false;
-        for &payload in sizes {
-            let (ok, detail) = ping_df_once(&ip.to_string(), payload);
-            if ok {
-                best_ok = Some(payload);
-            } else if best_ok.is_some() && detail.as_deref().is_some_and(|d| d.contains("timeout"))
-            {
-                saw_timeout_after_ok = true;
-            }
-            steps.push(PathMtuProbeStep {
-                payload_bytes: payload,
-                ok,
-                detail,
-            });
+    let host = ip.to_string();
+    let mut steps = Vec::new();
+    let mut best_ok: Option<u16> = None;
+    let mut saw_timeout_after_ok = false;
+    for &payload in sizes {
+        let (ok, detail) = ping_df_once(&host, payload);
+        if ok {
+            best_ok = Some(payload);
+        } else if best_ok.is_some() && detail.as_deref().is_some_and(|d| d.contains("timeout")) {
+            saw_timeout_after_ok = true;
         }
-        let (status, path_mtu, max_payload, message) = match best_ok {
-            Some(p) if p == *sizes.last().unwrap_or(&p) => (
-                "ok".to_string(),
-                Some(p.saturating_add(header)),
-                Some(p),
-                None,
-            ),
-            Some(p) if saw_timeout_after_ok => (
-                "blackhole".to_string(),
-                Some(p.saturating_add(header)),
-                Some(p),
-                Some("Larger DF packets timed out — possible PMTUD blackhole".into()),
-            ),
-            Some(p) => (
-                "ok".to_string(),
-                Some(p.saturating_add(header)),
-                Some(p),
-                Some("Path MTU below Ethernet default (quick ladder)".into()),
-            ),
-            None => (
-                "fail".to_string(),
-                None,
-                None,
-                Some("All quick MTU ladder sizes failed".into()),
-            ),
-        };
-        Ok(PathMtuResult {
-            target,
-            resolved_ip: ip.to_string(),
-            status,
-            path_mtu,
-            max_payload,
-            method: "ping-df-ladder".into(),
-            steps,
-            message,
-            elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
-            command_hint,
-        })
+        steps.push(PathMtuProbeStep {
+            payload_bytes: payload,
+            ok,
+            detail,
+        });
     }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = (header, sizes);
-        Ok(PathMtuResult {
-            target,
-            resolved_ip: ip.to_string(),
-            status: "unsupported".into(),
-            path_mtu: None,
-            max_payload: None,
-            method: "none".into(),
-            steps: vec![],
-            message: Some("MTU quick probe is macOS-only for MVP".into()),
-            elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
-            command_hint,
-        })
+    let (status, path_mtu, max_payload, message) = match best_ok {
+        Some(p) if p == *sizes.last().unwrap_or(&p) => (
+            "ok".to_string(),
+            Some(p.saturating_add(header)),
+            Some(p),
+            None,
+        ),
+        Some(p) if saw_timeout_after_ok => (
+            "blackhole".to_string(),
+            Some(p.saturating_add(header)),
+            Some(p),
+            Some("Larger DF packets timed out — possible PMTUD blackhole".into()),
+        ),
+        Some(p) => (
+            "ok".to_string(),
+            Some(p.saturating_add(header)),
+            Some(p),
+            Some("Path MTU below Ethernet default (quick ladder)".into()),
+        ),
+        None => (
+            "fail".to_string(),
+            None,
+            None,
+            Some("All quick MTU ladder sizes failed".into()),
+        ),
+    };
+    PathMtuResult {
+        target,
+        resolved_ip: host,
+        status,
+        path_mtu,
+        max_payload,
+        method: "ping-df-ladder".into(),
+        steps,
+        message,
+        elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
+        command_hint,
     }
 }
 
@@ -287,8 +331,8 @@ fn probe_macos_df(
 #[cfg(target_os = "macos")]
 fn ping_df_once(host: &str, payload: u16) -> (bool, Option<String>) {
     // -D Don't Fragment; -s payload size; -c 1; -W 1000 ms wait (BSD ping)
-    let output = Command::new("ping")
-        .args([
+    let output = run_output_with_timeout(
+        Command::new("/sbin/ping").args([
             "-c",
             "1",
             "-W",
@@ -297,9 +341,14 @@ fn ping_df_once(host: &str, payload: u16) -> (bool, Option<String>) {
             "-s",
             &payload.to_string(),
             host,
-        ])
-        .output();
+        ]),
+        Duration::from_secs(2),
+        None,
+    );
     match output {
+        Ok(out) if output_may_be_truncated(&out) => {
+            (false, Some("ping output exceeded the capture limit".into()))
+        }
         Ok(out) => {
             let stdout = String::from_utf8_lossy(&out.stdout);
             let stderr = String::from_utf8_lossy(&out.stderr);
@@ -321,13 +370,49 @@ fn ping_df_once(host: &str, payload: u16) -> (bool, Option<String>) {
                 (false, Some(format!("fail: {}", stderr.trim())))
             }
         }
-        Err(e) => (false, Some(format!("ping spawn failed: {e}"))),
+        Err(error) => {
+            let detail = match error.kind {
+                SubprocessErrorKind::Spawn => "ping failed to start".to_string(),
+                SubprocessErrorKind::Timeout => "timeout".to_string(),
+                _ => "ping failed while collecting output".to_string(),
+            };
+            (false, Some(detail))
+        }
     }
 }
 
+#[cfg(target_os = "macos")]
 fn resolve_gateway_target() -> AppResult<String> {
     let route = super::summary::collect_default_route()?;
     route.gateway.ok_or_else(|| {
         AppError::invalid_input("No default gateway available for MTU probe target 'gateway'")
     })
+}
+
+#[cfg(all(test, not(target_os = "macos")))]
+mod platform_tests {
+    use super::{probe_path_mtu, probe_path_mtu_health};
+
+    #[tokio::test]
+    async fn unsupported_mtu_probe_does_not_resolve_or_validate_target() {
+        let result = probe_path_mtu("invalid target with spaces".into())
+            .await
+            .expect("unsupported platform should return a result without networking");
+
+        assert_eq!(result.status, "unsupported");
+        assert!(result.resolved_ip.is_empty());
+        assert!(result.steps.is_empty());
+        assert!(result.message.unwrap().contains("macOS only"));
+    }
+
+    #[tokio::test]
+    async fn unsupported_health_mtu_probe_does_not_resolve_target() {
+        let result = probe_path_mtu_health("example.com".into())
+            .await
+            .expect("unsupported platform should return a result without networking");
+
+        assert_eq!(result.status, "unsupported");
+        assert!(result.resolved_ip.is_empty());
+        assert!(result.message.unwrap().contains("macOS only"));
+    }
 }

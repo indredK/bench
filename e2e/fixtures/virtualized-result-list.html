@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Virtualized result list fixture</title>
+    <style>
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+      }
+
+      [data-virtualized-list="true"] {
+        height: 256px;
+        max-height: 256px;
+        overflow: auto;
+      }
+
+      [data-virtualized-list="true"] ul {
+        position: relative;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      [data-virtualized-list="true"] li {
+        position: absolute;
+        top: 0;
+        left: 0;
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 24px;
+        padding-bottom: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./virtualized-result-list.tsx"></script>
+  </body>
+</html>

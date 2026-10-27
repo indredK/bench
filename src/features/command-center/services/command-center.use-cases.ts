@@ -54,6 +54,8 @@ export const commandCenterUseCases = {
       kind: "shell",
       command: "",
       icon: null,
+      group: "",
+      tags: [],
       createdAt: now,
       updatedAt: now,
     }

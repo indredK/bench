@@ -1,4 +1,7 @@
-use super::types::{HealthCheckItem, HealthScanResult, LocalNetworkSummary, ScanSessionEvent};
+use super::types::{
+    HealthCheckItem, HealthScanResult, LocalNetworkSummary, MtuTarget, NetworkProbeDefaultsCatalog,
+    PublicIpApi, ReachTarget, ScanSessionEvent,
+};
 use crate::error::AppResult;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Runtime};
@@ -10,6 +13,9 @@ pub async fn run_health_scan<R: Runtime>(
     app: Option<&AppHandle<R>>,
 ) -> AppResult<HealthScanResult> {
     let started = Instant::now();
+    let defaults = super::defaults::get_defaults()?;
+    let reach_ip_targets = configured_reach_targets(&defaults, "pub-ip-v4", "ipv4");
+    let reach_name_targets = configured_reach_targets(&defaults, "pub-name", "name");
     let session_id = super::session::new_session_id();
     let command_hint = format!("startHealthScan(local) // sessionId={session_id}");
     let mut items = Vec::new();
@@ -56,7 +62,8 @@ pub async fn run_health_scan<R: Runtime>(
     .await
     .ok()
     .flatten();
-    let proxy_vpn = tauri::async_runtime::spawn_blocking(collect_proxy_vpn)
+    let proxy_route = route.clone();
+    let proxy_vpn = tauri::async_runtime::spawn_blocking(move || collect_proxy_vpn(proxy_route))
         .await
         .ok()
         .unwrap_or_default();
@@ -94,7 +101,14 @@ pub async fn run_health_scan<R: Runtime>(
         push_or_stop!(check_dns_servers(summary.as_ref()));
     }
     if !cancelled {
-        push_or_stop!(check_dns_resolve_name().await);
+        push_or_stop!(
+            check_dns_resolve_name(configured_reach_target(
+                &defaults,
+                "dns-resolve-name",
+                "name"
+            ))
+            .await
+        );
     }
     if !cancelled {
         push_or_stop!(check_dns_fake_ip(summary.as_ref(), &proxy_vpn).await);
@@ -132,12 +146,12 @@ pub async fn run_health_scan<R: Runtime>(
         push_or_stop!(item);
     }
     if !cancelled {
-        let item = check_reach_public_ip().await;
+        let item = check_reach_public_ip(&reach_ip_targets).await;
         reach_ip = Some(item.clone());
         push_or_stop!(item);
     }
     if !cancelled {
-        let item = check_reach_public_name().await;
+        let item = check_reach_public_name(&reach_name_targets).await;
         reach_name = Some(item.clone());
         push_or_stop!(item);
     }
@@ -147,13 +161,13 @@ pub async fn run_health_scan<R: Runtime>(
         }
     }
     if !cancelled {
-        push_or_stop!(check_captive().await);
+        push_or_stop!(check_captive(&defaults.captive_probes).await);
     }
     if !cancelled {
-        push_or_stop!(check_public_egress().await);
+        push_or_stop!(check_public_egress(&defaults.public_ip_apis).await);
     }
     if !cancelled {
-        push_or_stop!(check_mtu().await);
+        push_or_stop!(check_mtu(defaults.mtu_targets.first()).await);
     }
 
     let opinions = if cancelled {
@@ -424,9 +438,43 @@ fn check_dns_servers(summary: Option<&LocalNetworkSummary>) -> HealthCheckItem {
     }
 }
 
-async fn check_dns_resolve_name() -> HealthCheckItem {
-    let hint = "dnsLookup(local, 'cloudflare.com', {rrType:'A'})".to_string();
-    match super::dns::dns_lookup("cloudflare.com".into(), Some("A".into()), None).await {
+fn configured_reach_target<'a>(
+    defaults: &'a NetworkProbeDefaultsCatalog,
+    preferred_id: &str,
+    kind: &str,
+) -> Option<&'a ReachTarget> {
+    configured_reach_targets(defaults, preferred_id, kind)
+        .into_iter()
+        .next()
+}
+
+fn configured_reach_targets<'a>(
+    defaults: &'a NetworkProbeDefaultsCatalog,
+    preferred_id: &str,
+    kind: &str,
+) -> Vec<&'a ReachTarget> {
+    let mut targets = defaults
+        .reach_targets
+        .iter()
+        .filter(|target| target.kind == kind)
+        .collect::<Vec<_>>();
+    targets.sort_by_key(|target| target.id != preferred_id);
+    targets
+}
+
+async fn check_dns_resolve_name(target: Option<&ReachTarget>) -> HealthCheckItem {
+    let Some(target) = target else {
+        return item(
+            "dns.resolve_name",
+            "L1",
+            "skip",
+            Some("No DNS resolution target is configured".into()),
+            None,
+        );
+    };
+    let hostname = target.target.as_str();
+    let hint = format!("dnsLookup(local, '{hostname}', {{rrType:'A'}})");
+    match super::dns::dns_lookup(hostname.into(), Some("A".into()), None).await {
         Ok(r) if !r.records.is_empty() => item(
             "dns.resolve_name",
             "L1",
@@ -442,7 +490,7 @@ async fn check_dns_resolve_name() -> HealthCheckItem {
             "dns.resolve_name",
             "L1",
             "fail",
-            Some("Empty A answer for cloudflare.com".into()),
+            Some(format!("Empty A answer for {hostname}")),
             Some(hint),
         ),
         Err(e) => item(
@@ -494,6 +542,8 @@ fn check_hosts_override(hosts: &Option<Vec<super::types::HostsOverride>>) -> Hea
 #[derive(Default, Clone)]
 struct ProxyVpnInfo {
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    proxy_status_known: bool,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     proxy_enabled: bool,
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     proxy_detail: String,
@@ -503,7 +553,11 @@ struct ProxyVpnInfo {
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     proxy_endpoint: Option<String>,
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    vpn_interfaces_known: bool,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     vpn_ifaces: Vec<String>,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    default_route_known: bool,
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     default_via_tunnel: bool,
 }
@@ -531,67 +585,78 @@ fn is_loopback_host(host: &str) -> bool {
     )
 }
 
-fn collect_proxy_vpn() -> ProxyVpnInfo {
+fn collect_proxy_vpn(route: Option<super::types::DefaultRouteInfo>) -> ProxyVpnInfo {
     #[cfg(target_os = "macos")]
     {
         use std::process::Command;
         let mut info = ProxyVpnInfo::default();
-        if let Ok(output) = Command::new("scutil").args(["--proxy"]).output() {
-            let text = String::from_utf8_lossy(&output.stdout);
-            let http = text.contains("HTTPEnable : 1");
-            let https = text.contains("HTTPSEnable : 1");
-            let socks = text.contains("SOCKSEnable : 1");
-            let pac = text.contains("ProxyAutoConfigEnable : 1");
-            info.proxy_enabled = http || https || socks || pac;
+        match super::summary::run_system_network_command(
+            "scutil --proxy",
+            Command::new("/usr/sbin/scutil").args(["--proxy"]),
+        ) {
+            Ok(output)
+                if output.status.success()
+                    && output.stdout.iter().any(|byte| !byte.is_ascii_whitespace()) =>
+            {
+                info.proxy_status_known = true;
+                let text = String::from_utf8_lossy(&output.stdout);
+                let http = text.contains("HTTPEnable : 1");
+                let https = text.contains("HTTPSEnable : 1");
+                let socks = text.contains("SOCKSEnable : 1");
+                let pac = text.contains("ProxyAutoConfigEnable : 1");
+                info.proxy_enabled = http || https || socks || pac;
 
-            let http_host = scutil_proxy_value(&text, "HTTPProxy");
-            let https_host = scutil_proxy_value(&text, "HTTPSProxy");
-            let socks_host = scutil_proxy_value(&text, "SOCKSProxy");
-            let http_port = scutil_proxy_value(&text, "HTTPPort");
-            let https_port = scutil_proxy_value(&text, "HTTPSPort");
-            let socks_port = scutil_proxy_value(&text, "SOCKSPort");
+                let http_host = scutil_proxy_value(&text, "HTTPProxy");
+                let https_host = scutil_proxy_value(&text, "HTTPSProxy");
+                let socks_host = scutil_proxy_value(&text, "SOCKSProxy");
+                let http_port = scutil_proxy_value(&text, "HTTPPort");
+                let https_port = scutil_proxy_value(&text, "HTTPSPort");
+                let socks_port = scutil_proxy_value(&text, "SOCKSPort");
 
-            let endpoint = if https && https_host.is_some() {
-                Some(format!(
-                    "{}:{}",
-                    https_host.as_deref().unwrap_or("?"),
-                    https_port.as_deref().unwrap_or("?")
-                ))
-            } else if http && http_host.is_some() {
-                Some(format!(
-                    "{}:{}",
-                    http_host.as_deref().unwrap_or("?"),
-                    http_port.as_deref().unwrap_or("?")
-                ))
-            } else if socks && socks_host.is_some() {
-                Some(format!(
-                    "socks://{}:{}",
-                    socks_host.as_deref().unwrap_or("?"),
-                    socks_port.as_deref().unwrap_or("?")
-                ))
-            } else {
-                None
-            };
-            info.proxy_loopback = [
-                http_host.as_deref(),
-                https_host.as_deref(),
-                socks_host.as_deref(),
-            ]
-            .into_iter()
-            .flatten()
-            .any(is_loopback_host);
-            info.proxy_endpoint = endpoint;
-            info.proxy_detail = match &info.proxy_endpoint {
-                Some(ep) if info.proxy_loopback => {
-                    format!("HTTP={http} HTTPS={https} SOCKS={socks} PAC={pac}; local={ep}")
-                }
-                Some(ep) => {
-                    format!("HTTP={http} HTTPS={https} SOCKS={socks} PAC={pac}; endpoint={ep}")
-                }
-                None => format!("HTTP={http} HTTPS={https} SOCKS={socks} PAC={pac}"),
-            };
+                let endpoint = if https && https_host.is_some() {
+                    Some(format!(
+                        "{}:{}",
+                        https_host.as_deref().unwrap_or("?"),
+                        https_port.as_deref().unwrap_or("?")
+                    ))
+                } else if http && http_host.is_some() {
+                    Some(format!(
+                        "{}:{}",
+                        http_host.as_deref().unwrap_or("?"),
+                        http_port.as_deref().unwrap_or("?")
+                    ))
+                } else if socks && socks_host.is_some() {
+                    Some(format!(
+                        "socks://{}:{}",
+                        socks_host.as_deref().unwrap_or("?"),
+                        socks_port.as_deref().unwrap_or("?")
+                    ))
+                } else {
+                    None
+                };
+                info.proxy_loopback = [
+                    http_host.as_deref(),
+                    https_host.as_deref(),
+                    socks_host.as_deref(),
+                ]
+                .into_iter()
+                .flatten()
+                .any(is_loopback_host);
+                info.proxy_endpoint = endpoint;
+                info.proxy_detail = match &info.proxy_endpoint {
+                    Some(ep) if info.proxy_loopback => {
+                        format!("HTTP={http} HTTPS={https} SOCKS={socks} PAC={pac}; local={ep}")
+                    }
+                    Some(ep) => {
+                        format!("HTTP={http} HTTPS={https} SOCKS={socks} PAC={pac}; endpoint={ep}")
+                    }
+                    None => format!("HTTP={http} HTTPS={https} SOCKS={socks} PAC={pac}"),
+                };
+            }
+            Ok(_) | Err(_) => {}
         }
         if let Ok(ifaces) = if_addrs::get_if_addrs() {
+            info.vpn_interfaces_known = true;
             for iface in ifaces {
                 if super::summary::is_tunnel_iface(&iface.name)
                     && !info.vpn_ifaces.contains(&iface.name)
@@ -600,7 +665,8 @@ fn collect_proxy_vpn() -> ProxyVpnInfo {
                 }
             }
         }
-        if let Ok(route) = super::summary::collect_default_route() {
+        if let Some(route) = route {
+            info.default_route_known = true;
             if let Some(iface) = route.interface {
                 info.default_via_tunnel = super::summary::is_tunnel_iface(&iface);
             }
@@ -609,6 +675,7 @@ fn collect_proxy_vpn() -> ProxyVpnInfo {
     }
     #[cfg(not(target_os = "macos"))]
     {
+        let _ = route;
         ProxyVpnInfo::default()
     }
 }
@@ -627,7 +694,15 @@ fn check_proxy_system(info: &ProxyVpnInfo) -> HealthCheckItem {
     }
     #[cfg(target_os = "macos")]
     {
-        if info.proxy_enabled {
+        if !info.proxy_status_known {
+            item(
+                "proxy.system",
+                "L1",
+                "error",
+                None,
+                Some("scutil --proxy".into()),
+            )
+        } else if info.proxy_enabled {
             let detail = if info.proxy_loopback {
                 format!(
                     "Local system proxy ({}); real site latency is via this client, not ICMP",
@@ -742,6 +817,14 @@ fn check_vpn_tunnel(
                 )),
                 Some("if_addrs".into()),
             )
+        } else if !info.vpn_interfaces_known || !info.default_route_known {
+            item(
+                "vpn.tunnel",
+                "L1",
+                "error",
+                None,
+                Some("if_addrs + getDefaultRoute()".into()),
+            )
         } else {
             item(
                 "vpn.tunnel",
@@ -833,85 +916,122 @@ async fn check_reach_gateway(gateway: Option<&str>, route_iface: Option<&str>) -
     )
 }
 
-async fn check_reach_public_ip() -> HealthCheckItem {
-    let target = "1.1.1.1";
-    let hint = format!("pingHost(local, '{target}', {{count:1}})");
-    match super::ping::ping_host(target.into(), Some(1), Some(200)).await {
-        Ok(r) if r.packets_received > 0 => item(
+async fn check_reach_public_ip(targets: &[&ReachTarget]) -> HealthCheckItem {
+    if targets.is_empty() {
+        return item(
             "reach.public_ip",
             "L3",
-            "pass",
-            Some(format!("rtt≈{:.1}ms", r.avg_rtt_ms.unwrap_or(0.0))),
-            Some(hint),
-        ),
-        Ok(r) => item(
-            "reach.public_ip",
-            "L3",
-            "fail",
-            Some(format!("loss={:.0}%", r.loss_percent)),
-            Some(hint),
-        ),
-        Err(e) => item(
-            "reach.public_ip",
-            "L3",
-            "fail",
-            Some(e.to_string()),
-            Some(hint),
-        ),
+            "skip",
+            Some("No public IPv4 reachability target is configured".into()),
+            None,
+        );
     }
-}
-
-async fn check_reach_public_name() -> HealthCheckItem {
-    // Prefer HTTP on domain so we still get signal when ICMP is blocked.
-    // Under Fake-IP, ICMP only hits the local TUN — never treat that as Internet OK.
-    let hint = "probeTarget(local, 'https://cloudflare.com') / ping cloudflare.com".to_string();
-    let fake = super::fake_ip::host_resolves_to_fake_ip("cloudflare.com").await;
-    if fake.is_none() {
-        let ping = super::ping::ping_host("cloudflare.com".into(), Some(1), Some(200)).await;
-        if let Ok(r) = &ping {
-            if r.packets_received > 0 {
+    let mut failures = Vec::new();
+    for target in targets {
+        let host = target.target.as_str();
+        let hint = format!("pingHost(local, '{host}', {{count:1}})");
+        match super::ping::ping_host(host.into(), Some(1), Some(200)).await {
+            Ok(result) if result.packets_received > 0 => {
                 return item(
-                    "reach.public_name",
+                    "reach.public_ip",
                     "L3",
                     "pass",
-                    Some(format!("ICMP ok rtt≈{:.1}ms", r.avg_rtt_ms.unwrap_or(0.0))),
+                    Some(format!(
+                        "{} reachable; rtt≈{:.1}ms",
+                        target.id,
+                        result.avg_rtt_ms.unwrap_or(0.0)
+                    )),
                     Some(hint),
                 );
             }
+            Ok(result) => failures.push(format!("{} loss={:.0}%", target.id, result.loss_percent)),
+            Err(error) => failures.push(format!("{}: {error}", target.id)),
         }
     }
-    let (http, _) = super::probe::probe_http_target("https://cloudflare.com").await;
-    match http {
-        Some(h) if h.ok => {
-            let mut detail = format!(
-                "HTTP {} TTFB≈{:.0}ms",
-                h.status.unwrap_or(0),
-                h.ttfb_ms.unwrap_or(0.0)
-            );
-            if let Some(ip) = fake {
-                detail.push_str(&format!(" (Fake-IP {ip}; ICMP skipped)"));
+    item(
+        "reach.public_ip",
+        "L3",
+        "fail",
+        Some(format!(
+            "All configured IPv4 targets failed: {}",
+            failures.join("; ")
+        )),
+        Some("pingHost(local, <configured IPv4 targets>)".into()),
+    )
+}
+
+async fn check_reach_public_name(targets: &[&ReachTarget]) -> HealthCheckItem {
+    if targets.is_empty() {
+        return item(
+            "reach.public_name",
+            "L3",
+            "skip",
+            Some("No public hostname reachability target is configured".into()),
+            None,
+        );
+    }
+    let mut failures = Vec::new();
+    for target in targets {
+        let hostname = target.target.as_str();
+        // Prefer HTTP on domain so we still get signal when ICMP is blocked.
+        // Under Fake-IP, ICMP only hits the local TUN — never treat that as Internet OK.
+        let hint = format!("probeTarget(local, '{hostname}') / ping {hostname}");
+        let fake = super::fake_ip::host_resolves_to_fake_ip(hostname).await;
+        if fake.is_none() {
+            match super::ping::ping_host(hostname.into(), Some(1), Some(200)).await {
+                Ok(result) if result.packets_received > 0 => {
+                    return item(
+                        "reach.public_name",
+                        "L3",
+                        "pass",
+                        Some(format!(
+                            "{} ICMP ok rtt≈{:.1}ms",
+                            target.id,
+                            result.avg_rtt_ms.unwrap_or(0.0)
+                        )),
+                        Some(hint),
+                    );
+                }
+                Ok(result) => failures.push(format!(
+                    "{} ICMP loss={:.0}%",
+                    target.id, result.loss_percent
+                )),
+                Err(error) => failures.push(format!("{} ICMP: {error}", target.id)),
             }
-            item("reach.public_name", "L3", "pass", Some(detail), Some(hint))
         }
-        Some(h) => item(
-            "reach.public_name",
-            "L3",
-            "fail",
-            h.error.or_else(|| Some("HTTP failed".into())),
-            Some(hint),
-        ),
-        None => item(
-            "reach.public_name",
-            "L3",
-            "fail",
-            Some(if fake.is_some() {
-                "HTTP failed under Fake-IP (ICMP not authoritative)".into()
-            } else {
-                "ICMP and HTTP both failed".into()
-            }),
-            Some(hint),
-        ),
+        let (http, _) = super::probe::probe_http_target(hostname).await;
+        match http {
+            Some(h) if h.ok => {
+                let mut detail = format!(
+                    "{} HTTP {} TTFB≈{:.0}ms",
+                    target.id,
+                    h.status.unwrap_or(0),
+                    h.ttfb_ms.unwrap_or(0.0)
+                );
+                if let Some(ip) = fake {
+                    detail.push_str(&format!(" (Fake-IP {ip}; ICMP skipped)"));
+                }
+                return item("reach.public_name", "L3", "pass", Some(detail), Some(hint));
+            }
+            Some(h) => failures.push(format!(
+                "{} HTTP: {}",
+                target.id,
+                h.error
+                    .unwrap_or_else(|| format!("HTTP {}", h.status.unwrap_or(0)))
+            )),
+            None => failures.push(format!("{} HTTP: no response", target.id)),
+        }
     }
+    item(
+        "reach.public_name",
+        "L3",
+        "fail",
+        Some(format!(
+            "All configured host targets failed: {}",
+            failures.join("; ")
+        )),
+        Some("probeTarget(local, <configured host targets>)".into()),
+    )
 }
 
 fn synthesize_dns_vs_ip(
@@ -956,100 +1076,87 @@ fn synthesize_dns_vs_ip(
     )
 }
 
-async fn check_captive() -> HealthCheckItem {
-    let hint = "detectCaptivePortal(local) via captive.apple.com".to_string();
-    let (http, _) =
-        super::probe::probe_http_target("http://captive.apple.com/hotspot-detect.html").await;
-    match http {
-        Some(h) if h.ok && h.status == Some(200) => {
-            let final_url = h.final_url.unwrap_or_default();
-            if final_url.contains("captive.apple.com") || final_url.is_empty() {
-                item(
-                    "reach.captive",
+async fn check_captive(probes: &[super::types::CaptiveProbe]) -> HealthCheckItem {
+    let result = super::offline::detect_captive_portal_with_probes(probes).await;
+    let status = match result.status.as_str() {
+        "open" => "pass",
+        "captive" => "fail",
+        "offline" => "skip",
+        _ => "warn",
+    };
+    item(
+        "reach.captive",
+        "L3",
+        status,
+        result.detail,
+        Some(result.command_hint),
+    )
+}
+
+async fn check_public_egress(apis: &[PublicIpApi]) -> HealthCheckItem {
+    if apis.is_empty() {
+        return item(
+            "reach.public_egress",
+            "L3",
+            "skip",
+            Some("No public IP API is configured".into()),
+            None,
+        );
+    }
+    let client = match super::offline::public_ip_client() {
+        Ok(client) => client,
+        Err(error) => {
+            return item(
+                "reach.public_egress",
+                "L3",
+                "error",
+                Some(error.to_string()),
+                Some("getPublicIpInfo(local)".into()),
+            );
+        }
+    };
+    let mut failures = Vec::new();
+    for api in apis {
+        match super::offline::fetch_public_ip_api(&client, api).await {
+            Ok(result) => {
+                return item(
+                    "reach.public_egress",
                     "L3",
                     "pass",
-                    Some("No captive portal detected (apple probe)".into()),
-                    Some(hint),
-                )
-            } else {
-                item(
-                    "reach.captive",
-                    "L3",
-                    "warn",
-                    Some(format!("Unexpected redirect to {final_url}")),
-                    Some(hint),
-                )
+                    Some(format!(
+                        "{} returned a valid IP (HTTP {}, TTFB≈{:.0}ms)",
+                        api.id, result.status, result.elapsed_ms
+                    )),
+                    Some(format!("getPublicIpInfo(local) via {}", api.id)),
+                );
             }
+            Err(error) => failures.push(format!("{}: {error}", api.id)),
         }
-        Some(h) if h.status == Some(302) || h.status == Some(301) => item(
-            "reach.captive",
-            "L3",
-            "fail",
-            Some(format!(
-                "Possible captive portal (HTTP {})",
-                h.status.unwrap_or(0)
-            )),
-            Some(hint),
-        ),
-        Some(h) => item(
-            "reach.captive",
-            "L3",
-            "warn",
-            h.error.or_else(|| {
-                Some(format!(
-                    "Unexpected status {}",
-                    h.status
-                        .map(|s| s.to_string())
-                        .unwrap_or_else(|| "?".into())
-                ))
-            }),
-            Some(hint),
-        ),
-        None => item(
-            "reach.captive",
-            "L3",
-            "skip",
-            Some("Captive probe unavailable".into()),
-            Some(hint),
-        ),
     }
+    item(
+        "reach.public_egress",
+        "L3",
+        "fail",
+        Some(format!(
+            "All public IP APIs failed: {}",
+            failures.join("; ")
+        )),
+        Some("getPublicIpInfo(local)".into()),
+    )
 }
 
-async fn check_public_egress() -> HealthCheckItem {
-    let hint = "getPublicIpInfo(local) via api.ipify.org".to_string();
-    let (http, _) = super::probe::probe_http_target("https://api.ipify.org?format=json").await;
-    match http {
-        Some(h) if h.ok => item(
-            "reach.public_egress",
-            "L3",
-            "pass",
-            Some(format!(
-                "Egress API reachable (HTTP {}, TTFB≈{:.0}ms)",
-                h.status.unwrap_or(0),
-                h.ttfb_ms.unwrap_or(0.0)
-            )),
-            Some(hint),
-        ),
-        Some(h) => item(
-            "reach.public_egress",
-            "L3",
-            "fail",
-            h.error.or_else(|| Some("Egress API failed".into())),
-            Some(hint),
-        ),
-        None => item(
-            "reach.public_egress",
+async fn check_mtu(target: Option<&MtuTarget>) -> HealthCheckItem {
+    let Some(target) = target else {
+        return item(
+            "reach.mtu",
             "L3",
             "skip",
-            Some("Egress probe unavailable".into()),
-            Some(hint),
-        ),
-    }
-}
-
-async fn check_mtu() -> HealthCheckItem {
-    let hint = "probePathMtu(local, '1.1.1.1')";
-    match super::mtu::probe_path_mtu_health().await {
+            Some("No path MTU target is configured".into()),
+            None,
+        );
+    };
+    let hint = format!("probePathMtu(local, '{}')", target.target);
+    match super::mtu::probe_path_mtu_health(target.target.clone()).await {
         Ok(r) => {
             let status = match r.status.as_str() {
                 "ok" => "pass",
@@ -1058,21 +1165,19 @@ async fn check_mtu() -> HealthCheckItem {
                 "degraded" => "warn",
                 _ => "fail",
             };
-            let detail = match (r.path_mtu, r.message) {
-                (Some(mtu), Some(msg)) => format!("pathMtu={mtu}; {msg}"),
-                (Some(mtu), None) => format!("pathMtu={mtu}"),
-                (None, Some(msg)) => msg,
-                (None, None) => r.status,
+            let detail = if r.status == "unsupported" {
+                None
+            } else {
+                match (r.path_mtu, r.message) {
+                    (Some(mtu), Some(msg)) => Some(format!("pathMtu={mtu}; {msg}")),
+                    (Some(mtu), None) => Some(format!("pathMtu={mtu}")),
+                    (None, Some(msg)) => Some(msg),
+                    (None, None) => Some(r.status),
+                }
             };
-            item("reach.mtu", "L3", status, Some(detail), Some(hint.into()))
+            item("reach.mtu", "L3", status, detail, Some(hint))
         }
-        Err(e) => item(
-            "reach.mtu",
-            "L3",
-            "error",
-            Some(e.to_string()),
-            Some(hint.into()),
-        ),
+        Err(e) => item("reach.mtu", "L3", "error", Some(e.to_string()), Some(hint)),
     }
 }
 
@@ -1082,6 +1187,42 @@ mod tests {
 
     fn hi(key: &str, status: &str, detail: &str) -> HealthCheckItem {
         item(key, "L3", status, Some(detail.into()), None)
+    }
+
+    #[test]
+    fn configured_reach_target_prefers_the_named_target_then_falls_back_by_kind() {
+        let defaults = NetworkProbeDefaultsCatalog {
+            schema_version: 1,
+            dns_presets: vec![],
+            reach_targets: vec![
+                ReachTarget {
+                    id: "alternate".into(),
+                    kind: "name".into(),
+                    target: "example.org".into(),
+                },
+                ReachTarget {
+                    id: "dns-resolve-name".into(),
+                    kind: "name".into(),
+                    target: "resolver.example.org".into(),
+                },
+            ],
+            captive_probes: vec![],
+            public_ip_apis: vec![],
+            site_packs: Default::default(),
+            mtu_targets: vec![],
+        };
+
+        assert_eq!(
+            configured_reach_target(&defaults, "dns-resolve-name", "name")
+                .map(|target| target.target.as_str()),
+            Some("resolver.example.org")
+        );
+        assert_eq!(
+            configured_reach_target(&defaults, "missing", "name")
+                .map(|target| target.target.as_str()),
+            Some("example.org")
+        );
+        assert!(configured_reach_target(&defaults, "missing", "ipv4").is_none());
     }
 
     #[test]
@@ -1127,5 +1268,40 @@ mod tests {
         );
         assert_eq!(r.status, "fail");
         assert!(r.detail.as_deref().unwrap_or("").contains("LAN"));
+    }
+
+    #[test]
+    fn proxy_system_does_not_report_a_failed_read_as_no_proxy() {
+        let result = check_proxy_system(&ProxyVpnInfo::default());
+        #[cfg(target_os = "macos")]
+        assert_eq!(result.status, "error");
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(result.status, "skip");
+    }
+
+    #[test]
+    fn proxy_system_result_is_independent_from_vpn_probe_failures() {
+        let result = check_proxy_system(&ProxyVpnInfo {
+            proxy_status_known: true,
+            vpn_interfaces_known: false,
+            default_route_known: false,
+            ..ProxyVpnInfo::default()
+        });
+        #[cfg(target_os = "macos")]
+        {
+            assert_eq!(result.key, "proxy.system");
+            assert_eq!(result.status, "pass");
+        }
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(result.status, "skip");
+    }
+
+    #[test]
+    fn vpn_tunnel_does_not_report_failed_interface_or_route_reads_as_clear() {
+        let result = check_vpn_tunnel(&ProxyVpnInfo::default(), None);
+        #[cfg(target_os = "macos")]
+        assert_eq!(result.status, "error");
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(result.status, "skip");
     }
 }

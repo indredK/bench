@@ -22,21 +22,24 @@
 
 > **站点延迟**已提升为独立 L1（`sites`：常用官网卡片 + 区域站点包），不再挂在基础视角下。
 
-导航记忆：`nav.l1Id = basic` + `l2ByL1.basic` + `offlineSub`（见 design §3.1）。
+本页为一个纵向滚动的 `BasicView`，整合概览、体检、建议、离线诊断、修复、报告六个区块。L1 顶栏当前项使用 `aria-current="page"`；页面标题使用 `h1`，当前 L2 面板标题使用 `h2`，六个区块标题使用 `h3`，区块内的分组标题使用 `h4`。底栏 L2 是页内锚点：点击滚动到对应区块；键盘或辅助技术激活，以及区块内的「查看体检」快捷入口，均把焦点送到目标区块；手动滚动时当前区块高亮并写入 `l2ByL1.basic`；重返基础视角时只应用一次记忆锚点，后续导航状态更新不会把视口拉回进入页时的位置。离线诊断区显示强制门户与代理/VPN 摘要，并在下方提供 IPv6 / MTU / 公网出口可单项重测面板；每项结果只显示一次，不再显示旧版离线子导航。
+
+IPv6 与 MTU 单项检查会写入一键诊断也使用的结果槽，因此它们与 `runOfflineDiagnostics` 互斥。面板按钮依据同一组 loading 状态禁用，use-case 再校验运行状态，覆盖 L1 切换后按钮禁用态变化或其他调用入口；公网出口刷新与一键诊断则共享 `loadingOffline`。整组诊断遇到子项失败时立即显示错误，但仍等待其余请求结束再释放 loading，确保用户及时获知失败且立即重试不会与旧请求重叠。
 
 ---
 
 ## 2. 架构落点
 
 ```text
-components/BasicView/
-  NetworkSummaryHeader.tsx   # overview
-  HealthTree.tsx             # tree
-  ScanOpinion.tsx            # opinion
-  SiteLatencyBoard.tsx       # sites
-  OfflineSuite.tsx           # offline + 子路由
-  QuickFixPanel.tsx          # fix
-  HealthReport.tsx           # report（可上提 shared）
+components/BasicView.tsx    # 六区块单页容器、滚动锚点与当前区块跟随
+components/
+  OverviewPanel.tsx          # overview
+  HealthTreePanel.tsx        # tree
+  ScanOpinionPanel.tsx       # opinion
+  OfflinePanel.tsx           # offline 摘要
+  Ipv6Panel.tsx / MtuPanel.tsx / EgressPanel.tsx # offline 细项，也供测试页复用
+  FixPanel.tsx               # fix
+  ReportPanel.tsx            # report
 
 src-tauri/src/net_probe/
   summary.rs      # LocalNetworkSummary / DefaultRoute / hosts / firewall
@@ -70,7 +73,9 @@ UI → controller → use-case → repository → typed IPC → net_probe::*
 | 系统代理 / PAC          | `SCDynamicStore` Proxies 字典（HTTP/HTTPS/SOCKS/PAC URL）             | 对齐 `scutil --proxy`；企业 VPN 下勿只信 System Settings UI                                  |
 | 活动接口排序            | `scutil --nwi` 等价信息（Primary + REACH）                            | VPN `utun*` 可能抢主键；摘要须同时列出 primary + 隧道                                        |
 | Wi‑Fi SSID / 信号       | CoreWLAN（`CWInterface`）或既有 `get_wifi_info` 迁入                  | **macOS Local Network / Wi‑Fi 隐私**：首次可能弹授权；失败标 `partial`/`unsupported`，不伪装 |
-| hosts                   | 只读 `/etc/hosts`                                                     | 解析异常行记 warn；**不自动改写**                                                            |
+
+当前 macOS 备选命令统一设置 C locale，最多等待 2 秒并限制 stdout/stderr 各 1 MiB；route 超时作为字段加载失败，DNS / Wi-Fi 查询失败时保留其余摘要，并通过 `unavailableFields` 与本地化部分数据提示标明失败来源。成功但没有配置默认路由或当前未连接 Wi-Fi 时不报告读取错误。代理读取与 IPv6 NDP 查询沿用同一有界执行器；MTU 的 DF ping 每次最多 2 秒、捕获上限 1 MiB，批量同步探测必须放入 `spawn_blocking`，不能占住 Tokio worker。代理状态仅在 `scutil --proxy` 成功且返回非空数据时标为已知，读取失败显示 error/unknown，不得把默认 `false` 报成「未开启」；VPN 接口列表与默认路由分别标记是否读取成功，任一读取失败时显示 unknown，不得以空列表或 `false` 推导“无 VPN”。
+| hosts | 只读 `/etc/hosts` | 解析异常行记 warn；**不自动改写** |
 
 参考实践：
 
@@ -130,14 +135,14 @@ macOS 允许非 root 使用 `SOCK_DGRAM` + `IPPROTO_ICMP`（与系统 `ping(8)` 
 
 ### 3.6「上不了网」专项（`offline.rs`）
 
-| 子页      | 算法（macOS）                                                                                                |
-| --------- | ------------------------------------------------------------------------------------------------------------ |
-| Captive   | HTTP GET Apple/Google 连通性 URL（多源故障转移）；期望 204/固定 body；302→门户则 `captive=true` + portal URL |
-| 代理/VPN  | SC Proxies + 枚举 `utun*`/`ipsec*` + 默认路由是否经隧道                                                      |
-| IPv6      | 本机 AAAA、解析 AAAA、HTTP over IPv6（可选）；NDP/ICMPv6 traceroute 有特权再加深，否则 `partial`             |
-| MTU       | 对固定目标做 DF 二分 / 递增；黑洞标 `blackhole`；与「测试」共用 `probePathMtu`                               |
-| 公网出口  | HTTPS 多源 IP API + 可选 ASN；短 TTL 缓存；密钥不进前端                                                      |
-| DNS vs IP | 复用体检合成表，不另造结论语义                                                                               |
+| 子页      | 算法（macOS）                                                                                                                                                                                    |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Captive   | HTTP GET Apple/Google 连通性 URL（多源故障转移）；期望 204/固定 body；302→门户则 `captive=true` + portal URL                                                                                     |
+| 代理/VPN  | SC Proxies + 枚举 `utun*`/`ipsec*` + 默认路由是否经隧道；代理读取只决定 `proxy.system`，VPN 接口 / 路由读取只决定 `vpn.tunnel`；任何读取失败且没有已知 VPN 证据时返回 error，不能以空结果报 pass |
+| IPv6      | 本机 AAAA、解析 AAAA、HTTP over IPv6（可选）；NDP/ICMPv6 traceroute 有特权再加深，否则 `partial`                                                                                                 |
+| MTU       | 对固定目标做 DF 二分 / 递增；黑洞标 `blackhole`；与「测试」共用 `probePathMtu`                                                                                                                   |
+| 公网出口  | HTTPS 多源 IP API + 可选 ASN；短 TTL 缓存；密钥不进前端                                                                                                                                          |
+| DNS vs IP | 复用体检合成表，不另造结论语义                                                                                                                                                                   |
 
 双入口：`MtuPanel` / `EgressPanel` 与 L1「测试」共享组件；仅导航来源不同（prototype 方案 A）。
 
@@ -149,6 +154,8 @@ macOS 允许非 root 使用 `SOCK_DGRAM` + `IPPROTO_ICMP`（与系统 `ping(8)` 
 | `switchDns`         | `networksetup -setdnsservers <service> ...`；服务名来自后端枚举，**禁止**前端传任意 service 字符串当最终依据 | ≥两步         |
 | `renewDhcp`         | `ipconfig set <iface> DHCP` 或 `networksetup -setdhcp`；iface 白名单 = 当前活动接口                          | ≥两步         |
 | `resetNetworkStack` | 组合：刷新 DNS + 重建网络服务顺序等；影响大                                                                  | **三步** §3.4 |
+
+固定修复命令限制输出捕获为每路 1 MiB；列举网络服务最多等待 10 秒，DNS 刷新子命令各最多 10 秒，切换 DNS / DHCP 最多等待 20 秒。变更命令超时后结果标失败并提示先核验当前系统设置，再决定是否重试，因为命令可能已部分生效。服务列表若被截断则拒绝解析为白名单。
 
 后端复核（强制）：收到修复请求后重新读取当前状态；拒绝「前端已确认」标志；参数白名单；幂等（重复 flush 成功）。
 
@@ -207,6 +214,8 @@ Advisor：前端 `network-probe.advisor.ts` 与后端 `advisor_rules.rs` **共�
 ## 7. 安全与隐私
 
 - 报告导出前提示可能含公网 IP / hosts / SSID。
+- 历史快照可选任意两次按稳定检查 key 对比状态；仅标记状态变化、未变化与只存在于单侧的检查项，不推导整体健康度，也不展示详情文本。
+- 历史按最近优先排列；不足两条快照时提供前往一键体检的入口。
 - 历史条数上限；默认不含 Cookie。
 - 修复命令审计：后端记结构化日志（iface、DNS 列表），脱敏。
 

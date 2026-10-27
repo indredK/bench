@@ -3,8 +3,11 @@
 use super::types::{PortSampleEvent, PortScanResult, ScanSessionEvent};
 use super::validate::validate_host;
 use crate::error::{AppError, AppResult};
+use crate::subprocess::{run_output_with_timeout, run_status_with_timeout, SubprocessErrorKind};
 use std::net::IpAddr;
+use std::process::{Command, Output};
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Runtime};
 use tokio::net::TcpStream;
@@ -38,14 +41,7 @@ pub async fn scan_ports_tcp<R: Runtime>(
         )));
     }
 
-    // S-SEC-03: prefer nmap SYN when nmap is present; fall back to TCP connect.
-    if nmap_available() {
-        if let Ok(Some(syn)) = try_nmap_syn(app, &target, &ports).await {
-            return Ok(syn);
-        }
-    }
-
-    let session_id = super::session::new_session_id();
+    let (session_id, abort_token) = super::session::new_session_with_abort_token();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -54,6 +50,34 @@ pub async fn scan_ports_tcp<R: Runtime>(
                 kind: "ports".into(),
             },
         );
+    }
+
+    // S-SEC-03: prefer nmap SYN when nmap is present; fall back to TCP connect.
+    if nmap_available().await {
+        if super::session::is_cancelled(&session_id) {
+            super::session::clear_session(&session_id);
+            return Ok(cancelled_port_scan(&target, ports.len(), session_id));
+        }
+        if let Ok(Some(result)) = try_nmap_syn(
+            app,
+            &target,
+            &ports,
+            session_id.clone(),
+            abort_token.clone(),
+        )
+        .await
+        {
+            if super::session::is_cancelled(&session_id) {
+                super::session::clear_session(&session_id);
+                return Ok(cancelled_port_scan(&target, ports.len(), session_id));
+            }
+            super::session::clear_session(&session_id);
+            return Ok(result);
+        }
+    }
+    if super::session::is_cancelled(&session_id) {
+        super::session::clear_session(&session_id);
+        return Ok(cancelled_port_scan(&target, ports.len(), session_id));
     }
 
     let command_hint = format!(
@@ -122,16 +146,20 @@ pub async fn scan_ports_tcp<R: Runtime>(
         message: if cancelled {
             Some("Port scan cancelled.".into())
         } else {
-            Some("Degraded mode: TCP connect only. Install adv-scanner / nmap for SYN.".into())
+            Some("TCP connect only; nmap SYN scan unavailable.".into())
         },
         command_hint,
     })
 }
 
 async fn probe_one(host: String, port: u16, timeout_ms: u64) -> PortSampleEvent {
-    let addr = format!("{host}:{port}");
     let started = Instant::now();
-    match timeout(Duration::from_millis(timeout_ms), TcpStream::connect(addr)).await {
+    match timeout(
+        Duration::from_millis(timeout_ms),
+        TcpStream::connect((host.as_str(), port)),
+    )
+    .await
+    {
         Ok(Ok(_stream)) => PortSampleEvent {
             port,
             state: "open".into(),
@@ -177,77 +205,71 @@ fn service_hint(port: u16) -> Option<String> {
     )
 }
 
-fn nmap_available() -> bool {
-    std::process::Command::new("nmap")
-        .arg("-V")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+async fn nmap_available() -> bool {
+    tauri::async_runtime::spawn_blocking(|| {
+        let mut command = Command::new("nmap");
+        command.arg("-V");
+        run_status_with_timeout(&mut command, Duration::from_secs(2)).is_ok()
+    })
+    .await
+    .unwrap_or(false)
 }
 
-/// Try unprivileged TCP SYN-ish via `nmap -sT` (connect) first; if root-capable `-sS` works use that.
-/// Returns Ok(None) to fall back to built-in TCP connect scanner.
+/// Try `nmap -sS` first, then `-sT` if SYN is unavailable.
+/// Returns Ok(None) to fall back to the built-in TCP connect scanner.
 async fn try_nmap_syn<R: Runtime>(
     app: Option<&AppHandle<R>>,
     target: &str,
     ports: &[u16],
+    session_id: String,
+    abort_token: Arc<std::sync::atomic::AtomicBool>,
 ) -> AppResult<Option<PortScanResult>> {
-    let session_id = super::session::new_session_id();
-    if let Some(app) = app {
-        let _ = app.emit(
-            SCAN_SESSION_EVENT,
-            &ScanSessionEvent {
-                session_id: session_id.clone(),
-                kind: "ports".into(),
-            },
-        );
-    }
     let port_arg = ports
         .iter()
         .map(|p| p.to_string())
         .collect::<Vec<_>>()
         .join(",");
     let target_owned = target.to_string();
-    let session_for_block = session_id.clone();
+    let abort_for_block = abort_token.clone();
 
     let output = tauri::async_runtime::spawn_blocking(move || {
         // Prefer -sS (SYN); fall back to -sT (connect) without root.
         let run = |scan: &str| {
-            std::process::Command::new("nmap")
-                .args([
-                    "-Pn",
-                    scan,
-                    "--max-retries",
-                    "1",
-                    "--host-timeout",
-                    "30s",
-                    "-p",
-                    &port_arg,
-                    &target_owned,
-                ])
-                .output()
+            let mut command = Command::new("nmap");
+            command.args([
+                "-Pn",
+                scan,
+                "--max-retries",
+                "1",
+                "--host-timeout",
+                "30s",
+                "-p",
+                &port_arg,
+                &target_owned,
+            ]);
+            run_output_with_timeout(
+                &mut command,
+                Duration::from_secs(35),
+                Some(abort_for_block.clone()),
+            )
         };
         match run("-sS") {
-            Ok(out)
-                if (out.status.success() || !out.stdout.is_empty())
-                    && !String::from_utf8_lossy(&out.stderr)
-                        .to_ascii_lowercase()
-                        .contains("requires root") =>
-            {
-                Ok(out)
-            }
-            _ => run("-sT").map_err(|e| AppError::io(format!("nmap: {e}"))),
+            Ok(out) if nmap_output_usable(&out) => Ok(Some(out)),
+            Err(error) if error.kind == SubprocessErrorKind::Aborted => Err(error),
+            Err(error) if error.kind == SubprocessErrorKind::Timeout => Ok(None),
+            _ => match run("-sT") {
+                Ok(out) => Ok(Some(out)),
+                Err(error) if error.kind == SubprocessErrorKind::Aborted => Err(error),
+                Err(_) => Ok(None),
+            },
         }
     })
     .await
     .map_err(|e| AppError::task_failed(format!("nmap join: {e}")))?;
 
-    let cancelled = super::session::is_cancelled(&session_for_block);
-    super::session::clear_session(&session_for_block);
-
     let out = match output {
-        Ok(o) => o,
-        Err(_) => return Ok(None),
+        Ok(Some(output)) => output,
+        Ok(None) | Err(_) => return Ok(None),
     };
     let text = String::from_utf8_lossy(&out.stdout);
     if text.to_ascii_lowercase().contains("requires root")
@@ -257,50 +279,21 @@ async fn try_nmap_syn<R: Runtime>(
         return Ok(None);
     }
 
-    let mut samples = Vec::new();
-    let mut open_ports = Vec::new();
-    for line in text.lines() {
-        let lower = line.to_ascii_lowercase();
-        // e.g. "80/tcp open  http"
-        if let Some((port_proto, rest)) = line.split_once(' ') {
-            if let Some(port_str) = port_proto.split('/').next() {
-                if let Ok(port) = port_str.parse::<u16>() {
-                    let state = if lower.contains(" open") {
-                        "open"
-                    } else if lower.contains("closed") {
-                        "closed"
-                    } else if lower.contains("filtered") {
-                        "filtered"
-                    } else {
-                        continue;
-                    };
-                    let sample = PortSampleEvent {
-                        port,
-                        state: state.into(),
-                        service_hint: rest.split_whitespace().nth(1).map(str::to_string),
-                        rtt_ms: None,
-                    };
-                    if state == "open" {
-                        open_ports.push(port);
-                    }
-                    if let Some(app) = app {
-                        let _ = app.emit(PORT_SAMPLE_EVENT, &sample);
-                    }
-                    samples.push(sample);
-                }
-            }
+    let (samples, open_ports) = parse_nmap_output(&text);
+    for sample in &samples {
+        if let Some(app) = app {
+            let _ = app.emit(PORT_SAMPLE_EVENT, sample);
         }
     }
     if samples.is_empty() {
         return Ok(None);
     }
-    open_ports.sort_unstable();
     Ok(Some(PortScanResult {
         target: target.into(),
         mode: "nmap-syn-or-connect".into(),
         open_ports,
         samples,
-        cancelled,
+        cancelled: false,
         session_id,
         message: Some(
             "nmap present: used -sS when permitted, otherwise -sT. No exploit scripts (-sC/-sV off)."
@@ -311,6 +304,76 @@ async fn try_nmap_syn<R: Runtime>(
             ports.len()
         ),
     }))
+}
+
+fn parse_nmap_output(text: &str) -> (Vec<PortSampleEvent>, Vec<u16>) {
+    let mut samples = Vec::new();
+    let mut open_ports = Vec::new();
+
+    for line in text.lines() {
+        let mut fields = line.split_whitespace();
+        let Some(port_protocol) = fields.next() else {
+            continue;
+        };
+        let Some((port_text, protocol)) = port_protocol.split_once('/') else {
+            continue;
+        };
+        if protocol != "tcp" {
+            continue;
+        }
+        let Ok(port) = port_text.parse::<u16>() else {
+            continue;
+        };
+        let Some(state) = fields.next() else {
+            continue;
+        };
+        let state = match state {
+            "open" => "open",
+            "closed" => "closed",
+            "filtered" | "open|filtered" => "filtered",
+            _ => continue,
+        };
+
+        // Without -sV, Nmap's SERVICE column is based on its port table. It is
+        // only a candidate name, and a closed/filtered port did not confirm it.
+        let service_hint = if state == "open" {
+            fields.next().map(str::to_string)
+        } else {
+            None
+        };
+        samples.push(PortSampleEvent {
+            port,
+            state: state.into(),
+            service_hint,
+            rtt_ms: None,
+        });
+        if state == "open" {
+            open_ports.push(port);
+        }
+    }
+
+    open_ports.sort_unstable();
+    (samples, open_ports)
+}
+
+fn cancelled_port_scan(target: &str, port_count: usize, session_id: String) -> PortScanResult {
+    PortScanResult {
+        target: target.into(),
+        mode: "cancelled".into(),
+        open_ports: Vec::new(),
+        samples: Vec::new(),
+        cancelled: true,
+        session_id,
+        message: Some("Port scan cancelled.".into()),
+        command_hint: format!("scanPorts(local, '{target}', {port_count} ports) // scan cancelled"),
+    }
+}
+
+fn nmap_output_usable(output: &Output) -> bool {
+    (output.status.success() || !output.stdout.is_empty())
+        && !String::from_utf8_lossy(&output.stderr)
+            .to_ascii_lowercase()
+            .contains("requires root")
 }
 
 fn validate_scan_target(target: &str) -> AppResult<()> {
@@ -397,7 +460,20 @@ pub fn parse_port_range(spec: &str) -> AppResult<Vec<u16>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_port_range, MAX_PORTS, MAX_PORT_SPEC_BYTES};
+    use super::{parse_nmap_output, parse_port_range, probe_one, MAX_PORTS, MAX_PORT_SPEC_BYTES};
+
+    #[tokio::test]
+    async fn probe_one_connects_to_ipv6_loopback() {
+        let listener = match tokio::net::TcpListener::bind("[::1]:0").await {
+            Ok(listener) => listener,
+            Err(_) => return, // IPv6 loopback may be disabled in the test environment.
+        };
+        let port = listener.local_addr().unwrap().port();
+
+        let sample = probe_one("::1".into(), port, 800).await;
+
+        assert_eq!(sample.state, "open");
+    }
 
     #[test]
     fn parses_ranges_and_returns_unique_sorted_ports() {
@@ -423,5 +499,23 @@ mod tests {
         }
 
         assert!(parse_port_range(&"1".repeat(MAX_PORT_SPEC_BYTES + 1)).is_err());
+    }
+
+    #[test]
+    fn nmap_port_names_are_candidates_only_for_confirmed_open_ports() {
+        let (samples, open_ports) = parse_nmap_output(
+            "PORT     STATE          SERVICE\n22/tcp   closed         ssh\n80/tcp   open           http\n443/tcp  filtered       https\n8080/tcp open|filtered http-proxy\n",
+        );
+
+        assert_eq!(open_ports, vec![80]);
+        assert_eq!(samples.len(), 4);
+        assert_eq!(samples[0].state, "closed");
+        assert_eq!(samples[0].service_hint, None);
+        assert_eq!(samples[1].state, "open");
+        assert_eq!(samples[1].service_hint.as_deref(), Some("http"));
+        assert_eq!(samples[2].state, "filtered");
+        assert_eq!(samples[2].service_hint, None);
+        assert_eq!(samples[3].state, "filtered");
+        assert_eq!(samples[3].service_hint, None);
     }
 }

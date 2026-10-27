@@ -731,7 +731,7 @@ pub fn scan_installed_apps(cancel: &AtomicBool) -> ScanResult {
         start.elapsed().as_millis() as u64,
         0,
     );
-    result.providers = vec![
+    let providers = vec![
         ProviderStatus {
             provider: "registry".to_string(),
             state: if registry_ok {
@@ -768,7 +768,11 @@ pub fn scan_installed_apps(cancel: &AtomicBool) -> ScanResult {
             },
         },
     ];
-    result.complete = registry_ok && start_apps_ok && (!winget_available || winget_scan_ok);
+    crate::app_manager::domain::finalize_scan_result(
+        &mut result,
+        providers,
+        cancel.load(std::sync::atomic::Ordering::Acquire),
+    );
     result
 }
 
@@ -1264,17 +1268,20 @@ mod tests {
     }
 
     #[test]
-    fn parses_single_start_app_and_preserves_exact_aumid_launch_target() {
+    fn parses_msix_start_app_and_preserves_exact_aumid_launch_target() {
         let entries = parse_start_apps_json(serde_json::json!({
-            "Name": "终端",
+            "Name": "Windows Terminal",
             "AppID": "Microsoft.WindowsTerminal_8wekyb3d8bbwe!App"
         }))
-        .expect("start app fixture");
+        .expect("Get-StartApps MSIX/AUMID fixture");
         assert_eq!(entries.len(), 1);
 
         let app = start_app_to_info(entries[0].clone());
-        assert_eq!(app.name, "终端");
+        assert_eq!(app.name, "Windows Terminal");
+        assert_eq!(app.source_type, "Windows Store");
+        assert_eq!(app.install_path, "");
         assert!(app.allowed_actions.launch);
+        assert!(!app.allowed_actions.upgrade);
         assert!(!app.allowed_actions.uninstall);
         assert_eq!(app.source_evidence, SourceEvidence::ExactPackageId);
         assert!(matches!(
@@ -1282,5 +1289,21 @@ mod tests {
             Some(LaunchTarget::Aumid { value })
                 if value == "Microsoft.WindowsTerminal_8wekyb3d8bbwe!App"
         ));
+    }
+
+    #[test]
+    fn windows_icon_missing_executable_fails_without_spawning_powershell() {
+        let directory = tempfile::tempdir().expect("temporary icon fixture directory");
+        let missing_executable = directory.path().join("missing.exe");
+        let mut app = crate::app_manager::domain::test_support::app_fixture("missing-icon");
+        app.launch_target = Some(LaunchTarget::Executable {
+            path: missing_executable.to_string_lossy().into_owned(),
+            args: Vec::new(),
+        });
+
+        assert_eq!(
+            get_app_icon_base64(&app).unwrap_err(),
+            "WINDOWS_ICON_SOURCE_MISSING"
+        );
     }
 }

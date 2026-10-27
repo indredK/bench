@@ -43,17 +43,17 @@
 - **Base64**：文本输入 → 「编码」/「解码」；解码非法 base64 或非 UTF-8 报错。
 - **Hash 计算**：文本输入 + 算法下拉（MD5 / SHA1 / SHA256 / SHA384 / SHA512）→ 「计算」，输出小写十六进制。
 - **UUID 生成器**：点击「生成 UUID v4」输出一个 v4 UUID。
-- **时间戳转换**：Unix 秒数输入 + 格式下拉（完整日期时间 / 仅日期 / 仅时间 / ISO 8601）→ 「转换」，按 UTC 输出。
+- **时间戳转换**：带关联标签的 Unix 秒数输入 + 格式下拉（完整日期时间 / 仅日期 / 仅时间 / ISO 8601）→ 「转换」，按 UTC 输出。必填且只接受安全整数（可为负数）；初始空态不提前显示错误，字段失焦后显示必填 / 格式错误；重新编辑时暂时隐藏错误并在下次失焦后复核。非法内容会禁用提交，不调用后端。
 
 **通用交互细节**：
 
 - 任一操作执行中（`applying`）该 Tab **全部**工具按钮禁用，防重复触发；按钮无单独 loading spinner（由禁用态承载）。
 - 输出 `<pre>` 仅在有值时渲染：JSON `max-h-32`、Base64 `max-h-24`（超出滚动），Hash/时间戳无高度上限；Hash 输出为小写十六进制，无换行上限。
-- **输入控件**：JSON 用 `Textarea`（`h-24`，无字数上限、无防抖）；Base64/Hash/时间戳用 `Input`；算法/格式下拉为 `Select`（固定 5 种算法 / 4 种格式）；均无 `aria-label`（仅 placeholder）。UUID 输出用 `<code>` 内联（非 `<pre>`）。
+- **输入控件**：JSON 用 `Textarea`（`h-24`，无字数上限、无防抖）；Base64/Hash 用 `Input`；时间戳 `Input` 有关联的 `Label`、`aria-invalid` / `aria-describedby` 和必填 / 格式错误反馈；算法/格式下拉为 `Select`（固定 5 种算法 / 4 种格式）。Base64/Hash 和其他未标注控件仍只有 placeholder。UUID 输出用 `<code>` 内联（非 `<pre>`）。
 - **Base64 解码容忍空白**：后端先 `.trim()` 再解码（首尾空白不影响结果）。
 - 操作失败时 toast 报错（「操作失败: {{error}}」），**输出区保持上一次结果不变**（`run` 返回 `undefined`，不覆盖）。
 - **非法 JSON** → toast「操作失败: Invalid JSON: ...」；**Base64 解码**非 base64 或非 UTF-8 文本 → toast「操作失败: ...」，均不产出输出。
-- **时间戳**：输入为空/非法时前端 `parseInt(tsInput) || 0` **静默按 0 处理**（输出 `1970-01-01 00:00:00` UTC），**不报错**；仅当超出 chrono 可表示范围时后端才回 `INVALID_INPUT`。
+- **时间戳**：前端严格解析完整整数秒数并拒绝空白、尾随字符、小数、指数写法及超出 JS 安全整数的值；无效输入显示字段错误并禁用提交，handler 再次校验后才调用后端。负 Unix 秒数有效。输入或输出格式变化时清除旧输出，避免旧结果被误认为对应新条件。整数仍可能超出 chrono 可表示范围，此时后端返回 `INVALID_INPUT` 并由操作 toast 提示。
 - Hash 输入为空时计算空串哈希（不报错）；算法下拉固定 MD5/SHA1/SHA256/SHA384/SHA512 五种，正常不会触发「不支持算法」。
 
 ## 5. 网络诊断 Tab（diagnostics）
@@ -92,7 +92,7 @@
 - 反馈文案默认走 `systemSettings.toasts.*`。
 - 同一 key 并发点击被**静默忽略**（`applyingKeys.has(key)` 直接 return，无二次提示）；不同 key 可并行，但本模块所有工具共享同一 `applying` 派生（任一操作进行中，开发工具/诊断 Tab 的全部按钮禁用）。
 - **无 loading toast**（加载态由按钮禁用承载）；成功/失败均有 toast 反馈，无复制类操作。
-- **键盘与无障碍**：Tab 无 tab 语义/方向键（见 §2）；输入控件仅 placeholder 无 `aria-label`；结果 `<pre>` 无 `aria-live`（输出变化不播报）；所有操作按钮为真实 `<button>`（可 Tab + Enter 触发）。
+- **键盘与无障碍**：Tab 无 tab 语义/方向键（见 §2）；时间戳输入有程序化标签和错误关联；其他输入控件仍仅 placeholder、无 `aria-label`；结果 `<pre>` 无 `aria-live`（输出变化不播报）；所有操作按钮为真实 `<button>`（可 Tab + Enter 触发）。
 
 ## 8. 快捷键
 
@@ -137,7 +137,8 @@
 | JSON 格式化输入非法                                           | toast「操作失败: Invalid JSON: ...」（`INVALID_INPUT`）                                                         | 修正输入后重试；输出区不变                                                        |
 | Base64 解码非法 / 非 UTF-8                                    | toast「操作失败: ...」（`INVALID_INPUT`）                                                                       | 修正输入后重试                                                                    |
 | Hash 算法不在白名单                                           | toast「操作失败: Unsupported algorithm ...」（`INVALID_INPUT`；前端下拉固定 5 种，正常不触发）                  | 无                                                                                |
-| 时间戳超出 chrono 可表示范围                                  | toast「操作失败: Invalid timestamp」（`INVALID_INPUT`）                                                         | 修正输入；空/非法输入前端静默按 0 处理，不报错                                    |
+| 时间戳为空或含小数、尾随字符、指数写法、unsafe integer        | 字段显示本地化错误，转换按钮禁用；handler 也会拒绝，IPC 不调用                                                  | 修正为安全整数 Unix 秒数                                                          |
+| 安全整数超出 chrono 可表示范围                                | toast「操作失败: Invalid timestamp」（`INVALID_INPUT`）                                                         | 修正输入                                                                          |
 | Ping 目标为空/含非法字符                                      | toast「操作失败: ...」（`validate_host` → `INVALID_INPUT`）                                                     | 修正目标后重试                                                                    |
 | Ping DNS 解析失败                                             | toast「操作失败: DNS resolve failed ...」（`INVALID_INPUT`）                                                    | 换可解析目标重试                                                                  |
 | Ping ICMP socket 打开失败（macOS 无「本地网络」权限）         | toast「操作失败: ... ICMP_UNAVAILABLE ...」                                                                     | 系统设置授权后重试                                                                |

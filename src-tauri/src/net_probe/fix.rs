@@ -1,20 +1,43 @@
 #[cfg(target_os = "macos")]
-use super::defaults::builtin_defaults;
-use super::types::FixResult;
+use super::defaults::get_defaults;
+use super::types::{DnsPreset, FixResult};
 use crate::error::{AppError, AppResult};
 #[cfg(target_os = "macos")]
+use crate::subprocess::{output_may_be_truncated, run_output_with_timeout, SubprocessErrorKind};
 use std::net::IpAddr;
 #[cfg(target_os = "macos")]
-use std::process::Command;
+use std::process::{Command, Output};
+#[cfg(target_os = "macos")]
+use std::time::Duration;
+
+#[cfg(target_os = "macos")]
+fn run_network_fix_command(command: &mut Command, timeout: Duration) -> Result<Output, String> {
+    let output =
+        run_output_with_timeout(command.env("LC_ALL", "C").env("LANG", "C"), timeout, None)
+            .map_err(|error| match error.kind {
+                SubprocessErrorKind::Spawn => "failed to start".to_string(),
+                SubprocessErrorKind::Timeout => {
+                    "timed out; verify current network settings before retrying".to_string()
+                }
+                _ => "failed while collecting output".to_string(),
+            })?;
+    Ok(output)
+}
 
 /// List macOS Network Preferences service names (whitelist source).
 pub fn list_network_services() -> AppResult<Vec<String>> {
     #[cfg(target_os = "macos")]
     {
-        let output = Command::new("networksetup")
-            .args(["-listallnetworkservices"])
-            .output()
-            .map_err(|e| AppError::io(format!("networksetup: {e}")))?;
+        let output = run_network_fix_command(
+            Command::new("/usr/sbin/networksetup").args(["-listallnetworkservices"]),
+            Duration::from_secs(10),
+        )
+        .map_err(|error| AppError::io(format!("networksetup: {error}")))?;
+        if output_may_be_truncated(&output) {
+            return Err(AppError::io(
+                "networksetup output exceeded the capture limit; refusing an incomplete service whitelist",
+            ));
+        }
         if !output.status.success() {
             return Err(AppError::new(
                 "NETWORKSETUP_FAILED",
@@ -44,10 +67,12 @@ pub fn flush_dns() -> AppResult<FixResult> {
     #[cfg(target_os = "macos")]
     {
         Ok(flush_dns_with(|program, args| {
-            let output = Command::new(program)
-                .args(args)
-                .output()
-                .map_err(|error| error.to_string())?;
+            let (path, timeout) = match program {
+                "dscacheutil" => ("/usr/bin/dscacheutil", Duration::from_secs(10)),
+                "killall" => ("/usr/bin/killall", Duration::from_secs(10)),
+                _ => return Err(format!("unsupported DNS flush command: {program}")),
+            };
+            let output = run_network_fix_command(Command::new(path).args(args), timeout)?;
             if output.status.success() {
                 Ok(())
             } else {
@@ -114,35 +139,26 @@ pub fn switch_dns(service: String, servers: Vec<String>) -> AppResult<FixResult>
     #[cfg(target_os = "macos")]
     {
         let service = validate_network_service(service, &list_network_services()?)?;
-        if servers.is_empty() {
-            return Err(AppError::invalid_input("DNS servers list cannot be empty"));
-        }
-        if servers.len() > 4 {
-            return Err(AppError::invalid_input("At most 4 DNS servers allowed"));
-        }
-        let preset_ips: Vec<String> = builtin_defaults()?
-            .dns_presets
-            .into_iter()
-            .map(|p| p.address)
-            .collect();
-        for s in &servers {
-            let ip: IpAddr = s
-                .parse()
-                .map_err(|_| AppError::invalid_input(format!("Invalid DNS IP: {s}")))?;
-            let ip_s = ip.to_string();
-            if !preset_ips.iter().any(|p| p == &ip_s) {
-                return Err(AppError::invalid_input(format!(
-                    "DNS {ip_s} not in builtin preset whitelist"
-                )));
-            }
-        }
+        let defaults = get_defaults()?;
+        let servers = validate_dns_servers(servers, &defaults.dns_presets)?;
 
         let mut args = vec!["-setdnsservers".to_string(), service.clone()];
         args.extend(servers.iter().cloned());
-        let output = Command::new("networksetup")
-            .args(&args)
-            .output()
-            .map_err(|e| AppError::io(format!("networksetup: {e}")))?;
+        let command_hint = format!("switchDns('{service}', {:?})", servers);
+        let output = match run_network_fix_command(
+            Command::new("/usr/sbin/networksetup").args(&args),
+            Duration::from_secs(20),
+        ) {
+            Ok(output) => output,
+            Err(error) => {
+                return Ok(FixResult {
+                    action: "switchDns".into(),
+                    ok: false,
+                    message: format!("networksetup: {error}"),
+                    command_hint,
+                });
+            }
+        };
         let ok = output.status.success();
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
         Ok(FixResult {
@@ -155,7 +171,7 @@ pub fn switch_dns(service: String, servers: Vec<String>) -> AppResult<FixResult>
             } else {
                 stderr
             },
-            command_hint: format!("switchDns('{service}', {:?})", servers),
+            command_hint,
         })
     }
     #[cfg(not(target_os = "macos"))]
@@ -168,6 +184,32 @@ pub fn switch_dns(service: String, servers: Vec<String>) -> AppResult<FixResult>
             command_hint: "switchDns(service, servers)".into(),
         })
     }
+}
+
+fn validate_dns_servers(servers: Vec<String>, presets: &[DnsPreset]) -> AppResult<Vec<String>> {
+    if servers.is_empty() {
+        return Err(AppError::invalid_input("DNS servers list cannot be empty"));
+    }
+    if servers.len() > 4 {
+        return Err(AppError::invalid_input("At most 4 DNS servers allowed"));
+    }
+    let allowed: std::collections::HashSet<IpAddr> = presets
+        .iter()
+        .filter_map(|preset| preset.address.parse().ok())
+        .collect();
+    let mut validated = Vec::with_capacity(servers.len());
+    for server in servers {
+        let address: IpAddr = server
+            .parse()
+            .map_err(|_| AppError::invalid_input(format!("Invalid DNS IP: {server}")))?;
+        if !allowed.contains(&address) {
+            return Err(AppError::invalid_input(format!(
+                "DNS {address} is not in the configured preset catalog"
+            )));
+        }
+        validated.push(address.to_string());
+    }
+    Ok(validated)
 }
 
 pub fn renew_dhcp(service: String) -> AppResult<FixResult> {
@@ -227,9 +269,10 @@ fn validate_network_service(service: String, allowed: &[String]) -> AppResult<St
 
 #[cfg(target_os = "macos")]
 fn renew_dhcp_for_validated_service(service: &str) -> FixResult {
-    let result = Command::new("networksetup")
-        .args(["-setdhcp", service])
-        .output();
+    let result = run_network_fix_command(
+        Command::new("/usr/sbin/networksetup").args(["-setdhcp", service]),
+        Duration::from_secs(20),
+    );
     let (ok, message) = match result {
         Ok(output) if output.status.success() => (true, format!("Renewed DHCP on '{service}'")),
         Ok(output) => {
@@ -282,9 +325,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{flush_dns_with, reset_network_stack_with, validate_network_service};
+    use super::{
+        flush_dns_with, reset_network_stack_with, validate_dns_servers, validate_network_service,
+    };
     use crate::error::AppResult;
-    use crate::net_probe::types::FixResult;
+    use crate::net_probe::types::{DnsPreset, FixResult};
     use std::cell::RefCell;
 
     fn fix_result(action: &str, ok: bool, message: &str) -> FixResult {
@@ -362,6 +407,21 @@ mod tests {
         );
         assert!(validate_network_service("Wi-Fi;open -a Calculator".into(), &allowed).is_err());
         assert!(validate_network_service("".into(), &allowed).is_err());
+    }
+
+    #[test]
+    fn dns_switch_accepts_a_user_configured_preset_and_rejects_unlisted_ip() {
+        let presets = vec![DnsPreset {
+            id: "custom".into(),
+            address: "2001:4860:4860::8888".into(),
+            region: "global".into(),
+        }];
+
+        assert_eq!(
+            validate_dns_servers(vec!["2001:4860:4860:0:0:0:0:8888".into()], &presets).unwrap(),
+            vec!["2001:4860:4860::8888"]
+        );
+        assert!(validate_dns_servers(vec!["8.8.8.8".into()], &presets).is_err());
     }
 
     #[test]

@@ -1,18 +1,43 @@
 /**
  * Use Case / 用例层: coordinate business rules; 只编排业务规则.
  */
-import type { KillPidResult, KillTarget, PortProcessDetail } from "@/lib/tauri/types/port-manager"
+import type {
+  KillPidResult,
+  KillTarget,
+  PortProcessDetail,
+  ProcessChildrenPage,
+} from "@/lib/tauri/types/port-manager"
 import type { PortCheckResult } from "@/lib/tauri/types/system-settings"
 import { portManagerRepository } from "@/features/port-manager/services/port-manager.repository"
 import { canUseDesktopFeatures } from "@/platform/capabilities"
 
+export const MAX_KILL_TARGETS = 100
+
 export const portManagerUseCases = {
+  MAX_KILL_TARGETS,
+
   isAvailable() {
     return canUseDesktopFeatures()
   },
 
   queryPortProcesses(ports: number[]): Promise<PortProcessDetail[]> {
     return portManagerRepository.queryPortProcesses(ports)
+  },
+
+  queryProcessChildren(
+    pid: number,
+    expectedPpid: number,
+    expectedName: string,
+    expectedIdentity: string | null,
+    afterPid: number | null,
+  ): Promise<ProcessChildrenPage> {
+    return portManagerRepository.queryProcessChildren(
+      pid,
+      expectedPpid,
+      expectedName,
+      expectedIdentity,
+      afterPid,
+    )
   },
 
   killProcesses(targets: KillTarget[]): Promise<KillPidResult[]> {
@@ -41,15 +66,23 @@ export const portManagerUseCases = {
 
   /**
    * Walk every focused process tree to map pid -> name, then pair each
-   * requested pid with the name we observed at scan time. The backend uses
-   * the expected_name to reject PID-reuse mismatches before sending SIGKILL.
+   * requested pid with its observed name and opaque process identity. The backend
+   * checks both values before sending SIGKILL to reject PID reuse.
    */
   buildKillTargets(pids: number[], portDetails: PortProcessDetail[]): KillTarget[] {
     const nameByPid = new Map<number, string>()
-    const visit = (nodes: { pid: number; name: string; children?: unknown }[]) => {
+    const identityByPid = new Map<number, string | null>()
+    const visit = (
+      nodes: { pid: number; name: string; identity?: string | null; children?: unknown }[],
+    ) => {
       for (const node of nodes) {
         if (!nameByPid.has(node.pid) && node.name) {
           nameByPid.set(node.pid, node.name)
+        }
+        if (!identityByPid.has(node.pid)) {
+          identityByPid.set(node.pid, node.identity ?? null)
+        } else if (identityByPid.get(node.pid) !== (node.identity ?? null)) {
+          identityByPid.set(node.pid, null)
         }
         const children = (node as { children?: typeof nodes }).children
         if (children?.length) visit(children)
@@ -58,31 +91,28 @@ export const portManagerUseCases = {
     for (const detail of portDetails) {
       visit(detail.process_trees)
     }
-    return pids.map((pid) => ({ pid, expected_name: nameByPid.get(pid) ?? null }))
+    const uniquePids = [...new Set(pids)]
+    return uniquePids.map((pid) => ({
+      pid,
+      expected_name: nameByPid.get(pid) ?? null,
+      expected_identity: identityByPid.get(pid) ?? null,
+    }))
   },
 
-  createKillMessages(results: KillPidResult[]): string[] {
-    return results.map((result) =>
-      result.success ? `PID ${result.pid} killed` : `PID ${result.pid}: ${result.message}`,
-    )
-  },
-
-  groupKillMessagesByPort(
+  groupKillResultsByPort(
     results: KillPidResult[],
     portDetails: PortProcessDetail[],
-  ): Record<number, string[]> {
-    const killMessages: Record<number, string[]> = {}
+  ): Record<number, KillPidResult[]> {
+    const killResults: Record<number, KillPidResult[]> = {}
 
     for (const result of results) {
-      const message = result.success
-        ? `PID ${result.pid} killed`
-        : `PID ${result.pid}: ${result.message}`
-      const detail = portDetails.find((item) => item.pids.includes(result.pid))
-      if (detail) {
-        killMessages[detail.port] = [...(killMessages[detail.port] || []), message]
+      for (const detail of portDetails) {
+        if (detail.pids.includes(result.pid)) {
+          killResults[detail.port] = [...(killResults[detail.port] || []), result]
+        }
       }
     }
 
-    return killMessages
+    return killResults
   },
 }

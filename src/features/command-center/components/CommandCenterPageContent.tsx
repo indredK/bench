@@ -9,7 +9,7 @@
  *    运行中持续打印；运行结束不自动退出，Esc 或点击遮罩复位。
  *  - 点击只查详情时不触发运行；运行需显式点运行按钮。
  */
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { AnimatePresence, motion } from "motion/react"
 import {
@@ -25,7 +25,7 @@ import {
 } from "@dnd-kit/core"
 import { SortableContext, rectSortingStrategy, useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, Terminal, Trash2, Store } from "lucide-react"
+import { GripVertical, Search, Terminal, Trash2, Store } from "lucide-react"
 import {
   CheckCircle2,
   Copy,
@@ -42,9 +42,19 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { useCommandCenterStore } from "@/features/command-center/store"
 import { TerminateButton } from "@/features/command-center/components/RunDetailDrawer"
+import { filterCommandCards } from "@/features/command-center/services/command-center.filters"
 import type { CardKind, CommandCard } from "@/lib/tauri/types/command-center"
 import type { RunStatus } from "@/features/command-center/store"
 
@@ -103,6 +113,7 @@ function CommandCardTile({
   const status = useCommandCenterStore((s) => s.runStatus[card.id]) ?? "idle"
   const outcome = useCommandCenterStore((s) => s.runOutcome[card.id])
   const builtin = card.id.startsWith("builtin-")
+  const tags = card.tags ?? []
   // 用户手动关闭某卡的运行输出浮层后,本次 hover 不再自动弹出
   const [peekHidden, setPeekHidden] = useState(false)
 
@@ -122,30 +133,35 @@ function CommandCardTile({
       style={dragStyle}
       layout={false}
       className={cn(
-        "group bg-card hover:border-primary/40 relative flex min-h-[148px] cursor-pointer flex-col rounded-xl border p-3 transition-colors hover:shadow-sm",
+        "group bg-card hover:border-primary/40 relative flex min-h-[148px] flex-col rounded-xl border p-3 transition-colors hover:shadow-sm",
         builtin && "border-primary/40 ring-primary/20 ring-1",
         statusClasses(status),
       )}
-      onClick={() => onExpand(card)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault()
-          onExpand(card)
-        }
-      }}
-      role="button"
-      tabIndex={0}
     >
+      <button
+        type="button"
+        className="focus-visible:ring-ring absolute inset-0 z-0 cursor-pointer rounded-xl focus-visible:ring-2 focus-visible:outline-none"
+        aria-label={t("commandCenter.openDetails", { title: card.title })}
+        onClick={() => onExpand(card)}
+      />
       {/* 头部：拖拽手柄 + 图标 + 标题 + 徽章 */}
       <div className="flex items-start gap-2">
         <span
           {...attributes}
           {...listeners}
           role="button"
+          aria-disabled={dragDisabled || undefined}
           aria-label={t("commandCenter.reorder")}
-          title={t("commandCenter.reorder")}
+          title={t(
+            dragDisabled ? "commandCenter.reorderFilteredDisabled" : "commandCenter.reorder",
+          )}
           onClick={(e) => e.stopPropagation()}
-          className="text-muted-foreground/40 hover:text-muted-foreground mt-0.5 -ml-1 inline-flex shrink-0 cursor-grab touch-none items-center justify-center transition active:cursor-grabbing"
+          className={cn(
+            "text-muted-foreground/40 mt-0.5 -ml-1 inline-flex shrink-0 touch-none items-center justify-center transition",
+            dragDisabled
+              ? "relative z-30 cursor-not-allowed opacity-30"
+              : "hover:text-muted-foreground relative z-30 cursor-grab active:cursor-grabbing",
+          )}
         >
           <GripVertical size={13} />
         </span>
@@ -173,6 +189,39 @@ function CommandCardTile({
           {card.description && (
             <p className="text-muted-foreground line-clamp-1 text-xs">{card.description}</p>
           )}
+          {card.group || tags.length > 0 ? (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {card.group ? (
+                <Badge
+                  variant="outline"
+                  className="max-w-full truncate text-[10px] font-normal"
+                  title={card.group}
+                >
+                  {card.group}
+                </Badge>
+              ) : null}
+              {tags.slice(0, 4).map((tag, index) => (
+                <Badge
+                  key={`${tag}-${index}`}
+                  variant="secondary"
+                  className="max-w-28 truncate text-[10px] font-normal"
+                  title={tag}
+                >
+                  {tag}
+                </Badge>
+              ))}
+              {tags.length > 4 ? (
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] font-normal"
+                  aria-label={t("commandCenter.moreTags", { count: tags.length - 4 })}
+                  title={t("commandCenter.moreTags", { count: tags.length - 4 })}
+                >
+                  +{tags.length - 4}
+                </Badge>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {builtin && (
@@ -319,6 +368,42 @@ export function CommandCenterPageContent({
 }) {
   const { t } = useTranslation()
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [query, setQuery] = useState("")
+  const [groupFilter, setGroupFilter] = useState("")
+  const [tagFilter, setTagFilter] = useState("")
+
+  const visibleCards = useMemo(
+    () => filterCommandCards(cards, { query, group: groupFilter, tag: tagFilter }),
+    [cards, groupFilter, query, tagFilter],
+  )
+  const groups = useMemo(() => {
+    const seen = new Set<string>()
+    return cards.flatMap((card) => {
+      const group = (card.group ?? "").trim()
+      const key = group.toLowerCase()
+      if (!group || seen.has(key)) return []
+      seen.add(key)
+      return [group]
+    })
+  }, [cards])
+  const tags = useMemo(() => {
+    const seen = new Set<string>()
+    return cards.flatMap((card) =>
+      (card.tags ?? []).flatMap((tag) => {
+        const trimmed = tag.trim()
+        const key = trimmed.toLowerCase()
+        if (!trimmed || seen.has(key)) return []
+        seen.add(key)
+        return [trimmed]
+      }),
+    )
+  }, [cards])
+  const hasActiveFilters = Boolean(query.trim() || groupFilter || tagFilter)
+  const clearFilters = () => {
+    setQuery("")
+    setGroupFilter("")
+    setTagFilter("")
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -328,6 +413,7 @@ export function CommandCenterPageContent({
   const handleDragStart = (event: DragStartEvent) => setActiveId(String(event.active.id))
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveId(null)
+    if (hasActiveFilters) return
     const { active, over } = event
     if (!over || active.id === over.id) return
     const ids = cards.map((c) => c.id)
@@ -391,6 +477,87 @@ export function CommandCenterPageContent({
         </Alert>
       )}
 
+      {cards.length > 0 ? (
+        <section className="bg-muted/20 grid gap-3 rounded-lg border p-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_minmax(10rem,0.45fr)_minmax(10rem,0.45fr)_auto] xl:items-end">
+          <div className="space-y-1.5">
+            <Label htmlFor="command-center-search" className="sr-only">
+              {t("commandCenter.filters.search")}
+            </Label>
+            <div className="relative">
+              <Search
+                size={14}
+                aria-hidden="true"
+                className="text-muted-foreground absolute top-1/2 left-2.5 -translate-y-1/2"
+              />
+              <Input
+                id="command-center-search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("commandCenter.filters.search")}
+                className="pl-8"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="command-center-group-filter">{t("commandCenter.filters.group")}</Label>
+            <Select
+              value={groupFilter ? `group:${groupFilter}` : "all:groups"}
+              onValueChange={(value) =>
+                setGroupFilter(value === "all:groups" ? "" : value.slice("group:".length))
+              }
+            >
+              <SelectTrigger id="command-center-group-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all:groups">{t("commandCenter.filters.allGroups")}</SelectItem>
+                {groups.map((group) => (
+                  <SelectItem key={group} value={`group:${group}`}>
+                    {group}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="command-center-tag-filter">{t("commandCenter.filters.tag")}</Label>
+            <Select
+              value={tagFilter ? `tag:${tagFilter}` : "all:tags"}
+              onValueChange={(value) =>
+                setTagFilter(value === "all:tags" ? "" : value.slice("tag:".length))
+              }
+            >
+              <SelectTrigger id="command-center-tag-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all:tags">{t("commandCenter.filters.allTags")}</SelectItem>
+                {tags.map((tag) => (
+                  <SelectItem key={tag} value={`tag:${tag}`}>
+                    {tag}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {hasActiveFilters ? (
+            <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
+              {t("commandCenter.filters.clear")}
+            </Button>
+          ) : null}
+          <p
+            className="text-muted-foreground text-xs sm:col-span-2 xl:col-span-full"
+            role="status"
+            aria-live="polite"
+          >
+            {t("commandCenter.filters.resultCount", {
+              visible: visibleCards.length,
+              total: cards.length,
+            })}
+          </p>
+        </section>
+      ) : null}
+
       {loading && cards.length === 0 ? (
         <div className="text-muted-foreground flex items-center gap-2 py-12 text-sm">
           <Loader2 size={16} className="animate-spin" />
@@ -405,6 +572,14 @@ export function CommandCenterPageContent({
             {t("commandCenter.addCard")}
           </Button>
         </div>
+      ) : hasActiveFilters && visibleCards.length === 0 ? (
+        <div className="border-border text-muted-foreground flex flex-col items-center gap-3 rounded-xl border border-dashed py-12 text-center">
+          <Search size={28} className="opacity-40" aria-hidden="true" />
+          <p className="text-sm">{t("commandCenter.filters.noResults")}</p>
+          <Button type="button" variant="outline" size="sm" onClick={clearFilters}>
+            {t("commandCenter.filters.clear")}
+          </Button>
+        </div>
       ) : (
         <DndContext
           sensors={sensors}
@@ -413,9 +588,9 @@ export function CommandCenterPageContent({
           onDragEnd={handleDragEnd}
           onDragCancel={() => setActiveId(null)}
         >
-          <SortableContext items={cards.map((c) => c.id)} strategy={rectSortingStrategy}>
+          <SortableContext items={visibleCards.map((c) => c.id)} strategy={rectSortingStrategy}>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {cards.map((card) => (
+              {visibleCards.map((card) => (
                 <CommandCardTile
                   key={card.id}
                   card={card}
@@ -426,6 +601,7 @@ export function CommandCenterPageContent({
                   onExpand={onExpand}
                   onTerminate={onTerminate}
                   peekable={hasResult(card.id)}
+                  dragDisabled={hasActiveFilters}
                 />
               ))}
             </div>

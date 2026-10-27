@@ -1,5 +1,9 @@
 use super::helpers::*;
 use crate::error::{AppError, AppResult};
+use std::time::Duration;
+use tokio::net::TcpStream;
+
+const REMOTE_PORT_CHECK_TIMEOUT: Duration = Duration::from_secs(3);
 
 fn parse_firewall_state(output: &str) -> Result<bool, String> {
     let normalized = output.to_ascii_lowercase();
@@ -158,6 +162,38 @@ mod settings_tests {
         assert!(!parse_remote_login_state("Remote Login: Off").unwrap());
         assert!(parse_remote_login_state("administrator access required").is_err());
     }
+
+    #[tokio::test]
+    async fn remote_port_check_connects_to_loopback_without_external_tools() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let result = port_check("127.0.0.1".into(), port).await.unwrap();
+
+        assert!(result.open);
+        assert_eq!(result.error, None);
+        drop(listener);
+    }
+
+    #[tokio::test]
+    async fn remote_port_check_accepts_bracketed_ipv6_loopback_when_available() {
+        let Ok(listener) = tokio::net::TcpListener::bind("[::1]:0").await else {
+            return;
+        };
+        let port = listener.local_addr().unwrap().port();
+
+        let result = port_check("[::1]".into(), port).await.unwrap();
+
+        assert!(result.open);
+        assert_eq!(result.error, None);
+        drop(listener);
+    }
+
+    #[tokio::test]
+    async fn remote_port_check_rejects_invalid_host_and_zero_port() {
+        assert!(port_check("-invalid".into(), 443).await.is_err());
+        assert!(port_check("127.0.0.1".into(), 0).await.is_err());
+    }
 }
 
 #[tauri::command]
@@ -178,25 +214,32 @@ pub async fn ping_host(host: String, count: u32) -> AppResult<super::types::Ping
 
 #[tauri::command]
 pub async fn port_check(host: String, port: u16) -> AppResult<super::types::PortCheckResult> {
-    tauri::async_runtime::spawn_blocking(move || {
-        validate_host(&host)?;
-        let output = std::process::Command::new("nc")
-            .args(["-z", "-w", "3", &host, &port.to_string()])
-            .output()
-            .map_err(|e| AppError::internal(format!("nc: {e}")))?;
-        Ok(super::types::PortCheckResult {
-            host,
-            port,
-            open: output.status.success(),
-            error: if output.status.success() {
-                None
-            } else {
-                Some("Connection refused or timed out".to_string())
-            },
-        })
+    validate_host(&host)?;
+    if port == 0 {
+        return Err(AppError::invalid_input("Port must be in 1..=65535"));
+    }
+
+    // `TcpStream` keeps Remote checks available on Windows without depending on
+    // `nc`; strip optional IPv6 URL brackets for Tokio's (host, port) resolver.
+    let connect_host = host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(&host);
+    let result = tokio::time::timeout(
+        REMOTE_PORT_CHECK_TIMEOUT,
+        TcpStream::connect((connect_host, port)),
+    )
+    .await;
+    let (open, error) = match result {
+        Ok(Ok(_stream)) => (true, None),
+        Ok(Err(_)) | Err(_) => (false, Some("Connection refused or timed out".to_string())),
+    };
+    Ok(super::types::PortCheckResult {
+        host,
+        port,
+        open,
+        error,
     })
-    .await
-    .map_err(|e| AppError::internal(format!("port_check: {e}")))?
 }
 
 #[tauri::command]

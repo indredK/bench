@@ -34,10 +34,13 @@ import type {
   PortScanResult,
   NatProbeResult,
   NtpProbeResult,
+  LanDiscoveryProgressEvent,
   LanDiscoveryResult,
+  LanServicesProgressEvent,
   LanServicesResult,
   PcapDiagResult,
   MultiNodeDnsResult,
+  GlobalpingMeasurementResult,
   ProbeNode,
   TcpConnectResult,
   TracerouteHop,
@@ -48,6 +51,80 @@ import type {
 
 const SECURITY_AUTH_KEY = "network-probe:security-authorized"
 const REPORT_HISTORY_KEY = "network-probe:report-history"
+const MAX_REPORT_HISTORY_ENTRIES = 10
+const MAX_REPORT_HISTORY_STORAGE_BYTES = 1_048_576
+const MAX_REPORT_HISTORY_ITEMS = 256
+const MAX_REPORT_HISTORY_OPINIONS = 128
+const MAX_REPORT_HISTORY_RELATED_KEYS = 256
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string"
+}
+
+function isBoundedString(value: unknown, maxLength: number): value is string {
+  return isString(value) && value.length <= maxLength
+}
+
+function isHealthCheckItem(value: unknown): value is HealthCheckItem {
+  if (!isRecord(value)) return false
+  return (
+    isBoundedString(value.key, 256) &&
+    value.key.length > 0 &&
+    isBoundedString(value.layer, 64) &&
+    value.layer.length > 0 &&
+    isBoundedString(value.status, 64) &&
+    value.status.length > 0 &&
+    (value.detail === undefined || isString(value.detail)) &&
+    (value.commandHint === undefined || isString(value.commandHint))
+  )
+}
+
+function hasUniqueHealthItemKeys(items: unknown[]): boolean {
+  const keys = new Set<string>()
+  return items.every((item) => {
+    if (!isHealthCheckItem(item) || keys.has(item.key)) return false
+    keys.add(item.key)
+    return true
+  })
+}
+
+function isHealthOpinion(value: unknown): boolean {
+  if (!isRecord(value) || !Array.isArray(value.relatedKeys)) return false
+  return (
+    isBoundedString(value.id, 256) &&
+    value.id.length > 0 &&
+    isBoundedString(value.severity, 64) &&
+    value.severity.length > 0 &&
+    value.relatedKeys.length <= MAX_REPORT_HISTORY_RELATED_KEYS &&
+    value.relatedKeys.every((key) => isBoundedString(key, 256) && key.length > 0) &&
+    isBoundedString(value.titleKey, 256) &&
+    value.titleKey.length > 0 &&
+    isBoundedString(value.bodyKey, 256) &&
+    value.bodyKey.length > 0
+  )
+}
+
+function isHealthScanResult(value: unknown): value is HealthScanResult {
+  if (!isRecord(value) || !Array.isArray(value.items) || !Array.isArray(value.opinions))
+    return false
+  return (
+    value.items.length <= MAX_REPORT_HISTORY_ITEMS &&
+    hasUniqueHealthItemKeys(value.items) &&
+    value.opinions.length <= MAX_REPORT_HISTORY_OPINIONS &&
+    value.opinions.every(isHealthOpinion) &&
+    typeof value.elapsedMs === "number" &&
+    Number.isFinite(value.elapsedMs) &&
+    value.elapsedMs >= 0 &&
+    isBoundedString(value.sessionId, 256) &&
+    value.sessionId.length > 0 &&
+    typeof value.cancelled === "boolean" &&
+    isString(value.commandHint)
+  )
+}
 
 function loadSecurityAuthorized(): boolean {
   if (typeof localStorage === "undefined") return false
@@ -73,20 +150,45 @@ function loadReportHistory(): HealthScanResult[] {
   try {
     const raw = localStorage.getItem(REPORT_HISTORY_KEY)
     if (!raw) return []
-    const parsed = JSON.parse(raw) as HealthScanResult[]
-    return Array.isArray(parsed) ? parsed.slice(0, 10) : []
+    if (new TextEncoder().encode(raw).byteLength > MAX_REPORT_HISTORY_STORAGE_BYTES) return []
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    const seenSessionIds = new Set<string>()
+    return parsed
+      .filter((scan): scan is HealthScanResult => {
+        if (!isHealthScanResult(scan) || scan.cancelled || seenSessionIds.has(scan.sessionId))
+          return false
+        seenSessionIds.add(scan.sessionId)
+        return true
+      })
+      .slice(0, MAX_REPORT_HISTORY_ENTRIES)
   } catch {
     return []
   }
 }
 
-function persistReportHistory(history: HealthScanResult[]) {
-  if (typeof localStorage === "undefined") return
+function persistReportHistory(history: HealthScanResult[]): HealthScanResult[] {
+  let retained = history.slice(0, MAX_REPORT_HISTORY_ENTRIES)
+  let serialized = JSON.stringify(retained)
+  while (
+    retained.length > 0 &&
+    new TextEncoder().encode(serialized).byteLength > MAX_REPORT_HISTORY_STORAGE_BYTES
+  ) {
+    retained = retained.slice(0, -1)
+    serialized = JSON.stringify(retained)
+  }
+  if (typeof localStorage === "undefined") return retained
   try {
-    localStorage.setItem(REPORT_HISTORY_KEY, JSON.stringify(history.slice(0, 10)))
+    localStorage.setItem(REPORT_HISTORY_KEY, serialized)
   } catch {
     // ignore
   }
+  return retained
+}
+
+function fitsReportHistoryStorage(scan: HealthScanResult): boolean {
+  const serialized = JSON.stringify([scan])
+  return new TextEncoder().encode(serialized).byteLength <= MAX_REPORT_HISTORY_STORAGE_BYTES
 }
 
 export type NetworkProbeL1 = "basic" | "sites" | "test" | "security" | "discover"
@@ -96,7 +198,16 @@ export type NetworkProbeL1 = "basic" | "sites" | "test" | "security" | "discover
  * 注意与 `ProbeNode.kind`（local / remote-proxy / remote-agent）不是一回事——那是「探测原点」。
  */
 export type NetworkProbeKind =
-  "health" | "sites" | "ping" | "traceroute" | "speed" | "ports" | "pcap" | "lan" | "multiNode"
+  | "health"
+  | "sites"
+  | "ping"
+  | "traceroute"
+  | "speed"
+  | "ports"
+  | "pcap"
+  | "lan"
+  | "lanServices"
+  | "multiNode"
 
 export type NetworkProbeError = LocalizedError & { scope?: NetworkProbeKind }
 
@@ -123,6 +234,8 @@ interface NetworkProbeState {
   packProgressText: string | null
   packInstallResult: CapabilityPackInstallResult | null
   defaults: NetworkProbeDefaultsCatalog | null
+  /** Version of the defaults snapshot, used to discard stale bootstrap responses. */
+  defaultsSnapshotRevision: number
   summary: LocalNetworkSummary | null
   firewall: FirewallStatus | null
   hosts: HostsOverride[] | null
@@ -161,10 +274,19 @@ interface NetworkProbeState {
   natResult: NatProbeResult | null
   ntpResult: NtpProbeResult | null
   lanResult: LanDiscoveryResult | null
+  lanProgress: LanDiscoveryProgressEvent | null
   lanServicesResult: LanServicesResult | null
+  lanServicesProgress: LanServicesProgressEvent | null
   pcapResult: PcapDiagResult | null
   multiNodeDnsResult: MultiNodeDnsResult | null
+  globalpingMeasurementResult: GlobalpingMeasurementResult | null
+  globalpingTokenConfigured: boolean | null
+  loadingGlobalpingToken: boolean
   probeNodes: ProbeNode[]
+  /** Version of the live node list, used to discard stale bootstrap snapshots. */
+  probeNodesRevision: number
+  /** Version of the capability/pack snapshot, used to discard stale bootstrap results. */
+  capabilitySnapshotRevision: number
   reportHistory: HealthScanResult[]
   securityAuthorized: boolean
   /** 按探测种类分槽的活动会话; 多类探测并发时取消目标各自独立, 不会互相抢占。 */
@@ -173,6 +295,7 @@ interface NetworkProbeState {
   cancelRequestedSessionIdByKind: Record<NetworkProbeKind, string | null>
   commandLog: string[]
   loadingSummary: boolean
+  loadingCapabilityPacks: boolean
   loadingTcp: boolean
   loadingPing: boolean
   loadingDns: boolean
@@ -197,15 +320,23 @@ interface NetworkProbeState {
   loadingMultiNode: boolean
   loadingNodes: boolean
   error: NetworkProbeError | null
+  overviewAutoLoadAttempted: boolean
+  loadingBootstrap: boolean
 
   setL1: (l1Id: NetworkProbeL1) => void
-  setL2: (l2Id: string) => void
+  setL2: (l2Id: string, options?: { preserveError?: boolean }) => void
   setOfflineSub: (offlineSub: NetworkProbeOfflineSub) => void
   setCapabilities: (capabilities: NetworkProbeCapabilities | null) => void
   setCapabilityPacks: (capabilityPacks: CapabilityPackInfo[]) => void
+  beginCapabilitySnapshotRefresh: () => void
+  setCapabilitySnapshot: (
+    capabilities: NetworkProbeCapabilities,
+    capabilityPacks: CapabilityPackInfo[],
+  ) => void
   setPackProgressText: (packProgressText: string | null) => void
   setPackInstallResult: (packInstallResult: CapabilityPackInstallResult | null) => void
   setDefaults: (defaults: NetworkProbeDefaultsCatalog | null) => void
+  beginDefaultsSnapshotUpdate: () => void
   setSummary: (summary: LocalNetworkSummary | null) => void
   setFirewall: (firewall: FirewallStatus | null) => void
   setHosts: (hosts: HostsOverride[] | null) => void
@@ -248,10 +379,15 @@ interface NetworkProbeState {
   upsertPortSample: (sample: PortSampleEvent) => void
   setNatResult: (natResult: NatProbeResult | null) => void
   setNtpResult: (ntpResult: NtpProbeResult | null) => void
+  setLanProgress: (lanProgress: LanDiscoveryProgressEvent | null) => void
   setLanResult: (lanResult: LanDiscoveryResult | null) => void
+  setLanServicesProgress: (lanServicesProgress: LanServicesProgressEvent | null) => void
   setLanServicesResult: (lanServicesResult: LanServicesResult | null) => void
   setPcapResult: (pcapResult: PcapDiagResult | null) => void
   setMultiNodeDnsResult: (multiNodeDnsResult: MultiNodeDnsResult | null) => void
+  setGlobalpingMeasurementResult: (result: GlobalpingMeasurementResult | null) => void
+  setGlobalpingTokenConfigured: (configured: boolean | null) => void
+  setLoadingGlobalpingToken: (loading: boolean) => void
   setProbeNodes: (probeNodes: ProbeNode[]) => void
   pushReportHistory: (scan: HealthScanResult) => void
   clearReportHistory: () => void
@@ -263,6 +399,9 @@ interface NetworkProbeState {
   appendCommandLog: (line: string) => void
   clearCommandLog: () => void
   setLoadingSummary: (loading: boolean) => void
+  setLoadingCapabilityPacks: (loading: boolean) => void
+  setLoadingBootstrap: (loading: boolean) => void
+  claimOverviewAutoLoad: () => boolean
   setLoadingTcp: (loading: boolean) => void
   setLoadingPing: (loading: boolean) => void
   setLoadingDns: (loading: boolean) => void
@@ -317,6 +456,7 @@ const EMPTY_SESSION_ID_SLOTS: Record<NetworkProbeKind, string | null> = {
   ports: null,
   pcap: null,
   lan: null,
+  lanServices: null,
   multiNode: null,
 }
 
@@ -332,8 +472,13 @@ function loadNav(): NetworkProbeState["nav"] {
     const raw = sessionStorage.getItem("network-probe:nav")
     if (!raw) return { l1Id: "basic", l2ByL1: { ...DEFAULT_L2 }, offlineSub: "all" }
     const parsed = JSON.parse(raw) as Partial<NetworkProbeState["nav"]>
+    const l1Id =
+      typeof parsed.l1Id === "string" &&
+      Object.prototype.hasOwnProperty.call(DEFAULT_L2, parsed.l1Id)
+        ? (parsed.l1Id as NetworkProbeL1)
+        : "basic"
     return {
-      l1Id: parsed.l1Id && parsed.l1Id in DEFAULT_L2 ? parsed.l1Id : "basic",
+      l1Id,
       l2ByL1: { ...DEFAULT_L2, ...(parsed.l2ByL1 ?? {}) },
       offlineSub: isOfflineSub(parsed.offlineSub) ? parsed.offlineSub : "all",
     }
@@ -387,6 +532,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   packProgressText: null,
   packInstallResult: null,
   defaults: null,
+  defaultsSnapshotRevision: 0,
   summary: null,
   firewall: null,
   hosts: null,
@@ -425,16 +571,26 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   natResult: null,
   ntpResult: null,
   lanResult: null,
+  lanProgress: null,
   lanServicesResult: null,
+  lanServicesProgress: null,
   pcapResult: null,
   multiNodeDnsResult: null,
+  globalpingMeasurementResult: null,
+  globalpingTokenConfigured: null,
+  loadingGlobalpingToken: false,
   probeNodes: [],
+  probeNodesRevision: 0,
+  capabilitySnapshotRevision: 0,
   reportHistory: loadReportHistory(),
   securityAuthorized: loadSecurityAuthorized(),
   activeSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
   cancelRequestedSessionIdByKind: { ...EMPTY_SESSION_ID_SLOTS },
   commandLog: [],
   loadingSummary: false,
+  loadingCapabilityPacks: false,
+  loadingBootstrap: false,
+  overviewAutoLoadAttempted: false,
   loadingTcp: false,
   loadingPing: false,
   loadingDns: false,
@@ -467,7 +623,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     persistNav(nav)
     set({ nav, error: null })
   },
-  setL2: (l2Id) => {
+  setL2: (l2Id, options) => {
     const { nav } = get()
     if (nav.l2ByL1[nav.l1Id] === l2Id) return
     const next = {
@@ -475,7 +631,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
       l2ByL1: { ...nav.l2ByL1, [nav.l1Id]: l2Id },
     }
     persistNav(next)
-    set({ nav: next, error: null })
+    set(options?.preserveError ? { nav: next } : { nav: next, error: null })
   },
   setOfflineSub: (offlineSub) => {
     const state = get()
@@ -486,9 +642,23 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   },
   setCapabilities: (capabilities) => set({ capabilities }),
   setCapabilityPacks: (capabilityPacks) => set({ capabilityPacks }),
+  beginCapabilitySnapshotRefresh: () =>
+    set((state) => ({ capabilitySnapshotRevision: state.capabilitySnapshotRevision + 1 })),
+  setCapabilitySnapshot: (capabilities, capabilityPacks) =>
+    set((state) => ({
+      capabilities,
+      capabilityPacks,
+      capabilitySnapshotRevision: state.capabilitySnapshotRevision + 1,
+    })),
   setPackProgressText: (packProgressText) => set({ packProgressText }),
   setPackInstallResult: (packInstallResult) => set({ packInstallResult }),
-  setDefaults: (defaults) => set({ defaults }),
+  setDefaults: (defaults) =>
+    set((state) => ({
+      defaults,
+      defaultsSnapshotRevision: state.defaultsSnapshotRevision + 1,
+    })),
+  beginDefaultsSnapshotUpdate: () =>
+    set((state) => ({ defaultsSnapshotRevision: state.defaultsSnapshotRevision + 1 })),
   setSummary: (summary) => set({ summary }),
   setFirewall: (firewall) => set({ firewall }),
   setHosts: (hosts) => set({ hosts }),
@@ -602,15 +772,28 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     }),
   setNatResult: (natResult) => set({ natResult }),
   setNtpResult: (ntpResult) => set({ ntpResult }),
+  setLanProgress: (lanProgress) => set({ lanProgress }),
   setLanResult: (lanResult) => set({ lanResult }),
+  setLanServicesProgress: (lanServicesProgress) => set({ lanServicesProgress }),
   setLanServicesResult: (lanServicesResult) => set({ lanServicesResult }),
   setPcapResult: (pcapResult) => set({ pcapResult }),
   setMultiNodeDnsResult: (multiNodeDnsResult) => set({ multiNodeDnsResult }),
-  setProbeNodes: (probeNodes) => set({ probeNodes }),
+  setGlobalpingMeasurementResult: (globalpingMeasurementResult) =>
+    set({ globalpingMeasurementResult }),
+  setGlobalpingTokenConfigured: (globalpingTokenConfigured) => set({ globalpingTokenConfigured }),
+  setLoadingGlobalpingToken: (loadingGlobalpingToken) => set({ loadingGlobalpingToken }),
+  setProbeNodes: (probeNodes) =>
+    set((state) => ({ probeNodes, probeNodesRevision: state.probeNodesRevision + 1 })),
   pushReportHistory: (scan) =>
     set((state) => {
-      const reportHistory = [scan, ...state.reportHistory].slice(0, 10)
-      persistReportHistory(reportHistory)
+      if (scan.cancelled || !isHealthScanResult(scan) || !fitsReportHistoryStorage(scan)) {
+        return state
+      }
+      const candidate = [
+        scan,
+        ...state.reportHistory.filter((existing) => existing.sessionId !== scan.sessionId),
+      ]
+      const reportHistory = persistReportHistory(candidate)
       return { reportHistory }
     }),
   clearReportHistory: () => {
@@ -664,6 +847,17 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     })),
   clearCommandLog: () => set({ commandLog: [] }),
   setLoadingSummary: (loadingSummary) => set({ loadingSummary }),
+  setLoadingCapabilityPacks: (loadingCapabilityPacks) => set({ loadingCapabilityPacks }),
+  setLoadingBootstrap: (loadingBootstrap) => set({ loadingBootstrap }),
+  claimOverviewAutoLoad: () => {
+    let claimed = false
+    set((state) => {
+      if (state.overviewAutoLoadAttempted) return state
+      claimed = true
+      return { overviewAutoLoadAttempted: true }
+    })
+    return claimed
+  },
   setLoadingTcp: (loadingTcp) => set({ loadingTcp }),
   setLoadingPing: (loadingPing) => set({ loadingPing }),
   setLoadingDns: (loadingDns) => set({ loadingDns }),
@@ -691,13 +885,20 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     set((state) => {
       if (error && state.error) {
         const { l1Id, l2ByL1, offlineSub } = state.nav
+        const visibleL2 = l1Id === "basic" ? "integrated" : l2ByL1[l1Id]
+        const visibleOfflineSub = l1Id === "basic" ? "all" : offlineSub
         const currentErrorVisible = isNetworkProbeErrorVisible(
           state.error,
           l1Id,
-          l2ByL1[l1Id],
-          offlineSub,
+          visibleL2,
+          visibleOfflineSub,
         )
-        const nextErrorVisible = isNetworkProbeErrorVisible(error, l1Id, l2ByL1[l1Id], offlineSub)
+        const nextErrorVisible = isNetworkProbeErrorVisible(
+          error,
+          l1Id,
+          visibleL2,
+          visibleOfflineSub,
+        )
 
         // A late failure from another panel must not hide the active panel's error.
         if (currentErrorVisible && !nextErrorVisible) return state

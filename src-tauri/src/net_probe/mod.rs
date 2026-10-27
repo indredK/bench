@@ -11,6 +11,7 @@ mod dnssec;
 mod fake_ip;
 mod fix;
 mod globalping;
+mod globalping_token;
 mod health;
 mod hosts;
 mod input;

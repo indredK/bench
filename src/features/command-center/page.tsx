@@ -12,11 +12,13 @@ import { toast } from "sonner"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
 import { CommandCardEditor } from "@/features/command-center/components/CommandCardEditor"
+import { CommandCardParametersDialog } from "@/features/command-center/components/CommandCardParametersDialog"
 import { CommandMarketDialog } from "@/features/command-center/components/CommandMarketDialog"
 import { CommandCenterPageContent } from "@/features/command-center/components/CommandCenterPageContent"
 import { RunDetailDrawer } from "@/features/command-center/components/RunDetailDrawer"
 import { useCommandCenterController } from "@/features/command-center/hooks/useCommandCenterController"
 import { useCommandCenterStore } from "@/features/command-center/store"
+import { parseCommandTemplateParameters } from "@/features/command-center/services/command-center.parameters"
 import type { FeatureDescriptor } from "@/platform/capabilities"
 import { openPlatformDialog, savePlatformDialog } from "@/platform/dialog"
 import type { CommandCard } from "@/lib/tauri/types/command-center"
@@ -28,6 +30,7 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
   const setExpandedId = useCommandCenterStore((s) => s.setExpandedId)
 
   const [editorCard, setEditorCard] = useState<CommandCard | null>(null)
+  const [parameterCard, setParameterCard] = useState<CommandCard | null>(null)
   const [confirmRun, setConfirmRun] = useState<CommandCard | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<CommandCard | null>(null)
   const [ioBusy, setIoBusy] = useState<"export" | "import" | null>(null)
@@ -121,6 +124,39 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
     [controller, runCard],
   )
 
+  const requestCardRun = useCallback(
+    (card: CommandCard) => {
+      const parsed = parseCommandTemplateParameters(card.command)
+      if (!parsed.ok) {
+        toast.error(
+          t(
+            parsed.reason === "invalidSyntax"
+              ? "commandCenter.parameters.errors.invalidSyntax"
+              : "commandCenter.parameters.errors.tooManyParameters",
+          ),
+        )
+        return
+      }
+      if (parsed.names.length > 0) {
+        setParameterCard(card)
+        return
+      }
+      handleRunRequest(card)
+    },
+    [handleRunRequest, t],
+  )
+
+  const submitParameters = useCallback(
+    (command: string) => {
+      if (!parameterCard) return
+      const card = parameterCard
+      setParameterCard(null)
+      // 提权确认在参数收集之后打开，因此确认框显示的就是最终命令。
+      handleRunRequest({ ...card, command })
+    },
+    [handleRunRequest, parameterCard],
+  )
+
   const handleReorder = useCallback(
     async (orderedIds: string[]) => {
       const ok = await controller.reorderCards(orderedIds)
@@ -171,7 +207,7 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
         runningIds={controller.runningIds}
         onAdd={handleAdd}
         onEdit={setEditorCard}
-        onRun={handleRunRequest}
+        onRun={requestCardRun}
         onDelete={setConfirmDelete}
         onExpand={(card) => setExpandedId(card.id)}
         onTerminate={cancelRun}
@@ -188,13 +224,7 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
         card={expandedCard}
         runningIds={controller.runningIds}
         runStatus={controller.runStatus}
-        onRun={(card) => {
-          if (controller.requiresConfirm(card.kind)) {
-            setConfirmRun(card)
-          } else {
-            void runCard(card)
-          }
-        }}
+        onRun={requestCardRun}
         onEdit={handleEditFromDrawer}
         onTerminate={cancelRun}
         onOpenChange={(open) => {
@@ -215,6 +245,14 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
           if (!open) setEditorCard(null)
         }}
         onSubmit={handleSubmit}
+      />
+
+      <CommandCardParametersDialog
+        card={parameterCard}
+        onOpenChange={(open) => {
+          if (!open) setParameterCard(null)
+        }}
+        onSubmit={submitParameters}
       />
 
       {confirmRun && (

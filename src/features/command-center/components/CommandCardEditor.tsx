@@ -24,6 +24,12 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { detectCardKind } from "@/features/command-center/services/detect-card-kind"
+import {
+  MAX_COMMAND_CARD_GROUP_LENGTH,
+  normalizeCommandCardGroup,
+  normalizeCommandCardTags,
+} from "@/features/command-center/services/command-center.filters"
+import { parseCommandTemplateParameters } from "@/features/command-center/services/command-center.parameters"
 import type { CardKind, CommandCard } from "@/lib/tauri/types/command-center"
 
 const KIND_OPTIONS: CardKind[] = ["shell", "shellAdmin", "copy", "open"]
@@ -41,10 +47,12 @@ export function CommandCardEditor({
 }) {
   const { t } = useTranslation()
   const [form, setForm] = useState<CommandCard | null>(draft)
+  const [tagsInput, setTagsInput] = useState(draft?.tags?.join(", ") ?? "")
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setForm(draft)
+    setTagsInput(draft?.tags?.join(", ") ?? "")
   }, [draft])
 
   const suggestedKind = useMemo(() => (form ? detectCardKind(form.command) : null), [form])
@@ -52,14 +60,20 @@ export function CommandCardEditor({
   if (!form) return null
 
   const canSubmit = form.title.trim().length > 0 && form.command.trim().length > 0
+  const templateParameters = parseCommandTemplateParameters(form.command)
+  const templateValid = templateParameters.ok
   const showSuggestion = suggestedKind !== null && suggestedKind !== form.kind
 
   const handleSubmit = async () => {
-    if (!canSubmit || saving) return
+    if (!canSubmit || !templateValid || saving) return
     setSaving(true)
     const startedAt = Date.now()
     try {
-      await onSubmit(form)
+      await onSubmit({
+        ...form,
+        group: normalizeCommandCardGroup(form.group ?? ""),
+        tags: normalizeCommandCardTags(tagsInput),
+      })
     } finally {
       const wait = Math.max(0, 300 - (Date.now() - startedAt))
       window.setTimeout(() => setSaving(false), wait)
@@ -93,6 +107,38 @@ export function CommandCardEditor({
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="cc-group">{t("commandCenter.editor.fieldGroup")}</Label>
+            <Input
+              id="cc-group"
+              value={form.group ?? ""}
+              placeholder={t("commandCenter.editor.groupPlaceholder")}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  group: Array.from(e.target.value)
+                    .slice(0, MAX_COMMAND_CARD_GROUP_LENGTH)
+                    .join(""),
+                })
+              }
+            />
+            <p className="text-muted-foreground text-xs">
+              {t("commandCenter.editor.groupHint", {
+                count: Array.from(form.group ?? "").length,
+              })}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cc-tags">{t("commandCenter.editor.fieldTags")}</Label>
+            <Input
+              id="cc-tags"
+              value={tagsInput}
+              maxLength={1024}
+              placeholder={t("commandCenter.editor.tagsPlaceholder")}
+              onChange={(e) => setTagsInput(e.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">{t("commandCenter.editor.tagsHint")}</p>
+          </div>
+          <div className="space-y-2">
             <Label>{t("commandCenter.editor.fieldKind")}</Label>
             <Select
               value={form.kind}
@@ -119,6 +165,25 @@ export function CommandCardEditor({
               placeholder={t(`commandCenter.editor.commandPlaceholder.${form.kind}`)}
               onChange={(e) => setForm({ ...form, command: e.target.value })}
             />
+            <p className="text-muted-foreground text-xs">
+              {t("commandCenter.editor.parametersHint")}
+            </p>
+            {templateParameters.ok && templateParameters.names.length > 0 ? (
+              <p role="status" className="text-xs">
+                {t("commandCenter.editor.parametersFound", {
+                  names: templateParameters.names.map((name) => `{{${name}}}`).join(", "),
+                })}
+              </p>
+            ) : null}
+            {!templateParameters.ok ? (
+              <p role="alert" className="text-destructive text-xs">
+                {t(
+                  templateParameters.reason === "invalidSyntax"
+                    ? "commandCenter.parameters.errors.invalidSyntax"
+                    : "commandCenter.parameters.errors.tooManyParameters",
+                )}
+              </p>
+            ) : null}
             {showSuggestion && suggestedKind && (
               <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
                 <Lightbulb size={14} className="shrink-0 text-amber-500" />
@@ -144,7 +209,7 @@ export function CommandCardEditor({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
           </Button>
-          <Button disabled={!canSubmit || saving} onClick={handleSubmit}>
+          <Button disabled={!canSubmit || !templateValid || saving} onClick={handleSubmit}>
             {saving ? (
               <>
                 <Loader2 size={14} className="animate-spin" />

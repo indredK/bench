@@ -19,6 +19,28 @@ use tauri::{AppHandle, Emitter};
 
 const BREW_COMMAND_TIMEOUT: Duration = Duration::from_secs(15);
 const PACKAGE_OPERATION_TIMEOUT: Duration = Duration::from_secs(30 * 60);
+const UNREADABLE_SCAN_ROOT_WARNING: &str = "MACOS_SCAN_ROOT_UNREADABLE";
+const APP_BUNDLE_METADATA_WARNING: &str = "MACOS_APP_BUNDLE_METADATA_UNAVAILABLE";
+
+fn record_scan_warning(warnings: &mut Vec<String>, code: &str, path: &Path) {
+    let warning = format!("{code}:{}", path.display());
+    if !warnings.iter().any(|existing| existing == &warning) {
+        warnings.push(warning);
+    }
+}
+
+/// Report a failed root-directory read through the stable warning contract.
+pub(crate) fn is_scan_root_readable<T>(
+    path: &Path,
+    read_result: &std::io::Result<T>,
+    warnings: &mut Vec<String>,
+) -> bool {
+    if read_result.is_ok() {
+        return true;
+    }
+    record_scan_warning(warnings, UNREADABLE_SCAN_ROOT_WARNING, path);
+    false
+}
 
 // ============================================================================
 // Homebrew Integration
@@ -233,14 +255,7 @@ type RawApp = (String, String, String, String, String, bool, u64);
 fn app_path_to_raw(path: &Path, is_system: bool) -> Option<RawApp> {
     let real_path = fs::canonicalize(path).ok()?;
     let install_path = real_path.to_string_lossy().to_string();
-    let (name, bundle_id, version) = extract_app_metadata(&real_path).unwrap_or_else(|| {
-        let name = real_path
-            .file_stem()
-            .and_then(|value| value.to_str())
-            .unwrap_or("Unknown")
-            .to_string();
-        (name, "unknown".to_string(), "—".to_string())
-    });
+    let (name, bundle_id, version) = extract_app_metadata(&real_path)?;
     let app_id = make_app_id(&bundle_id, &install_path);
     Some((
         app_id,
@@ -258,6 +273,7 @@ fn scan_directory_raw(
     is_system: bool,
     depth_limit: usize,
     cancel: &std::sync::atomic::AtomicBool,
+    warnings: &mut Vec<String>,
 ) -> Vec<RawApp> {
     let mut results = Vec::new();
     let mut queue = VecDeque::from([(dir.to_path_buf(), 0usize)]);
@@ -286,6 +302,8 @@ fn scan_directory_raw(
             if path.extension().is_some_and(|ext| ext == "app") {
                 if let Some(app) = app_path_to_raw(&path, is_system) {
                     results.push(app);
+                } else if path.exists() {
+                    record_scan_warning(warnings, APP_BUNDLE_METADATA_WARNING, &path);
                 }
                 continue;
             }
@@ -329,9 +347,9 @@ pub fn scan_installed_apps(
     for dir in SCAN_DIRECTORIES {
         let path = Path::new(dir);
         if path.exists() {
-            if fs::read_dir(path).is_err() {
+            let read_result = fs::read_dir(path);
+            if !is_scan_root_readable(path, &read_result, &mut warnings) {
                 filesystem_complete = false;
-                warnings.push(format!("MACOS_SCAN_ROOT_UNREADABLE:{dir}"));
                 continue;
             }
             raw.extend(scan_directory_raw(
@@ -339,6 +357,7 @@ pub fn scan_installed_apps(
                 dir.starts_with("/System"),
                 SCAN_MAX_DEPTH,
                 cancel,
+                &mut warnings,
             ));
             let _ = app_handle.emit(
                 "app-scan:progress",
@@ -355,11 +374,17 @@ pub fn scan_installed_apps(
     }
     if let Some(user_dir) = user_applications_dir() {
         if user_dir.exists() {
-            if fs::read_dir(&user_dir).is_err() {
+            let read_result = fs::read_dir(&user_dir);
+            if !is_scan_root_readable(&user_dir, &read_result, &mut warnings) {
                 filesystem_complete = false;
-                warnings.push(format!("MACOS_SCAN_ROOT_UNREADABLE:{}", user_dir.display()));
             } else {
-                raw.extend(scan_directory_raw(&user_dir, false, SCAN_MAX_DEPTH, cancel));
+                raw.extend(scan_directory_raw(
+                    &user_dir,
+                    false,
+                    SCAN_MAX_DEPTH,
+                    cancel,
+                    &mut warnings,
+                ));
                 let _ = app_handle.emit(
                     "app-scan:progress",
                     ScanProgressEvent {
@@ -379,12 +404,9 @@ pub fn scan_installed_apps(
         if cancel.load(std::sync::atomic::Ordering::Acquire) {
             break;
         }
-        if fs::read_dir(&external_dir).is_err() {
+        let read_result = fs::read_dir(&external_dir);
+        if !is_scan_root_readable(&external_dir, &read_result, &mut warnings) {
             filesystem_complete = false;
-            warnings.push(format!(
-                "MACOS_SCAN_ROOT_UNREADABLE:{}",
-                external_dir.display()
-            ));
             continue;
         }
         raw.extend(scan_directory_raw(
@@ -392,6 +414,7 @@ pub fn scan_installed_apps(
             false,
             SCAN_MAX_DEPTH,
             cancel,
+            &mut warnings,
         ));
     }
 
@@ -411,6 +434,12 @@ pub fn scan_installed_apps(
                     let is_system = path.starts_with("/System/");
                     if let Some(app) = app_path_to_raw(&path, is_system) {
                         raw.push(app);
+                    } else if path.exists() {
+                        record_scan_warning(
+                            &mut warnings,
+                            APP_BUNDLE_METADATA_WARNING,
+                            Path::new(&path),
+                        );
                     }
                 }
                 ProviderStatus {
@@ -557,11 +586,7 @@ pub fn scan_installed_apps(
         start.elapsed().as_millis() as u64,
         state.get_last_update_check_time(),
     );
-    if cancel.load(std::sync::atomic::Ordering::Acquire) {
-        result.complete = false;
-        result.warnings.push("SCAN_CANCELLED".to_string());
-    }
-    result.providers = vec![
+    let providers = vec![
         ProviderStatus {
             provider: "filesystem".to_string(),
             state: if filesystem_complete {
@@ -591,10 +616,12 @@ pub fn scan_installed_apps(
             },
         },
     ];
-    result.complete &= result.providers.iter().all(|provider| {
-        provider.state == ProviderState::Ok || provider.state == ProviderState::Unsupported
-    });
     result.warnings.extend(warnings);
+    crate::app_manager::domain::finalize_scan_result(
+        &mut result,
+        providers,
+        cancel.load(std::sync::atomic::Ordering::Acquire),
+    );
     result
 }
 
@@ -639,7 +666,8 @@ mod scan_tests {
         write_info_plist(&nested_app, "com.example.nested", "1.2.3");
 
         let cancel = std::sync::atomic::AtomicBool::new(false);
-        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel);
+        let mut warnings = Vec::new();
+        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel, &mut warnings);
         let install_paths: Vec<String> = results.into_iter().map(|item| item.4).collect();
 
         assert_eq!(install_paths.len(), 1);
@@ -657,7 +685,8 @@ mod scan_tests {
         write_info_plist(&inner_app, "com.example.inner", "2.0.0");
 
         let cancel = std::sync::atomic::AtomicBool::new(false);
-        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel);
+        let mut warnings = Vec::new();
+        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel, &mut warnings);
         let bundle_ids: Vec<String> = results.into_iter().map(|item| item.2).collect();
 
         assert_eq!(bundle_ids, vec!["com.example.outer".to_string()]);
@@ -679,7 +708,8 @@ mod scan_tests {
         symlink(external.join("missing.app"), root.join("broken.app")).expect("broken symlink");
 
         let cancel = std::sync::atomic::AtomicBool::new(false);
-        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel);
+        let mut warnings = Vec::new();
+        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel, &mut warnings);
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].2, "com.example.cjk");
@@ -694,8 +724,8 @@ mod scan_tests {
 
     #[test]
     fn scan_directory_raw_skips_truncated_plist_bundle_without_failing_scan() {
-        // 截断的 Info.plist: 该 bundle 元数据退化为文件名/unknown, 但
-        // 扫描本身不得失败, 同根下健康应用仍被发现 (A2-5)。
+        // 截断的 Info.plist: 跳过损坏 bundle、返回机器可读 warning，
+        // 但扫描本身不得失败，同根下健康应用仍被发现 (A2-5)。
         let root = unique_temp_dir("truncated-plist");
         let broken = root.join("Broken.app");
         let healthy = root.join("Healthy.app");
@@ -708,19 +738,28 @@ mod scan_tests {
         write_info_plist(&healthy, "com.example.healthy", "1.0.0");
 
         let cancel = std::sync::atomic::AtomicBool::new(false);
-        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel);
+        let mut warnings = Vec::new();
+        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel, &mut warnings);
         let bundle_ids: Vec<String> = results.into_iter().map(|item| item.2).collect();
+        let canonical_broken = broken.canonicalize().expect("canonicalize broken bundle");
 
         assert!(bundle_ids.contains(&"com.example.healthy".to_string()));
-        // 损坏 bundle 退化处理而非被丢弃: bundle_id = unknown (canonical 化)。
-        assert!(bundle_ids.iter().any(|id| id == "unknown"));
+        assert!(!bundle_ids.iter().any(|id| id == "unknown"));
+        assert!(warnings.iter().any(|warning| {
+            warning
+                == &format!(
+                    "MACOS_APP_BUNDLE_METADATA_UNAVAILABLE:{}",
+                    canonical_broken.display()
+                )
+        }));
 
         fs::remove_dir_all(root).expect("cleanup");
     }
 
     #[test]
     fn scan_directory_raw_skips_corrupt_binary_plist_bundle() {
-        // 二进制损坏 plist (非法 bplist 头): 同样不拖垮扫描 (A2-5)。
+        // 二进制损坏 plist (非法 bplist 头): 跳过损坏 bundle 并告警，
+        // 同样不拖垮扫描 (A2-5)。
         let root = unique_temp_dir("corrupt-bplist");
         let broken = root.join("Corrupt.app");
         let healthy = root.join("Healthy.app");
@@ -733,33 +772,21 @@ mod scan_tests {
         write_info_plist(&healthy, "com.example.healthy2", "2.0.0");
 
         let cancel = std::sync::atomic::AtomicBool::new(false);
-        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel);
+        let mut warnings = Vec::new();
+        let results = scan_directory_raw(&root, false, SCAN_MAX_DEPTH, &cancel, &mut warnings);
         let bundle_ids: Vec<String> = results.into_iter().map(|item| item.2).collect();
+        let canonical_broken = broken.canonicalize().expect("canonicalize broken bundle");
 
         assert!(bundle_ids.contains(&"com.example.healthy2".to_string()));
+        assert!(!bundle_ids.iter().any(|id| id == "unknown"));
+        assert!(warnings.iter().any(|warning| {
+            warning
+                == &format!(
+                    "MACOS_APP_BUNDLE_METADATA_UNAVAILABLE:{}",
+                    canonical_broken.display()
+                )
+        }));
 
-        fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn unreadable_scan_root_is_reported_as_warning_by_contract_format() {
-        // chmod 000 根目录: read_dir 失败 → 扫描端聚合为
-        // MACOS_SCAN_ROOT_UNREADABLE warning 且继续其余目录 (A2-5)。
-        // 这里在目录级别复现该路径的判定输入 (read_dir Err)。
-        use std::os::unix::fs::PermissionsExt;
-
-        let root = unique_temp_dir("unreadable-root");
-        fs::create_dir_all(&root).expect("create root");
-        fs::set_permissions(&root, fs::Permissions::from_mode(0o000)).expect("chmod 000");
-
-        let read_failed = fs::read_dir(&root).is_err();
-        // 恢复权限以便清理 (root 用户下 read_dir 可能仍成功, 此时跳过断言)。
-        fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).expect("restore perms");
-        if read_failed {
-            // 非 root 运行时: 不可读根目录的 read_dir 一定失败 → warning 路径。
-            assert!(fs::read_dir(&root).is_ok(), "perms restored");
-        }
         fs::remove_dir_all(root).expect("cleanup");
     }
 }
@@ -1292,6 +1319,37 @@ pub fn install_app(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn corrupt_icns_icon_returns_error_without_panicking() {
+        let root = std::env::temp_dir().join(format!(
+            "bench-app-manager-corrupt-icns-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let app = root.join("Corrupt.app");
+        let contents = app.join("Contents");
+        let resources = contents.join("Resources");
+        fs::create_dir_all(&resources).expect("create icon fixture");
+        fs::write(
+            contents.join("Info.plist"),
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>com.example.corrupt-icon</string>
+  <key>CFBundleIconFile</key><string>Corrupt.icns</string>
+</dict></plist>"#,
+        )
+        .expect("write icon metadata");
+        fs::write(resources.join("Corrupt.icns"), b"not a valid icns file")
+            .expect("write corrupt icon fixture");
+
+        let result = get_app_icon_base64(&app.to_string_lossy());
+        fs::remove_dir_all(&root).expect("cleanup corrupt icon fixture");
+        assert!(
+            result.is_err(),
+            "corrupt ICNS must fall back to caller error handling"
+        );
+    }
 
     #[test]
     fn brew_works_returns_false_for_nonexistent_path() {

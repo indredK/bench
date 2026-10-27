@@ -146,70 +146,57 @@
 
 ### A2. App Manager / Quick Launch 代码差距（R02）
 
-#### A2-1. 快照恢复 Rust 端零测试 ⛔ P0
+#### A2-1. 快照恢复边界测试 ✅ 当前代码已覆盖（2026-10-16）
 
-**位置**：`src-tauri/src/app_manager/commands.rs:956-1012`（测试模块仅覆盖 `build_update_report`/`normalize_batch_ids`）
+**原始问题**：旧审计基线没有验证 `get_cached_app_inventory` 的缓存读写与 revision 恢复行为；文件位置和行号均以 1.28.0 基线为准，不能代表当前代码。
 
-**问题**：D-019 核心承诺无后端测试：`get_cached_app_inventory` 损坏缓存返回 `Ok(None)`（commands.rs:204-236）、写入失败时剥离图标重写（:191-197）、恢复时 `fetch_max` revision 单调（:229-231）。
+**当前实现与证据**：命令使用 `load_cached_inventory_snapshot`；内存缓存优先，路径解析 / 文件读取失败、文件缺失或 JSON 损坏均按缓存未命中处理，不阻断后续扫描；磁盘快照恢复会抬高 revision 下限。持久化首次写入失败时，最多剥离图标重试一次，重试失败只影响可选缓存，不影响内存扫描结果。隔离临时文件回归覆盖路径解析失败、缺失 / 损坏 / 不可读文件、内存优先、写入重试和 revision 单调性。2026-10-16 执行 `cargo test --lib app_manager::commands::tests`：16 项通过。
 
-**修复方案**：在 commands.rs 测试模块（或新建 `commands_tests.rs`）补：损坏 JSON/IO 失败/路径不存在 → `Ok(None)` 且不影响后续扫描；内存缓存命中优先于磁盘；revision 恢复后新扫描 revision > 恢复值。
+#### A2-2. inventory.json 大小上限 ✅ 当前代码已覆盖（2026-10-16）
 
-**验收标准**：`cargo test app_manager` 通过；模块 roadmap「行为测试：get_cached_app_inventory 对损坏缓存返回 null」可勾选代码部分。
+**原始问题**：旧审计基线认为缓存没有序列化大小检查；该结论已被当前代码取代。
 
-#### A2-2. inventory.json 无大小上限 ⛔ P0
+**当前实现与证据**：`INVENTORY_CACHE_MAX_BYTES` 限制为 16 MiB；超限后剥离全部 `icon_base64` 再序列化，仍超限则拒绝写入；读取也先检查元数据，并以 `max + 1` 字节上限读取以覆盖检查后的文件增长竞态，超限旧缓存按 miss 丢弃而不参与反序列化。扫描结果继续保留在内存。超限写入和读取 fixture 均已覆盖，并包含在上述 16 项测试中。
 
-**位置**：`src-tauri/src/app_manager/commands.rs:184-198`（`persist_inventory_snapshot`）
+#### A2-3. inventory.json schema_version ✅ 当前代码已覆盖（2026-10-16）
 
-**问题**：注释声称「序列化整体超限时剥离图标」，但实际剥离只在 IO 失败时触发，无大小检查，缓存可无限膨胀。对比 account_manager（16MB）、command_center 均有 `ensure_file_size` 上限。
+**原始问题**：旧审计基线认为快照没有 schema 版本字段。
 
-**修复方案**：写盘前序列化后检查字节大小，超过上限（建议 8–16MB）即剥离全部 `icon_base64` 重新序列化再写；仍超限则记录 warning 并拒绝缓存（扫描结果照常返回内存）。
+**当前实现与证据**：快照写入时标记当前 schema；反序列化兼容缺省版本的旧缓存，遇到未来版本则 fail-closed 为缓存未命中。`decode_accepts_legacy_cache_without_schema_version`、`decode_rejects_future_schema_version_fail_closed` 和 `serialize_stamps_current_schema_version` 回归均通过，并已包含在上述 16 项测试中。
 
-**验收标准**：构造超限 fixture 的单元测试通过；roadmap「体积受控（超限剥离图标）」代码部分可勾选。
+#### A2-4. provider contract test 不成体系 ✅ 代码契约已覆盖（2026-10-16）
 
-#### A2-3. inventory.json 无 schema_version ⚠️ P1
+**原始问题**：旧审计基线缺少统一的 provider 契约测试；当时记录的行号和测试缺口已被当前代码取代。
 
-**位置**：`src-tauri/src/app_manager/types.rs:180-199`（ScanResult）
+**当前实现与证据**：macOS / Windows 扫描器共用 `finalize_scan_result` 生产收尾路径，测试实际断言 provider 失败时保留已发现 app 且 `complete=false`、Unsupported 不降低完整性，以及取消在 provider 聚合后仍保留 `complete=false` 和 `SCAN_CANCELLED`。macOS 根目录检查共用 `is_scan_root_readable`，注入 `PermissionDenied` 验证稳定的 `MACOS_SCAN_ROOT_UNREADABLE:<path>` warning。另有 Windows 缺失 EXE 图标 fixture，确认在不启动 PowerShell 的情况下返回机器可读错误；macOS 损坏 ICNS fixture 经系统转换器验证返回错误而不 panic。2026-10-16 执行 `pnpm run test:be`：802 项通过、2 项跳过（含 App Manager 契约用例）。
 
-**修复方案**：增加 `schema_version` 字段（serde default 兼容旧缓存），读取时未来版本 fail-closed 返回 `Ok(None)`（对齐 account_manager `validate_schema_version` 模式）。
+**边界**：这里验证跨平台生产收尾 helper 和平台解析 / 失败路径；Windows 上实际启动与图标提取仍由 R02 D 类真机验收覆盖，按用户要求待 Windows 环境安排后执行。
 
-**验收标准**：旧格式（无该字段）缓存可正常恢复；未来版本缓存被拒绝且不影响重新扫描。
+#### A2-5. 损坏 bundle / 权限失败 fixture ✅ 代码 fixture 已覆盖（2026-10-16）
 
-#### A2-4. provider contract test 不成体系 ⚠️ P1
+**原始问题**：旧审计基线没有损坏 bundle、权限拒绝和 Windows Store / MSIX 启动身份的可重复 fixture。
 
-**问题**：R02 步骤 2 要求的统一契约测试不存在为整体；现有断言散落（source evidence 5 用例、appId 稳定性函数级 1 用例、去重 1 用例、AUMID 1 用例）。**缺口**：图标契约（`resolve_macos_icon`/`icns_to_base64_png`/Windows `get_app_icon` 零测试）、warning 契约（`MACOS_SCAN_ROOT_UNREADABLE`、`SCAN_CANCELLED` 零断言）、partial merge 契约（partial 扫描保留旧数据、多 provider 合并零测试）、跨扫描 appId 稳定性（同一应用两次扫描同 appId）。
+**当前实现与证据**：macOS fixture 覆盖截断 XML plist、损坏 binary plist 与损坏 ICNS；损坏 plist bundle 会被跳过并返回 `MACOS_APP_BUNDLE_METADATA_UNAVAILABLE:<path>`，同一扫描目录内的健康 bundle 仍会被发现。权限拒绝通过生产根目录判定 helper 注入 `PermissionDenied`，断言 warning 而不依赖当前进程是否为 root。Windows `Get-StartApps` JSON fixture 使用 `Microsoft.WindowsTerminal_8wekyb3d8bbwe!App`，断言映射为 Windows Store 来源和精确 AUMID 启动目标，且不授予升级 / 卸载能力；本模块消费的是 Windows API 返回的 AUMID，不自行解析 MSIX manifest。2026-10-16 执行 `pnpm run test:be`：802 项通过、2 项跳过（含上述 fixtures）。
 
-**修复方案**：新建 `src-tauri/src/app_manager/contract_tests.rs`（或 `tests/` 集成测试）统一断言：同一 fixture 两次扫描 appId 稳定、扫描根不可读产生 warning 而非 error、partial 扫描（部分 provider failed）返回 `complete=false` 且保留已成功项、图标解析对损坏 icns 返回空而非 panic。
+**边界**：Windows API / MSIX 真机行为按用户要求延期至可用 Windows 回归环境；不把 macOS 上的静态 AUMID fixture 记作 Windows 真机验收。
 
-**验收标准**：`cargo test app_manager` 含上述 4 类断言并通过。
+#### A2-6. 0/1/50/500/2000 规模 fixture ✅ 代码规模回归已覆盖（2026-10-16）
 
-#### A2-5. macOS 损坏 bundle / 权限失败 fixture 缺失 ⚠️ P1
+**当前实现与证据**：`src/shared/app-inventory/__tests__/virtualized-catalog.test.tsx` 覆盖 0、1、50、500、2000 行；大列表断言真实 `VirtualDataTable` 的 DOM 行数受视口上限约束，并覆盖 2000 项筛选后的重渲染仍保持有界。用例属于 `test:critical` 的 `src/shared/app-inventory` 路径。搜索输入耗时、滚动手感和多 viewport 表现仍属于 R02 D 类真机验收，不用 jsdom 重渲染冒充真实输入延迟。
 
-**位置**：`src-tauri/src/app_manager/macos.rs`（scan_tests 模块 601-695 无损坏 bundle 用例；`MACOS_SCAN_ROOT_UNREADABLE` :334/:360/:384 无测试）
+**验证**：本轮补齐 50 / 500 项边界回归；2026-10-16 `pnpm run test:critical`：41 个文件、246 项通过。
 
-**修复方案**：补测试：截断的 Info.plist / 损坏二进制 plist → 该应用产生 warning 跳过而非扫描失败；扫描根 chmod 000 → warning 返回。Windows 侧补 MSIX fixture（Start Apps JSON 已有 AUMID，补 MSIX 特定格式样本）。
+#### A2-7. 单个包操作运行中取消 ⚠️ P2
 
-**验收标准**：测试通过；R02 步骤 1 fixture 清单中「损坏 bundle、权限失败」条目可勾选。
+**原始问题**：macOS Homebrew 与 Windows winget/msiexec 的单操作曾未接入取消 token，前端也没有单操作取消入口。
 
-#### A2-6. 0/1/50/500/2000 规模 fixture 缺失 ⚠️ P1
+**当前实现**：Rust 侧已为每个 appId 建立单操作取消状态，Homebrew、winget、msiexec 都走可取消的有超时进程执行器；取消会回收进程树并返回 `OPERATION_CANCELLED`。App Manager 列表、详情与右键菜单在升级/卸载运行时显示本地化取消操作；取消请求期间禁用重入，IPC 失败时恢复运行状态，后端报告用户取消后 UI 回到 idle。操作状态现在由 Zustand selector 订阅；成功态自动清理 timer 只清理它创建的那一份状态，避免误清新操作。
 
-**问题**：R02 步骤 5 的性能验证 fixture 不存在。
+**静态与自动化证据**：插件 8 个测试文件、23 项通过；扩展 i18n 审计 8/8 插件自包含。覆盖订阅更新、取消 RPC 失败恢复、取消结果回 idle、取消按钮可访问名称和旧 timer 不覆盖后续结果。
 
-**修复方案**：生成规模 fixture（临时目录构造 N 个 `.app` / registry JSON），前端测试（`src/shared/app-inventory/__tests__/`）用 2000 项 mock 数据断言虚拟列表 DOM 行数有界、搜索输入不阻塞（现有 500 账号测试模式可复用）；真机性能验证归入 D 类。
+**macOS 真机证据（2026-10-16）**：隔离 QA bundle 分别验证单包升级与卸载的取消链路；确定性 Homebrew 替身启动 `/bin/sleep` 子进程后，从真实 App Manager UI 请求取消，前后端均返回 idle，替身父子进程均退出。未对真实应用执行升级或卸载。临时替身、bundle、数据目录与配置已移入废纸篓。
 
-**验收标准**：2000 项虚拟化测试进入 `test:critical` 并通过。
-
-#### A2-7. 单个包操作无运行中取消 ⚠️ P2
-
-**位置**：
-
-- `src-tauri/src/app_manager/windows.rs:987,1040,1058`（winget upgrade/uninstall、msiexec 的 cancel 参数传 `None`）
-- `src-tauri/src/app_manager/macos.rs:801,851,1141`（brew 路径经 `run_command_with_timeout`，固定传 None）
-
-**问题**：单个升级/卸载取消后需等 30min 超时或自然完成；批量取消只在项间生效。
-
-**修复方案**：将各模块的 per-operation cancel token（可复用 `state.rs` 的 `scan_cancel` 模式，新增 `op_cancel: Mutex<HashMap<op_id, AtomicBool>>`）接入 `run_command_with_timeout_and_cancel`；前端升级/卸载进行中提供取消按钮。
-
-**验收标准**：单操作进行中取消 → 进程树被终止、返回 `cancelled` 状态、UI 回到操作前；R02 禁止项「timeout 后残留进程树」不发生。
+**待验收**：Windows 取消及进程树回收按用户安排待提供 Windows 环境后回归。远程推送前必须完成可用目标平台真机验证。
 
 #### A2-8. app-manager 错误横幅无显式 retry ⚠️ P2
 
@@ -219,15 +206,13 @@
 
 **验收标准**：错误态可直接重试；R07「failed/retry」状态矩阵该项可勾选。
 
-#### A2-9. SoftwareUpdateView 懒加载 fallback 是纯文本 ⚠️ P2
+#### A2-9. SoftwareUpdateView 懒加载 chunk 被 fallback 静态导入破坏 ⚠️ P2
 
-**位置**：`src/features/app-manager/page.tsx:186-191`（Suspense fallback 仅渲染 `common.loading` 文本）
+**原始问题**：更新页已有独立加载 skeleton，但 `page.tsx` 从 `SoftwareUpdateView.tsx` 同时静态导入 skeleton、又动态导入 `SoftwareUpdateView`，让构建器把更新视图并回主 chunk，懒加载失效。
 
-**问题**：正撞 R07 禁止项「只有 spinner 的首载」——低配机上懒加载 chunk 加载期呈现纯文本闪烁。
+**修复**：改从独立 `SoftwareUpdateLoadingSkeleton.tsx` 导入 fallback，保留更新页动态 chunk。
 
-**修复方案**：fallback 改为与 `SoftwareUpdateView.tsx:274-280` 同构的 skeleton（复用其骨架组件或抽公共 skeleton）。
-
-**验收标准**：切换到软件更新 Tab 首载呈现骨架而非文本。
+**验证**：插件类型检查、8 个测试文件 23 项通过；生产构建输出独立 `SoftwareUpdateView` chunk，且不再出现 ineffective dynamic import 警告。真机首开与切换延迟仍待 macOS UX smoke。
 
 #### A2-10. `terminate_unix_descendants` 竞态与无 SIGKILL 升级 ⚠️ P2
 

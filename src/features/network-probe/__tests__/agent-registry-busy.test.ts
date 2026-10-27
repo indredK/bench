@@ -135,4 +135,44 @@ describe("network-probe agent registry busy state", () => {
     expect(useNetworkProbeStore.getState().loadingNodes).toBe(false)
     expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.agentFailed")
   })
+
+  it("shows a specific error when an agent endpoint targets cloud metadata", async () => {
+    addAgent.mockRejectedValue({
+      code: "SSRF_BLOCKED",
+      message: "Agent endpoint resolves to a cloud metadata service",
+    })
+
+    await networkProbeUseCases.addAgent("Lab", "https://agent.example")
+
+    expect(useNetworkProbeStore.getState().error?.key).toBe(
+      "networkProbe.errors.agentMetadataBlocked",
+    )
+    expect(useNetworkProbeStore.getState().loadingNodes).toBe(false)
+  })
+
+  it("shows a specific error when the saved agent limit is reached", async () => {
+    addAgent.mockRejectedValue({
+      code: "AGENT_LIMIT_REACHED",
+      message: "Agent registry supports at most 256 entries",
+    })
+
+    await networkProbeUseCases.addAgent("Lab", "https://agent.example")
+
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.agentLimitReached")
+    expect(useNetworkProbeStore.getState().loadingNodes).toBe(false)
+  })
+
+  it("surfaces a recoverable message when the saved registry exceeds the safe entry limit", async () => {
+    listProbeNodes.mockRejectedValue({
+      code: "AGENT_REGISTRY_ENTRY_LIMIT_EXCEEDED",
+      message: "Agent registry supports at most 256 entries",
+    })
+
+    await networkProbeUseCases.refreshProbeNodes()
+
+    expect(useNetworkProbeStore.getState().error?.key).toBe(
+      "networkProbe.errors.agentRegistryLimitExceeded",
+    )
+    expect(useNetworkProbeStore.getState().loadingNodes).toBe(false)
+  })
 })
