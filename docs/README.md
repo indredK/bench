@@ -16,6 +16,7 @@ AI 从 [`AGENTS.md`](../AGENTS.md) 开始，按其必读清单读取规范后按
 | **Roadmap**     | [`roadmap/`](./roadmap/)         | 发布阶段规划 + 各模块规划功能（状态导向）                                                                                                 | `ROADMAP.md` · `planned/` · `GAP-TO-2.0.md`                                                                           |
 | **模块**        | [`modules/`](./modules/)         | 模块精简索引 + 独有深度设计                                                                                                               | `<id>/README.md` · `design.md` · `roadmap.md`(指针)                                                                   |
 | **上手**        | [`tutorials/`](./tutorials/)     | 新人入门路径                                                                                                                              | `README.md`                                                                                                           |
+| **验收证据**    | [`qa-evidence/`](./qa-evidence/) | 本机真机验收报告与截图；按功能范围和日期归档                                                                                              | `README.md` · 每份报告及其 `screenshots/`                                                                             |
 | **资产**        | [`diagrams/`](./diagrams/)       | 架构/流程图集（html 多为 specs/*.json 渲染；含手工交互页，如账号管理三角闭环 `account-manager-triangle.html`，以 meta.hand_crafted 标注） | `index.html`                                                                                                          |
 
 ## 模块文档三件套（核心约定）
