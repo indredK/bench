@@ -101,7 +101,7 @@ objc2-core-wlan = { version = "=0.3.2", default-features = false, features = ["s
 # objc2-web-kit 0.3.2 未生成的运行时选择器，其返回声明为裸指针 `*mut AnyObject`
 # （编码为 ^），而方法实际返回对象（编码 @），debug 校验会误判 panic 并因处于
 # ObjC 回调中无法 unwind 而 abort。该方法是 ABI 兼容的，仅校验误报，故关闭校验。
-objc2 = { version = "=0.6.4", features = ["disable-encoding-assertions"] }
+objc2 = { version = "=0.6.5", features = ["disable-encoding-assertions"] }
 objc2-app-kit = "=0.3.2"
 objc2-web-kit = "=0.3.2"
 # 遍历 webview 子视图树所需（NSArray<NSView> 的正确编码，避免裸指针编码校验 panic）。
