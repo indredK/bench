@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.38.3](https://github.com/indredK/bench/compare/v1.38.2...v1.38.3) (2026-10-27)
+
+
+### Bug Fixes
+
+* **frontend:** align React runtime versions ([#184](https://github.com/indredK/bench/issues/184)) ([b66cccb](https://github.com/indredK/bench/commit/b66cccbb46986d29e977dfc7092944da359ecd3a))
+* **network-probe:** harden STUN NAT diagnostics ([#107](https://github.com/indredK/bench/issues/107)) ([a008d73](https://github.com/indredK/bench/commit/a008d73b123a4c17f3fdc3dc37013606c15f16f9))
+
 ## [1.38.2](https://github.com/indredK/bench/compare/v1.38.1...v1.38.2) (2026-10-26)
 
 
