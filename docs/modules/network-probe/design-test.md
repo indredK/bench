@@ -162,6 +162,8 @@ UI：测试入口与「上不了网」入口共用面板组件；面包屑标明
 
 端口扫描目标限定单个 IP / 主机名；Rust IPC 必须拒绝 IPv4/IPv6 CIDR、Nmap octet range、通配符和逗号分隔目标，返回 `PORT_SCAN_SINGLE_HOST_REQUIRED` 且不创建会话。界面对此类语法不展示公网风险确认框，use-case 显示双语单主机提示。测试覆盖接受单 IP / hostname 与拒绝多目标语法。
 
+IPv6 字面量须在 Nmap 普通扫描与指纹扫描中带 `-6`，IPv4 与主机名不应强制切换地址族；内置 TCP fallback 必须使用 `[IPv6]:port` socket 格式。macOS `[::1]:48765` 临时服务真机验收：普通 Nmap 扫描报告 open，轻量 `-sV` 输出识别 Python SimpleHTTPServer；Bench fallback 单测也确认 `::1` 返回 `open`，Nmap 参数路径由单测覆盖。扫描服务仅绑定 loopback，随后已停止。
+
 确认框端口数必须与后端解析规则一致：按逗号 / 空白分隔、展开区间、校验 1–65535 与 256 个原始条目硬顶，再按端口去重后计数；重复端口不得造成虚假的大范围确认。语法无效时显示无法估算且不显示预计耗时。测试覆盖重复端口计数和 65 个重复项实际仅 1 个端口时不触发大范围确认。
 
 `nodeId`：MVP 仅 `local`；选中 remote 时灰显或提示后续版本（勿假连接）。
