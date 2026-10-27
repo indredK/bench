@@ -1,7 +1,7 @@
 {
   "name": "bench",
   "private": true,
-  "version": "1.38.2",
+  "version": "1.38.3",
   "type": "module",
   "engines": {
     "node": ">=24.15.0"
