@@ -62,7 +62,9 @@
     "active": true,
     "createUpdaterArtifacts": true,
     "resources": {
-      "resources/extensions/": "extensions/"
+      "resources/extensions/": "extensions/",
+      "infoplist/en.lproj/InfoPlist.strings": "en.lproj/InfoPlist.strings",
+      "infoplist/zh-Hans.lproj/InfoPlist.strings": "zh-Hans.lproj/InfoPlist.strings"
     },
     "macOS": {
       "minimumSystemVersion": "14.0",

@@ -234,15 +234,9 @@ async fn probe_one(host: String, port: u16, timeout_ms: u64) -> PortSampleEvent 
             service_hint: service_hint(port),
             rtt_ms: Some(started.elapsed().as_secs_f64() * 1000.0),
         },
-        Ok(Err(e)) if e.kind() == std::io::ErrorKind::ConnectionRefused => PortSampleEvent {
+        Ok(Err(error)) => PortSampleEvent {
             port,
-            state: "closed".into(),
-            service_hint: None,
-            rtt_ms: None,
-        },
-        Ok(Err(_)) => PortSampleEvent {
-            port,
-            state: "filtered".into(),
+            state: tcp_connect_error_state(error.kind()).into(),
             service_hint: None,
             rtt_ms: None,
         },
@@ -252,6 +246,14 @@ async fn probe_one(host: String, port: u16, timeout_ms: u64) -> PortSampleEvent 
             service_hint: None,
             rtt_ms: None,
         },
+    }
+}
+
+fn tcp_connect_error_state(kind: std::io::ErrorKind) -> &'static str {
+    match kind {
+        std::io::ErrorKind::ConnectionRefused => "closed",
+        std::io::ErrorKind::TimedOut => "filtered",
+        _ => "error",
     }
 }
 
@@ -287,12 +289,7 @@ async fn try_nmap_syn<R: Runtime>(
         .map(|p| p.to_string())
         .collect::<Vec<_>>()
         .join(",");
-    let args = |scan: &str| {
-        let mut args = vec!["-Pn".to_string(), scan.to_string()];
-        append_nmap_scan_limits(&mut args);
-        args.extend(["-p".to_string(), port_arg.clone(), target.to_string()]);
-        args
-    };
+    let args = |scan: &str| nmap_scan_args(scan, &port_arg, target);
 
     // Prefer -sS; if it is not permitted, retry with nmap's unprivileged -sT.
     let syn_output =
@@ -541,8 +538,9 @@ async fn try_nmap_fingerprint<R: Runtime>(
 }
 
 fn fingerprint_nmap_args(scan: &str, ports: &str, target: &str, detect_os: bool) -> Vec<String> {
-    let mut args = vec![
-        "-Pn".to_string(),
+    let mut args = vec!["-Pn".to_string()];
+    append_nmap_ip_family(&mut args, target);
+    args.extend([
         // Nmap uses Polite timing to keep version detection serial. The
         // explicit scan delay below paces port and OS probes, but Nmap's
         // service scanner controls its own per-probe timing.
@@ -550,7 +548,7 @@ fn fingerprint_nmap_args(scan: &str, ports: &str, target: &str, detect_os: bool)
         scan.to_string(),
         "-sV".to_string(),
         "--version-light".to_string(),
-    ];
+    ]);
     if detect_os {
         args.extend([
             "-O".to_string(),
@@ -568,6 +566,21 @@ fn fingerprint_nmap_args(scan: &str, ports: &str, target: &str, detect_os: bool)
         target.to_string(),
     ]);
     args
+}
+
+fn nmap_scan_args(scan: &str, ports: &str, target: &str) -> Vec<String> {
+    let mut args = vec!["-Pn".to_string()];
+    append_nmap_ip_family(&mut args, target);
+    args.push(scan.to_string());
+    append_nmap_scan_limits(&mut args);
+    args.extend(["-p".to_string(), ports.to_string(), target.to_string()]);
+    args
+}
+
+fn append_nmap_ip_family(args: &mut Vec<String>, target: &str) {
+    if target.parse::<std::net::Ipv6Addr>().is_ok() {
+        args.push("-6".to_string());
+    }
 }
 
 fn append_nmap_scan_limits(args: &mut Vec<String>) {
@@ -1465,6 +1478,22 @@ mod single_host_target_tests {
 }
 
 #[cfg(test)]
+mod tcp_connect_error_tests {
+    use super::tcp_connect_error_state;
+    use std::io::ErrorKind;
+
+    #[test]
+    fn distinguishes_port_states_from_local_network_errors() {
+        assert_eq!(
+            tcp_connect_error_state(ErrorKind::ConnectionRefused),
+            "closed"
+        );
+        assert_eq!(tcp_connect_error_state(ErrorKind::TimedOut), "filtered");
+        assert_eq!(tcp_connect_error_state(ErrorKind::Other), "error");
+    }
+}
+
+#[cfg(test)]
 mod fingerprint_tests {
     use super::*;
 
@@ -1555,6 +1584,37 @@ mod fingerprint_tests {
         assert!(!connect_args
             .iter()
             .any(|arg| arg == "-sC" || arg == "-A" || arg.starts_with("--script")));
+    }
+
+    #[test]
+    fn standard_nmap_args_select_ipv6_for_ipv6_literals_only() {
+        let target = "2606:4700:4700::1111";
+        let args = nmap_scan_args("-sS", "443", target);
+
+        assert!(args.iter().any(|arg| arg == "-6"));
+        assert_eq!(args.last().map(String::as_str), Some(target));
+        for target in ["192.0.2.1", "example.com"] {
+            assert!(!nmap_scan_args("-sT", "443", target)
+                .iter()
+                .any(|arg| arg == "-6"));
+        }
+    }
+
+    #[test]
+    fn fingerprint_nmap_args_select_ipv6_for_both_scan_modes() {
+        let target = "2606:4700:4700::1111";
+
+        for scan in ["-sS", "-sT"] {
+            let args = fingerprint_nmap_args(scan, "443", target, false);
+            assert!(args.iter().any(|arg| arg == "-6"));
+            assert_eq!(args.last().map(String::as_str), Some(target));
+        }
+
+        for target in ["192.0.2.1", "example.com"] {
+            assert!(!fingerprint_nmap_args("-sT", "443", target, false)
+                .iter()
+                .any(|arg| arg == "-6"));
+        }
     }
 
     #[test]

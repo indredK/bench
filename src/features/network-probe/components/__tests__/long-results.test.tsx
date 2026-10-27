@@ -621,7 +621,13 @@ describe("network-probe long result lists", () => {
         loading={false}
         canCancel={false}
         result={null}
-        streaming={[portSample(80), { ...portSample(443), state: "future-state" }]}
+        streaming={[
+          portSample(80),
+          { ...portSample(443), state: "closed" },
+          { ...portSample(8080), state: "filtered" },
+          { ...portSample(8443), state: "error" },
+          { ...portSample(9000), state: "future-state" },
+        ]}
         toolEnabled
         onRun={vi.fn()}
         onCancel={vi.fn()}
@@ -630,8 +636,12 @@ describe("network-probe long result lists", () => {
 
     const list = document.querySelector('[data-network-probe-list="port-samples"]')
     expect(list).toHaveAttribute("data-virtualized", "false")
-    expect(list).toHaveAttribute("data-total-count", "2")
-    expect(list?.querySelectorAll("li")).toHaveLength(2)
+    expect(list).toHaveAttribute("data-total-count", "5")
+    expect(list?.querySelectorAll("li")).toHaveLength(5)
+    expect(screen.getByText("networkProbe.ports.states.open")).toBeInTheDocument()
+    expect(screen.getByText("networkProbe.ports.states.closed")).toBeInTheDocument()
+    expect(screen.getByText("networkProbe.ports.states.filtered")).toBeInTheDocument()
+    expect(screen.getByText("networkProbe.ports.states.error")).toBeInTheDocument()
     expect(screen.getByText("networkProbe.ports.states.unknown")).toBeInTheDocument()
   })
 

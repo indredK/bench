@@ -66,6 +66,7 @@ src-tauri/src/net_probe/
 macOS 注意：
 
 - **本地网络**隐私权限；未授权时 LAN 发现大量失败 → UI 引导系统设置。
+- macOS bundle 必须带 `NSLocalNetworkUsageDescription`，并用 `InfoPlist.strings` 提供中英文用途说明；只在用户运行本地网络探测时请求系统权限，拒绝后按权限失败呈现，不绕过 TCC。依据：[Apple TN3179](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy) 与 [Tauri macOS bundle](https://v2.tauri.app/distribute/macos-application-bundle/)。
 - Wi‑Fi 客户端隔离（宾客网络）会导致「扫不到邻居」——结果空要区分「真无设备」vs「隔离/权限」。
 
 库：`pnet` / `socket2`；邻居表可读 `netdev` 或系统 ARP 缓存作补全（缓存≠完整发现）。
@@ -85,14 +86,20 @@ macOS 注意：
 
 ### 3.3 NAT 类型（STUN）
 
-| 项     | 约定                                                                                              |
-| ------ | ------------------------------------------------------------------------------------------------- |
-| 协议   | STUN Binding（RFC 8489）；多服务器对照                                                            |
-| 分类   | 至少：Open / Full Cone / Restricted / Port-Restricted / Symmetric / UDP Blocked（映射到产品文案） |
-| 实现   | 轻量 STUN client（评估 `hightower-stun` 或自研最小 Binding）；**不必**引入完整 ICE/TURN 栈        |
-| 服务器 | 可配列表（Google STUN 等公共源）；失败转移；遵守配额                                              |
+| 项       | 约定                                                                                                                                                       |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 协议     | STUN Binding（RFC 8489）；多服务器对照；行为发现按 RFC 5780                                                                                                |
+| 分类目标 | 按服务器报告映射行为与过滤行为；不以跨服务器地址差异单独推断 symmetric NAT                                                                                 |
+| 实现     | 使用 [`rtc-stun`](https://docs.rs/rtc-stun/latest/rtc_stun/) 处理 STUN 消息、随机事务 ID 与 XOR 映射地址；由应用编排 RFC 5780 探测，不引入完整 ICE/TURN 栈 |
+| 服务器   | 兼容 RFC 5780 的服务器需显式配置；普通 RFC 8489 STUN 源不能假定支持 `OTHER-ADDRESS` 等行为发现属性                                                         |
+| 发包约束 | 同一客户端聚合不超过每秒 10 个新 STUN 事务；多个源端口/服务器的行为测试顺序执行，避免并发污染观测                                                          |
+| 展示     | 逐源列出状态与映射地址，另显示总耗时；所有状态 / 说明使用 locale，未知后端值提供本地化兜底，不直接展示英文诊断字符串                                       |
 
-与「公网出口」区别：出口要的是 **IP/ASN**；NAT 要的是 **映射行为**。可共用一次 Binding 的 XOR-MAPPED-ADDRESS 作出口候选，但 UI 分面板。
+`rtc-stun` 是 Sans-I/O STUN 协议库，不提供完整 RFC 5780 NAT 行为发现算法；目前没有找到与 Bench Tokio/Tauri 路径匹配、维护活跃且成熟的高层 Rust 发现客户端，因此协议编解码复用该库，探测编排保留在应用层。
+
+RFC 5780 是实验性规范，结果仅描述当前服务器、客户端源端口与测试时刻的观察行为；界面必须注明这一限制，超时不能单独证明 UDP 被阻断。
+
+与「公网出口」区别：出口要的是 **IP/ASN**；NAT 面板报告的是 **STUN 观察到的映射/行为**。两处可共用一次 Binding 的 XOR-MAPPED-ADDRESS 候选，但 UI 分面板。
 
 ### 3.4 NTP 时间
 

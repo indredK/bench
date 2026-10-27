@@ -5,6 +5,8 @@
 
 **当前状态**：模块 1.0 / MVP A+B 已闭环（D-016，2026-07-22）；Post-MVP 测速、多节点 DNS/Ping/HTTP 与 Globalping 可选 token、安全及发现主路径已交付；P0-1 会话竞态已由回归测试复现并修复，macOS 真机确认取消/重跑正常；端口扫描使用可取消 nmap 子进程或可中断 TCP 任务，取消后不再启动第二轮扫描；只有实际检测到 nmap 才将端口扫描标为 supported，nmap 版本探测最多 2 秒，macOS 隔离真机连续两轮取消/重跑及超时降级复验通过；Ping 权限错误现提供本地化原因提示和「隐私与安全性」入口；TCP、DNS、自定义目标失败重试会清除对应旧结果并标明实际探测目标，macOS 隔离真机验证通过；能力包哈希失败现显示双语错误且不会误刷新为成功，开发用验证入口仅开发构建可见，macOS 隔离真机验证通过；Nmap 轻量服务 / OS 指纹、暴露类别标签与单主机扫描约束已实现，双流超限明确失败，高风险确认框显示实际适用的速率与时长；Nmap 端口阶段 / 内置 TCP 按每目标 50ms 间隔调度，指纹阶段由 Nmap 自身时序控制，macOS loopback 真机已验证服务识别及无原始包权限时的 OS 降级提示；Local Network/TCC 拒绝场景与 Windows 真机回归仍按 [planned roadmap](../../roadmap/planned/network-probe.md) 待验；特权 helper 仍待。
 
+**Nmap IPv6（2026-10-25）**：IPv6 字面目标在普通端口扫描和服务 / OS 指纹参数中都显式使用 `-6`；IPv4 与 hostname 保持原有参数，参数单测通过。真机启动验证发现 `macos_webview.rs` 向 AppKit 滚动视图发送 UIKit selector 导致 QA 崩溃；现已改用带 selector 能力检查的 AppKit elasticity API，并用隔离 QA app 真机启动、浏览和执行 STUN/Nmap 验证修复。授权的 `::1:48765` Nmap 普通扫描和指纹扫描各尝试一次，但本机 IPv6 TCP connect 返回 `ENETDOWN`，临时服务未收到连接；只读检查确认 `lo0` 为 UP 且 `::1` 路由指向 `lo0`，因此不能归因于缺少 loopback 地址，也不能据此推送该 IPv6 修复。IPv6 Nmap 成功路径仍待系统 TCP 路径恢复后复验。
+
 **硬性红线**（不实现 · 法律/合规约束，详见 design.md §12.3.2）：主动攻击能力——ARP 欺骗**攻击** / MITM 流量**注入** / **DoS** / 密码**爆破**，违法绝不构建；仅提供对应检测/防御版本（`detectArpSpoofing` / `checkSsl.mitmSuspected` / 暴露面评估）。
 
 **端口扫描确认补充（2026-10-25）**：高风险目标和大范围确认由 Rust IPC 按真实目标与去重端口数复核，未确认时不创建扫描会话；用户选定本期限定单主机，CIDR / 多目标语法由 IPC 拒绝；loopback 指纹真机验收已完成。
