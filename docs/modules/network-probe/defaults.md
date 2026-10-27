@@ -203,13 +203,15 @@ ASN（可选第二跳）：
 
 ## 8. Post-MVP 默认（预置，不进 MVP 验收）
 
-### 8.1 STUN（`stun_servers`）· S-DIS-03
+### 8.1 STUN（固定公共端点）· S-DIS-03
 
-| id         | server                     |
-| ---------- | -------------------------- |
-| `google-a` | `stun.l.google.com:19302`  |
-| `google-b` | `stun1.l.google.com:19302` |
-| `google-c` | `stun2.l.google.com:19302` |
+| id           | server                     |
+| ------------ | -------------------------- |
+| `google-a`   | `stun.l.google.com:19302`  |
+| `google-b`   | `stun1.l.google.com:19302` |
+| `cloudflare` | `stun.cloudflare.com:3478` |
+
+当前 `NetworkProbeDefaultsCatalog` 不暴露 STUN 自定义列表；运行时使用以上固定端点。每台服务器单独显示映射观察、超时或不可用状态。
 
 ### 8.2 NTP（`ntp_servers`）· S-DIS-03
 

@@ -50,6 +50,11 @@ export function prepareMarketInstall(extensionId: string, version: string) {
   return invokeTauriCommand(TAURI_COMMANDS.extensionHost.marketPrepare, { extensionId, version })
 }
 
+/** 取消信任披露并清理本次预览包。 */
+export function cancelMarketInstall(extensionId: string, version: string) {
+  return invokeTauriCommand(TAURI_COMMANDS.extensionHost.marketCancel, { extensionId, version })
+}
+
 /** 安装第二步（信任确认后）：重校验 → 版本单调 → 原子落位。 */
 export function commitMarketInstall(extensionId: string, version: string) {
   return invokeTauriCommand(TAURI_COMMANDS.extensionHost.marketCommit, { extensionId, version })

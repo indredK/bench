@@ -1,5 +1,5 @@
 //! Extension 包安全解压（P3.3 A3，spec §6.3；与 P3.1 完整性校验强耦合——
-//! 逐文件 hash 清单只有在「先校验再原子落位」的流程里才有意义）。
+//! 逐文件 hash 清单只有在「先校验再可回滚落位」的流程里才有意义）。
 //!
 //! 规则（fail-closed，任一失败**整包拒绝**并清理）：
 //!
@@ -12,13 +12,14 @@
 //!    边写边累计并提前中断（不信任 zip header 声明值）；
 //! 4. **symlink**：拒绝档案内的符号链接 entry；
 //! 5. **目标目录**：必须不存在或为空（防与既有产物混杂）；
-//! 6. **原子性**：本模块只负责解压到**临时目录**；调用方（P4 安装管线）在
-//!    全量校验通过后 rename 到正式位置，失败即清理临时目录，不留半成品。
+//! 6. **替换可回滚**：本模块只负责解压到**临时目录**；调用方在全量校验通过后
+//!    才替换正式目录。更新时先将旧目录移到同级备份，提升失败则恢复旧目录。
 
 use std::{
     fs,
     io::{Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use crate::error::{AppError, AppResult};
@@ -46,27 +47,141 @@ impl Default for ExtractLimits {
     }
 }
 
-/// 校验通过后原子落位：staging → 正式目录。
-///
-/// - 正式目录已存在（覆盖更新）：先整体移除旧产物（此时新产物已通过全部
-///   校验，替换窗口极小；spec §6.1 步骤 8 的语义）；
-/// - rename 失败：清理 staging，正式目录保持不变。
-pub fn promote_staged_bundle(staging: &Path, final_dir: &Path) -> AppResult<()> {
+static BACKUP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+pub(super) const BUNDLE_BACKUP_PREFIX: &str = ".bench-extension-backup-";
+
+/// Replace the installed bundle and retain its backup until `after_promote` commits metadata.
+pub fn promote_staged_bundle_and_commit(
+    staging: &Path,
+    final_dir: &Path,
+    after_promote: impl FnOnce() -> AppResult<()>,
+) -> AppResult<()> {
+    promote_staged_bundle_with(
+        staging,
+        final_dir,
+        |from, to| fs::rename(from, to),
+        after_promote,
+    )
+}
+
+fn promote_staged_bundle_with(
+    staging: &Path,
+    final_dir: &Path,
+    mut rename: impl FnMut(&Path, &Path) -> std::io::Result<()>,
+    after_promote: impl FnOnce() -> AppResult<()>,
+) -> AppResult<()> {
     if !staging.is_dir() {
         return Err(AppError::internal(format!(
             "staging dir missing: {}",
             staging.display()
         )));
     }
-    if final_dir.exists() {
-        fs::remove_dir_all(final_dir)
-            .map_err(|e| AppError::io(format!("remove previous bundle: {e}")))?;
+
+    if !final_dir.exists() {
+        if let Err(error) = rename(staging, final_dir) {
+            let _ = fs::remove_dir_all(staging);
+            return Err(AppError::io(format!("promote staged bundle: {error}")));
+        }
+        if let Err(commit_error) = after_promote() {
+            return match fs::remove_dir_all(final_dir) {
+                Ok(()) => Err(commit_error),
+                Err(rollback_error) => Err(AppError::new(
+                    "EXTENSION_BUNDLE_RECOVERY_FAILED",
+                    format!(
+                        "metadata commit failed ({commit_error}); removing the new bundle also failed ({rollback_error}); bundle remains at {}",
+                        final_dir.display()
+                    ),
+                )),
+            };
+        }
+        return Ok(());
     }
-    fs::rename(staging, final_dir).map_err(|e| {
-        // 失败即清理 staging，不留半成品。
-        let _ = fs::remove_dir_all(staging);
-        AppError::io(format!("promote staged bundle: {e}"))
-    })
+
+    let backup_dir = next_bundle_backup_path(final_dir)?;
+    rename(final_dir, &backup_dir).map_err(|error| {
+        AppError::io(format!("preserve previous bundle before update: {error}"))
+    })?;
+
+    match rename(staging, final_dir) {
+        Ok(()) => {
+            if let Err(commit_error) = after_promote() {
+                if let Err(remove_error) = fs::remove_dir_all(final_dir) {
+                    return Err(AppError::new(
+                        "EXTENSION_BUNDLE_RECOVERY_FAILED",
+                        format!(
+                            "metadata commit failed ({commit_error}); removing the new bundle also failed ({remove_error}); old bundle remains at {}",
+                            backup_dir.display()
+                        ),
+                    ));
+                }
+                return match rename(&backup_dir, final_dir) {
+                    Ok(()) => Err(commit_error),
+                    Err(restore_error) => Err(AppError::new(
+                        "EXTENSION_BUNDLE_RECOVERY_FAILED",
+                        format!(
+                            "metadata commit failed ({commit_error}); restoring the old bundle also failed ({restore_error}); old bundle remains at {}",
+                            backup_dir.display()
+                        ),
+                    )),
+                };
+            }
+            if let Err(error) = fs::remove_dir_all(&backup_dir) {
+                eprintln!(
+                    "[extension_host] installed updated bundle but could not remove backup {}: {error}",
+                    backup_dir.display()
+                );
+            }
+            Ok(())
+        }
+        Err(promote_error) => match rename(&backup_dir, final_dir) {
+            Ok(()) => {
+                let _ = fs::remove_dir_all(staging);
+                Err(AppError::io(format!(
+                    "promote staged bundle failed; previous bundle restored: {promote_error}"
+                )))
+            }
+            Err(restore_error) => Err(AppError::new(
+                "EXTENSION_BUNDLE_RECOVERY_FAILED",
+                format!(
+                    "promote staged bundle failed ({promote_error}); restoring previous bundle also failed ({restore_error}); previous bundle remains at {}",
+                    backup_dir.display()
+                ),
+            )),
+        },
+    }
+}
+
+fn next_bundle_backup_path(final_dir: &Path) -> AppResult<PathBuf> {
+    let parent = final_dir
+        .parent()
+        .ok_or_else(|| AppError::internal("extension bundle has no parent directory"))?;
+    let name = final_dir
+        .file_name()
+        .ok_or_else(|| AppError::internal("extension bundle has no directory name"))?
+        .to_string_lossy();
+
+    for _ in 0..32 {
+        let sequence = BACKUP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let candidate = parent.join(format!(
+            "{BUNDLE_BACKUP_PREFIX}{name}-{}-{sequence}",
+            std::process::id()
+        ));
+        match fs::symlink_metadata(&candidate) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(candidate),
+            Ok(_) => continue,
+            Err(error) => {
+                return Err(AppError::io(format!(
+                    "check extension backup path {}: {error}",
+                    candidate.display()
+                )))
+            }
+        }
+    }
+
+    Err(AppError::internal(format!(
+        "could not allocate a unique backup path for {}",
+        final_dir.display()
+    )))
 }
 
 /// 安全解压插件 zip 到 `target_dir`（必须为空或不存在）。
@@ -523,12 +638,75 @@ mod tests {
         fs::create_dir_all(&final_dir).expect("final");
         fs::write(final_dir.join("index.html"), b"old").expect("old bundle");
 
-        promote_staged_bundle(&staging, &final_dir).expect("promote");
+        promote_staged_bundle_and_commit(&staging, &final_dir, || Ok(())).expect("promote");
         assert_eq!(
             fs::read_to_string(final_dir.join("index.html")).unwrap(),
             "new"
         );
         assert!(!staging.exists(), "staging moved away");
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn restores_previous_bundle_if_staged_rename_fails() {
+        let root = temp_root("promote-rollback");
+        let staging = root.join("staging");
+        let final_dir = root.join("final");
+        fs::create_dir_all(&staging).expect("staging");
+        fs::write(staging.join("index.html"), b"new").expect("new bundle");
+        fs::create_dir_all(&final_dir).expect("final");
+        fs::write(final_dir.join("index.html"), b"old").expect("old bundle");
+        let mut rename_calls = 0;
+
+        let error = promote_staged_bundle_with(
+            &staging,
+            &final_dir,
+            |from, to| {
+                rename_calls += 1;
+                if rename_calls == 2 {
+                    return Err(std::io::Error::other("simulated promotion failure"));
+                }
+                fs::rename(from, to)
+            },
+            || Ok(()),
+        )
+        .expect_err("failed promotion must return an error");
+
+        assert_eq!(error.code, "IO_ERROR");
+        assert!(error.message.contains("previous bundle restored"));
+        assert_eq!(
+            fs::read_to_string(final_dir.join("index.html")).expect("restored old bundle"),
+            "old"
+        );
+        assert!(!staging.exists(), "failed staging is cleaned");
+        assert_eq!(fs::read_dir(&root).expect("root").count(), 1);
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn restores_previous_bundle_if_metadata_commit_fails() {
+        let root = temp_root("promote-metadata-rollback");
+        let staging = root.join("staging");
+        let final_dir = root.join("final");
+        fs::create_dir_all(&staging).expect("staging");
+        fs::write(staging.join("index.html"), b"new").expect("new bundle");
+        fs::create_dir_all(&final_dir).expect("final");
+        fs::write(final_dir.join("index.html"), b"old").expect("old bundle");
+
+        let error = promote_staged_bundle_with(
+            &staging,
+            &final_dir,
+            |from, to| fs::rename(from, to),
+            || Err(AppError::io("simulated version record failure")),
+        )
+        .expect_err("metadata failure must abort update");
+
+        assert_eq!(error.code, "IO_ERROR");
+        assert_eq!(
+            fs::read_to_string(final_dir.join("index.html")).expect("restored old bundle"),
+            "old"
+        );
+        assert_eq!(fs::read_dir(&root).expect("root").count(), 1);
         fs::remove_dir_all(&root).ok();
     }
 
@@ -540,7 +718,8 @@ mod tests {
         fs::create_dir_all(&final_dir).expect("final");
         fs::write(final_dir.join("index.html"), b"old").expect("old bundle");
         let missing_staging = root.join("missing-staging");
-        let err = promote_staged_bundle(&missing_staging, &final_dir).unwrap_err();
+        let err =
+            promote_staged_bundle_and_commit(&missing_staging, &final_dir, || Ok(())).unwrap_err();
         assert_eq!(err.code, "INTERNAL");
         assert_eq!(
             fs::read_to_string(final_dir.join("index.html")).unwrap(),

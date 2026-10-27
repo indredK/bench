@@ -6,6 +6,7 @@ import type {
   MarketVersionSummary,
   RevokedHit,
 } from "@/lib/tauri/types/extension-center"
+import { translateError } from "@/lib/tauri/errors"
 
 import { useMarketController } from "../hooks/useMarketController"
 import { selectMetadata, useResolvedLocale } from "../lib/metadata"
@@ -124,8 +125,16 @@ function ExtensionCard({
 /** P4 market 面板：registry 目录浏览 + 信任披露 + 安装/升级。 */
 export function MarketPanel() {
   const { t } = useTranslation()
-  const { marketListing, marketLoading, marketError, busyIds, refreshMarket, prepareInstall } =
-    useMarketController()
+  const {
+    marketListing,
+    marketLoading,
+    marketError,
+    pendingPreview,
+    committing,
+    busyIds,
+    refreshMarket,
+    prepareInstall,
+  } = useMarketController()
 
   if (marketLoading && marketListing === null) {
     return (
@@ -134,12 +143,13 @@ export function MarketPanel() {
       </div>
     )
   }
-  if (marketError) {
+  if (marketError && marketListing === null) {
     return (
       <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">
         <p>{t("extensionCenter.market.loadFailed")}</p>
         <p className="mt-1 font-mono text-xs opacity-80">
-          [{marketError.code}] {marketError.message}
+          [{marketError.code}]{" "}
+          {translateError(t, marketError, t("extensionCenter.market.loadFailed"))}
         </p>
         <Button variant="outline" size="sm" className="mt-2" onClick={() => void refreshMarket()}>
           {t("extensionCenter.retry")}
@@ -147,7 +157,7 @@ export function MarketPanel() {
       </div>
     )
   }
-  if (!marketListing || marketListing.extensions.length === 0) {
+  if (!marketListing) {
     return (
       <div className="rounded border border-dashed p-8 text-center">
         <p className="text-sm font-medium">{t("extensionCenter.market.empty")}</p>
@@ -164,6 +174,34 @@ export function MarketPanel() {
 
   return (
     <div className="flex flex-col gap-3">
+      {marketLoading && (
+        <p role="status" className="text-muted-foreground text-xs">
+          {t("extensionCenter.market.refreshing")}
+        </p>
+      )}
+      {marketError && (
+        <div
+          role="alert"
+          className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+        >
+          <p>{t("extensionCenter.market.loadFailed")}</p>
+          <p className="mt-1 font-mono text-xs opacity-80">
+            [{marketError.code}]{" "}
+            {translateError(t, marketError, t("extensionCenter.market.loadFailed"))}
+          </p>
+          <Button variant="outline" size="sm" className="mt-2" onClick={() => void refreshMarket()}>
+            {t("extensionCenter.retry")}
+          </Button>
+        </div>
+      )}
+      {marketListing.extensions.length === 0 && (
+        <div className="rounded border border-dashed p-8 text-center">
+          <p className="text-sm font-medium">{t("extensionCenter.market.empty")}</p>
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => void refreshMarket()}>
+            {t("extensionCenter.refresh")}
+          </Button>
+        </div>
+      )}
       {marketListing.revokedHits.length > 0 && (
         <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-800">
           <p className="font-semibold">{t("extensionCenter.market.revokedBanner")}</p>
@@ -178,9 +216,7 @@ export function MarketPanel() {
       )}
       {marketListing.extensions.map((entry) => {
         const hit = revokedById.get(entry.id)
-        const busy = entry.versions.some((version) =>
-          busyIds.includes(`${entry.id}@${version.version}`),
-        )
+        const busy = pendingPreview !== null || committing || busyIds.some((id) => id.includes("@"))
         return (
           <div key={entry.id} className={hit ? "opacity-60" : undefined}>
             <ExtensionCard

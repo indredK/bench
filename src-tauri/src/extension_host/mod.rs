@@ -9,7 +9,7 @@
 //! - [manifest]：schema v2 解析与校验（fail-closed）；
 //! - [signature]：canonical 文本签名 + trusted comment + 公钥三态；
 //! - [integrity]：逐文件 hash 校验 + 清单外文件拒绝；
-//! - [extraction]：zip 安全解压（路径穿越/zip bomb/symlink 防御 + 原子落位）；
+//! - [extraction]：zip 安全解压（路径穿越/zip bomb/symlink 防御 + 可回滚落位）；
 //! - [records]：版本水位（重放/降级防护）；
 //! - [audit]：追加式审计日志（`$APPDATA/ext-audit.log`）；
 //! - [commands]：IPC 命令面（list/open/enable/uninstall/data_dir + P4 market）。

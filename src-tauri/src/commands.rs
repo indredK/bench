@@ -337,6 +337,7 @@ macro_rules! app_invoke_handler {
             // P4 market 闭环（宿主窗口专用；不进 ext 网关白名单）
             $crate::extension_host::market::ext_market_list,
             $crate::extension_host::market::ext_market_prepare,
+            $crate::extension_host::market::ext_market_cancel,
             $crate::extension_host::market::ext_market_commit,
             $crate::extension_host::market::ext_diagnostics,
         ]

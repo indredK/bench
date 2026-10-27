@@ -694,15 +694,20 @@ pub struct PortOsMatch {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NatProbeResult {
-    /// stun-mapped | blocked-or-timeout | unknown | fail
-    pub nat_type: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mapped_address: Option<String>,
-    pub stun_server: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub detail: Option<String>,
+    /// Individual STUN Binding observations. These do not constitute RFC 5780 NAT classification.
+    pub observations: Vec<NatMappingObservation>,
     pub elapsed_ms: f64,
     pub command_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NatMappingObservation {
+    pub server: String,
+    /// `mapped`, `timeout`, or `unavailable`.
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mapped_address: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1236,6 +1236,12 @@
   "errors": {
     "UNKNOWN": "",
     "INTERNAL": "发生了未预期的错误。",
+    "EXTENSION_BUSY": "该插件正在进行其他操作，请稍后重试。",
+    "EXTENSION_INTEGRITY_FAILED": "插件包完整性校验失败，安装已阻止。请重新准备安装包。",
+    "EXTENSION_PREVIEW_EXPIRED": "安装预览已失效，请重新准备安装包。",
+    "EXTENSION_REGISTRY_TOO_LARGE": "插件市场目录响应过大，已为安全起见停止处理。",
+    "EXTENSION_WINDOW_CLOSE_FAILED": "插件窗口未能关闭，操作已取消。请关闭窗口后重试。",
+    "EXTENSION_BUNDLE_RECOVERY_FAILED": "插件安装或更新未能完整回滚。请保留恢复信息并联系支持：{{message}}",
     "INVALID_INPUT": "输入不合法。",
     "INVALID_LOGIN_URL": "请输入有效的 HTTP 或 HTTPS 地址，且不要在地址中填写用户名或密码。",
     "QUICK_LOGIN_CLEANUP_FAILED": "登录窗口未能打开，临时账号也未能自动清理。请刷新账号列表后手动删除该临时账号。",
@@ -1243,7 +1249,7 @@
     "UNSUPPORTED": "当前平台不支持此操作。",
     "STORE_FAIL": "本地账号数据无法访问，请检查磁盘空间和文件权限后重试。",
     "IO_ERROR": "文件系统操作出错。",
-    "FORBIDDEN_PATH": "该路径超出了允许的目录范围。",
+    "FORBIDDEN_PATH": "目标路径或内容未通过安全检查，操作已阻止。",
     "PATH_NOT_ABSOLUTE": "路径必须是绝对路径。",
     "PATH_TRAVERSAL": "路径不能包含 '..'。",
     "TASK_FAILED": "后台任务执行失败。",
@@ -1653,7 +1659,7 @@
       "whois": "WHOIS",
       "arp": "ARP 发现",
       "lan-svc": "局域网服务",
-      "nat": "NAT 类型",
+      "nat": "STUN 映射观察",
       "ntp": "NTP",
       "nodes": "多节点对比"
     },
@@ -2120,7 +2126,7 @@
       "fail": "不可达 / 失败"
     },
     "ports": {
-      "hint": "对自有或已授权主机做 TCP connect 端口扫描。最多 256 端口；可取消。",
+      "hint": "对自有或已授权主机执行 TCP 端口扫描。最多 256 端口；可取消。",
       "degradedHint": "降级模式：仅 TCP connect。未检测到 nmap；安装 nmap 后可尝试 SYN。",
       "nmapHint": "已检测到 nmap：优先尝试 SYN，权限不足时回退为 TCP connect。可单独勾选服务 / OS 指纹。",
       "nmapResult": "nmap 扫描完成；未运行漏洞或服务探测脚本。",
@@ -2310,11 +2316,15 @@
       "globalpingTokenRemoved": "已从本机钥匙串移除 Globalping token。"
     },
     "nat": {
-      "hint": "对公网 STUN 服务器做 Binding，查看映射地址 / NAT 暴露情况。",
-      "run": "探测 NAT",
+      "hint": "向公网 STUN 服务器发送只读 Binding 请求；服务器会看到你的公网映射地址。",
+      "run": "查看映射",
       "running": "探测中…",
-      "type": "结果",
-      "mapped": "映射地址"
+      "observationOnly": "以下是服务器各自报告的映射地址；本结果不判定 NAT 类型。",
+      "status": {
+        "mapped": "已收到映射",
+        "timeout": "等待超时",
+        "unavailable": "服务器不可用"
+      }
     },
     "ntp": {
       "hint": "查询 pool.ntp.org 时钟偏移。过大偏差可能影响 TLS 与鉴权。",
@@ -2548,6 +2558,7 @@
     "tabDiagnostics": "诊断",
     "market": {
       "loadFailed": "市场加载失败",
+      "refreshing": "正在刷新插件市场…",
       "empty": "市场暂无可用插件",
       "install": "安装",
       "update": "更新",
@@ -2561,11 +2572,14 @@
       "trustDescription": "「{name}」v{version}（{publisher}）已完成完整性与签名校验。安装前请确认其申请的宿主命令权限。",
       "unknownPublisher": "未知发布者",
       "requestedPermissions": "申请的宿主命令（deny-by-default）",
+      "updateClosesOpenWindow": "更新会替换该插件的文件和权限。如果插件窗口已打开，Bench 会先将其关闭；更新完成后可重新打开。",
       "noPermissions": "该插件未申请任何宿主命令",
       "trustNote": "未登记的命令会被宿主网关拒绝；能力面经 registry 人工审核把关。",
       "trustAndInstall": "信任并安装",
       "installing": "安装中…",
+      "cancellingPreview": "正在取消…",
       "prepareFailed": "安装校验未通过",
+      "cancelFailed": "无法取消安装预览",
       "commitFailed": "安装失败",
       "toastInstalled": "插件已安装"
     },

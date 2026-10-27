@@ -64,20 +64,41 @@ describe("getErrorCode / getErrorMessage", () => {
 })
 
 describe("translateError", () => {
-  const t = ((key: string, opts?: { defaultValue?: string }) => {
+  const t = ((key: string, opts?: { defaultValue?: string; message?: string }) => {
     const table: Record<string, string> = {
-      "errors.FORBIDDEN_PATH": "Path not allowed",
+      "errors.FORBIDDEN_PATH": "Safety check failed",
+      "errors.EXTENSION_INTEGRITY_FAILED": "Package integrity check failed",
       "errors.UNKNOWN": "",
+    }
+    if (key === "errors.EXTENSION_BUNDLE_RECOVERY_FAILED") {
+      return `Recovery details: ${opts?.message ?? ""}`
     }
     if (key in table) return table[key]
     return opts?.defaultValue ?? key
   }) as unknown as TFunction
 
   it("prefers localized code message", () => {
-    expect(translateError(t, { code: "FORBIDDEN_PATH", message: "raw" })).toBe("Path not allowed")
+    expect(translateError(t, { code: "FORBIDDEN_PATH", message: "raw" })).toBe(
+      "Safety check failed",
+    )
+  })
+
+  it("localizes extension integrity failures separately from path failures", () => {
+    expect(
+      translateError(t, { code: "EXTENSION_INTEGRITY_FAILED", message: "sha256 mismatch" }),
+    ).toBe("Package integrity check failed")
   })
 
   it("falls back to backend message when code has no localization", () => {
     expect(translateError(t, "legacy string error")).toBe("legacy string error")
+  })
+
+  it("passes backend recovery details into a localized error", () => {
+    expect(
+      translateError(t, {
+        code: "EXTENSION_BUNDLE_RECOVERY_FAILED",
+        message: "backup at /path/to/extension",
+      }),
+    ).toBe("Recovery details: backup at /path/to/extension")
   })
 })

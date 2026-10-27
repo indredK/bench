@@ -1,5 +1,5 @@
 /**
- * Feature UI / 功能界面: TCP connect port scan (degraded).
+ * Feature UI / 功能界面: single-host TCP port scanning.
  */
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"

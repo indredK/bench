@@ -12,6 +12,9 @@
 //! 豁免项（宿主维护，不入清单）：根目录 `manifest.json`（文件哈希无法自嵌套，
 //! 其完整性由 canonical 文本签名覆盖，见 [signature]）与根目录 `.disabled`。
 //! 符号链接一律拒绝（与 spec §6.3「拒绝档案内的 symlink entry」一致）。
+//!
+//! 内容缺失、大小/hash 不匹配或出现清单外文件使用 `EXTENSION_INTEGRITY_FAILED`；
+//! 不安全路径和符号链接仍使用 `FORBIDDEN_PATH`。
 
 use std::{
     collections::BTreeMap,
@@ -30,7 +33,7 @@ use super::{
     manifest::{ExtensionManifest, EXT_DISABLED_MARKER, MANIFEST_FILE},
 };
 
-/// 校验插件产物目录的逐文件完整性（fail-closed，任一失败即 `FORBIDDEN_PATH`）。
+/// 校验插件产物目录的逐文件完整性；内容损坏与路径违规使用不同错误码。
 ///
 /// - `dir`：插件产物根目录（`$APPDATA/extensions/<id>/`）；
 /// - `manifest`：已通过 manifest 校验的清单。
@@ -68,33 +71,45 @@ pub fn verify_bundle_integrity(dir: &Path, manifest: &ExtensionManifest) -> AppR
         let disk_path = match on_disk.get(&file.path) {
             Some(path) => path,
             None => {
-                return Err(AppError::forbidden_path(format!(
-                    "manifest.files lists `{}` but it is missing from the bundle",
-                    file.path
-                )));
+                return Err(AppError::new(
+                    "EXTENSION_INTEGRITY_FAILED",
+                    format!(
+                        "manifest.files lists `{}` but it is missing from the bundle",
+                        file.path
+                    ),
+                ));
             }
         };
         let (hash, size) = sha256_and_size(disk_path)?;
         if size != file.size {
-            return Err(AppError::forbidden_path(format!(
-                "bundle file `{}` size mismatch (manifest {}, disk {size})",
-                file.path, file.size
-            )));
+            return Err(AppError::new(
+                "EXTENSION_INTEGRITY_FAILED",
+                format!(
+                    "bundle file `{}` size mismatch (manifest {}, disk {size})",
+                    file.path, file.size
+                ),
+            ));
         }
         if hash != file.sha256 {
-            return Err(AppError::forbidden_path(format!(
-                "bundle file `{}` sha256 mismatch (integrity check failed)",
-                file.path
-            )));
+            return Err(AppError::new(
+                "EXTENSION_INTEGRITY_FAILED",
+                format!(
+                    "bundle file `{}` sha256 mismatch (integrity check failed)",
+                    file.path
+                ),
+            ));
         }
     }
 
     // 3. 清单外文件拒绝（Mozilla AMO 明文要求，防新增未覆盖的可执行文件）。
     for relative in on_disk.keys() {
         if !manifest.files.iter().any(|f| f.path == *relative) {
-            return Err(AppError::forbidden_path(format!(
-                "bundle contains unlisted file `{relative}` (not covered by manifest.files)"
-            )));
+            return Err(AppError::new(
+                "EXTENSION_INTEGRITY_FAILED",
+                format!(
+                    "bundle contains unlisted file `{relative}` (not covered by manifest.files)"
+                ),
+            ));
         }
     }
     Ok(())
@@ -233,7 +248,7 @@ mod tests {
         // 同字节数篡改（size 不变，内容变）。
         fs::write(root.join("assets/app.js"), b"console.log(9)").expect("tamper");
         let err = verify_bundle_integrity(&root, &manifest_with(files)).unwrap_err();
-        assert_eq!(err.code, "FORBIDDEN_PATH");
+        assert_eq!(err.code, "EXTENSION_INTEGRITY_FAILED");
         assert!(err.message.contains("sha256 mismatch"));
         fs::remove_dir_all(&root).ok();
     }
@@ -244,7 +259,7 @@ mod tests {
         let files = write_bundle(&root, b"<html></html>", b"console.log(1)");
         fs::write(root.join("assets/app.js"), b"console.log(1234);").expect("resize");
         let err = verify_bundle_integrity(&root, &manifest_with(files)).unwrap_err();
-        assert_eq!(err.code, "FORBIDDEN_PATH");
+        assert_eq!(err.code, "EXTENSION_INTEGRITY_FAILED");
         assert!(err.message.contains("size mismatch"));
         fs::remove_dir_all(&root).ok();
     }
@@ -255,7 +270,7 @@ mod tests {
         let files = write_bundle(&root, b"<html></html>", b"console.log(1)");
         fs::remove_file(root.join("assets/app.js")).expect("remove listed file");
         let err = verify_bundle_integrity(&root, &manifest_with(files)).unwrap_err();
-        assert_eq!(err.code, "FORBIDDEN_PATH");
+        assert_eq!(err.code, "EXTENSION_INTEGRITY_FAILED");
         assert!(err.message.contains("missing from the bundle"));
         fs::remove_dir_all(&root).ok();
     }
@@ -266,7 +281,7 @@ mod tests {
         let files = write_bundle(&root, b"<html></html>", b"console.log(1)");
         fs::write(root.join("assets/evil.js"), b"alert(1)").expect("extra file");
         let err = verify_bundle_integrity(&root, &manifest_with(files)).unwrap_err();
-        assert_eq!(err.code, "FORBIDDEN_PATH");
+        assert_eq!(err.code, "EXTENSION_INTEGRITY_FAILED");
         assert!(err.message.contains("unlisted"));
         fs::remove_dir_all(&root).ok();
     }
@@ -303,7 +318,7 @@ mod tests {
         fs::remove_file(root.join("index.html")).expect("remove html");
         fs::remove_file(root.join("assets/app.js")).expect("remove js");
         let err = verify_bundle_integrity(&root, &manifest_with(files)).unwrap_err();
-        assert_eq!(err.code, "FORBIDDEN_PATH");
+        assert_eq!(err.code, "EXTENSION_INTEGRITY_FAILED");
         fs::remove_dir_all(&root).ok();
     }
 }

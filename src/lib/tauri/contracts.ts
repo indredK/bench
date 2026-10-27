@@ -992,6 +992,9 @@ export const TAURI_COMMAND_CONTRACTS = {
     { extensionId: string; version: string },
     MarketInstallPreview
   >()("ext_market_prepare"),
+  ext_market_cancel: defineTauriCommand<{ extensionId: string; version: string }, void>()(
+    "ext_market_cancel",
+  ),
   ext_market_commit: defineTauriCommand<{ extensionId: string; version: string }, void>()(
     "ext_market_commit",
   ),
@@ -1386,6 +1389,7 @@ export const TAURI_COMMANDS = {
     capabilities: commandName("ext_capabilities"),
     marketList: commandName("ext_market_list"),
     marketPrepare: commandName("ext_market_prepare"),
+    marketCancel: commandName("ext_market_cancel"),
     marketCommit: commandName("ext_market_commit"),
     diagnostics: commandName("ext_diagnostics"),
   },
@@ -1767,6 +1771,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   ext_capabilities: [],
   ext_market_list: [],
   ext_market_prepare: ["extensionId", "version"],
+  ext_market_cancel: ["extensionId", "version"],
   ext_market_commit: ["extensionId", "version"],
   ext_diagnostics: [],
   browser_ext_export: [],

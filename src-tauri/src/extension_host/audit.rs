@@ -31,7 +31,7 @@ pub const MAX_AUDIT_BYTES: u64 = 2 * 1024 * 1024;
 /// 审计事件类型（spec §6.2 / roadmap P3.3 事件集）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuditEvent {
-    /// 安装成功（market 安装管线终点的原子落位之后）。
+    /// 安装成功（market 安装管线完成可回滚替换与版本水位提交之后）。
     Install,
     /// 启用（清除 `.disabled` 标记）。
     Enable,

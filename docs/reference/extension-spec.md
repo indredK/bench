@@ -110,7 +110,7 @@
 4. `engines.bench` 满足宿主版本
 5. `satisfies_engines` 通过后：market 校验 `signature`（§4）；bundled 跳过
 6. `expiresAt` 未过期
-7. 版本单调性：不高于已安装版本（仅 market 安装/更新路径）
+7. 版本单调性：拒绝低于已安装版本；允许同版本重装（仅 market 安装/更新路径）
 8. 逐文件 hash 校验（开窗前；实现上可在安装时一次 + 开窗时校验 manifest）
 
 ### 3.5 最小示例（bundled，官方插件）
@@ -266,25 +266,26 @@
 4. 解压到**临时目录**（§6.3 安全规则）
 5. 读 manifest → 按 §3.4 顺序校验（含逐文件 hash）
 6. market：验签 + trusted comment 比对
-7. 版本单调性检查（`new > installed`）
-8. **全部通过后**原子 rename 到 `$APPDATA/extensions/<id>/`
+7. 版本单调性检查（拒绝 `new < installed`；同版本重装允许，便于修复相同版本产物）
+8. **全部通过后**先撤销旧窗口授权并关窗，再可回滚地替换 `$APPDATA/extensions/<id>/`
 9. 写审计日志 `install`
 10. 刷新插件中心列表
 
-**任一步失败**：清理临时目录，保留已安装版本不变，UI 给出可读错误，记审计日志。
+**prepare 失败**：清理 zip 与预览目录。prepare 成功后，信任弹窗对应唯一一份暂存预览；用户取消时删除预览。commit 遇到可重试错误会保留原预览供重试，过期或事务已消费预览则要求重新 prepare。若回滚成功则保留原 bundle 与版本水位，UI 给出可读错误并记审计日志；若文件系统同时拒绝回滚，保留备份并返回 `EXTENSION_BUNDLE_RECOVERY_FAILED` 与恢复路径。
 
 ### 6.2 失败分支矩阵
 
-| 失败点                          | 错误码                          | 用户可见提示             | 已安装版本 |
-| ------------------------------- | ------------------------------- | ------------------------ | ---------- |
-| 整包 sha256 不匹配              | `INVALID_INPUT`                 | 下载文件损坏，请重试     | 不变       |
-| manifest 解析/校验失败          | `INVALID_INPUT` / `UNSUPPORTED` | 插件清单不合法           | 不变       |
-| ACL 越权                        | `FORBIDDEN_PATH`                | 插件申请了不允许的权限   | 不变       |
-| engines 不满足                  | `UNSUPPORTED`                   | 需要 Bench ≥ X.Y.Z       | 不变       |
-| 签名无效 / trusted comment 不符 | `FORBIDDEN_PATH`                | 签名校验失败，已阻止安装 | 不变       |
-| 版本回退                        | `INVALID_INPUT`                 | 已安装版本更高           | 不变       |
-| 逐文件 hash 不匹配 / 清单外文件 | `FORBIDDEN_PATH`                | 插件内容被篡改，已阻止   | 不变       |
-| 解压路径越界 / 超配额           | `FORBIDDEN_PATH`                | 插件包结构异常           | 不变       |
+| 失败点                                          | 错误码                             | 用户可见提示             | 已安装版本             |
+| ----------------------------------------------- | ---------------------------------- | ------------------------ | ---------------------- |
+| 整包 sha256 / size 不匹配                       | `EXTENSION_INTEGRITY_FAILED`       | 下载文件损坏，请重试     | 不变                   |
+| manifest 解析/校验失败                          | `INVALID_INPUT` / `UNSUPPORTED`    | 插件清单不合法           | 不变                   |
+| ACL 越权                                        | `FORBIDDEN_PATH`                   | 插件申请了不允许的权限   | 不变                   |
+| engines 不满足                                  | `UNSUPPORTED`                      | 需要 Bench ≥ X.Y.Z       | 不变                   |
+| 签名无效 / trusted comment 不符                 | `FORBIDDEN_PATH`                   | 签名校验失败，已阻止安装 | 不变                   |
+| 版本回退                                        | `INVALID_INPUT`                    | 已安装版本更高           | 不变                   |
+| 逐文件 hash / size 不匹配、文件缺失或清单外文件 | `EXTENSION_INTEGRITY_FAILED`       | 插件内容校验失败，已阻止 | 不变                   |
+| 解压路径越界 / 超配额                           | `FORBIDDEN_PATH`                   | 插件包结构异常           | 不变                   |
+| bundle / 版本水位回滚失败                       | `EXTENSION_BUNDLE_RECOVERY_FAILED` | 保留备份并显示恢复路径   | 可能需要按路径人工恢复 |
 
 ### 6.3 解压安全规则（实现前必须锁定）
 
@@ -295,7 +296,7 @@
 | zip bomb | 限制 entry 数量、单文件解压后大小、总体积；流式解压边写边累计并提前中断                                                                                          |
 | symlink  | 拒绝档案内的符号链接 entry                                                                                                                                       |
 | 目标目录 | 解压前必须全新或为空                                                                                                                                             |
-| 原子性   | 临时目录 → 校验通过 → 原子 rename；失败即清理                                                                                                                    |
+| 替换恢复 | 临时目录 → 校验通过 → 旧 bundle 移入同级备份后提升新 bundle；提升或水位提交失败时恢复旧状态。跨平台文件系统不提供目录交换 API，不宣称单次原子替换                |
 
 ---
 
@@ -307,9 +308,10 @@
 后端全部命令  ⊇  EXTENSION_ALLOWED_COMMANDS（宿主能力面）  ⊇  manifest.acl.commands（单插件）
 ```
 
-- **宿主能力面**：`src-tauri/src/extension_host/acl.rs` 的 `EXTENSION_ALLOWED_COMMANDS`，deny-by-default。
-- **单插件**：`manifest.acl.commands` 必须是能力面的子集，否则 manifest 校验失败。
-- **运行时**：`acl::guarded` 网关拦截 `ext-` 前缀窗口的命令调用，越权即拒绝。
+- **宿主能力面**：`src-tauri/src/extension_host/acl.rs` 的 `EXTENSION_ALLOWED_COMMANDS`，deny-by-default；插件生命周期管理命令另列为 `EXTENSION_HOST_ONLY_COMMANDS`，只能由 Bench 主窗口调用。
+- **单插件**：新市场包的 `manifest.acl.commands` 必须是能力面的子集，否则校验失败。为兼容已安装旧版，宿主仍可解析其中历史声明的生命周期命令，但这些命令不会获得运行时授权；新市场包申请它们会被拒绝。
+- **运行时**：`acl::guarded` 网关拦截 `ext-` 前缀窗口的命令调用；授权按窗口保存为已校验 manifest 快照，缺少授权状态、命令不在宿主能力面或 manifest 未声明时一律拒绝。
+- **生命周期**：同一插件的开窗、更新、启停和卸载串行；更新、禁用、卸载先撤销权限并关闭 WebView。更新替换失败时尝试恢复旧 bundle；恢复也失败时保留备份并返回其路径。无法确认关窗则取消操作；窗口仍存在时恢复原授权。
 - **自助发现**：插件窗口可调用 `ext_capabilities`（命令本身在白名单内）拉取当前能力面
   命令清单，在调用前校验自身 `acl.commands` 并给出友好报错，无需依赖仓库同目录或
   试错式调用（见 §9.4）。
@@ -329,14 +331,15 @@
 
 ## 8. 版本与兼容
 
-| 机制            | 规则                                                                                                    |
-| --------------- | ------------------------------------------------------------------------------------------------------- |
-| `engines.bench` | `*` 或 `>=X.Y.Z`；其余前缀非法（fail-closed）。不满足则禁止打开，列表标记 `compatible: false`           |
-| 版本单调性      | market 安装/更新拒绝 `new <= installed`（对齐 `tauri.conf.json bundle.windows.allowDowngrades: false`） |
-| `expiresAt`     | 过期元数据被拒绝（防 freeze attack）                                                                    |
-| 插件版本        | 由 `manifest.version` 独立管理，与宿主版本解耦                                                          |
-| 卸载            | `ext_uninstall`：关窗 → 删除产物目录（仅限合法插件目录）；UI 走 `DestructiveConfirmDialog`              |
-| 禁用            | 写 `.disabled` 标记文件；禁用时关闭已开窗口                                                             |
+| 机制            | 规则                                                                                                                             |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `engines.bench` | `*` 或 `>=X.Y.Z`；其余前缀非法（fail-closed）。不满足则禁止打开，列表标记 `compatible: false`                                    |
+| 版本单调性      | market 安装/更新拒绝 `new < installed`；同版本重装允许（拒绝降级，对齐 `tauri.conf.json bundle.windows.allowDowngrades: false`） |
+| `expiresAt`     | 过期元数据被拒绝（防 freeze attack）                                                                                             |
+| 插件版本        | 由 `manifest.version` 独立管理，与宿主版本解耦                                                                                   |
+| 更新            | 先撤销旧窗口权限并关窗，再替换 bundle；新 bundle 落位失败时恢复旧版本；信任弹窗提示关窗行为                                      |
+| 卸载            | `ext_uninstall`：关窗 → 删除产物目录（仅限合法插件目录）；UI 走 `DestructiveConfirmDialog`                                       |
+| 禁用            | 写 `.disabled` 标记文件；禁用时关闭已开窗口                                                                                      |
 
 ---
 
@@ -419,7 +422,8 @@
 | 17  | zip 内含 symlink entry               | 整包拒绝                       |
 | 18  | 解压体积 / entry 数超限              | 中断并拒绝                     |
 | 19  | 整包 sha256 不匹配                   | 拒绝（不解压）                 |
-| 20  | 安装失败后                           | 临时目录已清理，已安装版本不变 |
+| 20  | 安装失败且回滚成功                   | 临时目录已清理，已安装版本不变 |
+| 21  | 安装失败且回滚也失败                 | 保留恢复备份并向用户显示路径   |
 
 ### 9.2 常规门禁
 

@@ -1236,6 +1236,12 @@
   "errors": {
     "UNKNOWN": "",
     "INTERNAL": "An unexpected error occurred.",
+    "EXTENSION_BUSY": "This extension is already being changed. Try again in a moment.",
+    "EXTENSION_INTEGRITY_FAILED": "The extension package failed an integrity check. Installation was blocked; prepare it again.",
+    "EXTENSION_PREVIEW_EXPIRED": "The install preview is no longer available. Prepare it again.",
+    "EXTENSION_REGISTRY_TOO_LARGE": "The extension registry response is too large to process safely.",
+    "EXTENSION_WINDOW_CLOSE_FAILED": "The extension window did not close, so the change was cancelled. Close the window and try again.",
+    "EXTENSION_BUNDLE_RECOVERY_FAILED": "The extension install or update could not be fully rolled back. Keep these recovery details and contact support: {{message}}",
     "INVALID_INPUT": "The input is invalid.",
     "INVALID_LOGIN_URL": "Enter a valid HTTP or HTTPS address without a username or password.",
     "QUICK_LOGIN_CLEANUP_FAILED": "The login window could not open and its temporary account could not be removed. Refresh the account list and delete it manually.",
@@ -1243,7 +1249,7 @@
     "UNSUPPORTED": "This operation is not supported on the current platform.",
     "STORE_FAIL": "Local account data could not be accessed. Check disk space and file permissions, then retry.",
     "IO_ERROR": "A file system error occurred.",
-    "FORBIDDEN_PATH": "This path is outside the allowed directories.",
+    "FORBIDDEN_PATH": "The requested path or content failed a safety check; the operation was blocked.",
     "PATH_NOT_ABSOLUTE": "The path must be absolute.",
     "PATH_TRAVERSAL": "The path must not contain '..'.",
     "TASK_FAILED": "A background task failed to complete.",
@@ -1653,7 +1659,7 @@
       "whois": "WHOIS",
       "arp": "ARP discovery",
       "lan-svc": "LAN services",
-      "nat": "NAT type",
+      "nat": "STUN mapping",
       "ntp": "NTP",
       "nodes": "Multi-node"
     },
@@ -2120,7 +2126,7 @@
       "fail": "unreachable / failed"
     },
     "ports": {
-      "hint": "TCP connect scan of a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",
+      "hint": "Scan TCP ports on a host you own or are authorized to test. Max 256 ports; cancel stops mid-run.",
       "degradedHint": "Degraded mode: TCP connect only. nmap was not detected; install nmap to try SYN scans.",
       "nmapHint": "nmap detected: SYN is attempted first and falls back to TCP connect if permission is unavailable. Service / OS fingerprinting is opt-in.",
       "nmapResult": "nmap scan completed; vulnerability and service-detection scripts were not run.",
@@ -2310,11 +2316,15 @@
       "globalpingTokenRemoved": "Globalping token removed from local secure storage."
     },
     "nat": {
-      "hint": "STUN Binding against a public server to learn your mapped address / NAT exposure.",
-      "run": "Probe NAT",
+      "hint": "Send read-only Binding requests to public STUN servers; each server can see your public mapped address.",
+      "run": "View mappings",
       "running": "Probing…",
-      "type": "Result",
-      "mapped": "Mapped address"
+      "observationOnly": "Each row shows the mapping reported by that server; this does not classify NAT behavior.",
+      "status": {
+        "mapped": "Mapping received",
+        "timeout": "Timed out",
+        "unavailable": "Server unavailable"
+      }
     },
     "ntp": {
       "hint": "Query pool.ntp.org for clock offset. Large skew can break TLS and auth.",
@@ -2548,6 +2558,7 @@
     "tabDiagnostics": "Diagnostics",
     "market": {
       "loadFailed": "Failed to load the market",
+      "refreshing": "Refreshing the extension market…",
       "empty": "No extensions available in the market",
       "install": "Install",
       "update": "Update",
@@ -2561,11 +2572,14 @@
       "trustDescription": "\"{name}\" v{version} ({publisher}) passed integrity and signature verification. Review the host commands it requests before installing.",
       "unknownPublisher": "Unknown publisher",
       "requestedPermissions": "Requested host commands (deny-by-default)",
+      "updateClosesOpenWindow": "Updating this extension replaces its files and permissions. If its window is open, Bench closes it first; reopen the extension when the update finishes.",
       "noPermissions": "This extension requests no host commands",
       "trustNote": "Unregistered commands are rejected by the host gateway; the capability surface is vetted via the registry review process.",
       "trustAndInstall": "Trust & Install",
       "installing": "Installing…",
+      "cancellingPreview": "Cancelling…",
       "prepareFailed": "Install verification failed",
+      "cancelFailed": "Could not cancel the install preview",
       "commitFailed": "Install failed",
       "toastInstalled": "Extension installed"
     },

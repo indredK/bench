@@ -7,7 +7,7 @@
 ## 当前状态
 
 - 模块 1.0 / MVP A+B 已闭环（D-016）。
-- Post-MVP：测速、Globalping DNS/Ping/HTTP 与可选 token、agent 注册骨架、安全/发现主路径已交付；Nmap 轻量服务 / OS 指纹已在工作区实现，待隔离 macOS 真机验收与远程构建；**特权 helper 仍待**。
+- Post-MVP：测速、Globalping DNS/Ping/HTTP 与可选 token、agent 注册骨架、安全/发现主路径已交付；Nmap 轻量服务 / OS 指纹及端口状态中英文 UI 已通过隔离 macOS 真机验收，远程构建待网络恢复；**特权 helper 仍待**。
 
 ## 待实现（未完成项）
 
@@ -17,10 +17,11 @@
 
 ### Wave 3 · 安全 Tab（续）
 
-- [ ] **S3-6** 服务 / OS 指纹 + 风险标注（依赖 S3-5；实现已落入工作区，待隔离 macOS 真机验证与远程构建）。
 - [ ] **S3-8** 特权分层：`priv-helper` / 触发提权 / 自动降级文案（依赖 Wave 1）。
 
 ### Wave 5 · Polish 增强（产品化）
+
+- [ ] STUN RFC 5780 NAT 行为分类（需要兼容服务器支持 `OTHER-ADDRESS` / `CHANGE-REQUEST`；本期只显示 RFC 8489 Binding 映射观察）。
 
 ### Wave 2 · Post-MVP-C（续）
 
@@ -103,3 +104,4 @@
 - 2026-10-25：S3-6 loopback 指纹验收完成。隔离 macOS QA 在 `127.0.0.1:48765` 上对本机临时 HTTP 服务执行 1 端口扫描，日志记录 `mode=nmap-fingerprint-syn-or-connect`，结果为开放 HTTP，服务信息识别到 Python `BaseHTTPServer`；没有可靠 OS 匹配时 UI 明确解释权限 / 指纹限制，且说明未运行 NSE。服务只绑定 loopback，测试结束已停止；确认无 Nmap、QA 或测试服务残留。另修复前端 IPv6 ULA / 链路本地误触发公网确认的问题，使用 `ipaddr.js@2.5.0` 与 Rust 分类规则对齐；组件测试 25 项、`tsc --noEmit`、Prettier 和隔离 macOS QA bundle 构建通过。真机以 `fd00::1` 和无效端口确认本地输入不弹风险框并在解析前失败；公网 IPv6 确认框显示后取消。该分类验收未发送探测包。代码与文档尚未提交 / 推送，远程构建待执行；Local Network/TCC 拒绝与 Windows 真机回归仍待专用环境。
 - 2026-10-25：将 DNS 多节点成功判定收敛为 `status=finished` 且 `statusCode=0`，明确 NXDOMAIN、NOERROR 空记录与未知响应码失败关闭；加入技术详情折叠、空/加载态和 Globalping 数据披露。`lint:fe`、`test:critical`（382/382）、`test:fe`（477/477）、`check:be-cfg`（385 files）、Rust 格式、Clippy、`test:be`（683 通过 / 1 跳过）通过；回环 Rust 用例设置 `NO_PROXY=127.0.0.1,localhost` 后通过。macOS arm64 隔离 QA 真机 `example.com` 查询返回本机和 3 个远端成功；保留 `.invalid` 查询有 2 个远端明确返回 NXDOMAIN /「域名不存在」，本机和另一个远端如实显示失败；中英文状态、数据保留提示、技术详情折叠与原始 NXDOMAIN 详情通过。PR 远程构建待验。
 - 2026-10-25：同步 RDAP IP endpoint 修复到当前主干，验证 IPv4、IPv6 与域名路由；额外修复无 `Content-Length` 且响应恰好 16 KiB 时被误标为截断的边界条件，并在结果卡展示本次结果对应的查询目标。macOS arm64 隔离 QA 实机成功查询 `1.1.1.1`、`2606:4700:4700::1111`、`example.com`，中英文结果标签正确；`lint:fe`、Prettier、`test:critical` 383 项、`test:fe` 478 项、`build:fe`、Debug `.app` 构建通过；Rust fmt、Clippy、`check:be-cfg` 与 nextest（687 通过 / 1 跳过）通过。PR #141 workflow `40170317723` 的前端、Node 24、静态 Guards、macOS/Windows Rust、E2E 与聚合门全部通过，发布构建按 PR 条件跳过。
+- 2026-10-25：按授权在隔离 macOS QA `.app` 中对 `127.0.0.1:48766-48767` 执行一次普通 Nmap UI 扫描；同一次结果在中文显示「开放 / 关闭」、英文显示 “Open / Closed”，命令日志确认仅扫描两个 loopback 端口。临时服务已停止；QA bundle、归档和本轮 `dist` 已移入 T7 废纸篓，QA 专属 Application Support / WebKit / Cache 已移入本机废纸篓，共享 Rust target 保留。真机发现静态提示“TCP connect”与 Nmap SYN 优先路径不一致，已改成通用 TCP 端口扫描提示、新增中英回归，并在隔离 QA `.app` 中实机确认两个 locale 的新文案；复验没有再次扫描。S3-6 指纹 UI 在此前 48765 loopback QA 中已验收。代码未推送；远程构建因此前网络代理异常暂缓，未将旧 head 的远程状态当成本次验证结果。

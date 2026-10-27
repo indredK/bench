@@ -225,7 +225,7 @@ async fn wait_for_probe_slot(
 }
 
 async fn probe_one(host: String, port: u16, timeout_ms: u64) -> PortSampleEvent {
-    let addr = format!("{host}:{port}");
+    let addr = tcp_connect_address(&host, port);
     let started = Instant::now();
     match timeout(Duration::from_millis(timeout_ms), TcpStream::connect(addr)).await {
         Ok(Ok(_stream)) => PortSampleEvent {
@@ -252,6 +252,14 @@ async fn probe_one(host: String, port: u16, timeout_ms: u64) -> PortSampleEvent 
             service_hint: None,
             rtt_ms: None,
         },
+    }
+}
+
+fn tcp_connect_address(host: &str, port: u16) -> String {
+    if IpAddr::from_str(host).is_ok_and(|address| address.is_ipv6()) {
+        format!("[{host}]:{port}")
+    } else {
+        format!("{host}:{port}")
     }
 }
 
@@ -287,12 +295,7 @@ async fn try_nmap_syn<R: Runtime>(
         .map(|p| p.to_string())
         .collect::<Vec<_>>()
         .join(",");
-    let args = |scan: &str| {
-        let mut args = vec!["-Pn".to_string(), scan.to_string()];
-        append_nmap_scan_limits(&mut args);
-        args.extend(["-p".to_string(), port_arg.clone(), target.to_string()]);
-        args
-    };
+    let args = |scan: &str| port_scan_nmap_args(scan, &port_arg, target);
 
     // Prefer -sS; if it is not permitted, retry with nmap's unprivileged -sT.
     let syn_output =
@@ -567,7 +570,22 @@ fn fingerprint_nmap_args(scan: &str, ports: &str, target: &str, detect_os: bool)
         "-".to_string(),
         target.to_string(),
     ]);
+    add_nmap_ipv6_flag(&mut args, target);
     args
+}
+
+fn port_scan_nmap_args(scan: &str, ports: &str, target: &str) -> Vec<String> {
+    let mut args = vec!["-Pn".to_string(), scan.to_string()];
+    append_nmap_scan_limits(&mut args);
+    args.extend(["-p".to_string(), ports.to_string(), target.to_string()]);
+    add_nmap_ipv6_flag(&mut args, target);
+    args
+}
+
+fn add_nmap_ipv6_flag(args: &mut Vec<String>, target: &str) {
+    if target.parse::<std::net::Ipv6Addr>().is_ok() {
+        args.insert(0, "-6".to_string());
+    }
 }
 
 fn append_nmap_scan_limits(args: &mut Vec<String>) {
@@ -1461,6 +1479,34 @@ mod single_host_target_tests {
                 .expect_err("multi-host target syntax must be rejected");
             assert_eq!(error.code, "PORT_SCAN_SINGLE_HOST_REQUIRED", "{target}");
         }
+    }
+}
+
+#[cfg(test)]
+mod ipv6_target_tests {
+    use super::*;
+
+    #[test]
+    fn tcp_connect_address_brackets_ipv6_literals() {
+        let ipv6 = tcp_connect_address("2001:db8::1", 443);
+        let parsed = ipv6
+            .parse::<std::net::SocketAddr>()
+            .expect("IPv6 socket address should parse");
+        assert_eq!(parsed.ip().to_string(), "2001:db8::1");
+        assert_eq!(parsed.port(), 443);
+        assert_eq!(tcp_connect_address("127.0.0.1", 80), "127.0.0.1:80");
+        assert_eq!(tcp_connect_address("example.com", 80), "example.com:80");
+    }
+
+    #[test]
+    fn nmap_port_and_fingerprint_args_select_ipv6_mode() {
+        let ipv6_ports = port_scan_nmap_args("-sT", "80,443", "2001:db8::1");
+        let ipv4_ports = port_scan_nmap_args("-sT", "80,443", "127.0.0.1");
+        let ipv6_fingerprint = fingerprint_nmap_args("-sT", "80", "2001:db8::1", false);
+
+        assert_eq!(ipv6_ports.first().map(String::as_str), Some("-6"));
+        assert_eq!(ipv6_fingerprint.first().map(String::as_str), Some("-6"));
+        assert!(!ipv4_ports.iter().any(|argument| argument == "-6"));
     }
 }
 

@@ -471,12 +471,15 @@ export interface PortFingerprint {
 }
 
 export interface NatProbeResult {
-  natType: string
-  mappedAddress?: string
-  stunServer: string
-  detail?: string
+  observations: NatMappingObservation[]
   elapsedMs: number
   commandHint: string
+}
+
+export interface NatMappingObservation {
+  server: string
+  status: "mapped" | "timeout" | "unavailable"
+  mappedAddress?: string
 }
 
 export interface NtpProbeResult {

@@ -5,7 +5,7 @@
 > **架构边界与工作流**（含作者侧流程）：[extension-workflow.md](../../explanation/extension-workflow.md)
 > **插件中心功能规格**：[product-specs/extension-center.md](../../reference/product-specs/extension-center.md) ｜ **未完成项**：[planned/extension-center.md](../../roadmap/planned/extension-center.md)
 > **方向性决策**：[DECISIONS.md](../../explanation/decisions.md)（D-023 / D-024）
-> **最后更新**：2026-10-04（补齐 P4.5 交付状态与受支持平台契约）。
+> **最后更新**：2026-10-25（补充每窗口 manifest ACL、宿主管理命令隔离、更新回滚、registry 响应上限和刷新保留行为）。
 
 ## 成本原则（贯穿全部阶段）
 
@@ -161,10 +161,10 @@ pnpm run test:critical       # ✓ 145 passed
 - [x] zip bomb 防护：entry ≤ 4096、单文件 ≤ 64MB、总量 ≤ 256MB；流式解压边写边累计并提前中断（不信任 zip header 声明值）
 - [x] 拒绝档案内的 symlink entry（`is_symlink`；测试用 zip 8 `add_symlink` 构造）
 - [x] 解压前目标目录必须全新或为空
-- [x] 原子性：P4 管线先解压到预览目录 → 全量校验通过 → `promote_staged_bundle` 原子 rename；失败即清理，不留半成品
+- [x] 可回滚替换：P4 管线先解压到预览目录 → 全量校验通过 → 旧 bundle 移入同级备份后提升新 bundle；提升或版本水位提交失败时恢复旧 bundle。跨平台文件系统不提供目录交换 API，因此不宣称替换是单次原子操作
 - [x] 攻击向量单测全通过：`../evil.js`、`/abs/path.js`、`C:\Windows\evil.js`（两种斜杠形式）、`\\server\share\x.js`、symlink entry、超限体积（单文件/总体积）、超限条目数、非空目标目录（`extraction.rs` 12 项测试）
 
-> 本项与 P3.1 **强耦合**：逐文件 hash 清单只有在「先校验再原子落位」的流程里才有意义，两者作为同一批次交付。
+> 本项与 P3.1 **强耦合**：逐文件 hash 清单只有在「先校验再可回滚落位」的流程里才有意义，两者作为同一批次交付。
 
 ### 2. 审计日志（A6）
 
@@ -194,8 +194,8 @@ pnpm run test:critical       # ✓ 145 passed
 > 原「P3 剩余：registry 服务端 / 目录拉取 / zip 下载解压」与「P4：market 安装向导」描述的是**同一条用户路径的两半**。拆开做的典型后果是后端通了但 UI 没接、无法端到端验证。此处合并为一条，验收标准唯一。
 
 - [x] **registry 形态：静态 JSON + Git/GitHub Pages/jsDelivr 托管**（`registry.rs`：schema v1 全量校验 + `yanked`；基址由 env `BENCH_EXT_REGISTRY_URL` 配置，未配置 = market 功能禁用提示）
-- [x] 目录拉取：renderer **不自选 URL**（`ext_market_list` 只回传展示数据，**不含 downloadUrl**）；基址由后端 env 决定，下载 URL 校验 https 且拒绝 localhost（D-007）
-- [x] 安装向导（两段式）：`ext_market_prepare`（下载 → 整包 sha256+size → 安全解压 → manifest v2 + id/version 绑定 → engines → 验签 + trusted comment → 逐文件 hash）→ 信任弹窗 → `ext_market_commit`（版本单调 → 原子落位 → 审计 install）；任一步失败清理临时产物、已装版本不变
+- [x] 目录拉取：renderer **不自选 URL**（`ext_market_list` 只回传展示数据，**不含 downloadUrl**）；基址由后端 env 决定，下载 URL 校验 HTTPS / 拒绝私有字面 IP / 限制逐跳重定向；registry 响应体通过 `Content-Length` 与流式读取限制为 4 MiB（D-007）
+- [x] 安装向导（两段式）：`ext_market_prepare`（下载 → 整包 sha256+size → 安全解压 → manifest v2 + id/version 绑定 → engines → 验签 + trusted comment → 逐文件 hash）→ 信任弹窗 → `ext_market_commit`（版本单调 → 可回滚替换并提交版本水位 → 审计 install）；同一时刻仅允许一份待确认预览，取消会删除暂存包；可重试的提交错误保留同一份已披露预览，过期或已被事务消费的预览要求重新 prepare；回滚成功则原版本不变，回滚失败保留备份并显示恢复路径
 - [x] **信任披露（A4-1）**：prepare 返回 `aclCommands`，确认弹窗展示发布者/版本/申请的全部宿主命令（未申请则明示「无权限」），对齐 VS Code 1.97 publisher trust 取向
 - [x] **吊销通道（A4-2）**：`revoked[]` 支持 `*` / `<X` / `<=X` / 精确版本（未知表达式 fail-closed 视为命中）；`ext_market_list` 拉取时强制禁用命中插件 + 审计 `revoke_hit` + UI 显著警示横幅
 - [x] 插件中心 UI：已安装/市场/诊断三标签；market 卡片含 yanked / engines 不兼容 / 已安装 / 可更新徽标，安装按钮走两段式信任流；i18n zh+en 全覆盖
@@ -299,6 +299,7 @@ pnpm run test:critical       # ✓ 145 passed
 | 7   | 改动 Rust `#[cfg]` / 平台分支前必跑 `pnpm run check:be-cfg`                                                 | 本机 macOS 编译通过 ≠ 双平台验证（`coding-standards.md §7.4.1`）                                                                                                                |
 | 8   | 插件 bundle 部署须用「产物模式」（`assets/` 为部署根），不要用 vite 源码入口                                | 曾因部署了源码入口导致引用 `/src/main.tsx` 404 白屏                                                                                                                             |
 | 9   | `docs/modules/<x>/` 下指向 docs 顶层文件的相对路径是 `../../`（两级）                                       | 相对路径踩坑三次                                                                                                                                                                |
+| 10  | 插件 IPC 必须同时通过宿主能力面和当前窗口 manifest ACL；生命周期管理命令只允许宿主窗口调用                  | 旧版全局白名单曾允许任意插件调用其他插件申请的命令；旧 manifest 可解析但其宿主管理命令不授予插件，新市场包也不能申请这些命令                                                    |
 
 ---
 

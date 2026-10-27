@@ -2,13 +2,14 @@
  * Controller hook / 控制器: orchestrate market list/prepare/commit; 只做编排.
  *
  * 信任披露（A4-1）：install 分两段 —— `prepare` 下载并完成全部安全校验，
- * 弹窗展示 ACL 权限；用户确认后 `commit` 原子落位。
+ * 弹窗展示 ACL 权限；用户确认后 `commit` 可回滚替换。
  */
-import { useCallback, useRef } from "react"
+import { useCallback, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import {
+  cancelMarketInstall,
   commitMarketInstall,
   listInstalledExtensions,
   listMarketExtensions,
@@ -34,6 +35,8 @@ export function useMarketController() {
   const setBusy = useExtensionCenterStore((s) => s.setBusy)
   const setItems = useExtensionCenterStore((s) => s.setItems)
   const fetchingRef = useRef(false)
+  const cancellingPreviewRef = useRef(false)
+  const [cancellingPreview, setCancellingPreview] = useState(false)
 
   const refreshMarket = useCallback(async () => {
     if (fetchingRef.current) return
@@ -55,6 +58,8 @@ export function useMarketController() {
   const prepareInstall = useCallback(
     async (extensionId: string, version: string) => {
       const key = `${extensionId}@${version}`
+      const state = useExtensionCenterStore.getState()
+      if (state.pendingPreview || state.committing || state.busyIds.length > 0) return
       setBusy(key, true)
       try {
         const preview = await prepareMarketInstall(extensionId, version)
@@ -85,15 +90,32 @@ export function useMarketController() {
       if (installed.status === "fulfilled") setItems(installed.value)
       if (listing.status === "fulfilled") setMarketListing(listing.value)
     } catch (rawError) {
+      if (parseCommandError(rawError).code === "EXTENSION_PREVIEW_EXPIRED") {
+        setPendingPreview(null)
+      }
       toast.error(translateError(t, rawError, t("extensionCenter.market.commitFailed")))
     } finally {
       setCommitting(false)
     }
   }, [setCommitting, setItems, setMarketListing, setPendingPreview, t])
 
-  const cancelInstall = useCallback(() => {
-    setPendingPreview(null)
-  }, [setPendingPreview])
+  const cancelInstall = useCallback(async () => {
+    const preview = useExtensionCenterStore.getState().pendingPreview
+    if (!preview || useExtensionCenterStore.getState().committing || cancellingPreviewRef.current) {
+      return
+    }
+    cancellingPreviewRef.current = true
+    setCancellingPreview(true)
+    try {
+      await cancelMarketInstall(preview.id, preview.version)
+      setPendingPreview(null)
+    } catch (rawError) {
+      toast.error(translateError(t, rawError, t("extensionCenter.market.cancelFailed")))
+    } finally {
+      cancellingPreviewRef.current = false
+      setCancellingPreview(false)
+    }
+  }, [setPendingPreview, t])
 
   return {
     marketListing,
@@ -101,6 +123,7 @@ export function useMarketController() {
     marketError,
     pendingPreview,
     committing,
+    cancellingPreview,
     busyIds,
     refreshMarket,
     prepareInstall,

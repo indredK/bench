@@ -26,6 +26,15 @@
 - **理由**：这条红线的唯一依据是技术不可行，而它可行。留下一个基于错误事实的「不做」，等于把产品能力永久锁死在一个错误结论上。
 - **相关**：[D-029](#d-029--日常浏览器方向改用扩展--本地桥i3i5-提前为必须实现) · [D-039](#d-039--扩展采集作用域--可注册域泛到同站全部子域删除站点特例硬编码) · [browser-session-extension-plan.md §6/§8](./browser-session-extension-plan.md)
 
+## D-041 · Network Probe 的 STUN 本期只报告映射观察
+
+- **日期**：2026-10-25
+- **状态**：采纳
+- **决策**：STUN 面板使用 RFC 8489 Binding 逐服务器报告 `XOR-MAPPED-ADDRESS` / `MAPPED-ADDRESS`、超时或不可用；不再根据不同公共服务器的映射结果推断 NAT 类型。完整 RFC 5780 分类进入 planned roadmap，只有选定并验证支持 `OTHER-ADDRESS` 与 `CHANGE-REQUEST` 的服务器后再评估。
+- **理由**：普通 Binding 只能观测服务器看到的映射，不能完整证明 Open、Cone、Restricted、Port-Restricted 或 Symmetric NAT；把跨运营方服务器映射差异当作 NAT 行为分类会给出过度确定的结论。
+- **影响**：UI、IPC DTO、场景和产品规格统一采用“映射观察”；请求发往公共 STUN 端点前披露服务器会看到客户端公网映射地址。协议编解码复用 `stun_codec`，不引入完整 ICE/TURN 栈。
+- **相关**：[Network Probe STUN 设计](../modules/network-probe/design-discover.md#33-stun-映射观察) · [S-DIS-03](../modules/network-probe/scenarios/04-discover-remote.md) · [planned roadmap](../roadmap/planned/network-probe.md)
+
 ## D-039 · 扩展采集作用域 = 可注册域泛到同站全部子域（删除站点特例硬编码）
 
 - **日期**：2026-09-19

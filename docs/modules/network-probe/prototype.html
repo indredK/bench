@@ -725,7 +725,12 @@
           children: [
             { id: "arp", label: "ARP 发现", cmd: "scanLan + detectArpSpoofing", post: true },
             { id: "lan-svc", label: "局域网服务", cmd: "mDNS / SSDP", post: true },
-            { id: "nat", label: "NAT 类型", cmd: "STUN NAT detect", post: true },
+            {
+              id: "nat",
+              label: "STUN 映射观察",
+              cmd: "STUN Binding mapping observation",
+              post: true,
+            },
             { id: "ntp", label: "NTP 时间", cmd: "NTP offset detect", post: true },
             { id: "nodes", label: "多节点对比", cmd: "listProbeNodes + store.byNode", post: true },
           ],
@@ -1041,7 +1046,7 @@
           "security/whois": () => renderPost("WHOIS", "whois(query)"),
           "discover/arp": () => renderPost("ARP 发现", "scanLan + detectArpSpoofing"),
           "discover/lan-svc": () => renderPost("局域网服务", "mDNS / SSDP"),
-          "discover/nat": () => renderPost("NAT 类型", "STUN detect"),
+          "discover/nat": () => renderPost("STUN 映射观察", "STUN Binding mapping observation"),
           "discover/ntp": () => renderPost("NTP 时间偏移", "NTP offset detect"),
           "discover/nodes": () =>
             renderPost("多节点对比", "listProbeNodes + store.byNode（Globalping/agent）"),

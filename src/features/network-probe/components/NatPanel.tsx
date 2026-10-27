@@ -1,6 +1,4 @@
-/**
- * Feature UI / 功能界面: NAT type via STUN.
- */
+/** Feature UI: per-server STUN mapping observations; no NAT behavior classification. */
 import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
@@ -40,17 +38,27 @@ export function NatPanel({ loading, result, toolEnabled, toolStatus, onRun }: Na
     >
       {result ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
-          <div>
-            {t("networkProbe.nat.type")}:{" "}
-            <span className="font-mono font-medium">{result.natType}</span>
-          </div>
-          {result.mappedAddress ? (
-            <div>
-              {t("networkProbe.nat.mapped")}:{" "}
-              <span className="font-mono">{result.mappedAddress}</span>
-            </div>
-          ) : null}
-          {result.detail ? <p className="text-muted-foreground text-xs">{result.detail}</p> : null}
+          <p className="text-muted-foreground text-xs">{t("networkProbe.nat.observationOnly")}</p>
+          <ul className="space-y-2">
+            {result.observations.map((observation) => (
+              <li
+                key={observation.server}
+                className="grid gap-1 sm:grid-cols-[minmax(12rem,1fr)_auto]"
+              >
+                <span className="font-mono text-xs">{observation.server}</span>
+                <span className="text-xs">
+                  {observation.status === "mapped"
+                    ? t("networkProbe.nat.status.mapped")
+                    : observation.status === "timeout"
+                      ? t("networkProbe.nat.status.timeout")
+                      : t("networkProbe.nat.status.unavailable")}
+                  {observation.mappedAddress ? (
+                    <code className="ml-2 font-mono">{observation.mappedAddress}</code>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}

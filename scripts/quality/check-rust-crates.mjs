@@ -89,7 +89,7 @@ function collectLocalModules(dir, modules = new Set()) {
 function collectLocalFunctions(dir, functions = new Set()) {
   for (const filePath of walkRsFiles(dir)) {
     const content = readFileSync(filePath, "utf8")
-    const cleaned = content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")
+    const cleaned = maskRustNonCode(content)
     const fnRegex = /\b(fn)\s+([a-z0-9_]+)\s*(<[^>]*>)?\s*\(/gi
     let fnMatch
     while ((fnMatch = fnRegex.exec(cleaned)) !== null) {
@@ -150,8 +150,7 @@ const LINT_NAMESPACES = new Set(["clippy", "rustfmt"])
 function collectUseImports(dir, imports = new Set()) {
   for (const filePath of walkRsFiles(dir)) {
     const content = readFileSync(filePath, "utf8")
-    // Strip comments to avoid matching inside them
-    const cleaned = content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")
+    const cleaned = maskRustNonCode(content)
 
     // Match `use <path>::{<items>};` and `use <path>::<item>;`
     // We only care about the final segment(s) — those are the names in scope.
@@ -159,22 +158,15 @@ function collectUseImports(dir, imports = new Set()) {
     let useMatch
     while ((useMatch = useRegex.exec(cleaned)) !== null) {
       const useBody = useMatch[1]
-      // Handle grouped imports: `path::{a, b, c}`
-      const groupMatch = useBody.match(/([\s\S]*?)::\s*\{([^}]*)\}/)
-      if (groupMatch) {
-        for (const item of groupMatch[2].split(",")) {
-          const name = item
-            .trim()
-            .split(/\s+as\s+/)[0]
-            .trim()
-          // `self` means the module before `::` is imported
-          if (name === "self") {
-            const pathSegments = groupMatch[1].trim().split("::")
-            const last = pathSegments[pathSegments.length - 1].trim()
-            if (last && isSnakeCase(last)) imports.add(last)
-          } else if (name && isSnakeCase(name)) {
-            imports.add(name)
-          }
+      // A nested import tree can contain more than one level, such as
+      // `crate::{domain::{helpers, types}}`. Collect the lowercase names
+      // inside the tree so imported module aliases like `methods::BINDING`
+      // are not mistaken for external crate roots.
+      const groupStart = useBody.indexOf("::{")
+      if (groupStart !== -1) {
+        const groupBody = useBody.slice(groupStart + 3)
+        for (const match of groupBody.matchAll(/\b[a-z_][a-z0-9_]*\b/g)) {
+          if (isSnakeCase(match[0])) imports.add(match[0])
         }
       } else {
         // Non-grouped: last segment of the path is the imported name
@@ -198,14 +190,23 @@ function isSnakeCase(name) {
   return /^[a-z][a-z0-9_]*$/.test(name) && name !== name.toUpperCase()
 }
 
+function maskRustNonCode(source) {
+  const preserveLines = (text) => text.replace(/[^\r\n]/g, " ")
+
+  // Mask raw and regular Rust strings before comments so URL-like values do
+  // not make the comment pass discard source that follows them.
+  return source
+    .replace(/(?<![\w])(?:br|r)(#{0,})"[\s\S]*?"\1/g, preserveLines)
+    .replace(/(?<![\w])b?"(?:\\.|[^"\\])*"/gs, preserveLines)
+    .replace(/\/\/.*$/gm, preserveLines)
+    .replace(/\/\*[\s\S]*?\*\//g, preserveLines)
+}
+
 function scanFile(filePath, declaredCrates, localModules, localFunctions, useImports) {
   const rawContent = readFileSync(filePath, "utf8")
-  // Strip comments and `use ...;` declarations so we only scan actual usage,
-  // not import statements (which legitimately reference crate paths).
-  const content = rawContent
-    .replace(/\/\/.*$/gm, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\buse\s+[\s\S]*?;/g, "")
+  // Mask comments and string literals, then remove `use ...;` declarations
+  // which legitimately reference crate paths.
+  const content = maskRustNonCode(rawContent).replace(/\buse\s+[\s\S]*?;/g, "")
   const issues = []
   const seen = new Set() // dedupe within a file
 

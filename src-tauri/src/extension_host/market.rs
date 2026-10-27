@@ -3,7 +3,7 @@
 //! **信任边界（D-007）**：renderer 只提交 `extension_id` + `version`；
 //! 下载 URL / hash / 签名材料全部由宿主从自身拉取的 registry 解析。
 //!
-//! 安装管线（spec §6.1 步骤，任一步失败清理临时产物、已安装版本不变）：
+//! 安装管线（spec §6.1 步骤；验证失败清理临时产物，已安装版本保持不变）：
 //! 1. 拉 registry（canonical 基址，env 配置）
 //! 2. 解析条目（拒绝 `yanked`）
 //! 3. 下载 zip 到缓存目录（体积上限 + content-length 预检）
@@ -13,12 +13,14 @@
 //! 7. engines 兼容
 //! 8. market 签名（canonical 文本 + trusted comment）
 //! 9. 逐文件完整性（P3.1）
-//! 10. 版本单调性（`new <= installed` 拒绝）
-//! 11. 原子落位 → 审计 `install`
+//! 10. 版本单调性（`new < installed` 拒绝；同版本重装允许）
+//! 11. 可回滚替换 → 审计 `install`
 
 use std::{
+    collections::HashSet,
     fs,
     path::{Path, PathBuf},
+    sync::{Mutex, OnceLock},
 };
 
 use serde::Serialize;
@@ -29,7 +31,7 @@ use crate::error::{AppError, AppResult};
 
 use super::{
     audit::{self, AuditEvent},
-    commands::{ext_list_installed, ExtensionSummary},
+    commands::{close_extension_window, ext_list_installed, ExtensionSummary},
     extraction::{self, ExtractLimits},
     integrity,
     manifest::{ExtensionDistribution, ExtensionManifest, EXT_DISABLED_MARKER, MANIFEST_FILE},
@@ -40,9 +42,185 @@ use super::{
 
 /// 整包下载上限（与解压总体积上限一致；registry 声明的 size 另行精确校验）。
 const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_REGISTRY_BYTES: usize = 4 * 1024 * 1024;
 
 /// 下载缓存目录名（`$APPDATA/extension-cache`）。
 const CACHE_DIR_NAME: &str = "extension-cache";
+const MAX_HTTP_REDIRECTS: usize = 10;
+
+static ACTIVE_MARKET_OPERATIONS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+static PENDING_MARKET_PREVIEW: OnceLock<Mutex<Option<PendingMarketPreview>>> = OnceLock::new();
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum MarketPreviewPhase {
+    Preparing,
+    Ready,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingMarketPreview {
+    extension_id: String,
+    version: String,
+    phase: MarketPreviewPhase,
+}
+
+fn pending_market_preview() -> &'static Mutex<Option<PendingMarketPreview>> {
+    PENDING_MARKET_PREVIEW.get_or_init(|| Mutex::new(None))
+}
+
+/// The market UI has one trust dialog, so the backend permits only one active preview.
+#[derive(Debug)]
+struct MarketPreviewReservation {
+    extension_id: String,
+    version: String,
+    ready: bool,
+}
+
+impl MarketPreviewReservation {
+    fn acquire(extension_id: &str, version: &str) -> AppResult<Self> {
+        let mut pending = pending_market_preview()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if pending.is_some() {
+            return Err(super::commands::extension_transition_busy());
+        }
+        *pending = Some(PendingMarketPreview {
+            extension_id: extension_id.to_owned(),
+            version: version.to_owned(),
+            phase: MarketPreviewPhase::Preparing,
+        });
+        Ok(Self {
+            extension_id: extension_id.to_owned(),
+            version: version.to_owned(),
+            ready: false,
+        })
+    }
+
+    fn mark_ready(&mut self) -> AppResult<()> {
+        let mut pending = pending_market_preview()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        match pending.as_mut() {
+            Some(preview)
+                if preview.extension_id == self.extension_id
+                    && preview.version == self.version
+                    && preview.phase == MarketPreviewPhase::Preparing =>
+            {
+                preview.phase = MarketPreviewPhase::Ready;
+                self.ready = true;
+                Ok(())
+            }
+            _ => Err(super::commands::extension_transition_busy()),
+        }
+    }
+}
+
+impl Drop for MarketPreviewReservation {
+    fn drop(&mut self) {
+        if self.ready {
+            return;
+        }
+        let mut pending = pending_market_preview()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if pending.as_ref().is_some_and(|preview| {
+            preview.extension_id == self.extension_id
+                && preview.version == self.version
+                && preview.phase == MarketPreviewPhase::Preparing
+        }) {
+            *pending = None;
+        }
+    }
+}
+
+fn require_pending_market_preview(extension_id: &str, version: &str) -> AppResult<()> {
+    let pending = pending_market_preview()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    match pending.as_ref() {
+        Some(preview)
+            if preview.extension_id == extension_id
+                && preview.version == version
+                && preview.phase == MarketPreviewPhase::Ready =>
+        {
+            Ok(())
+        }
+        _ => Err(AppError::new(
+            "EXTENSION_PREVIEW_EXPIRED",
+            "install preview is no longer available — prepare again",
+        )),
+    }
+}
+
+fn clear_pending_market_preview(extension_id: &str, version: &str) {
+    let mut pending = pending_market_preview()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if pending
+        .as_ref()
+        .is_some_and(|preview| preview.extension_id == extension_id && preview.version == version)
+    {
+        *pending = None;
+    }
+}
+
+fn remove_preview_dir_if_exists(path: &Path) -> AppResult<()> {
+    match fs::remove_dir_all(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(AppError::io(format!(
+            "remove install preview {}: {error}",
+            path.display()
+        ))),
+    }
+}
+
+fn market_http_client(timeout: std::time::Duration) -> AppResult<reqwest::Client> {
+    reqwest::Client::builder()
+        .timeout(timeout)
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if can_follow_market_redirect(attempt.previous().len(), attempt.url().as_str()) {
+                attempt.follow()
+            } else {
+                attempt.stop()
+            }
+        }))
+        .build()
+        .map_err(|error| AppError::internal(format!("build market http client: {error}")))
+}
+
+fn can_follow_market_redirect(previous_redirects: usize, url: &str) -> bool {
+    previous_redirects < MAX_HTTP_REDIRECTS && registry::validate_download_url(url).is_ok()
+}
+
+fn active_market_operations() -> &'static Mutex<HashSet<String>> {
+    ACTIVE_MARKET_OPERATIONS.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+/// Serialize prepare and commit for one extension because they share its preview directory.
+#[derive(Debug)]
+struct MarketOperationGuard(String);
+
+impl MarketOperationGuard {
+    fn acquire(extension_id: &str) -> AppResult<Self> {
+        let mut active = active_market_operations()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if !active.insert(extension_id.to_owned()) {
+            return Err(super::commands::extension_transition_busy());
+        }
+        Ok(Self(extension_id.to_owned()))
+    }
+}
+
+impl Drop for MarketOperationGuard {
+    fn drop(&mut self) {
+        active_market_operations()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .remove(&self.0);
+    }
+}
 
 /// market 列表（返回给插件中心；**不含下载 URL** —— renderer 不得提交地址）。
 #[derive(Debug, Clone, Serialize)]
@@ -94,10 +272,7 @@ pub struct RevokedHitDto {
 async fn fetch_registry() -> AppResult<RegistryDoc> {
     let base = registry::registry_base_url()?;
     let url = registry::registry_index_url(&base);
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-        .map_err(|e| AppError::internal(format!("build http client: {e}")))?;
+    let client = market_http_client(std::time::Duration::from_secs(30))?;
     let response = client
         .get(&url)
         .send()
@@ -109,14 +284,53 @@ async fn fetch_registry() -> AppResult<RegistryDoc> {
             response.status()
         )));
     }
-    let text = response
-        .text()
-        .await
-        .map_err(|e| AppError::internal(format!("read registry body: {e}")))?;
-    let doc: RegistryDoc = serde_json::from_str(&text)
+    let body = read_registry_body(response).await?;
+    let doc: RegistryDoc = serde_json::from_slice(&body)
         .map_err(|e| AppError::invalid_input(format!("registry JSON invalid: {e}")))?;
     registry::validate_registry_doc(&doc)?;
     Ok(doc)
+}
+
+async fn read_registry_body(mut response: reqwest::Response) -> AppResult<Vec<u8>> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_REGISTRY_BYTES as u64)
+    {
+        return Err(registry_body_too_large());
+    }
+
+    let capacity = response
+        .content_length()
+        .unwrap_or_default()
+        .min(MAX_REGISTRY_BYTES as u64) as usize;
+    let mut body = Vec::with_capacity(capacity);
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| AppError::internal(format!("read registry body: {error}")))?
+    {
+        append_registry_chunk(&mut body, &chunk)?;
+    }
+    Ok(body)
+}
+
+fn append_registry_chunk(body: &mut Vec<u8>, chunk: &[u8]) -> AppResult<()> {
+    if body
+        .len()
+        .checked_add(chunk.len())
+        .is_none_or(|length| length > MAX_REGISTRY_BYTES)
+    {
+        return Err(registry_body_too_large());
+    }
+    body.extend_from_slice(chunk);
+    Ok(())
+}
+
+fn registry_body_too_large() -> AppError {
+    AppError::new(
+        "EXTENSION_REGISTRY_TOO_LARGE",
+        format!("registry response exceeds {MAX_REGISTRY_BYTES} bytes"),
+    )
 }
 
 /// 浏览 market：拉目录 + 吊销强制禁用 + 与已装版本比对。
@@ -274,7 +488,7 @@ fn preview_dir<R: Runtime>(
 
 /// 安装第一步（spec §6.1 步骤 1-9）：下载 → 校验 → 解压到预览目录，
 /// 返回 ACL 披露信息；**不落位、不改水位** —— 用户确认后调
-/// [`ext_market_commit`]。任一步失败即清理预览目录。
+/// [`ext_market_commit`]。准备失败即清理预览目录；准备成功后只允许当前信任预览提交或取消。
 #[tauri::command]
 pub async fn ext_market_prepare(
     app: AppHandle,
@@ -291,6 +505,8 @@ pub async fn ext_market_prepare(
             "invalid extension version `{version}`"
         )));
     }
+    let mut preview_reservation = MarketPreviewReservation::acquire(&extension_id, &version)?;
+    let _operation = MarketOperationGuard::acquire(&extension_id)?;
     // 步骤 1-2：拉目录并解析条目（yanked 拒绝）。
     let doc = fetch_registry().await?;
     let entry: &RegistryEntry = doc
@@ -341,7 +557,7 @@ pub async fn ext_market_prepare(
     }
 
     let staging_dir = preview_dir(&app, &extension_id, &version)?;
-    let _ = fs::remove_dir_all(&staging_dir);
+    remove_preview_dir_if_exists(&staging_dir)?;
     fs::create_dir_all(&staging_dir)
         .map_err(|e| AppError::io(format!("create preview dir: {e}")))?;
     let zip_path = cache_dir(&app)?.join(format!("{extension_id}-{version}.zip"));
@@ -349,10 +565,7 @@ pub async fn ext_market_prepare(
     // 管线主体；任一步失败 → 清理 staging + 临时 zip（prepare 无审计事件）。
     let prepared = async {
         // 步骤 3：下载（content-length 预检 + 流式上限）。
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(300))
-            .build()
-            .map_err(|e| AppError::internal(format!("build http client: {e}")))?;
+        let client = market_http_client(std::time::Duration::from_secs(300))?;
         let mut response = client
             .get(&version_entry.download_url)
             .send()
@@ -411,18 +624,24 @@ pub async fn ext_market_prepare(
     }
     .await;
 
-    // 收尾：清理（成功时 zip 可删；失败时预览目录一并清理）。
+    // 收尾：zip 总是可删；prepare 失败时预览目录一并清理。
     let _ = fs::remove_file(&zip_path);
     match prepared {
-        Ok(manifest) => Ok(MarketInstallPreview {
-            id: manifest.id.clone(),
-            version: manifest.version.clone(),
-            display_en: manifest.display_name("en").to_string(),
-            display_zh: manifest.display.zh.clone(),
-            publisher_name: entry.publisher.as_ref().map(|p| p.name.clone()),
-            size_bytes: version_entry.size,
-            acl_commands: manifest.acl.commands.clone(),
-        }),
+        Ok(manifest) => {
+            if let Err(error) = preview_reservation.mark_ready() {
+                let _ = fs::remove_dir_all(&staging_dir);
+                return Err(error);
+            }
+            Ok(MarketInstallPreview {
+                id: manifest.id.clone(),
+                version: manifest.version.clone(),
+                display_en: manifest.display_name("en").to_string(),
+                display_zh: manifest.display.zh.clone(),
+                publisher_name: entry.publisher.as_ref().map(|p| p.name.clone()),
+                size_bytes: version_entry.size,
+                acl_commands: manifest.acl.commands.clone(),
+            })
+        }
         Err(error) => {
             let _ = fs::remove_dir_all(&staging_dir);
             audit::record(
@@ -437,8 +656,44 @@ pub async fn ext_market_prepare(
     }
 }
 
+/// 取消信任披露并清理暂存包；幂等支持响应丢失后的重试。
+#[tauri::command]
+pub async fn ext_market_cancel(
+    app: AppHandle,
+    extension_id: String,
+    version: String,
+) -> AppResult<()> {
+    if !super::manifest::is_valid_extension_id(&extension_id) {
+        return Err(AppError::invalid_input(format!(
+            "invalid extension id `{extension_id}`"
+        )));
+    }
+    if !super::manifest::is_valid_semver(&version) {
+        return Err(AppError::invalid_input(format!(
+            "invalid extension version `{version}`"
+        )));
+    }
+    let _operation = MarketOperationGuard::acquire(&extension_id)?;
+    {
+        let pending = pending_market_preview()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        match pending.as_ref() {
+            Some(preview)
+                if preview.extension_id == extension_id
+                    && preview.version == version
+                    && preview.phase == MarketPreviewPhase::Ready => {}
+            Some(_) => return Err(super::commands::extension_transition_busy()),
+            None => {}
+        }
+    }
+    remove_preview_dir_if_exists(&preview_dir(&app, &extension_id, &version)?)?;
+    clear_pending_market_preview(&extension_id, &version);
+    Ok(())
+}
+
 /// 安装第二步（spec §6.1 步骤 10-11，用户在信任弹窗确认后调用）：
-/// 重新校验预览产物 → 版本单调性 → 原子落位 → 审计 install。
+/// 重新校验预览产物 → 版本单调性 → 可回滚替换 → 审计 install。
 #[tauri::command]
 pub async fn ext_market_commit(
     app: AppHandle,
@@ -455,17 +710,25 @@ pub async fn ext_market_commit(
             "invalid extension version `{version}`"
         )));
     }
+    let _operation = MarketOperationGuard::acquire(&extension_id)?;
+    let acl_state = app.state::<super::acl::ExtensionAclState>();
+    let _transition = acl_state
+        .begin_transition(&extension_id)
+        .ok_or_else(super::commands::extension_transition_busy)?;
+    require_pending_market_preview(&extension_id, &version)?;
     let staging_dir = preview_dir(&app, &extension_id, &version)?;
     let result = async {
         let manifest_path = staging_dir.join(MANIFEST_FILE);
         if !manifest_path.is_file() {
-            return Err(AppError::not_found(
-                "install preview expired — prepare again".to_string(),
+            return Err(AppError::new(
+                "EXTENSION_PREVIEW_EXPIRED",
+                "install preview expired — prepare again",
             ));
         }
         let manifest_text = fs::read_to_string(&manifest_path)
             .map_err(|e| AppError::invalid_input(format!("read staged manifest: {e}")))?;
         let manifest = ExtensionManifest::parse(&manifest_text)?;
+        validate_market_extension_acl(&manifest)?;
         if manifest.id != extension_id || manifest.version != version {
             return Err(AppError::forbidden_path(
                 "staged manifest does not match the requested install",
@@ -490,8 +753,10 @@ pub async fn ext_market_commit(
             .map(Path::to_path_buf)
             .ok_or_else(|| AppError::internal("resolve extensions root failed"))?;
         let final_dir = extensions_root.join(&extension_id);
-        extraction::promote_staged_bundle(&staging_dir, &final_dir)?;
-        records::record_verified_version(&app, &manifest.id, &manifest.version)?;
+        close_extension_window(&app, &extension_id).await?;
+        extraction::promote_staged_bundle_and_commit(&staging_dir, &final_dir, || {
+            records::record_verified_version(&app, &manifest.id, &manifest.version)
+        })?;
         audit::record(
             &app,
             AuditEvent::Install,
@@ -503,9 +768,20 @@ pub async fn ext_market_commit(
     }
     .await;
 
-    // 清理预览目录（成功时已被 rename 走；失败时清理残留）。
-    let _ = fs::remove_dir_all(&staging_dir);
     if let Err(error) = result {
+        // 可重试错误保留已披露的同一份包；若事务已消费暂存目录，则使 UI 重新 prepare。
+        if error.code == "EXTENSION_PREVIEW_EXPIRED" || !staging_dir.is_dir() {
+            clear_pending_market_preview(&extension_id, &version);
+            let _ = remove_preview_dir_if_exists(&staging_dir);
+            audit::record(
+                &app,
+                AuditEvent::VerifyFail,
+                &extension_id,
+                Some(&version),
+                Some(&error.message),
+            );
+            return Err(error);
+        }
         audit::record(
             &app,
             AuditEvent::VerifyFail,
@@ -515,6 +791,7 @@ pub async fn ext_market_commit(
         );
         return Err(error);
     }
+    clear_pending_market_preview(&extension_id, &version);
     Ok(())
 }
 
@@ -574,13 +851,17 @@ fn verify_staged_package(
     // 步骤 4：整包 sha256 + size。
     let (hash, size) = sha256_and_size(zip_path)?;
     if size != version_entry.size {
-        return Err(AppError::invalid_input(format!(
-            "downloaded package size mismatch (registry {}, got {size})",
-            version_entry.size
-        )));
+        return Err(AppError::new(
+            "EXTENSION_INTEGRITY_FAILED",
+            format!(
+                "downloaded package size mismatch (registry {}, got {size})",
+                version_entry.size
+            ),
+        ));
     }
     if hash != version_entry.sha256 {
-        return Err(AppError::forbidden_path(
+        return Err(AppError::new(
+            "EXTENSION_INTEGRITY_FAILED",
             "downloaded package sha256 mismatch (corrupted or tampered)",
         ));
     }
@@ -610,6 +891,7 @@ fn verify_staged_package(
             "registry package manifest must declare distribution `market`",
         ));
     }
+    validate_market_extension_acl(&manifest)?;
     manifest.ensure_supported_host()?;
 
     // 步骤 7：engines。
@@ -636,6 +918,22 @@ fn verify_staged_package(
     // 步骤 9：逐文件完整性。
     integrity::verify_bundle_integrity(staging_dir, &manifest)?;
     Ok(manifest)
+}
+
+/// New market packages may request only extension capabilities. Host lifecycle IPC remains
+/// parseable for legacy installed manifests so users can still inspect and remove them.
+fn validate_market_extension_acl(manifest: &ExtensionManifest) -> AppResult<()> {
+    if let Some(command) = manifest
+        .acl
+        .commands
+        .iter()
+        .find(|command| !super::acl::is_command_allowed(command))
+    {
+        return Err(AppError::forbidden_path(format!(
+            "market extension ACL cannot request host-only command `{command}`"
+        )));
+    }
+    Ok(())
 }
 
 /// 流式计算文件 sha256 + 大小（与 integrity 模块一致的 hex 规则）。
@@ -691,6 +989,39 @@ mod tests {
 }"#;
 
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn market_redirects_stay_https_public_and_bounded() {
+        assert!(can_follow_market_redirect(
+            0,
+            "https://release-assets.githubusercontent.com/package.zip"
+        ));
+        assert!(!can_follow_market_redirect(
+            0,
+            "http://cdn.example.com/package.zip"
+        ));
+        assert!(!can_follow_market_redirect(0, "https://[::1]/package.zip"));
+        assert!(!can_follow_market_redirect(
+            0,
+            "https://user@cdn.example.com/package.zip"
+        ));
+        assert!(!can_follow_market_redirect(
+            MAX_HTTP_REDIRECTS,
+            "https://cdn.example.com/package.zip"
+        ));
+    }
+
+    #[test]
+    fn registry_response_body_limit_is_enforced_incrementally() {
+        let mut body = Vec::new();
+        let maximum = vec![b'x'; MAX_REGISTRY_BYTES];
+        append_registry_chunk(&mut body, &maximum).expect("exact limit is allowed");
+        assert_eq!(body.len(), MAX_REGISTRY_BYTES);
+        assert_eq!(
+            append_registry_chunk(&mut body, b"x").unwrap_err().code,
+            "EXTENSION_REGISTRY_TOO_LARGE"
+        );
+    }
 
     fn temp_root(tag: &str) -> PathBuf {
         let unique = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -800,6 +1131,69 @@ mod tests {
     }
 
     #[test]
+    fn market_packages_cannot_request_host_lifecycle_commands() {
+        let manifest_json =
+            PIPELINE_MANIFEST.replace("\"commands\": []", "\"commands\": [\"ext_uninstall\"]");
+        let (zip_path, hash, size) =
+            build_zip_with_manifest("host-lifecycle-acl", b"test", &manifest_json);
+        let entry = registry_version(&hash, size);
+        let staging = temp_root("host-lifecycle-acl").join("staging");
+        let error = verify_staged_package(
+            &zip_path,
+            &staging,
+            "fake-ext",
+            "1.0.0",
+            &entry,
+            "1.30.0",
+            Some(PIPELINE_PUBKEY),
+            false,
+        )
+        .expect_err("market package must not acquire host lifecycle IPC");
+
+        assert_eq!(error.code, "FORBIDDEN_PATH");
+        assert!(error.message.contains("host-only command `ext_uninstall`"));
+        fs::remove_dir_all(zip_path.parent().unwrap()).ok();
+    }
+
+    #[test]
+    fn market_operations_for_the_same_extension_are_serialized() {
+        let first = MarketOperationGuard::acquire("fake-ext").expect("first operation");
+        let second = MarketOperationGuard::acquire("fake-ext").expect_err("duplicate operation");
+        assert_eq!(second.code, "EXTENSION_BUSY");
+        drop(first);
+        MarketOperationGuard::acquire("fake-ext").expect("operation can retry after completion");
+    }
+
+    #[test]
+    fn trust_preview_reservation_prevents_overwrite_and_expires_on_clear() {
+        let extension_id = format!("preview-test-{}", std::process::id());
+        let version = "1.2.3";
+        let mut reservation =
+            MarketPreviewReservation::acquire(&extension_id, version).expect("reserve preview");
+        let competing = MarketPreviewReservation::acquire("another-preview", version)
+            .expect_err("only one trust prompt may be pending");
+        assert_eq!(competing.code, "EXTENSION_BUSY");
+
+        reservation.mark_ready().expect("mark preview ready");
+        drop(reservation);
+        require_pending_market_preview(&extension_id, version)
+            .expect("same preview is commit-ready");
+        assert_eq!(
+            require_pending_market_preview(&extension_id, "9.9.9")
+                .expect_err("another version cannot consume the preview")
+                .code,
+            "EXTENSION_PREVIEW_EXPIRED"
+        );
+        clear_pending_market_preview(&extension_id, version);
+        assert_eq!(
+            require_pending_market_preview(&extension_id, version)
+                .expect_err("cleared preview must not be committed")
+                .code,
+            "EXTENSION_PREVIEW_EXPIRED"
+        );
+    }
+
+    #[test]
     fn pipeline_rejects_whole_package_sha_mismatch() {
         let (zip_path, hash, size) = build_zip("sha", b"test");
         // registry 声明的整包哈希与实际不符（传输损坏 / 内容投喂）。
@@ -819,7 +1213,7 @@ mod tests {
             false,
         )
         .unwrap_err();
-        assert_eq!(err.code, "FORBIDDEN_PATH");
+        assert_eq!(err.code, "EXTENSION_INTEGRITY_FAILED");
         assert!(err.message.contains("sha256 mismatch"));
         let _ = hash;
         fs::remove_dir_all(zip_path.parent().unwrap()).ok();
@@ -843,7 +1237,7 @@ mod tests {
             false,
         )
         .unwrap_err();
-        assert_eq!(err.code, "FORBIDDEN_PATH");
+        assert_eq!(err.code, "EXTENSION_INTEGRITY_FAILED");
         assert!(err.message.contains("sha256 mismatch"));
         fs::remove_dir_all(zip_path.parent().unwrap()).ok();
     }

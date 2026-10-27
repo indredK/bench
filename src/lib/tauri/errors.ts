@@ -76,9 +76,9 @@ export function getErrorMessage(error: unknown, fallback?: string): string {
  * 否则回退到后端 message，再回退到 `fallback`。
  */
 export function translateError(t: TFunction, error: unknown, fallback?: string): string {
-  const { code } = parseCommandError(error)
+  const { code, message } = parseCommandError(error)
   const key = `errors.${code}`
-  const localized = t(key, { defaultValue: "" })
+  const localized = t(key, { message, defaultValue: "" })
   if (localized) return localized
   return getErrorMessage(error, fallback)
 }

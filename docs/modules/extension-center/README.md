@@ -19,7 +19,7 @@
 ## 安全模型（D-024）
 
 - 插件窗口 label 固定 `ext-<id>`，capability 仅 `core:default`；
-- **自定命令 deny-by-default 网关**：`ext-` 窗口只能调用 `extension_host::acl::EXTENSION_ALLOWED_COMMANDS` 注册表内的命令（photo-triage 15 条 + ext 自身）；
+- **自定命令 deny-by-default 网关**：`ext-` 窗口只能调用宿主能力面且由该窗口 manifest 声明的命令；插件生命周期管理命令只允许 Bench 主窗口调用；
 - manifest fail-closed：schema 版本不匹配、id/version/entry 非法、ACL 越权或插件不支持当前平台时拒绝加载/安装。
 
 ## 关联文档

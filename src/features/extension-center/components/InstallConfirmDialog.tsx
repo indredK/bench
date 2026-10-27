@@ -18,19 +18,26 @@ import { selectMetadata, useResolvedLocale } from "../lib/metadata"
  */
 export function InstallConfirmDialog({
   preview,
+  replacingInstalled,
   committing,
+  cancelling,
   onConfirm,
   onCancel,
 }: {
   preview: MarketInstallPreview | null
+  replacingInstalled: boolean
   committing: boolean
+  cancelling: boolean
   onConfirm: () => void
   onCancel: () => void
 }) {
   const { t } = useTranslation()
   const locale = useResolvedLocale()
   return (
-    <Dialog open={preview !== null} onOpenChange={(open) => !open && onCancel()}>
+    <Dialog
+      open={preview !== null}
+      onOpenChange={(open) => !open && !committing && !cancelling && onCancel()}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("extensionCenter.market.trustTitle")}</DialogTitle>
@@ -73,14 +80,21 @@ export function InstallConfirmDialog({
                 </ul>
               )}
             </div>
+            {replacingInstalled && (
+              <p className="rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                {t("extensionCenter.market.updateClosesOpenWindow")}
+              </p>
+            )}
             <p className="text-muted-foreground text-xs">{t("extensionCenter.market.trustNote")}</p>
           </div>
         )}
         <DialogFooter>
-          <Button variant="ghost" onClick={onCancel} disabled={committing}>
-            {t("extensionCenter.cancel")}
+          <Button variant="ghost" onClick={onCancel} disabled={committing || cancelling}>
+            {cancelling
+              ? t("extensionCenter.market.cancellingPreview")
+              : t("extensionCenter.cancel")}
           </Button>
-          <Button onClick={onConfirm} disabled={committing}>
+          <Button onClick={onConfirm} disabled={committing || cancelling}>
             {committing
               ? t("extensionCenter.market.installing")
               : t("extensionCenter.market.trustAndInstall")}

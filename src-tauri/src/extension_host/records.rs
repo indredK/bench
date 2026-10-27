@@ -18,7 +18,9 @@
 
 use std::{
     fs,
+    io::Write,
     path::{Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use tauri::{AppHandle, Manager, Runtime};
@@ -29,6 +31,8 @@ use super::manifest::{is_valid_extension_id, is_valid_semver, semver_at_least};
 
 /// 宿主侧插件记录根目录名（`$APPDATA/extension-records`）。
 pub const EXT_RECORDS_DIR_NAME: &str = "extension-records";
+
+static RECORD_WRITE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// `$APPDATA/extension-records`（经 `AppHandle`）。
 fn records_root<R: Runtime>(app: &AppHandle<R>) -> AppResult<PathBuf> {
@@ -88,8 +92,120 @@ fn record_at(root: &Path, extension_id: &str, version: &str) -> AppResult<()> {
         fs::create_dir_all(parent)
             .map_err(|e| AppError::io(format!("create extension records dir: {e}")))?;
     }
-    fs::write(&path, version)
-        .map_err(|e| AppError::io(format!("write extension version record: {e}")))
+    write_record_atomically(&path, version)
+}
+
+fn write_record_atomically(path: &Path, version: &str) -> AppResult<()> {
+    write_record_atomically_with(path, version, |from, to| fs::rename(from, to))
+}
+
+fn write_record_atomically_with(
+    path: &Path,
+    version: &str,
+    mut rename: impl FnMut(&Path, &Path) -> std::io::Result<()>,
+) -> AppResult<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| AppError::internal("extension version record has no parent"))?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| AppError::internal("extension version record has no file name"))?
+        .to_string_lossy();
+
+    let (temporary_path, mut temporary_file) = (0..32)
+        .find_map(|_| {
+            let sequence = RECORD_WRITE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            let candidate = parent.join(format!(".{name}.tmp-{}-{sequence}", std::process::id()));
+            match fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&candidate)
+            {
+                Ok(file) => Some(Ok((candidate, file))),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => None,
+                Err(error) => Some(Err(error)),
+            }
+        })
+        .ok_or_else(|| AppError::internal("could not allocate a temporary version record"))?
+        .map_err(|error| AppError::io(format!("create temporary version record: {error}")))?;
+
+    let write_result = temporary_file
+        .write_all(version.as_bytes())
+        .and_then(|()| temporary_file.sync_all());
+    drop(temporary_file);
+    if let Err(error) = write_result {
+        let _ = fs::remove_file(&temporary_path);
+        return Err(AppError::io(format!(
+            "write temporary version record: {error}"
+        )));
+    }
+
+    if !path.exists() {
+        return rename(&temporary_path, path).map_err(|error| {
+            let _ = fs::remove_file(&temporary_path);
+            AppError::io(format!("promote version record: {error}"))
+        });
+    }
+
+    let backup_path = match next_record_backup_path(parent, &name) {
+        Ok(path) => path,
+        Err(error) => {
+            let _ = fs::remove_file(&temporary_path);
+            return Err(error);
+        }
+    };
+    if let Err(error) = rename(path, &backup_path) {
+        let _ = fs::remove_file(&temporary_path);
+        return Err(AppError::io(format!("preserve version record: {error}")));
+    }
+
+    match rename(&temporary_path, path) {
+        Ok(()) => {
+            if let Err(error) = fs::remove_file(&backup_path) {
+                eprintln!(
+                    "[extension_host] updated version record but could not remove backup {}: {error}",
+                    backup_path.display()
+                );
+            }
+            Ok(())
+        }
+        Err(write_error) => match rename(&backup_path, path) {
+            Ok(()) => {
+                let _ = fs::remove_file(&temporary_path);
+                Err(AppError::io(format!(
+                    "promote version record failed; previous record restored: {write_error}"
+                )))
+            }
+            Err(restore_error) => Err(AppError::new(
+                "EXTENSION_BUNDLE_RECOVERY_FAILED",
+                format!(
+                    "version record update failed ({write_error}); restoring the previous record also failed ({restore_error}); previous record remains at {}",
+                    backup_path.display()
+                ),
+            )),
+        },
+    }
+}
+
+fn next_record_backup_path(parent: &Path, name: &str) -> AppResult<PathBuf> {
+    for _ in 0..32 {
+        let sequence = RECORD_WRITE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let candidate = parent.join(format!(".{name}.backup-{}-{sequence}", std::process::id()));
+        match fs::symlink_metadata(&candidate) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(candidate),
+            Ok(_) => continue,
+            Err(error) => {
+                return Err(AppError::io(format!(
+                    "check version record backup path {}: {error}",
+                    candidate.display()
+                )))
+            }
+        }
+    }
+
+    Err(AppError::internal(format!(
+        "could not allocate a unique version record backup for {name}"
+    )))
 }
 
 /// 版本单调性检查（纯文件系统核心）：`version < 已记录` → 重放/降级，拒绝。
@@ -168,6 +284,37 @@ mod tests {
         assert_eq!(
             read_record_at(&root, "fake-ext").expect("recorded"),
             Some("1.2.0".to_string())
+        );
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn failed_record_replacement_preserves_previous_watermark() {
+        let root = temp_root("atomic-replacement");
+        record_at(&root, "fake-ext", "1.0.0").expect("record old version");
+        let path = record_path(&root, "fake-ext").expect("record path");
+        let mut rename_calls = 0;
+
+        let error = write_record_atomically_with(&path, "2.0.0", |from, to| {
+            rename_calls += 1;
+            if rename_calls == 2 {
+                return Err(std::io::Error::other("simulated record replace failure"));
+            }
+            fs::rename(from, to)
+        })
+        .expect_err("failed replacement must return an error");
+
+        assert_eq!(error.code, "IO_ERROR");
+        assert_eq!(
+            read_record_at(&root, "fake-ext").expect("old watermark remains readable"),
+            Some("1.0.0".to_string())
+        );
+        assert_eq!(
+            fs::read_dir(path.parent().expect("record parent"))
+                .expect("record directory")
+                .count(),
+            1,
+            "temporary and backup files are cleaned after rollback"
         );
         fs::remove_dir_all(&root).ok();
     }

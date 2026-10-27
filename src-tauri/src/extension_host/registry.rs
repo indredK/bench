@@ -224,23 +224,70 @@ pub fn registry_index_url(base: &str) -> String {
 /// 不做严格同源，而是要求 https 且非 localhost（公网分发语义），完整性由
 /// 整包 sha256 + minisign 签名双通道兜底。
 pub fn validate_download_url(url: &str) -> AppResult<()> {
-    if !url.starts_with("https://") {
-        return Err(AppError::forbidden_path(format!(
-            "download url must be https, got `{url}`"
-        )));
+    let parsed = url::Url::parse(url)
+        .map_err(|error| AppError::forbidden_path(format!("download url is invalid: {error}")))?;
+    if parsed.scheme() != "https" || !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err(AppError::forbidden_path(
+            "download url must use HTTPS without embedded credentials",
+        ));
     }
-    let host_part = url
-        .trim_start_matches("https://")
-        .split('/')
-        .next()
-        .unwrap_or("");
-    let host = host_part.split(':').next().unwrap_or("");
-    if host.is_empty() || host == "localhost" || host == "127.0.0.1" || host == "0.0.0.0" {
+
+    let forbidden_host = match parsed.host() {
+        Some(url::Host::Domain(host)) => {
+            let host = host.trim_end_matches('.').to_ascii_lowercase();
+            host.is_empty()
+                || [
+                    "localhost",
+                    "local",
+                    "internal",
+                    "home.arpa",
+                    "test",
+                    "invalid",
+                ]
+                .iter()
+                .any(|suffix| host == *suffix || host.ends_with(&format!(".{suffix}")))
+        }
+        Some(url::Host::Ipv4(address)) => !is_public_download_ipv4(address),
+        Some(url::Host::Ipv6(address)) => !is_public_download_ipv6(address),
+        None => true,
+    };
+    if forbidden_host {
         return Err(AppError::forbidden_path(format!(
-            "download url host `{host}` is not allowed"
+            "download url host `{}` is not allowed",
+            parsed.host_str().unwrap_or_default()
         )));
     }
     Ok(())
+}
+
+fn is_public_download_ipv4(address: std::net::Ipv4Addr) -> bool {
+    let octets = address.octets();
+    !(address.is_private()
+        || address.is_loopback()
+        || address.is_link_local()
+        || address.is_broadcast()
+        || address.is_multicast()
+        || address.is_unspecified()
+        || address.is_documentation()
+        || octets[0] == 0
+        || octets[0] >= 240
+        || (octets[0] == 100 && (64..=127).contains(&octets[1]))
+        || (octets[0] == 198 && (octets[1] == 18 || octets[1] == 19))
+        || (octets[0] == 192 && octets[1] == 0))
+}
+
+fn is_public_download_ipv6(address: std::net::Ipv6Addr) -> bool {
+    let segments = address.segments();
+    !(address.is_loopback()
+        || address.is_unique_local()
+        || address.is_unicast_link_local()
+        || address.is_multicast()
+        || address.is_unspecified()
+        || (segments[0] & 0xffc0) == 0xfec0 // deprecated site-local range
+        || segments[0] == 0x2001 && segments[1] == 0x0db8 // documentation range
+        || address
+            .to_ipv4_mapped()
+            .is_some_and(|mapped| !is_public_download_ipv4(mapped)))
 }
 
 /// 判断某已安装版本是否命中吊销列表；命中返回原因。
@@ -342,6 +389,7 @@ mod tests {
     #[test]
     fn download_url_validation() {
         assert!(validate_download_url("https://cdn.example.com/a.zip").is_ok());
+        assert!(validate_download_url("https://notlocalhost.com/a.zip").is_ok());
         assert_eq!(
             validate_download_url("http://cdn.example.com/a.zip")
                 .unwrap_err()
@@ -360,6 +408,26 @@ mod tests {
                 .code,
             "FORBIDDEN_PATH"
         );
+        for url in [
+            "https://user:secret@cdn.example.com/a.zip",
+            "https://attacker.example@127.0.0.1/a.zip",
+            "https://localhost./a.zip",
+            "https://registry.local/a.zip",
+            "https://metadata.internal/a.zip",
+            "https://127.0.0.1/a.zip",
+            "https://10.0.0.1/a.zip",
+            "https://169.254.169.254/a.zip",
+            "https://100.64.0.1/a.zip",
+            "https://[::1]/a.zip",
+            "https://[fd00::1]/a.zip",
+            "https://[::ffff:127.0.0.1]/a.zip",
+        ] {
+            assert_eq!(
+                validate_download_url(url).unwrap_err().code,
+                "FORBIDDEN_PATH",
+                "{url} must be rejected"
+            );
+        }
     }
 
     #[test]

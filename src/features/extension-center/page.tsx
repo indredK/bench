@@ -177,6 +177,7 @@ export default function ExtensionCenterPage() {
     refreshMarket,
     pendingPreview,
     committing,
+    cancellingPreview,
     confirmInstall,
     cancelInstall,
   } = useMarketController()
@@ -260,7 +261,11 @@ export default function ExtensionCenterPage() {
 
       <InstallConfirmDialog
         preview={pendingPreview}
+        replacingInstalled={Boolean(
+          pendingPreview && items.some((item) => item.id === pendingPreview.id),
+        )}
         committing={committing}
+        cancelling={cancellingPreview}
         onConfirm={() => void confirmInstall()}
         onCancel={cancelInstall}
       />

@@ -155,6 +155,13 @@ pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
     };
     for entry in entries.flatten() {
         let path = entry.path();
+        if entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with(super::extraction::BUNDLE_BACKUP_PREFIX)
+        {
+            continue;
+        }
         if !path.is_dir() {
             continue;
         }
@@ -203,6 +210,16 @@ pub fn ext_list_installed(app: AppHandle) -> AppResult<Vec<ExtensionSummary>> {
 ///   抬升版本水位（重放防护的记录侧；拒绝侧在 P4 安装路径）。
 #[tauri::command]
 pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) -> AppResult<String> {
+    if !super::manifest::is_valid_extension_id(&extension_id) {
+        return Err(AppError::invalid_input(format!(
+            "invalid extension id `{extension_id}`"
+        )));
+    }
+    let acl_state = app.state::<super::acl::ExtensionAclState>();
+    let _transition = acl_state
+        .begin_transition(&extension_id)
+        .ok_or_else(extension_transition_busy)?;
+
     // 校验链封装为闭包：任一步失败 → `verify_fail` 审计（P3.3）后再拒绝。
     let open_verified = || -> AppResult<(ExtensionManifest, PathBuf)> {
         let dir = extension_dir(&app, &extension_id)?;
@@ -266,15 +283,75 @@ pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) ->
         "window.__BENCH_EXT_LOCALE = {};",
         serde_json::to_string(&locale).unwrap_or_else(|_| "null".to_string())
     );
-    WebviewWindowBuilder::new(&app, &label, WebviewUrl::CustomProtocol(url))
+    if !acl_state.grant(&label, &manifest.acl.commands) {
+        return Err(AppError::internal(
+            "register extension permissions failed; extension window was not opened",
+        ));
+    }
+    if let Err(error) = WebviewWindowBuilder::new(&app, &label, WebviewUrl::CustomProtocol(url))
         .title(format!("{} · Bench Extension", manifest.display_name("en")))
         .inner_size(960.0, 680.0)
         .center()
         .initialization_script(locale_script)
         .initialization_script(EXT_ERROR_CAPTURE_SCRIPT)
         .build()
-        .map_err(|e| AppError::internal(format!("open extension window failed: {e}")))?;
+    {
+        acl_state.revoke(&label);
+        return Err(AppError::internal(format!(
+            "open extension window failed: {error}"
+        )));
+    }
     Ok(label)
+}
+
+/// Stop a running WebView before changing the bundle, enabled state, or installation.
+/// Revoke first; if native destruction fails and the window remains, restore its prior grant.
+pub(super) async fn close_extension_window(app: &AppHandle, extension_id: &str) -> AppResult<()> {
+    let label = extension_window_label(extension_id);
+    let acl_state = app.state::<super::acl::ExtensionAclState>();
+    let previous_grant = acl_state.snapshot(&label);
+    let Some(window) = app.get_webview_window(&label) else {
+        acl_state.revoke(&label);
+        return Ok(());
+    };
+
+    acl_state.revoke(&label);
+    let destroy_result = window.destroy();
+    drop(window);
+    if let Err(error) = destroy_result {
+        if app.get_webview_window(&label).is_some() {
+            if let Some(commands) = previous_grant.as_deref() {
+                let _ = acl_state.grant(&label, commands);
+            }
+        }
+        return Err(AppError::new(
+            "EXTENSION_WINDOW_CLOSE_FAILED",
+            format!("close extension window `{label}` before lifecycle change failed: {error}"),
+        ));
+    }
+
+    // `destroy` is dispatched to the native window thread. Do not replace files until the
+    // app's window registry confirms the WebView is gone; otherwise a delayed close can race
+    // a subsequent `ext_open` and return a window with no matching ACL.
+    for _ in 0..40 {
+        if app.get_webview_window(&label).is_none() {
+            return Ok(());
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+
+    if app.get_webview_window(&label).is_some() {
+        if let Some(commands) = previous_grant.as_deref() {
+            let _ = acl_state.grant(&label, commands);
+        }
+        return Err(AppError::new(
+            "EXTENSION_WINDOW_CLOSE_FAILED",
+            format!(
+            "extension window `{label}` did not close in time; installed bundle was not changed"
+        ),
+        ));
+    }
+    Ok(())
 }
 
 /// 卸载插件：关闭窗口并删除产物目录（含禁用标记）。
@@ -283,13 +360,15 @@ pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) ->
 /// 「清除残留数据」独立入口属插件中心 P4 项。同时清除版本水位，
 /// 使重装旧版本不被历史水位卡死。
 #[tauri::command]
-pub fn ext_uninstall(app: AppHandle, extension_id: String) -> AppResult<()> {
+pub async fn ext_uninstall(app: AppHandle, extension_id: String) -> AppResult<()> {
     let dir = extension_dir(&app, &extension_id)?;
+    let acl_state = app.state::<super::acl::ExtensionAclState>();
+    let _transition = acl_state
+        .begin_transition(&extension_id)
+        .ok_or_else(extension_transition_busy)?;
     // 仅允许删除合法插件目录（防止误删任意路径）。
     let (manifest, _canonical) = read_manifest(&dir)?;
-    if let Some(existing) = app.get_webview_window(extension_window_label(&extension_id).as_str()) {
-        let _ = existing.close();
-    }
+    close_extension_window(&app, &extension_id).await?;
     fs::remove_dir_all(&dir).map_err(|e| AppError::io(format!("uninstall {extension_id}: {e}")))?;
     // 产物已删除；水位清理失败不阻断卸载（仅记录）。
     if let Err(error) = records::clear_record(&app, &extension_id) {
@@ -307,8 +386,16 @@ pub fn ext_uninstall(app: AppHandle, extension_id: String) -> AppResult<()> {
 
 /// 启用/禁用插件（以 `.disabled` 标记实现；禁用时关闭已开窗口），返回新状态。
 #[tauri::command]
-pub fn ext_set_enabled(app: AppHandle, extension_id: String, enabled: bool) -> AppResult<bool> {
+pub async fn ext_set_enabled(
+    app: AppHandle,
+    extension_id: String,
+    enabled: bool,
+) -> AppResult<bool> {
     let dir = extension_dir(&app, &extension_id)?;
+    let acl_state = app.state::<super::acl::ExtensionAclState>();
+    let _transition = acl_state
+        .begin_transition(&extension_id)
+        .ok_or_else(extension_transition_busy)?;
     // id 合法性之外再确认插件存在（manifest 可读）。
     let (manifest, _canonical) = read_manifest(&dir)?;
     let marker = dir.join(EXT_DISABLED_MARKER);
@@ -317,12 +404,8 @@ pub fn ext_set_enabled(app: AppHandle, extension_id: String, enabled: bool) -> A
             fs::remove_file(&marker).map_err(|e| AppError::io(format!("remove marker: {e}")))?;
         }
     } else {
+        close_extension_window(&app, &extension_id).await?;
         fs::write(&marker, "").map_err(|e| AppError::io(format!("write marker: {e}")))?;
-        if let Some(existing) =
-            app.get_webview_window(extension_window_label(&extension_id).as_str())
-        {
-            let _ = existing.close();
-        }
     }
     audit::record(
         &app,
@@ -336,6 +419,13 @@ pub fn ext_set_enabled(app: AppHandle, extension_id: String, enabled: bool) -> A
         None,
     );
     Ok(enabled)
+}
+
+pub(super) fn extension_transition_busy() -> AppError {
+    AppError::new(
+        "EXTENSION_BUSY",
+        "another lifecycle operation for this extension is already in progress",
+    )
 }
 
 /// 返回调用方插件窗口的私有数据目录（`$APPDATA/extension-data/<id>/`），
