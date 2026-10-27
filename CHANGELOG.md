@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.38.4](https://github.com/indredK/bench/compare/v1.38.3...v1.38.4) (2026-10-27)
+
+
+### Bug Fixes
+
+* **network-probe:** scan IPv6 literals with nmap ([#185](https://github.com/indredK/bench/issues/185)) ([a78a861](https://github.com/indredK/bench/commit/a78a861566fc47ed270e0ae51d8adbbb2da42150))
+
 ## [1.38.3](https://github.com/indredK/bench/compare/v1.38.2...v1.38.3) (2026-10-27)
 
 
