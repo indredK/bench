@@ -17,6 +17,11 @@ interface NtpPanelProps {
 
 export function NtpPanel({ loading, result, toolEnabled, toolStatus, onRun }: NtpPanelProps) {
   const { t } = useTranslation()
+  const severity = result
+    ? t(`networkProbe.ntp.severities.${result.severity}`, {
+        defaultValue: t("networkProbe.ntp.severities.unknown"),
+      })
+    : null
   return (
     <ProbePanelShell
       toolbar={
@@ -45,13 +50,25 @@ export function NtpPanel({ loading, result, toolEnabled, toolStatus, onRun }: Nt
             <div>
               {t("networkProbe.ntp.offset", {
                 seconds: result.offsetSeconds.toFixed(3),
-                severity: result.severity,
+                severity,
               })}
             </div>
           ) : (
             <div>{t("networkProbe.ntp.fail")}</div>
           )}
-          {result.detail ? <p className="text-muted-foreground text-xs">{result.detail}</p> : null}
+          {result.rttSeconds != null ? (
+            <p className="text-muted-foreground text-xs">
+              {t("networkProbe.ntp.rtt", { seconds: result.rttSeconds.toFixed(3) })}
+            </p>
+          ) : null}
+          {result.detail ? (
+            <details className="text-muted-foreground text-xs">
+              <summary className="cursor-pointer select-none">
+                {t("networkProbe.ntp.details")}
+              </summary>
+              <p className="mt-1 break-words">{result.detail}</p>
+            </details>
+          ) : null}
           <div className="text-muted-foreground font-mono text-xs">{result.commandHint}</div>
         </div>
       ) : null}

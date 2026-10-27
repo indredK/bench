@@ -495,7 +495,7 @@ export interface NtpProbeResult {
   ok: boolean
   offsetSeconds?: number
   rttSeconds?: number
-  severity: string
+  severity: "ok" | "info" | "warn" | "fail"
   detail?: string
   elapsedMs: number
   commandHint: string

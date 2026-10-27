@@ -2342,10 +2342,19 @@
       }
     },
     "ntp": {
-      "hint": "Query pool.ntp.org for clock offset. Large skew can break TLS and auth.",
+      "hint": "Query multiple built-in NTP servers for clock offset. Large skew can break TLS and auth.",
       "run": "Probe NTP",
       "running": "Probing…",
       "offset": "Offset {{seconds}} s ({{severity}})",
+      "rtt": "Average round-trip delay {{seconds}} s",
+      "details": "Server response details",
+      "severities": {
+        "ok": "Within range",
+        "info": "Needs attention",
+        "warn": "High skew",
+        "fail": "Unavailable",
+        "unknown": "Unknown"
+      },
       "fail": "NTP probe failed"
     },
     "report": {

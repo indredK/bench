@@ -225,7 +225,7 @@ async fn wait_for_probe_slot(
 }
 
 async fn probe_one(host: String, port: u16, timeout_ms: u64) -> PortSampleEvent {
-    let addr = format!("{host}:{port}");
+    let addr = tcp_connect_address(&host, port);
     let started = Instant::now();
     match timeout(Duration::from_millis(timeout_ms), TcpStream::connect(addr)).await {
         Ok(Ok(_stream)) => PortSampleEvent {
@@ -252,6 +252,13 @@ async fn probe_one(host: String, port: u16, timeout_ms: u64) -> PortSampleEvent 
             service_hint: None,
             rtt_ms: None,
         },
+    }
+}
+
+fn tcp_connect_address(host: &str, port: u16) -> String {
+    match host.parse::<IpAddr>() {
+        Ok(IpAddr::V6(_)) => format!("[{host}]:{port}"),
+        _ => format!("{host}:{port}"),
     }
 }
 
@@ -287,12 +294,7 @@ async fn try_nmap_syn<R: Runtime>(
         .map(|p| p.to_string())
         .collect::<Vec<_>>()
         .join(",");
-    let args = |scan: &str| {
-        let mut args = vec!["-Pn".to_string(), scan.to_string()];
-        append_nmap_scan_limits(&mut args);
-        args.extend(["-p".to_string(), port_arg.clone(), target.to_string()]);
-        args
-    };
+    let args = |scan: &str| nmap_scan_args(scan, &port_arg, target);
 
     // Prefer -sS; if it is not permitted, retry with nmap's unprivileged -sT.
     let syn_output =
@@ -541,7 +543,9 @@ async fn try_nmap_fingerprint<R: Runtime>(
 }
 
 fn fingerprint_nmap_args(scan: &str, ports: &str, target: &str, detect_os: bool) -> Vec<String> {
-    let mut args = vec![
+    let mut args = Vec::with_capacity(24);
+    append_nmap_address_family(&mut args, target);
+    args.extend([
         "-Pn".to_string(),
         // Nmap uses Polite timing to keep version detection serial. The
         // explicit scan delay below paces port and OS probes, but Nmap's
@@ -550,7 +554,7 @@ fn fingerprint_nmap_args(scan: &str, ports: &str, target: &str, detect_os: bool)
         scan.to_string(),
         "-sV".to_string(),
         "--version-light".to_string(),
-    ];
+    ]);
     if detect_os {
         args.extend([
             "-O".to_string(),
@@ -568,6 +572,21 @@ fn fingerprint_nmap_args(scan: &str, ports: &str, target: &str, detect_os: bool)
         target.to_string(),
     ]);
     args
+}
+
+fn nmap_scan_args(scan: &str, ports: &str, target: &str) -> Vec<String> {
+    let mut args = Vec::with_capacity(12);
+    append_nmap_address_family(&mut args, target);
+    args.extend(["-Pn".to_string(), scan.to_string()]);
+    append_nmap_scan_limits(&mut args);
+    args.extend(["-p".to_string(), ports.to_string(), target.to_string()]);
+    args
+}
+
+fn append_nmap_address_family(args: &mut Vec<String>, target: &str) {
+    if matches!(target.parse::<IpAddr>(), Ok(IpAddr::V6(_))) {
+        args.push("-6".to_string());
+    }
 }
 
 fn append_nmap_scan_limits(args: &mut Vec<String>) {
@@ -1558,6 +1577,26 @@ mod fingerprint_tests {
     }
 
     #[test]
+    fn nmap_uses_ipv6_mode_for_both_port_scan_modes() {
+        let scan_args = nmap_scan_args("-sT", "443", "::1");
+        let fingerprint_args = fingerprint_nmap_args("-sT", "443", "::1", false);
+
+        assert_eq!(scan_args.first().map(String::as_str), Some("-6"));
+        assert_eq!(fingerprint_args.first().map(String::as_str), Some("-6"));
+    }
+
+    #[test]
+    fn nmap_keeps_ipv4_and_hostnames_on_automatic_family_selection() {
+        for target in ["127.0.0.1", "example.com"] {
+            let scan_args = nmap_scan_args("-sT", "443", target);
+            let fingerprint_args = fingerprint_nmap_args("-sT", "443", target, false);
+
+            assert!(!scan_args.iter().any(|arg| arg == "-6"), "{target}");
+            assert!(!fingerprint_args.iter().any(|arg| arg == "-6"), "{target}");
+        }
+    }
+
+    #[test]
     fn only_privilege_failures_trigger_connect_fallback() {
         assert!(requires_unprivileged_connect_fallback(
             false,
@@ -1697,4 +1736,29 @@ pub fn parse_port_range(spec: &str) -> AppResult<Vec<u16>> {
         )));
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tcp_connect_address_tests {
+    use super::tcp_connect_address;
+    use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+
+    #[test]
+    fn brackets_ipv6_literal_for_tcp_connect() {
+        let address = tcp_connect_address("::1", 34780);
+        let parsed = address
+            .parse::<SocketAddr>()
+            .expect("IPv6 TCP socket addresses must be bracketed");
+
+        assert_eq!(
+            parsed,
+            SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 34780)
+        );
+    }
+
+    #[test]
+    fn keeps_ipv4_and_hostnames_in_host_port_form() {
+        assert_eq!(tcp_connect_address("127.0.0.1", 80), "127.0.0.1:80");
+        assert_eq!(tcp_connect_address("localhost", 80), "localhost:80");
+    }
 }

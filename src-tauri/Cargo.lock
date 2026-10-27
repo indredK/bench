@@ -439,6 +439,7 @@ dependencies = [
  "rand 0.10.3",
  "reqwest",
  "reqwest-websocket",
+ "rsntp",
  "rtc-stun",
  "rusqlite",
  "semver",
@@ -4471,6 +4472,15 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rsntp"
+version = "4.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc507d0efdc8ce91a17455b1efe9ada6a21e2414470b3f1d84aefc7ebcf247bd"
+dependencies = [
+ "tokio",
 ]
 
 [[package]]

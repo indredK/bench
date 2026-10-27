@@ -15,4 +15,6 @@
 
 **指纹验收与 IPv6 风险提示（2026-10-25）**：隔离 macOS QA 对仅监听 `127.0.0.1:48765` 的临时 HTTP 服务完成单端口 Nmap 轻量指纹扫描，识别 HTTP 服务，权限不足时提示没有可靠 OS 匹配；未运行 NSE，服务退出后确认无遗留 Nmap 进程。审查发现 IPv6 ULA / 链路本地目标在前端被误判为公网，改用 `ipaddr.js` 并新增分类回归；隔离 QA 确认 `fd00::1` 走本地错误路径且不显示风险确认，公网 IPv6 会显示确认并可取消，未发包。
 
+**IPv6 Nmap 扫描（2026-10-27）**：本地修复普通扫描、指纹扫描缺少 `-6`，以及内置 TCP fallback 未用方括号封装 IPv6 socket 地址的问题。Rust 端口扫描回归、Clippy、跨平台 cfg、完整后端测试及关键前端测试通过；隔离 QA app 已编译，`::1` 真机扫描待授权验收。
+
 **验证命令**：`pnpm run lint:fe` + `pnpm run test:critical` + `cargo clippy -- -D warnings`。

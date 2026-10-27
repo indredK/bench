@@ -7,7 +7,7 @@
 ## 当前状态
 
 - 模块 1.0 / MVP A+B 已闭环（D-016）。
-- Post-MVP：测速、Globalping DNS/Ping/HTTP 与可选 token、agent 注册骨架、安全/发现主路径已交付；Nmap 轻量服务 / OS 指纹已完成 loopback 真机验收；STUN 多源映射观察已完成 loopback UI 验收；**特权 helper 仍待**。
+- Post-MVP：测速、Globalping DNS/Ping/HTTP 与可选 token、agent 注册骨架、安全/发现主路径已交付；S3-6 Nmap 轻量服务 / OS 指纹已完成 loopback 真机验收；STUN 多源映射观察已完成 loopback UI 验收；IPv6 Nmap 修复当前在工作区等待隔离真机验收；**特权 helper 仍待**。
 
 ## 待实现（未完成项）
 
@@ -17,7 +17,6 @@
 
 ### Wave 3 · 安全 Tab（续）
 
-- [ ] **S3-6** 服务 / OS 指纹 + 风险标注（依赖 S3-5；实现已落入工作区，待隔离 macOS 真机验证与远程构建）。
 - [ ] **S3-8** 特权分层：`priv-helper` / 触发提权 / 自动降级文案（依赖 Wave 1）。
 
 ### Wave 5 · Polish 增强（产品化）
@@ -25,11 +24,15 @@
 ### Wave 2 · Post-MVP-C（续）
 
 - [ ] **C2-3** 自有 agent 远程执行：TLS / 鉴权 / 限速贯通，`nodeId` 全链路（HTTPS 与 WSS 注册/健康检查、白名单已交付；凭据存储与远程执行待，◐）。
-- [ ] **C2-4** STUN NAT 行为分类：仅在接入明确兼容 RFC 5780 的服务器后评估；逐源报告映射 / 过滤行为与耗时，并验证单源故障不丢弃其他结果。不得从普通 Binding 的跨服务器差异推断 NAT 类型。本期映射观察已交付。
+
+### 暂缓（不属于当前交付范围）
+
+- RFC 5780 STUN NAT 行为分类（原 C2-4）：根据 [D-041](../../explanation/decisions.md#d-041--stun-面板当前只报告映射观察)，本期只报告 Binding 映射观察；只有接入明确兼容 RFC 5780 的服务器后才重新评估。不得从普通 Binding 的跨服务器差异推断 NAT 类型。
 
 ## 待验证（真机 / 行为）
 
 - [ ] macOS 真机：Local Network / TCC 权限不足时各探测（ping/ARP/抓包）的稳定错误码与「打开系统设置」引导生效。
+- [ ] macOS 隔离 QA 真机：IPv6 字面量 `::1` 的普通 Nmap、轻量指纹扫描及无 Nmap 时 TCP fallback；验证只访问 loopback，系统权限提示出现时停止测试。
 - [x] macOS 隔离 QA 真机：测速源指向 `127.0.0.1:9` 后进入 30s 不可用冷却；倒计时结束后恢复重试，interval 停止（诊断计数连续 2.2s 不变）。
 - [x] macOS 隔离 QA 真机：ping 正常但下载请求超时、上传失败时进入 30s 冷却；倒计时结束可重新测速，取消重试不进入冷却。
 - [x] macOS 隔离 QA 真机：下载响应体持续挂起时取消测速，界面立即结束 loading 且不进入冷却；马上重跑并再次取消成功，本机 loopback 服务两次都观察到响应连接关闭。
@@ -54,7 +57,9 @@
 
 ## 变更记录
 
-- 2026-10-27：采用成熟 `rtc-stun` 实现 STUN Binding 编解码与事务 ID 校验，逐源显示映射 / 超时 / 失败；用户确认本期只报告映射观察，RFC 5780 分类保留为 C2-4。隔离 macOS QA 对 loopback responder 完成一次 UI 真机验收，远程 CI 等分支更新后验证。
+- 2026-10-27：采用成熟 `rtc-stun` 实现 STUN Binding 编解码与事务 ID 校验，逐源显示映射 / 超时 / 失败；用户确认本期只报告映射观察，RFC 5780 分类移出当前验收清单并暂缓。隔离 macOS QA 对 loopback responder 完成一次 UI 真机验收，远程 CI 等分支更新后验证。
+- 2026-10-27：S3-6 服务 / OS 指纹与风险标注已完成 loopback 真机验收；后续静态审计发现普通 Nmap、指纹 Nmap 缺少 IPv6 `-6`，TCP fallback 的 IPv6 socket 地址也未加方括号。已修复并完成 `test:be` 718 项（1 项跳过）、`test:critical` 393 项、`lint:fe`、Clippy、cfg、Rust 格式、Prettier 与 `build:fe`。IPv6 loopback UI 验收待授权；当前不推送。
+- 2026-10-27：NTP 静态审计发现回包未核对来源和 RFC 状态，且仅解析首个 DNS 地址并固定绑定 IPv4。改用成熟 `rsntp` 做响应校验与 offset 计算，按 IPv4/IPv6 地址族绑定，限制逐源 DNS/请求时限并重试地址；新增 loopback 响应校验、来源过滤和地址回退测试。NTP 面板本地化严重度、显示 RTT、默认折叠原始详情；偶数来源取中间两值均值。loopback 协议测试、UI 与全量自动化通过；公网 UDP / 面板真机验收待授权，当前不推送。
 
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 

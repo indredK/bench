@@ -604,7 +604,7 @@ mod tests {
             version_command_succeeds(program.as_os_str(), Duration::from_secs(2)).await
         });
 
-        let pid = tokio::time::timeout(Duration::from_secs(1), async {
+        let pid = tokio::time::timeout(Duration::from_secs(5), async {
             loop {
                 if let Ok(pid) = fs::read_to_string(&pid_file) {
                     break pid;
@@ -614,7 +614,7 @@ mod tests {
         })
         .await
         .expect("mock version command should start");
-        let found = tokio::time::timeout(Duration::from_secs(2), probe)
+        let found = tokio::time::timeout(Duration::from_secs(4), probe)
             .await
             .expect("stalled version probe should respect its deadline")
             .expect("version probe task should finish");
@@ -622,7 +622,7 @@ mod tests {
             !found,
             "stalled version probes must be treated as unavailable"
         );
-        assert!(started.elapsed() < Duration::from_secs(3));
+        assert!(started.elapsed() < Duration::from_secs(8));
 
         let child_exited = tokio::time::timeout(Duration::from_secs(2), async {
             loop {

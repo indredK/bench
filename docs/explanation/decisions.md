@@ -2,6 +2,15 @@
 
 本文件只记录仍影响当前实现的方向性取舍；“做什么”以 [ROADMAP.md](../roadmap/ROADMAP.md) 为准，当前风险以 [audit-report.md](./audit-report.md) 为准。已推翻和已完成历史由 Git 保留。
 
+## D-041 · STUN 面板当前只报告映射观察
+
+- **日期**：2026-10-27
+- **状态**：采纳
+- **决策**：当前 NAT 面板只使用 STUN Binding 逐服务器报告映射地址、超时或失败，不推断 NAT 类型，也不实现 RFC 5780 映射 / 过滤行为分类。只有确认接入兼容 RFC 5780 的服务端后，才重新评估分类范围。
+- **理由**：普通 Binding 响应不足以区分 RFC 5780 定义的行为；从跨服务器映射差异推断 NAT 类型会制造超出证据的结论。
+- **影响**：产品规格和验收清单以映射观察为当前契约；RFC 5780 分类作为暂缓扩展，不阻塞本期完成。
+- **相关**：[Network Probe discovery design](../modules/network-probe/design-discover.md) · [Network Probe roadmap](../roadmap/planned/network-probe.md)
+
 ## D-040 · 新增「直读本机 Chrome 落盘登录态」作为 I3 兜底入向（修正一条基于错误事实的红线）
 
 - **日期**：2026-09-19

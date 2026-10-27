@@ -205,22 +205,21 @@ ASN（可选第二跳）：
 
 ### 8.1 STUN（`stun_servers`）· S-DIS-03
 
-| id         | server                     |
-| ---------- | -------------------------- |
-| `google-a` | `stun.l.google.com:19302`  |
-| `google-b` | `stun1.l.google.com:19302` |
-| `google-c` | `stun2.l.google.com:19302` |
+| id           | server                     |
+| ------------ | -------------------------- |
+| `google-a`   | `stun.l.google.com:19302`  |
+| `google-b`   | `stun1.l.google.com:19302` |
+| `cloudflare` | `stun.cloudflare.com:3478` |
 
 ### 8.2 NTP（`ntp_servers`）· S-DIS-03
 
-| id           | server                          |
-| ------------ | ------------------------------- |
-| `apple`      | `time.apple.com`                |
-| `cloudflare` | `time.cloudflare.com`           |
-| `google`     | `time.google.com`               |
-| `cn-ali`     | `ntp.aliyun.com`（cn 区域优先） |
+| id           | server                    |
+| ------------ | ------------------------- |
+| `cloudflare` | `time.cloudflare.com:123` |
+| `google`     | `time.google.com:123`     |
+| `pool`       | `pool.ntp.org:123`        |
 
-阈值建议：`warn > 500ms`，`high > 2000ms`（相对中位源）。
+当前阈值按多源 offset 中位数的绝对值分类：`<= 0.5s` 正常，`> 0.5s` 需关注，`> 2s` 偏差较大；可用来源为偶数时取中间两值的平均数。探测只读取时间偏差，不修改系统时钟。
 
 ### 8.3 测速源（`speed_sources`）· S-TT-04
 
