@@ -9,6 +9,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  MAX_REGEX_INPUT_LENGTH,
+  MAX_REGEX_PATTERN_LENGTH,
+} from "@/features/dev-toolbox/services/regex-tester"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -47,6 +51,7 @@ export function DevtoolsPanel({ controller }: { controller: DevToolboxController
     regexReplacement,
     setRegexReplacement,
     regexResult,
+    regexTesting,
     schemaInput,
     setSchemaInput,
     schemaResult,
@@ -233,12 +238,14 @@ export function DevtoolsPanel({ controller }: { controller: DevToolboxController
             <Input
               className="min-w-0 flex-1 font-mono text-xs"
               value={regexPattern}
+              disabled={regexTesting}
               onChange={(e) => setRegexPattern(e.target.value)}
               placeholder={t("systemSettings.devtools.regexPatternPlaceholder")}
             />
             <Input
               className="w-24 shrink-0 font-mono text-xs"
               value={regexFlags}
+              disabled={regexTesting}
               onChange={(e) => setRegexFlags(e.target.value)}
               placeholder={t("systemSettings.devtools.regexFlagsPlaceholder")}
               aria-label={t("systemSettings.devtools.regexFlagsLabel")}
@@ -247,23 +254,59 @@ export function DevtoolsPanel({ controller }: { controller: DevToolboxController
           <Textarea
             className="bg-muted h-20 font-mono text-xs"
             value={regexInput}
+            disabled={regexTesting}
             onChange={(e) => setRegexInput(e.target.value)}
             placeholder={t("systemSettings.devtools.regexInputPlaceholder")}
           />
           <Input
             className="font-mono text-xs"
             value={regexReplacement}
+            disabled={regexTesting}
             onChange={(e) => setRegexReplacement(e.target.value)}
             placeholder={t("systemSettings.devtools.regexReplacePlaceholder")}
           />
+          <p className="text-muted-foreground text-[11px]">
+            {t("systemSettings.devtools.regexSizeHint", {
+              patternMax: MAX_REGEX_PATTERN_LENGTH,
+              inputMax: MAX_REGEX_INPUT_LENGTH,
+            })}
+          </p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleRegexTest}>
-              {t("systemSettings.devtools.regexTest")}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={regexTesting}
+              aria-busy={regexTesting}
+              onClick={handleRegexTest}
+            >
+              {t(
+                regexTesting
+                  ? "systemSettings.devtools.regexTesting"
+                  : "systemSettings.devtools.regexTest",
+              )}
             </Button>
           </div>
           {regexResult && !regexResult.ok && (
             <div className="text-destructive border-destructive/40 bg-destructive/10 rounded border p-2 text-xs">
-              {t("systemSettings.devtools.regexInvalidPattern")}: {regexResult.error}
+              {regexResult.code === "TIMEOUT"
+                ? t("systemSettings.devtools.regexTimeout")
+                : regexResult.code === "WORKER_UNAVAILABLE"
+                  ? t("systemSettings.devtools.regexWorkerUnavailable")
+                  : regexResult.code === "WORKER_FAILED"
+                    ? t("systemSettings.devtools.regexWorkerFailed")
+                    : regexResult.code === "PATTERN_TOO_LONG"
+                      ? t("systemSettings.devtools.regexPatternTooLong", {
+                          max: MAX_REGEX_PATTERN_LENGTH,
+                        })
+                      : regexResult.code === "INPUT_TOO_LONG"
+                        ? t("systemSettings.devtools.regexInputTooLong", {
+                            max: MAX_REGEX_INPUT_LENGTH,
+                          })
+                        : regexResult.code === "REPLACEMENT_TOO_LONG"
+                          ? t("systemSettings.devtools.regexReplacementTooLong", {
+                              max: MAX_REGEX_INPUT_LENGTH,
+                            })
+                          : t("systemSettings.devtools.regexInvalidPattern")}
             </div>
           )}
           {regexResult && regexResult.ok && (

@@ -27,3 +27,4 @@
 - 2026-09-22：把 page.tsx 的三个内联渲染函数拆到 `components/{devtools,diagnostics,info}-panel.tsx`（共享同一 controller 实例，行为不变），planned#9「拆分文件」关闭。
 - 2026-09-22：新增 `__tests__/dev-toolbox-panels.test.tsx` 渲染用例，验证拆分后各面板分节标题/控件齐全（含端口检测按钮），planned#11 关闭。
 - 2026-09-23：JSON 格式化工具旁新增 **JSON Schema 校验**（`services/json-schema.ts`，零依赖自研 Draft-07 核心子集：type/enum/const/数值/字符串/数组/对象/组合器/if-then-else/布尔 schema/本地 $ref）。本机离线装不了 ajv，故自研并配 13 项单测；可靠性护栏照 design §2——schema/数据解析失败返回结构化错误不抛异常，**不支持的关键字记入 unsupported 并标注「尽力校验」而非静默放过**，递归深度/步数/错误数设上界防钉死。即时纯计算、无 IPC 变更。→ planned「JSON Schema 可选校验」关闭。
+- 2026-09-27：正则测试改在可终止 Web Worker 执行，超过 1 秒自动终止并提供中英文状态提示；限制表达式/文本/替换内容的长度并在发送 Worker 前校验，修复短输入即可触发的灾难性回溯阻塞 UI 问题。修正恰好 1,000 条匹配时的误截断，补边界与 Worker 超时/重入保护测试，并在 macOS 真机复测。

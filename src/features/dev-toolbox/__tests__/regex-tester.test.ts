@@ -42,13 +42,14 @@ describe("dev-toolbox regex tester (pure)", () => {
     const result = testRegex("(unclosed", "", "abc")
     expect(result.ok).toBe(false)
     if (result.ok) return
-    expect(typeof result.error).toBe("string")
-    expect(result.error.length).toBeGreaterThan(0)
+    expect(result.code).toBe("INVALID_PATTERN")
   })
 
   it("returns a structured error for invalid flags", () => {
     const result = testRegex("abc", "q", "abc")
     expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.code).toBe("INVALID_PATTERN")
   })
 
   it("does not hang on a zero-length match (loop guard advances lastIndex)", () => {
@@ -66,6 +67,33 @@ describe("dev-toolbox regex tester (pure)", () => {
     if (!result.ok) return
     expect(result.total).toBe(1000)
     expect(result.truncated).toBe(true)
+  })
+
+  it("does not claim an exact match limit was truncated", () => {
+    const result = testRegex(".", "", "x".repeat(1000))
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.total).toBe(1000)
+    expect(result.truncated).toBe(false)
+  })
+
+  it("rejects oversized pattern, input, and replacement before evaluation", () => {
+    expect(testRegex("x".repeat(4097), "", "x")).toEqual({
+      ok: false,
+      code: "PATTERN_TOO_LONG",
+    })
+    expect(testRegex("x", "", "x".repeat(20001))).toEqual({
+      ok: false,
+      code: "INPUT_TOO_LONG",
+    })
+    expect(testRegex("x", "", "x", "y".repeat(20001))).toEqual({
+      ok: false,
+      code: "REPLACEMENT_TOO_LONG",
+    })
+    expect(testRegex("x", "g".repeat(9), "x")).toEqual({
+      ok: false,
+      code: "INVALID_PATTERN",
+    })
   })
 
   it("computes a replacement preview when a replacement is supplied", () => {

@@ -15,6 +15,7 @@ const {
   generateUuid,
   timestampConvert,
   pingHost,
+  runRegexTestInWorker,
 } = vi.hoisted(() => ({
   loadSystemInfo: vi.fn(),
   jsonFormat: vi.fn(),
@@ -25,6 +26,7 @@ const {
   generateUuid: vi.fn(),
   timestampConvert: vi.fn(),
   pingHost: vi.fn(),
+  runRegexTestInWorker: vi.fn(),
 }))
 
 vi.mock("@/features/system-settings/services/system-info.use-cases", () => ({
@@ -51,6 +53,10 @@ vi.mock("@/features/system-settings/hooks/useSettingAction", () => ({
   }),
 }))
 
+vi.mock("@/features/dev-toolbox/services/regex-runner", () => ({
+  runRegexTestInWorker,
+}))
+
 import { useDevToolboxController } from "@/features/dev-toolbox/hooks/useDevToolboxController"
 
 beforeEach(() => {
@@ -63,6 +69,13 @@ beforeEach(() => {
   generateUuid.mockReset()
   timestampConvert.mockReset()
   pingHost.mockReset()
+  runRegexTestInWorker.mockReset().mockResolvedValue({
+    ok: true,
+    matches: [],
+    total: 0,
+    truncated: false,
+    replaced: null,
+  })
 })
 
 describe("useDevToolboxController (A4-4)", () => {
@@ -194,5 +207,68 @@ describe("useDevToolboxController (A4-4)", () => {
     })
     expect(pingHost).toHaveBeenCalledWith("8.8.8.8", 5)
     expect(result.current.diagnosticResult).toBe("PING ok")
+  })
+
+  it("runs regex tests asynchronously and returns to the idle state", async () => {
+    const { result } = renderHook(() => useDevToolboxController())
+    act(() => {
+      result.current.setRegexPattern("\\d+")
+      result.current.setRegexFlags("gi")
+      result.current.setRegexInput("a12")
+      result.current.setRegexReplacement("[$&]")
+    })
+
+    await act(async () => {
+      await result.current.handleRegexTest()
+    })
+
+    expect(runRegexTestInWorker).toHaveBeenCalledWith({
+      pattern: "\\d+",
+      flags: "gi",
+      input: "a12",
+      replacement: "[$&]",
+    })
+    expect(result.current.regexResult).toEqual({
+      ok: true,
+      matches: [],
+      total: 0,
+      truncated: false,
+      replaced: null,
+    })
+    expect(result.current.regexTesting).toBe(false)
+  })
+
+  it("prevents a second regex run while the first worker is active", async () => {
+    let resolveRun:
+      | ((value: { ok: true; matches: []; total: 0; truncated: false; replaced: null }) => void)
+      | undefined
+    runRegexTestInWorker.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRun = resolve
+        }),
+    )
+    const { result } = renderHook(() => useDevToolboxController())
+
+    let firstRun: Promise<void>
+    act(() => {
+      firstRun = result.current.handleRegexTest()
+      void result.current.handleRegexTest()
+    })
+    expect(runRegexTestInWorker).toHaveBeenCalledOnce()
+    expect(result.current.regexTesting).toBe(true)
+
+    await act(async () => {
+      resolveRun?.({
+        ok: true,
+        matches: [],
+        total: 0,
+        truncated: false,
+        replaced: null,
+      })
+      await firstRun
+    })
+
+    expect(result.current.regexTesting).toBe(false)
   })
 })

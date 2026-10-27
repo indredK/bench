@@ -37,17 +37,19 @@
 
 ## 4. 开发工具 Tab（devtools）
 
-共 5 组工具，每组 = `SettingGroup` 卡片，操作用「正在执行」态禁用按钮，结果以 `<pre>` 展示：
+共 7 组工具，每组 = `SettingGroup` 卡片：
 
 - **JSON 格式化**：多行文本输入 → 「格式化（pretty）」/「压缩（minify）」；非法 JSON 报错（toast）。
 - **Base64**：文本输入 → 「编码」/「解码」；解码非法 base64 或非 UTF-8 报错。
 - **Hash 计算**：文本输入 + 算法下拉（MD5 / SHA1 / SHA256 / SHA384 / SHA512）→ 「计算」，输出小写十六进制。
 - **UUID 生成器**：点击「生成 UUID v4」输出一个 v4 UUID。
 - **时间戳转换**：Unix 秒数输入 + 格式下拉（完整日期时间 / 仅日期 / 仅时间 / ISO 8601）→ 「转换」，按 UTC 输出。
+- **JSON Schema 校验**：复用 JSON 输入区作为数据，校验 Draft-07 核心子集；未支持的关键字和提前截断会显式说明「尽力校验」或结果不完整。
+- **正则测试**：pattern / flags / 待测文本 / replacement 输入，使用原生 JavaScript RegExp 语义；计算在可终止 Web Worker 中运行，1 秒超时会终止任务并提示缩短输入或调整表达式。正则表达式最多 4,096 字符，flags 最多 8 个，待测文本和 replacement 各最多 20,000 字符；匹配结果最多 1,000 条，只有存在第 1,001 条匹配时才显示截断提示。超长输入会在创建 Worker 前明确报错，避免结构化克隆复制无界数据。
 
 **通用交互细节**：
 
-- 任一操作执行中（`applying`）该 Tab **全部**工具按钮禁用，防重复触发；按钮无单独 loading spinner（由禁用态承载）。
+- IPC 工具执行中（`applying`）该 Tab **全部**工具按钮禁用，防重复触发；正则测试有独立的 Worker 运行态，只禁用正则输入并显示「测试中…」。
 - 输出 `<pre>` 仅在有值时渲染：JSON `max-h-32`、Base64 `max-h-24`（超出滚动），Hash/时间戳无高度上限；Hash 输出为小写十六进制，无换行上限。
 - **输入控件**：JSON 用 `Textarea`（`h-24`，无字数上限、无防抖）；Base64/Hash/时间戳用 `Input`；算法/格式下拉为 `Select`（固定 5 种算法 / 4 种格式）；均无 `aria-label`（仅 placeholder）。UUID 输出用 `<code>` 内联（非 `<pre>`）。
 - **Base64 解码容忍空白**：后端先 `.trim()` 再解码（首尾空白不影响结果）。
