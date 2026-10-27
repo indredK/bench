@@ -232,8 +232,12 @@ ASN（可选第二跳）：
 
 ### 8.4 Globalping
 
-- Base API 官方文档为准；token 可选，存后端安全存储
-- 无单独「站点包」；探点由 API 返回
+- Base API 官方契约为准；token 可选，按应用 bundle identifier 存系统钥匙串，QA 与正式包隔离
+- 多节点 DNS、remote Ping 与 HTTP HEAD/GET/OPTIONS；HTTP URL 拆分成 API 所需的主机、协议、路径、查询串与可选端口；探点由 API 返回
+- 目标（含 HTTP URL 查询参数）会提交给 Globalping；客户端仅接受公网目标格式，服务端拦截私有 IP；记录通常保留 6 个月，不得填入密钥或私人数据；每次最多 3 个探点测试
+- 读取创建响应中确实存在的剩余额度、重置时间与 credits 字段；缺失字段不推测
+- 创建与结果轮询总等待约 55 秒；测量提交后不可取消
+- 不创建单独「站点包」
 
 ---
 

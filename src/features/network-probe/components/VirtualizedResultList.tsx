@@ -1,46 +1,57 @@
 import { useRef, type ReactNode } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { cn } from "@/lib/utils"
 
+const VIRTUALIZE_AFTER = 50
+const ESTIMATED_ROW_HEIGHT = 28
+const VIEWPORT_HEIGHT = 320
+
 interface VirtualizedResultListProps<T> {
-  ariaLabel: string
   items: T[]
+  ariaLabel: string
+  dataList: string
   getItemKey: (item: T, index: number) => string | number
-  estimateSize?: number
-  listClassName?: string
   renderItem: (item: T, index: number) => ReactNode
+  className?: string
+  itemClassName?: string
 }
 
-const VIRTUALIZATION_THRESHOLD = 50
-
+/** Render short results normally and virtualize large, fixed-height result rows. */
 export function VirtualizedResultList<T>({
-  ariaLabel,
   items,
+  ariaLabel,
+  dataList,
   getItemKey,
-  estimateSize = 32,
-  listClassName = "space-y-1 font-mono text-xs",
   renderItem,
+  className,
+  itemClassName,
 }: VirtualizedResultListProps<T>) {
-  const isVirtualized = items.length > VIRTUALIZATION_THRESHOLD
   const scrollRef = useRef<HTMLDivElement>(null)
+  const virtualized = items.length >= VIRTUALIZE_AFTER
   const virtualizer = useVirtualizer({
-    count: isVirtualized ? items.length : 0,
+    count: virtualized ? items.length : 0,
     getScrollElement: () => scrollRef.current,
     getItemKey: (index) => {
       const item = items[index]
-      return item === undefined ? index : getItemKey(item, index)
+      return item == null ? index : getItemKey(item, index)
     },
-    estimateSize: () => estimateSize,
-    overscan: 6,
-    initialRect: { width: 640, height: 288 },
+    estimateSize: () => ESTIMATED_ROW_HEIGHT,
+    overscan: 8,
+    initialRect: { width: 800, height: VIEWPORT_HEIGHT },
   })
-  const totalSize = virtualizer.getTotalSize()
 
-  if (!isVirtualized) {
+  if (!virtualized) {
     return (
-      <ul aria-label={ariaLabel} className={listClassName}>
+      <ul
+        aria-label={ariaLabel}
+        className={cn("min-w-0", className)}
+        data-network-probe-list={dataList}
+        data-virtualized="false"
+        data-total-count={items.length}
+      >
         {items.map((item, index) => (
-          <li key={getItemKey(item, index)} aria-posinset={index + 1} aria-setsize={items.length}>
+          <li key={getItemKey(item, index)} className={itemClassName}>
             {renderItem(item, index)}
           </li>
         ))}
@@ -49,36 +60,44 @@ export function VirtualizedResultList<T>({
   }
 
   return (
-    <div
+    <ScrollableArea
       ref={scrollRef}
-      role="region"
       aria-label={ariaLabel}
+      role="list"
       tabIndex={0}
-      className="max-h-72 overflow-x-hidden overflow-y-auto rounded-md border"
-      style={{ height: `${Math.min(totalSize, 288)}px` }}
-      data-virtualized-result-list
+      className={cn(
+        "focus-visible:ring-ring max-h-80 rounded-md border px-2 focus-visible:ring-2 focus-visible:outline-none",
+        className,
+      )}
+      data-network-probe-list={dataList}
+      data-virtualized="true"
+      data-total-count={items.length}
     >
-      <ul className={cn("relative", listClassName)} style={{ height: `${totalSize}px` }}>
-        {virtualizer.getVirtualItems().map((virtualItem) => {
-          const item = items[virtualItem.index]
-          if (item === undefined) return null
-
+      <div
+        role="presentation"
+        className="relative w-full"
+        style={{ height: `${virtualizer.getTotalSize()}px` }}
+      >
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const item = items[virtualRow.index]
+          if (item == null) return null
           return (
-            <li
-              key={virtualItem.key}
-              ref={virtualizer.measureElement}
-              data-index={virtualItem.index}
+            <div
+              key={getItemKey(item, virtualRow.index)}
               role="listitem"
-              aria-posinset={virtualItem.index + 1}
+              aria-posinset={virtualRow.index + 1}
               aria-setsize={items.length}
-              className="absolute top-0 left-0 w-full px-2 py-1.5 break-words"
-              style={{ transform: `translateY(${virtualItem.start}px)` }}
+              className={cn("absolute top-0 left-0 w-full", itemClassName)}
+              style={{
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
             >
-              {renderItem(item, virtualItem.index)}
-            </li>
+              {renderItem(item, virtualRow.index)}
+            </div>
           )
         })}
-      </ul>
-    </div>
+      </div>
+    </ScrollableArea>
   )
 }

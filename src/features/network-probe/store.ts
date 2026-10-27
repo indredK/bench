@@ -3,6 +3,10 @@
  */
 import { create } from "zustand"
 import type { LocalizedError } from "@/lib/errors"
+import {
+  parseReportHistory,
+  type HealthReportSnapshot,
+} from "@/features/network-probe/report-history"
 import type {
   CaptivePortalResult,
   CapabilityPackInfo,
@@ -36,8 +40,7 @@ import type {
   LanServicesResult,
   PcapDiagResult,
   MultiNodeDnsResult,
-  GlobalpingPingResult,
-  GlobalpingHttpResult,
+  GlobalpingMeasurementResult,
   ProbeNode,
   TcpConnectResult,
   TracerouteHop,
@@ -72,19 +75,17 @@ function persistSecurityAuthorized(value: boolean) {
   }
 }
 
-function loadReportHistory(): HealthScanResult[] {
+function loadReportHistory(): HealthReportSnapshot[] {
   if (typeof localStorage === "undefined") return []
   try {
     const raw = localStorage.getItem(REPORT_HISTORY_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as HealthScanResult[]
-    return Array.isArray(parsed) ? parsed.slice(0, 10) : []
+    return parseReportHistory(raw)
   } catch {
     return []
   }
 }
 
-function persistReportHistory(history: HealthScanResult[]) {
+function persistReportHistory(history: HealthReportSnapshot[]) {
   if (typeof localStorage === "undefined") return
   try {
     localStorage.setItem(REPORT_HISTORY_KEY, JSON.stringify(history.slice(0, 10)))
@@ -102,10 +103,15 @@ export type NetworkProbeL1 = "basic" | "sites" | "test" | "security" | "discover
 export type NetworkProbeKind =
   "health" | "sites" | "ping" | "traceroute" | "speed" | "ports" | "pcap" | "lan"
 
+export type AgentMutation = { kind: "add" } | { kind: "remove"; agentId: string }
+
 export type NetworkProbeOfflineSub =
   "all" | "captive" | "proxy" | "ipv6" | "mtu" | "egress" | "diff"
 
-export type NetworkProbeAgentAction = { kind: "add" } | { kind: "remove"; agentId: string }
+export type NetworkProbeOfflineCheck = "captive" | "egress" | "proxy" | "ipv6" | "mtu"
+export type NetworkProbeOfflineErrors = Partial<Record<NetworkProbeOfflineCheck, string>>
+export type NetworkProbeOverviewErrors = Partial<Record<"summary" | "firewall" | "hosts", string>>
+export type NetworkServicesStatus = "idle" | "loading" | "ready" | "error"
 
 export type NetworkProbeL2ByL1 = Record<NetworkProbeL1, string>
 
@@ -128,6 +134,7 @@ interface NetworkProbeState {
   summary: LocalNetworkSummary | null
   firewall: FirewallStatus | null
   hosts: HostsOverride[] | null
+  overviewErrors: NetworkProbeOverviewErrors
   tcpResult: TcpConnectResult | null
   pingResult: PingProbeResult | null
   globalpingPingResult: GlobalpingPingResult | null
@@ -138,13 +145,11 @@ interface NetworkProbeState {
   sitesResult: SitesProbeResult | null
   sitesResultOwner: SiteProbeResultOwner
   sitesStreaming: SiteSampleResult[]
-  officialSiteSamplesByTarget: Record<string, OfficialSiteSampleSnapshot>
-  officialSitePendingTargets: string[]
-  siteSparklineByTarget: Record<string, number[]>
+  siteSparklineByTarget: Record<string, Array<number | null>>
   healthResult: HealthScanResult | null
   healthStreamingItems: HealthCheckItem[]
   networkServices: string[]
-  networkServicesLoadState: NetworkServicesLoadState
+  networkServicesStatus: NetworkServicesStatus
   fixResult: FixResult | null
   captiveResult: CaptivePortalResult | null
   publicIpInfo: PublicIpInfo | null
@@ -153,6 +158,7 @@ interface NetworkProbeState {
   tracerouteStreamingHops: TracerouteHop[]
   ipv6Result: Ipv6StackResult | null
   mtuResult: PathMtuResult | null
+  offlineErrors: NetworkProbeOfflineErrors
   speedSources: SpeedSource[]
   speedSourcesLoadState: SpeedSourcesLoadState
   speedResult: SpeedTestResult | null
@@ -169,8 +175,16 @@ interface NetworkProbeState {
   lanServicesResult: LanServicesResult | null
   pcapResult: PcapDiagResult | null
   multiNodeDnsResult: MultiNodeDnsResult | null
+  globalpingMeasurementResult: GlobalpingMeasurementResult | null
+  loadingGlobalpingMeasurement: boolean
+  globalpingTokenConfigured: boolean | null
+  loadingGlobalpingToken: boolean
+  savingGlobalpingToken: boolean
   probeNodes: ProbeNode[]
-  reportHistory: HealthScanResult[]
+  probeNodesLoadError: string | null
+  probeNodesRevision: number
+  agentMutation: AgentMutation | null
+  reportHistory: HealthReportSnapshot[]
   securityAuthorized: boolean
   /** 撤销授权时递增，防止旧授权下的异步结果在重新授权后写回。 */
   securityAuthorizationRevision: number
@@ -225,6 +239,7 @@ interface NetworkProbeState {
   setSummary: (summary: LocalNetworkSummary | null) => void
   setFirewall: (firewall: FirewallStatus | null) => void
   setHosts: (hosts: HostsOverride[] | null) => void
+  setOverviewErrors: (errors: NetworkProbeOverviewErrors) => void
   setTcpResult: (tcpResult: TcpConnectResult | null) => void
   setPingResult: (pingResult: PingProbeResult | null) => void
   setGlobalpingPingResult: (result: GlobalpingPingResult | null) => void
@@ -245,6 +260,7 @@ interface NetworkProbeState {
   resetHealthStreaming: () => void
   upsertHealthStreamingItem: (item: HealthCheckItem) => void
   setNetworkServices: (services: string[]) => void
+  setNetworkServicesStatus: (status: NetworkServicesStatus) => void
   setFixResult: (fixResult: FixResult | null) => void
   setCaptiveResult: (captiveResult: CaptivePortalResult | null) => void
   setPublicIpInfo: (publicIpInfo: PublicIpInfo | null) => void
@@ -254,6 +270,7 @@ interface NetworkProbeState {
   upsertTracerouteHop: (hop: TracerouteHop) => void
   setIpv6Result: (ipv6Result: Ipv6StackResult | null) => void
   setMtuResult: (mtuResult: PathMtuResult | null) => void
+  setOfflineErrors: (errors: NetworkProbeOfflineErrors) => void
   setSpeedSources: (speedSources: SpeedSource[]) => void
   setSpeedSourcesLoadState: (state: SpeedSourcesLoadState) => void
   setSpeedResult: (speedResult: SpeedTestResult | null) => void
@@ -271,7 +288,14 @@ interface NetworkProbeState {
   setLanServicesResult: (lanServicesResult: LanServicesResult | null) => void
   setPcapResult: (pcapResult: PcapDiagResult | null) => void
   setMultiNodeDnsResult: (multiNodeDnsResult: MultiNodeDnsResult | null) => void
+  setGlobalpingMeasurementResult: (result: GlobalpingMeasurementResult | null) => void
+  setLoadingGlobalpingMeasurement: (loading: boolean) => void
+  setGlobalpingTokenConfigured: (configured: boolean | null) => void
+  setLoadingGlobalpingToken: (loading: boolean) => void
+  setSavingGlobalpingToken: (saving: boolean) => void
   setProbeNodes: (probeNodes: ProbeNode[]) => void
+  setProbeNodesLoadError: (error: string | null) => void
+  setAgentMutation: (agentMutation: AgentMutation | null) => void
   pushReportHistory: (scan: HealthScanResult) => void
   clearReportHistory: () => void
   setSecurityAuthorized: (securityAuthorized: boolean) => void
@@ -373,8 +397,8 @@ function persistNav(nav: NetworkProbeState["nav"]) {
 }
 
 function sparkMs(sample: SiteSampleResult): number | null {
-  if (sample.icmpRttMs != null) return sample.icmpRttMs
   if (sample.httpTtfbMs != null) return sample.httpTtfbMs
+  if (sample.icmpRttMs != null) return sample.icmpRttMs
   return null
 }
 
@@ -390,6 +414,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   summary: null,
   firewall: null,
   hosts: null,
+  overviewErrors: {},
   tcpResult: null,
   pingResult: null,
   globalpingPingResult: null,
@@ -400,13 +425,11 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   sitesResult: null,
   sitesResultOwner: "packs",
   sitesStreaming: [],
-  officialSiteSamplesByTarget: {},
-  officialSitePendingTargets: [],
   siteSparklineByTarget: {},
   healthResult: null,
   healthStreamingItems: [],
   networkServices: [],
-  networkServicesLoadState: "idle",
+  networkServicesStatus: "idle",
   fixResult: null,
   captiveResult: null,
   publicIpInfo: null,
@@ -415,6 +438,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   tracerouteStreamingHops: [],
   ipv6Result: null,
   mtuResult: null,
+  offlineErrors: {},
   speedSources: [],
   speedSourcesLoadState: "idle",
   speedResult: null,
@@ -431,7 +455,15 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   lanServicesResult: null,
   pcapResult: null,
   multiNodeDnsResult: null,
+  globalpingMeasurementResult: null,
+  loadingGlobalpingMeasurement: false,
+  globalpingTokenConfigured: null,
+  loadingGlobalpingToken: false,
+  savingGlobalpingToken: false,
   probeNodes: [],
+  probeNodesLoadError: null,
+  probeNodesRevision: 0,
+  agentMutation: null,
   reportHistory: loadReportHistory(),
   securityAuthorized: loadSecurityAuthorized(),
   securityAuthorizationRevision: 0,
@@ -496,6 +528,7 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setSummary: (summary) => set({ summary }),
   setFirewall: (firewall) => set({ firewall }),
   setHosts: (hosts) => set({ hosts }),
+  setOverviewErrors: (overviewErrors) => set({ overviewErrors }),
   setTcpResult: (tcpResult) => set({ tcpResult }),
   setPingResult: (pingResult) => set({ pingResult }),
   setGlobalpingPingResult: (globalpingPingResult) => set({ globalpingPingResult }),
@@ -548,17 +581,14 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
           ? [...state.sitesStreaming, sample]
           : state.sitesStreaming.map((s, i) => (i === idx ? sample : s))
       const ms = sparkMs(sample)
-      const targetKey = sample.target.trim() || sample.id
-      const prev = state.siteSparklineByTarget[targetKey] ?? []
-      let siteSparklineByTarget = state.siteSparklineByTarget
-      if (ms != null) {
-        const next = { ...siteSparklineByTarget }
-        delete next[targetKey]
-        next[targetKey] = [...prev.slice(-19), ms]
-        const oldestTargets = Object.keys(next).slice(0, -MAX_SITE_SPARKLINE_TARGETS)
-        for (const oldTarget of oldestTargets) delete next[oldTarget]
-        siteSparklineByTarget = next
-      }
+      const target = sample.target.trim()
+      const prev = state.siteSparklineByTarget[target] ?? []
+      const retained = Object.entries(state.siteSparklineByTarget).filter(([key]) => key !== target)
+      // Bound in-memory history even when users repeatedly add arbitrary custom targets.
+      const siteSparklineByTarget = Object.fromEntries([
+        ...retained.slice(-99),
+        [target, [...prev.slice(-19), sample.ok ? ms : null]],
+      ])
       return { sitesStreaming, siteSparklineByTarget }
     }),
   setHealthResult: (healthResult) => set({ healthResult }),
@@ -573,8 +603,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
       next[idx] = item
       return { healthStreamingItems: next }
     }),
-  setNetworkServices: (networkServices) =>
-    set({ networkServices, networkServicesLoadState: "loaded" }),
+  setNetworkServices: (networkServices) => set({ networkServices }),
+  setNetworkServicesStatus: (networkServicesStatus) => set({ networkServicesStatus }),
   setFixResult: (fixResult) => set({ fixResult }),
   setCaptiveResult: (captiveResult) => set({ captiveResult }),
   setPublicIpInfo: (publicIpInfo) => set({ publicIpInfo }),
@@ -597,8 +627,8 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
     }),
   setIpv6Result: (ipv6Result) => set({ ipv6Result }),
   setMtuResult: (mtuResult) => set({ mtuResult }),
-  setSpeedSources: (speedSources) => set({ speedSources, speedSourcesLoadState: "loaded" }),
-  setSpeedSourcesLoadState: (speedSourcesLoadState) => set({ speedSourcesLoadState }),
+  setOfflineErrors: (offlineErrors) => set({ offlineErrors }),
+  setSpeedSources: (speedSources) => set({ speedSources }),
   setSpeedResult: (speedResult) => set({ speedResult }),
   setSpeedSample: (speedSample) => set({ speedSample }),
   setSpeedCooldownUntil: (speedCooldownUntil) => set({ speedCooldownUntil }),
@@ -623,10 +653,23 @@ export const useNetworkProbeStore = create<NetworkProbeState>((set, get) => ({
   setLanServicesResult: (lanServicesResult) => set({ lanServicesResult }),
   setPcapResult: (pcapResult) => set({ pcapResult }),
   setMultiNodeDnsResult: (multiNodeDnsResult) => set({ multiNodeDnsResult }),
-  setProbeNodes: (probeNodes) => set({ probeNodes }),
+  setGlobalpingMeasurementResult: (globalpingMeasurementResult) =>
+    set({ globalpingMeasurementResult }),
+  setLoadingGlobalpingMeasurement: (loadingGlobalpingMeasurement) =>
+    set({ loadingGlobalpingMeasurement }),
+  setGlobalpingTokenConfigured: (globalpingTokenConfigured) => set({ globalpingTokenConfigured }),
+  setLoadingGlobalpingToken: (loadingGlobalpingToken) => set({ loadingGlobalpingToken }),
+  setSavingGlobalpingToken: (savingGlobalpingToken) => set({ savingGlobalpingToken }),
+  setProbeNodes: (probeNodes) =>
+    set((state) => ({ probeNodes, probeNodesRevision: state.probeNodesRevision + 1 })),
+  setProbeNodesLoadError: (probeNodesLoadError) => set({ probeNodesLoadError }),
+  setAgentMutation: (agentMutation) => set({ agentMutation }),
   pushReportHistory: (scan) =>
     set((state) => {
-      const reportHistory = [scan, ...state.reportHistory].slice(0, 10)
+      const reportHistory = [
+        { ...scan, savedAt: new Date().toISOString() },
+        ...state.reportHistory,
+      ].slice(0, 10)
       persistReportHistory(reportHistory)
       return { reportHistory }
     }),

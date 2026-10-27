@@ -52,6 +52,7 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
                 value={host}
                 onChange={(e) => setHost(e.target.value)}
                 autoComplete="off"
+                disabled={loading}
               />
             </div>
             <div className="w-40 space-y-1">
@@ -64,8 +65,7 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
                 onChange={(e) => setPort(e.target.value)}
                 inputMode="numeric"
                 autoComplete="off"
-                aria-describedby="np-tcp-port-hint"
-                aria-invalid={Boolean(port.trim()) && !portValid}
+                disabled={loading}
               />
               <p
                 id="np-tcp-port-hint"
@@ -92,14 +92,11 @@ export function TcpConnectPanel({ loading, result, onRun }: TcpConnectPanelProps
       {result ? (
         <div className="bg-muted/40 space-y-1 rounded-lg border px-3 py-2 text-sm">
           <div>
-            {t("networkProbe.tcp.status")}:{" "}
-            <span className="font-medium">
-              {t(
-                Object.hasOwn(TCP_STATUS_LABELS, result.status)
-                  ? TCP_STATUS_LABELS[result.status]
-                  : "networkProbe.tcp.statusValue.unknown",
-              )}
-            </span>
+            {t("networkProbe.tcp.host")}: {result.host} · {t("networkProbe.tcp.port")}:{" "}
+            {result.port}
+          </div>
+          <div>
+            {t("networkProbe.tcp.status")}: <span className="font-medium">{result.status}</span>
           </div>
           {result.rttMs != null ? (
             <div>{t("networkProbe.tcp.rttValue", { ms: result.rttMs.toFixed(1) })}</div>

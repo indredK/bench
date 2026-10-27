@@ -7,7 +7,7 @@ import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { OpenSystemNetworkSettingsButton } from "@/features/network-probe/components/OpenSystemNetworkSettingsButton"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
-import { hasOwnTranslationKey } from "@/features/network-probe/utils/translation-key"
+import type { NetworkProbeOverviewErrors } from "@/features/network-probe/store"
 import { cn } from "@/lib/utils"
 
 interface OverviewPanelProps {
@@ -22,33 +22,35 @@ interface OverviewPanelProps {
     interfaces: { name: string; addrs: string[]; isLoopback: boolean }[]
   } | null
   firewall: { status: string; detail?: string } | null
+  errors: NetworkProbeOverviewErrors
   hostsSuspiciousCount: number
   openingSettings: boolean
   onRefresh: () => void
   onOpenSettings: () => void
+  embedded?: boolean
 }
 
 export function OverviewPanel({
   loading,
   summary,
   firewall,
+  errors,
   hostsSuspiciousCount,
   openingSettings,
   onRefresh,
   onOpenSettings,
+  embedded = false,
 }: OverviewPanelProps) {
   const { t } = useTranslation()
   const initialRefreshAttempted = useRef(false)
 
   useEffect(() => {
-    if (!summary && !loading && !initialRefreshAttempted.current) {
-      initialRefreshAttempted.current = true
-      onRefresh()
-    }
-  }, [summary, loading, onRefresh])
+    if (!summary && !loading && !errors.summary) onRefresh()
+  }, [summary, loading, errors.summary, onRefresh])
 
   return (
     <ProbePanelShell
+      embedded={embedded}
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
           <CommandHint hint={t("networkProbe.cmd.summary")}>
@@ -56,17 +58,22 @@ export function OverviewPanel({
               {loading ? t("networkProbe.overview.refreshing") : t("networkProbe.overview.refresh")}
             </Button>
           </CommandHint>
-          <OpenSystemNetworkSettingsButton
-            opening={openingSettings}
-            label={t("networkProbe.overview.openSettings")}
-            onOpen={onOpenSettings}
-            size="sm"
-          />
+          <CommandHint hint={t("networkProbe.cmd.openSettings")}>
+            <Button type="button" size="sm" variant="outline" onClick={onOpenSettings}>
+              {t("networkProbe.overview.openSettings")}
+            </Button>
+          </CommandHint>
+          <span className="text-muted-foreground font-mono text-xs">
+            {t("networkProbe.cmd.summary")}
+          </span>
         </div>
       }
     >
-      {!summary && loading ? <OverviewSkeleton /> : null}
-
+      {errors.summary ? (
+        <p role="alert" className="text-destructive text-xs">
+          {t("networkProbe.overview.refreshFailed", { message: errors.summary })}
+        </p>
+      ) : null}
       {!summary && !loading ? (
         <p className="text-muted-foreground text-sm">{t("networkProbe.overview.empty")}</p>
       ) : null}
@@ -82,16 +89,15 @@ export function OverviewPanel({
           />
           <InfoCard
             label={t("networkProbe.overview.wifi")}
-            value={
-              summary.wifiSsid
-                ? `${summary.wifiSsid}${
-                    summary.wifiSignalDbm != null ? ` (${summary.wifiSignalDbm} dBm)` : ""
-                  }`
-                : "—"
-            }
+            value={formatWifiSummary(summary.wifiSsid, summary.wifiSignalDbm)}
           />
           <InfoCard
             label={t("networkProbe.overview.firewall")}
+            error={
+              errors.firewall
+                ? t("networkProbe.overview.refreshFailed", { message: errors.firewall })
+                : undefined
+            }
             value={
               firewall
                 ? hasOwnTranslationKey(`networkProbe.firewall.${firewall.status}`)
@@ -102,6 +108,11 @@ export function OverviewPanel({
           />
           <InfoCard
             label={t("networkProbe.overview.hosts")}
+            error={
+              errors.hosts
+                ? t("networkProbe.overview.refreshFailed", { message: errors.hosts })
+                : undefined
+            }
             value={t("networkProbe.overview.hostsCount", { count: hostsSuspiciousCount })}
           />
           <InfoCard
@@ -114,38 +125,24 @@ export function OverviewPanel({
   )
 }
 
-function OverviewSkeleton() {
-  const { t } = useTranslation()
-
-  return (
-    <div
-      role="status"
-      aria-label={t("networkProbe.overview.refreshing")}
-      aria-busy="true"
-      className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
-    >
-      {Array.from({ length: 8 }, (_, index) => (
-        <div
-          key={index}
-          data-testid="overview-loading-skeleton"
-          aria-hidden="true"
-          className="bg-muted/30 rounded-md border px-2.5 py-2"
-        >
-          <div className="bg-muted h-3 w-14 animate-pulse rounded" />
-          <div className="bg-muted mt-2 h-4 w-4/5 animate-pulse rounded" />
-        </div>
-      ))}
-    </div>
-  )
+function formatWifiSummary(ssid?: string, signalDbm?: number) {
+  const normalizedSsid = ssid?.trim()
+  if (!normalizedSsid) return signalDbm != null ? `${signalDbm} dBm` : "—"
+  return `${normalizedSsid}${signalDbm != null ? ` (${signalDbm} dBm)` : ""}`
 }
 
-function InfoCard({ label, value }: { label: string; value: string }) {
+function InfoCard({ label, value, error }: { label: string; value: string; error?: string }) {
   return (
     <div className={cn("bg-muted/30 rounded-md border px-2.5 py-2")}>
       <div className="text-muted-foreground text-[10px] font-semibold tracking-wide uppercase">
         {label}
       </div>
-      <div className="mt-1 text-sm font-medium break-all">{value}</div>
+      <div
+        className={cn("mt-1 text-sm font-medium break-all", error && "text-destructive")}
+        role={error ? "alert" : undefined}
+      >
+        {error ?? value}
+      </div>
     </div>
   )
 }

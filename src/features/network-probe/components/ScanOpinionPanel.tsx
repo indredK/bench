@@ -10,15 +10,17 @@ import { cn } from "@/lib/utils"
 interface ScanOpinionPanelProps {
   result: HealthScanResult | null
   onGoTree: () => void
+  embedded?: boolean
 }
 
-export function ScanOpinionPanel({ result, onGoTree }: ScanOpinionPanelProps) {
+export function ScanOpinionPanel({ result, onGoTree, embedded = false }: ScanOpinionPanelProps) {
   const { t } = useTranslation()
   const opinions = result?.opinions ?? []
 
   if (!result) {
     return (
       <ProbePanelShell
+        embedded={embedded}
         toolbar={<p className="text-muted-foreground text-sm">{t("networkProbe.opinion.empty")}</p>}
       >
         <button
@@ -34,6 +36,7 @@ export function ScanOpinionPanel({ result, onGoTree }: ScanOpinionPanelProps) {
 
   return (
     <ProbePanelShell
+      embedded={embedded}
       toolbar={<p className="text-muted-foreground text-sm">{t("networkProbe.opinion.hint")}</p>}
     >
       {opinions.length === 0 ? (

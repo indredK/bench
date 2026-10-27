@@ -52,6 +52,7 @@ export function ProbeTargetPanel({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 autoComplete="off"
+                disabled={loading}
               />
             </div>
             <CommandHint
@@ -80,21 +81,10 @@ export function ProbeTargetPanel({
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
           <div>
-            {t("networkProbe.probe.resultFor", {
-              target: redactProbeTargetForDisplay(result.input),
-            })}
+            {t("networkProbe.probe.input")}: <span className="font-medium">{result.input}</span>
           </div>
           <div>
-            {t("networkProbe.probe.kind")}:{" "}
-            <span className="font-medium">
-              {t(
-                result.kind === "host"
-                  ? "networkProbe.probe.kindValues.host"
-                  : result.kind === "url"
-                    ? "networkProbe.probe.kindValues.url"
-                    : "networkProbe.probe.kindValues.unknown",
-              )}
-            </span>
+            {t("networkProbe.probe.kind")}: <span className="font-medium">{result.kind}</span>
           </div>
           {result.icmp ? (
             <div>

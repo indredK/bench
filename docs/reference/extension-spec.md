@@ -56,23 +56,23 @@
 
 ### 3.1 字段总表
 
-| 字段            | 类型                      | 必填 | 约束                                                                    | 说明                                                                                                                     |
-| --------------- | ------------------------- | :--: | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `schemaVersion` | number                    |  ✅  | 必须等于 `2`                                                            | 宿主 fail-closed，不匹配即拒绝加载                                                                                       |
-| `id`            | string                    |  ✅  | `^[a-z][a-z0-9-]*$`                                                     | 同时是产物目录名、窗口 label 后缀（`ext-<id>`）                                                                          |
-| `version`       | string                    |  ✅  | `X.Y.Z`（三段纯数字）                                                   | 与宿主版本解耦；参与版本单调性检查                                                                                       |
-| `display`       | object                    |  ✅  | `en` 必填且非空；`zh` 可选                                              | `zh` 缺失时回退 `en`（降低非中文作者门槛）                                                                               |
-| `description`   | object                    |  ⬜  | 结构同 `display`（`en` 必填、`zh` 可选）                                | 市场展示用描述（P5 增补）；registry 的 `description` 由此生成，缺失时回退 `display`                                      |
-| `distribution`  | `"bundled"` \| `"market"` |  ✅  | —                                                                       | `market` 强制验签                                                                                                        |
-| `entry`         | object                    |  ✅  | `index` 以 `.html` 结尾、相对路径、不含 `..`、不以 `/` 开头             | 入口 HTML，相对产物根                                                                                                    |
-| `files`         | array                     |  ✅  | 至少 1 项；`path` 相对产物根、不含 `..`、不以 `/` 开头；`path` 不得重复 | 逐文件完整性清单（P3.1 起必填，见 §3.4）                                                                                 |
-| `acl`           | object                    |  ✅  | `commands` 每项必须在宿主能力面注册表内                                 | 插件申请的命令子集（§7）                                                                                                 |
-| `engines`       | object                    |  ✅  | `bench` 为 `*` 或 `>=X.Y.Z`                                             | 宿主兼容约束；非法约束 fail-closed                                                                                       |
-| `platforms`     | string\[\]                |  ⬜  | 每项为 `"macos"` \| `"windows"`；不得为空数组                           | 声明可用平台（P5）；**缺省 = 全平台**。宿主在已装列表中过滤掉不含当前平台的插件（能力判定由宿主做，renderer 不自行决定） |
-| `expiresAt`     | string \| null            |  ⬜  | ISO 8601 UTC                                                            | **market 推荐**；过期元数据被拒绝（防 freeze attack）                                                                    |
-| `signature`     | string \| null            |  ⬜  | minisign 签名                                                           | 第三方 market 必填；官方 canonical registry 可省略（见 §5.4）；bundled 豁免（由主包签名链覆盖）                          |
+| 字段            | 类型                      | 必填 | 约束                                                                    | 说明                                                                                                                                          |
+| --------------- | ------------------------- | :--: | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schemaVersion` | number                    |  ✅  | 必须等于 `2`                                                            | 宿主 fail-closed，不匹配即拒绝加载                                                                                                            |
+| `id`            | string                    |  ✅  | `^[a-z][a-z0-9-]*$`                                                     | 同时是产物目录名、窗口 label 后缀（`ext-<id>`）                                                                                               |
+| `version`       | string                    |  ✅  | `X.Y.Z`（三段纯数字）                                                   | 与宿主版本解耦；参与版本单调性检查                                                                                                            |
+| `display`       | object                    |  ✅  | `en` 必填且非空；`zh` 可选                                              | `zh` 缺失时回退 `en`（降低非中文作者门槛）                                                                                                    |
+| `description`   | object                    |  ⬜  | 结构同 `display`（`en` 必填、`zh` 可选）                                | 市场展示用描述（P5 增补）；registry 的 `description` 由此生成，缺失时回退 `display`                                                           |
+| `distribution`  | `"bundled"` \| `"market"` |  ✅  | —                                                                       | `market` 强制验签                                                                                                                             |
+| `entry`         | object                    |  ✅  | `index` 以 `.html` 结尾、相对路径、不含 `..`、不以 `/` 开头             | 入口 HTML，相对产物根                                                                                                                         |
+| `files`         | array                     |  ✅  | 至少 1 项；`path` 相对产物根、不含 `..`、不以 `/` 开头；`path` 不得重复 | 逐文件完整性清单（P3.1 起必填，见 §3.4）                                                                                                      |
+| `acl`           | object                    |  ✅  | `commands` 每项必须在宿主能力面注册表内                                 | 插件申请的命令子集（§7）                                                                                                                      |
+| `engines`       | object                    |  ✅  | `bench` 为 `*` 或 `>=X.Y.Z`                                             | 宿主兼容约束；非法约束 fail-closed                                                                                                            |
+| `platforms`     | string\[\]                |  ✅  | 每项为 `"macos"` \| `"windows"`；不得为空数组                           | 声明可用平台；当前不支持 Linux。**缺省 = macOS / Windows**。宿主在已装列表中过滤掉不含当前平台的插件（能力判定由宿主做，renderer 不自行决定） |
+| `expiresAt`     | string \| null            |  ⬜  | ISO 8601 UTC                                                            | **market 推荐**；过期元数据被拒绝（防 freeze attack）                                                                                         |
+| `signature`     | string \| null            |  ⬜  | minisign 签名                                                           | **market 必填**；bundled 豁免（由主包签名链覆盖）                                                                                             |
 
-> 未列出的字段一律拒绝（`deny_unknown_fields`）。字段演进随本规格修订（`platforms` 为 v2 增补，P5）；破坏性字段变更必须走 schemaVersion 升级。
+> 未列出的字段一律拒绝（`deny_unknown_fields`）。字段演进随本规格修订（`platforms` 为 v2 增补）；破坏性字段变更必须走 schemaVersion 升级。新增平台前须先完成宿主构建、CI 与发布覆盖，再扩展此枚举。
 
 ### 3.2 完整示例（带 minisign 的第三方 market）
 
@@ -251,7 +251,16 @@
 | `versions[].sha256` / `size` | **整包**摘要与字节数，下载后先验再解压                                          |
 | `revoked[].versions`         | `*` 或版本范围（`<1.2.0`）。命中则**强制禁用 + UI 显著警示**，不静默删除        |
 
-宿主对 registry 响应按流式方式读取，正文上限为 **8 MiB**；超出上限或无法完整读取时拒绝解析，避免把远端目录直接累积到无界内存。
+### 5.2.1 请求目标与重定向
+
+- registry 基址、`downloadUrl` 和每一跳重定向都必须是 HTTPS；URL 不得含 userinfo、单标签主机或特殊用途主机名，IP 字面量和 DNS 答案必须是可全球路由的地址。
+- 发起每一跳前，宿主先用 hyper-util 的系统代理匹配器判断该 URL 的实际路由。直连时通过操作系统解析器取得完整地址集；只要一个答案不是全球可路由地址，就拒绝整组，并让 reqwest 固定使用已校验地址，避免 DNS rebinding。
+- 命中系统 HTTP/HTTPS 代理时不在本机解析目标域名：代理可能使用 Shadowrocket 等工具的合成 DNS 地址（如 `198.18.0.0/15`），且目标地址由代理侧解析。宿主显式使用匹配到的系统代理并关闭 reqwest 的隐式代理发现，确保 DNS 检查和实际路由一致。
+- 重定向由宿主逐跳处理，最多 10 次；每一跳重新校验 URL 与路由，直连时重新解析并检查 DNS，禁止 HTTPS 降级。
+- registry JSON 响应在解压后最多读取 4 MiB；整包下载最多 256 MiB。超限立即中止，不依赖服务端声明的 `Content-Length`。
+- registry 请求总时限为 30 秒，整包下载请求总时限为 300 秒；DNS 解析及全部重定向共用同一时限，不能因重定向次数延长。
+- 项目保留系统代理支持，满足用户的代理网络环境。代理可能自行解析目标，宿主无法对代理侧 DNS 与实际连接地址做 pinning；系统代理因此属于受信任的出站边界，部署所用代理必须自行阻断私有 / 保留地址。需要更强代理侧约束时应在代理上配置出口 ACL。
+- 地址分类与 URL vetting 复用 [affinidi-net-guard 0.1.0](https://docs.rs/affinidi-net-guard/0.1.0/affinidi_net_guard/)；其 `GuardedClient` 会关闭代理，因此 Bench 只复用其策略与地址分类，直连固定地址仍由现有 reqwest 客户端完成。
 
 ### 5.3 吊销语义
 

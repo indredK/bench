@@ -6,14 +6,10 @@ import { useTranslation } from "react-i18next"
 import { KeyRound, Network } from "lucide-react"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
 import { ArpPanel } from "@/features/network-probe/components/ArpPanel"
+import { BasicView } from "@/features/network-probe/components/BasicView"
 import { DnsLookupPanel } from "@/features/network-probe/components/DnsLookupPanel"
 import { DnsSecPanel } from "@/features/network-probe/components/DnsSecPanel"
 import { EgressPanel } from "@/features/network-probe/components/EgressPanel"
-import { FixPanel } from "@/features/network-probe/components/FixPanel"
-import { GlobalpingTokenDialog } from "@/features/network-probe/components/GlobalpingTokenDialog"
-import { hasOwnTranslationKey } from "@/features/network-probe/utils/translation-key"
-import { HealthTreePanel } from "@/features/network-probe/components/HealthTreePanel"
-import { Ipv6Panel } from "@/features/network-probe/components/Ipv6Panel"
 import { LanServicesPanel } from "@/features/network-probe/components/LanServicesPanel"
 import { MtuPanel } from "@/features/network-probe/components/MtuPanel"
 import { MultiNodePanel } from "@/features/network-probe/components/MultiNodePanel"
@@ -24,8 +20,6 @@ import {
   OfficialSitesPanel,
   OFFICIAL_PACK_ID,
 } from "@/features/network-probe/components/OfficialSitesPanel"
-import { OfflinePanel } from "@/features/network-probe/components/OfflinePanel"
-import { OverviewPanel } from "@/features/network-probe/components/OverviewPanel"
 import { PackInstallDialog } from "@/features/network-probe/components/PackInstallDialog"
 import { PcapDiagPanel } from "@/features/network-probe/components/PcapDiagPanel"
 import { PingPanel } from "@/features/network-probe/components/PingPanel"
@@ -33,8 +27,6 @@ import { PollutionPanel } from "@/features/network-probe/components/PollutionPan
 import { PortScanPanel } from "@/features/network-probe/components/PortScanPanel"
 import { ProbeOriginSelector } from "@/features/network-probe/components/ProbeOriginSelector"
 import { ProbeTargetPanel } from "@/features/network-probe/components/ProbeTargetPanel"
-import { ReportPanel } from "@/features/network-probe/components/ReportPanel"
-import { ScanOpinionPanel } from "@/features/network-probe/components/ScanOpinionPanel"
 import { SecurityAuthGate } from "@/features/network-probe/components/SecurityAuthGate"
 import { SitesProbePanel } from "@/features/network-probe/components/SitesProbePanel"
 import { selectSiteProbePanelResults } from "@/features/network-probe/utils/site-probe-results"
@@ -48,13 +40,7 @@ import { TraceroutePanel } from "@/features/network-probe/components/TracerouteP
 import { WhoisPanel } from "@/features/network-probe/components/WhoisPanel"
 import { CommandLogSidePanel } from "@/features/network-probe/components/CommandLogSidePanel"
 import { useNetworkProbeController } from "@/features/network-probe/hooks/useNetworkProbeController"
-import {
-  OFFLINE_SUBS,
-  type NetworkProbeL1,
-  type NetworkProbeKind,
-  type NetworkProbeOfflineSub,
-} from "@/features/network-probe/store"
-import { ScrollableArea } from "@/components/common/ScrollableArea"
+import { type NetworkProbeL1 } from "@/features/network-probe/store"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { canUseTauriCommands } from "@/platform/capabilities"
@@ -90,6 +76,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   const [packsOpen, setPacksOpen] = useState(false)
   const [focusPackId, setFocusPackId] = useState<string | null>(null)
   const [packsBusy, setPacksBusy] = useState(false)
+  const [packsRefreshing, setPacksRefreshing] = useState(false)
   const [sideLogOpen, setSideLogOpen] = useState(true)
   const [selectedProbeNodeId, setSelectedProbeNodeId] = useState("local")
   const [globalpingTokenDialogOpen, setGlobalpingTokenDialogOpen] = useState(false)
@@ -141,54 +128,17 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
             reachable: true,
           },
         ]
-  const remoteOriginEnabled =
-    c.l1Id === "test" && (resolvedL2 === "ping" || resolvedL2 === "custom")
-  const localNode = probeNodes.find((node) => node.kind === "local") ?? probeNodes[0]
-  const activeNode = useMemo(() => {
-    const selected = remoteOriginEnabled
-      ? probeNodes.find((node) => node.id === selectedProbeNodeId && node.kind === "remote-proxy")
-      : undefined
-    return selected ?? localNode
-  }, [localNode, probeNodes, remoteOriginEnabled, selectedProbeNodeId])
-  const globalpingActive = activeNode?.kind === "remote-proxy"
-  const globalpingLocation = activeNode?.region ?? "world"
-  const globalpingLocationKey = `networkProbe.globalping.locations.${globalpingLocation}`
-  const globalpingLocationLabel = globalpingActive
-    ? hasOwnTranslationKey(globalpingLocationKey)
-      ? t(globalpingLocationKey, { defaultValue: activeNode?.label })
-      : (activeNode?.label ?? t("networkProbe.globalping.locations.world"))
-    : undefined
+  // 通用原点选择仍只对本机探测生效；Globalping DNS/Ping/HTTP 从 Discover → Nodes 显式运行。
+  // 自有 agent 尚未接入测量 use-case，继续显示为 disabled，避免假连接。
+  const activeNode = useMemo(
+    () => probeNodes.find((n) => n.kind === "local") ?? probeNodes[0],
+    [probeNodes],
+  )
 
-  useEffect(() => {
-    if (!remoteOriginEnabled) setSelectedProbeNodeId("local")
-  }, [remoteOriginEnabled])
-
-  function handleProbeNodeChange(nodeId: string) {
-    if (c.loadingPing || c.loadingProbe) return
-    const nextNode = probeNodes.find((node) => node.id === nodeId)
-    if (
-      !nextNode ||
-      (nextNode.kind !== "local" && (!remoteOriginEnabled || nextNode.kind !== "remote-proxy"))
-    ) {
-      return
-    }
-    c.clearProbeOriginResults()
-    setSelectedProbeNodeId(nextNode.id)
-  }
-
-  const offlineSub = c.offlineSub
-  const panelTitle = t(`networkProbe.l2.${resolvedL2}`)
-  const crumbOffline =
-    c.l1Id === "basic" && resolvedL2 === "offline" && offlineSub !== "all"
-      ? t(`networkProbe.offline.sub.${offlineSub}`)
-      : null
-
-  const showOverview = c.l1Id === "basic" && resolvedL2 === "overview"
-  const showTree = c.l1Id === "basic" && resolvedL2 === "tree"
-  const showOpinion = c.l1Id === "basic" && resolvedL2 === "opinion"
-  const showOffline = c.l1Id === "basic" && resolvedL2 === "offline"
-  const showFix = c.l1Id === "basic" && resolvedL2 === "fix"
-  const showReport = c.l1Id === "basic" && resolvedL2 === "report"
+  const errorText = c.error ? t(c.error.key, { defaultValue: c.error.fallback }) : null
+  const panelTitle =
+    c.l1Id === "basic" ? t("networkProbe.l1.basic") : t(`networkProbe.l2.${resolvedL2}`)
+  const showBasicView = c.l1Id === "basic"
   const showOfficialSites = c.l1Id === "sites" && resolvedL2 === "official"
   const showSitePacks = c.l1Id === "sites" && resolvedL2 === "packs"
   const showPing = c.l1Id === "test" && resolvedL2 === "ping"
@@ -210,12 +160,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
   const showNodes = c.l1Id === "discover" && resolvedL2 === "nodes"
   const showPcap = c.l1Id === "security" && resolvedL2 === "pcap"
   const showComingSoon = !(
-    showOverview ||
-    showTree ||
-    showOpinion ||
-    showOffline ||
-    showFix ||
-    showReport ||
+    showBasicView ||
     showOfficialSites ||
     showSitePacks ||
     showPing ||
@@ -329,15 +274,15 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
               <div className="flex shrink-0 flex-wrap items-baseline gap-2">
                 <h2 className="text-base font-semibold">{panelTitle}</h2>
                 <p className="text-muted-foreground text-[11px]">
-                  <span>{t(`networkProbe.l1.${c.l1Id}`)}</span>
-                  <span className="mx-1 opacity-50">/</span>
-                  <span>{panelTitle}</span>
-                  {crumbOffline ? (
+                  {showBasicView ? (
+                    <span>{t("networkProbe.basicView.hint")}</span>
+                  ) : (
                     <>
+                      <span>{t(`networkProbe.l1.${c.l1Id}`)}</span>
                       <span className="mx-1 opacity-50">/</span>
-                      <span>{crumbOffline}</span>
+                      <span>{panelTitle}</span>
                     </>
-                  ) : null}
+                  )}
                   {c.capabilities ? (
                     <>
                       <span className="mx-1 opacity-50">·</span>
@@ -365,32 +310,70 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
               ) : null}
 
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                {showOverview ? (
-                  <OverviewPanel
-                    loading={c.loadingSummary}
-                    summary={c.summary}
-                    firewall={c.firewall}
-                    hostsSuspiciousCount={hostsSuspicious}
-                    openingSettings={c.openingSystemNetworkSettings}
-                    onRefresh={c.refreshOverview}
-                    onOpenSettings={c.openSystemNetworkSettings}
+                {showBasicView ? (
+                  <BasicView
+                    overview={{
+                      loading: c.loadingSummary,
+                      summary: c.summary,
+                      firewall: c.firewall,
+                      errors: c.overviewErrors,
+                      hostsSuspiciousCount: hostsSuspicious,
+                      onRefresh: c.refreshOverview,
+                      onOpenSettings: c.openSystemNetworkSettings,
+                    }}
+                    health={{
+                      loading: c.loadingHealth,
+                      result: c.healthResult,
+                      streamingItems: c.healthStreamingItems,
+                      canCancel: Boolean(activeSessionIdByKind.health),
+                      cancelling: c.healthCancelRequested,
+                      onRun: c.runHealthScan,
+                      onCancel: () => c.cancelScan("health"),
+                    }}
+                    offline={{
+                      loading: c.loadingOffline,
+                      loadingIpv6: c.loadingIpv6,
+                      loadingMtu: c.loadingMtu,
+                      loadingEgress: c.loadingOffline,
+                      focus: c.offlineSub,
+                      errors: c.offlineErrors,
+                      captive: c.captiveResult,
+                      publicIp: c.publicIpInfo,
+                      proxyVpn: c.proxyVpnStatus,
+                      ipv6: c.ipv6Result,
+                      mtu: c.mtuResult,
+                      onRunAll: c.runOfflineDiagnostics,
+                      onSelectFocus: c.selectOfflineSub,
+                      onCheckIpv6: c.checkIpv6Stack,
+                      onProbeMtu: c.probePathMtu,
+                      onRefreshEgress: c.refreshPublicIp,
+                      onOpenMtu: () => {
+                        c.selectL1("test")
+                        c.selectL2("mtu")
+                      },
+                      busy: c.loadingOffline || c.loadingIpv6 || c.loadingMtu,
+                    }}
+                    fix={{
+                      loading: c.loadingFix,
+                      services: c.networkServices,
+                      servicesStatus: c.networkServicesStatus,
+                      dnsPresets: c.defaults?.dnsPresets ?? [],
+                      lastResult: c.fixResult,
+                      onLoadServices: c.loadNetworkServices,
+                      onFlushDns: c.flushDns,
+                      onSwitchDns: c.switchDns,
+                      onRenewDhcp: c.renewDhcp,
+                      onResetNetworkStack: c.resetNetworkStack,
+                      onOpenSettings: c.openSystemNetworkSettings,
+                    }}
+                    report={{
+                      health: c.healthResult,
+                      history: c.reportHistory,
+                      commandLog: c.commandLog,
+                      onClearLog: c.clearCommandLog,
+                      onClearHistory: c.clearReportHistory,
+                    }}
                   />
-                ) : null}
-
-                {showTree ? (
-                  <HealthTreePanel
-                    loading={c.loadingHealth}
-                    result={c.healthResult}
-                    streamingItems={c.healthStreamingItems}
-                    canCancel={Boolean(activeSessionIdByKind.health)}
-                    cancelRequested={isScanCancelRequested("health")}
-                    onRun={c.runHealthScan}
-                    onCancel={() => c.cancelScan("health")}
-                  />
-                ) : null}
-
-                {showOpinion ? (
-                  <ScanOpinionPanel result={c.healthResult} onGoTree={() => c.selectL2("tree")} />
                 ) : null}
 
                 {showSitePacks ? (
@@ -398,9 +381,8 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     loading={c.loadingSites && c.sitesResultOwner === "packs"}
                     busy={c.loadingSites}
                     canCancel={Boolean(activeSessionIdByKind.sites) && c.loadingSites}
-                    cancelRequested={isScanCancelRequested("sites")}
-                    result={sitePackData.result}
-                    streaming={sitePackData.streaming}
+                    result={c.sitesResult}
+                    streaming={c.sitesStreaming}
                     sparklines={c.siteSparklineByTarget}
                     packIds={sitePackIds}
                     toolEnabled={c.toolEnabled.sitesProbe}
@@ -429,129 +411,15 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   />
                 ) : null}
 
-                {showOffline ? (
-                  <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-                    <nav
-                      className="flex shrink-0 flex-wrap gap-1.5"
-                      aria-label={t("networkProbe.offline.subNav")}
-                    >
-                      {OFFLINE_SUBS.map((id) => (
-                        <button
-                          key={id}
-                          type="button"
-                          className={cn(
-                            "rounded-full border px-2.5 py-1 text-[11px] transition-colors",
-                            offlineSub === id
-                              ? "border-primary/40 bg-primary/10 text-primary"
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                          )}
-                          onClick={() => c.selectOfflineSub(id as NetworkProbeOfflineSub)}
-                        >
-                          {t(`networkProbe.offline.sub.${id}`)}
-                        </button>
-                      ))}
-                    </nav>
-
-                    <ScrollableArea
-                      wrapperClassName="flex min-h-0 min-w-0 flex-1"
-                      className="min-h-0 flex-1 pr-1 pb-1"
-                      showBottomDot={false}
-                    >
-                      <div className="space-y-6">
-                        <OfflinePanel
-                          loading={c.loadingOffline}
-                          blocked={c.loadingIpv6 || c.loadingMtu}
-                          focus={offlineSub}
-                          captive={c.captiveResult}
-                          publicIp={c.publicIpInfo}
-                          proxyVpn={c.proxyVpnStatus}
-                          ipv6={c.ipv6Result}
-                          mtu={c.mtuResult}
-                          onRunAll={c.runOfflineDiagnostics}
-                          onOpenMtu={() => {
-                            c.selectL1("test")
-                            c.selectL2("mtu")
-                          }}
-                        />
-
-                        {offlineSub === "all" || offlineSub === "ipv6" ? (
-                          <Ipv6Panel
-                            loading={c.loadingIpv6 || c.loadingOffline}
-                            result={c.ipv6Result}
-                            onRun={c.checkIpv6Stack}
-                            dualFrom="offline"
-                          />
-                        ) : null}
-
-                        {offlineSub === "all" || offlineSub === "mtu" ? (
-                          <MtuPanel
-                            loading={c.loadingMtu || c.loadingOffline}
-                            result={c.mtuResult}
-                            onRun={c.probePathMtu}
-                            dualFrom="offline"
-                          />
-                        ) : null}
-
-                        {offlineSub === "egress" ? (
-                          <EgressPanel
-                            loading={c.loadingOffline}
-                            result={c.publicIpInfo}
-                            onRun={c.refreshPublicIp}
-                            dualFrom="offline"
-                          />
-                        ) : null}
-                      </div>
-                    </ScrollableArea>
-                  </div>
-                ) : null}
-
-                {showFix ? (
-                  <FixPanel
-                    loading={c.loadingFix}
-                    servicesLoadState={c.networkServicesLoadState}
-                    openingSettings={c.openingSystemNetworkSettings}
-                    services={c.networkServices}
-                    dnsPresets={c.defaults?.dnsPresets ?? []}
-                    lastResult={c.fixResult}
-                    onLoadServices={c.loadNetworkServices}
-                    onFlushDns={c.flushDns}
-                    onSwitchDns={c.switchDns}
-                    onRenewDhcp={c.renewDhcp}
-                    onResetNetworkStack={c.resetNetworkStack}
-                    onOpenSettings={c.openSystemNetworkSettings}
-                  />
-                ) : null}
-
-                {showReport ? (
-                  <ReportPanel
-                    health={c.healthResult}
-                    history={c.reportHistory}
-                    commandLog={c.commandLog}
-                    onClearLog={c.clearCommandLog}
-                    onClearHistory={c.clearReportHistory}
-                    onGoTree={() => c.selectL2("tree")}
-                  />
-                ) : null}
-
                 {showPing ? (
                   <PingPanel
                     loading={c.loadingPing}
-                    result={globalpingActive ? null : c.pingResult}
-                    streamingSamples={globalpingActive ? [] : c.pingStreamingSamples}
-                    remoteResult={globalpingActive ? c.globalpingPingResult : null}
-                    remoteMode={globalpingActive}
-                    remoteLocationLabel={globalpingLocationLabel}
-                    platform={c.capabilities?.platform}
-                    toolEnabled={globalpingActive || c.toolEnabled.ping}
-                    toolStatus={globalpingActive ? undefined : c.toolStatus.ping}
-                    canCancel={!globalpingActive && c.activeSessionIdByKind.ping != null}
-                    cancelRequested={isScanCancelRequested("ping")}
-                    onCancel={() => c.cancelScan("ping")}
-                    onRun={(target, count) =>
-                      globalpingActive
-                        ? c.runGlobalpingPing(target, count, globalpingLocation)
-                        : c.runPing(target, count)
-                    }
+                    result={c.pingResult}
+                    toolEnabled={c.toolEnabled.ping}
+                    toolStatus={c.toolStatus.ping}
+                    errorCode={c.error?.code}
+                    onRun={c.runPing}
+                    onOpenLocalNetworkSettings={c.openLocalNetworkPrivacySettings}
                   />
                 ) : null}
 
@@ -646,6 +514,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     streaming={c.portScanStreaming}
                     toolEnabled={c.toolEnabled.portScan}
                     toolStatus={c.toolStatus.portScan}
+                    fingerprintStatus={c.capabilities?.tools?.fingerprint}
                     onRun={c.runPortScan}
                     onCancel={() => c.cancelScan("ports")}
                   />
@@ -709,7 +578,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                     openingSettings={c.openingSystemNetworkSettings}
                     onRun={c.discoverLan}
                     onCancel={() => c.cancelScan("lan")}
-                    onOpenSettings={c.openSystemNetworkSettings}
+                    onOpenLocalNetworkSettings={c.openLocalNetworkPrivacySettings}
                   />
                 ) : null}
 
@@ -747,12 +616,22 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
                   <MultiNodePanel
                     loading={c.loadingMultiNode}
                     loadingNodes={c.loadingNodes}
-                    agentAction={c.agentAction}
+                    nodesLoadError={c.probeNodesLoadError}
                     result={c.multiNodeDnsResult}
+                    globalpingResult={c.globalpingMeasurementResult}
+                    loadingGlobalping={c.loadingGlobalpingMeasurement}
+                    tokenConfigured={c.globalpingTokenConfigured}
+                    loadingToken={c.loadingGlobalpingToken}
+                    savingToken={c.savingGlobalpingToken}
                     nodes={c.probeNodes}
+                    agentMutation={c.agentMutation}
                     toolEnabled={c.toolEnabled.multiNode}
                     toolStatus={c.toolStatus.multiNode}
                     onCompare={c.compareDnsMulti}
+                    onRunGlobalping={c.runGlobalpingMeasurement}
+                    onRefreshTokenStatus={c.refreshGlobalpingTokenStatus}
+                    onSaveToken={c.saveGlobalpingToken}
+                    onRemoveToken={c.removeGlobalpingToken}
                     onRefreshNodes={c.refreshProbeNodes}
                     onAddAgent={c.addAgent}
                     onRemoveAgent={c.removeAgent}
@@ -784,47 +663,51 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
           </div>
         </div>
 
-        {/* L2 bottom rail — prototype .l2 */}
-        <nav
-          className="bg-background flex h-11 shrink-0 items-center gap-2 border-t px-3"
-          aria-label={t("networkProbe.nav.l2")}
-        >
-          <span className="text-muted-foreground shrink-0 border-r pr-2 text-[10px] font-bold tracking-wider uppercase">
-            {t("networkProbe.nav.l2Short")}
-          </span>
-          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-            {l2Items.map((id) => (
-              <button
-                key={id}
-                type="button"
-                className={cn(
-                  "shrink-0 rounded-md px-2.5 py-1 text-xs whitespace-nowrap transition-colors",
-                  resolvedL2 === id
-                    ? "bg-primary/15 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-                onClick={() => c.selectL2(id)}
-              >
-                {t(`networkProbe.l2.${id}`)}
-                {POST_L2.has(id) ? (
-                  <span className="text-muted-foreground ml-1 text-[10px]">
-                    {t("networkProbe.badge.post")}
-                  </span>
-                ) : null}
-              </button>
-            ))}
-          </div>
-        </nav>
+        {c.l1Id !== "basic" ? (
+          <nav
+            className="bg-background flex h-11 shrink-0 items-center gap-2 border-t px-3"
+            aria-label={t("networkProbe.nav.l2")}
+          >
+            <span className="text-muted-foreground shrink-0 border-r pr-2 text-[10px] font-bold tracking-wider uppercase">
+              {t("networkProbe.nav.l2Short")}
+            </span>
+            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+              {l2Items.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={cn(
+                    "shrink-0 rounded-md px-2.5 py-1 text-xs whitespace-nowrap transition-colors",
+                    resolvedL2 === id
+                      ? "bg-primary/15 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                  onClick={() => c.selectL2(id)}
+                >
+                  {t(`networkProbe.l2.${id}`)}
+                  {POST_L2.has(id) ? (
+                    <span className="text-muted-foreground ml-1 text-[10px]">
+                      {t("networkProbe.badge.post")}
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </nav>
+        ) : null}
 
         <PackInstallDialog
           open={packsOpen}
           packs={c.capabilityPacks}
           busy={packsBusy}
-          refreshing={c.loadingCapabilityPacks}
+          refreshing={packsRefreshing}
           progressText={c.packProgressText}
           focusPackId={focusPackId}
           onOpenChange={setPacksOpen}
-          onRefresh={() => void c.refreshCapabilityPacks()}
+          onRefresh={() => {
+            setPacksRefreshing(true)
+            void c.refreshCapabilityPacks().finally(() => setPacksRefreshing(false))
+          }}
           onInstall={(packId) => {
             setPacksBusy(true)
             void c.installCapabilityPack(packId).finally(() => setPacksBusy(false))

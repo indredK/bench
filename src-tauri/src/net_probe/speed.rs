@@ -3,7 +3,7 @@
 
 use super::types::{ScanSessionEvent, SpeedSampleEvent, SpeedSource, SpeedTestResult};
 use crate::error::{AppError, AppResult};
-use futures_util::StreamExt;
+use std::future::Future;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Runtime};
 
@@ -44,6 +44,25 @@ fn join_url(base: &str, path: &str) -> String {
     format!("{base}/{path}")
 }
 
+fn has_bandwidth_sample(download_mbps: Option<f64>, upload_mbps: Option<f64>) -> bool {
+    download_mbps.is_some() || upload_mbps.is_some()
+}
+
+async fn cancellable<T>(
+    cancellation: &mut tokio::sync::watch::Receiver<bool>,
+    operation: impl Future<Output = T>,
+) -> Option<T> {
+    if *cancellation.borrow() {
+        return None;
+    }
+
+    tokio::select! {
+        biased;
+        _ = cancellation.changed() => None,
+        result = operation => Some(result),
+    }
+}
+
 pub async fn run_speed_test<R: Runtime>(
     app: Option<&AppHandle<R>>,
     source_id: String,
@@ -59,8 +78,8 @@ pub async fn run_speed_test<R: Runtime>(
         .build()
         .map_err(|e| AppError::new("SPEED_CLIENT", e.to_string()))?;
 
-    let session_id = super::session::new_session_id();
-    let _session_guard = super::session::SessionGuard::new(session_id.clone());
+    let mut session = super::session::new_cancellable_session();
+    let session_id = session.id.clone();
     if let Some(app) = app {
         let _ = app.emit(
             SCAN_SESSION_EVENT,
@@ -89,12 +108,10 @@ pub async fn run_speed_test<R: Runtime>(
             break;
         }
         let t0 = Instant::now();
-        let res = tokio::select! {
-            response = client.get(&ping_url).send() => response,
-            _ = super::session::wait_for_cancel(&session_id) => {
-                cancelled = true;
-                break;
-            }
+        let Some(res) = cancellable(&mut session.cancellation, client.get(&ping_url).send()).await
+        else {
+            cancelled = true;
+            break;
         };
         let ok = res.map(|r| r.status().is_success()).unwrap_or(false);
         if ok {
@@ -102,8 +119,16 @@ pub async fn run_speed_test<R: Runtime>(
             rtts.push(ms);
             emit_sample(app, "ping", ms, "sample");
         }
-        if i + 1 < PING_COUNT {
-            tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+        if i + 1 < PING_COUNT
+            && cancellable(
+                &mut session.cancellation,
+                tokio::time::sleep(std::time::Duration::from_millis(80)),
+            )
+            .await
+            .is_none()
+        {
+            cancelled = true;
+            break;
         }
     }
     if !rtts.is_empty() {
@@ -130,55 +155,23 @@ pub async fn run_speed_test<R: Runtime>(
         );
         let t0 = Instant::now();
         let max_bytes = (MAX_DOWNLOAD_MB * 1024 * 1024) as usize;
-        let response = tokio::select! {
-            response = client.get(&dl_url).send() => Some(response),
-            _ = super::session::wait_for_cancel(&session_id) => {
-                cancelled = true;
-                None
-            }
-        };
-        match response {
+        match cancellable(&mut session.cancellation, client.get(&dl_url).send()).await {
+            None => cancelled = true,
             Some(Ok(resp)) if resp.status().is_success() => {
-                let mut stream = resp.bytes_stream();
-                let mut total_bytes = 0usize;
-                let mut read_error = None;
-                loop {
-                    let next_chunk = tokio::select! {
-                        chunk = stream.next() => chunk,
-                        _ = super::session::wait_for_cancel(&session_id) => {
-                            cancelled = true;
-                            break;
-                        }
-                    };
-                    let Some(chunk) = next_chunk else { break };
-                    match chunk {
-                        Ok(chunk) => {
-                            let remaining = max_bytes.saturating_sub(total_bytes);
-                            total_bytes += chunk.len().min(remaining);
-                            if chunk.len() > remaining || total_bytes >= max_bytes {
-                                break;
-                            }
-                        }
-                        Err(error) => {
-                            read_error = Some(error.to_string());
-                            break;
-                        }
+                match cancellable(&mut session.cancellation, resp.bytes()).await {
+                    None => cancelled = true,
+                    Some(Ok(bytes)) => {
+                        let capped = bytes.len().min(max_bytes);
+                        let secs = t0.elapsed().as_secs_f64().max(0.001);
+                        let mbps = (capped as f64 * 8.0) / (secs * 1_000_000.0);
+                        download_mbps = Some(mbps);
+                        emit_sample(app, "download", mbps, "done");
                     }
-                }
-                if cancelled {
-                    emit_sample(app, "download", 0.0, "cancelled");
-                } else if let Some(error) = read_error {
-                    emit_sample(app, "download", 0.0, &format!("error:{error}"));
-                } else {
-                    let secs = t0.elapsed().as_secs_f64().max(0.001);
-                    let mbps = (total_bytes as f64 * 8.0) / (secs * 1_000_000.0);
-                    download_mbps = Some(mbps);
-                    emit_sample(app, "download", mbps, "done");
+                    Some(Err(e)) => emit_sample(app, "download", 0.0, &format!("error:{e}")),
                 }
             }
             Some(Ok(resp)) => emit_sample(app, "download", 0.0, &format!("http:{}", resp.status())),
-            Some(Err(error)) => emit_sample(app, "download", 0.0, &format!("error:{error}")),
-            None => emit_sample(app, "download", 0.0, "cancelled"),
+            Some(Err(e)) => emit_sample(app, "download", 0.0, &format!("error:{e}")),
         }
     } else {
         cancelled = true;
@@ -188,35 +181,31 @@ pub async fn run_speed_test<R: Runtime>(
     if !cancelled && !super::session::is_cancelled(&session_id) {
         emit_sample(app, "upload", 0.0, "running");
         let ul_url = join_url(&source.base_url, &source.ul_path);
-        let payload = vec![0u8; (MAX_UPLOAD_MB * 1024 * 1024) as usize];
-        let payload_bytes = payload.len();
+        let payload = vec![0u8; (MAX_UPLOAD_MB.clamp(1, MAX_UPLOAD_MB) * 1024 * 1024) as usize];
+        let payload_len = payload.len();
         let t0 = Instant::now();
-        let response = tokio::select! {
-            response = client.post(&ul_url).body(payload).send() => Some(response),
-            _ = super::session::wait_for_cancel(&session_id) => {
-                cancelled = true;
-                None
-            }
-        };
-        match response {
-            Some(Ok(resp)) if resp.status().is_success() => {
+        match cancellable(
+            &mut session.cancellation,
+            client.post(&ul_url).body(payload).send(),
+        )
+        .await
+        {
+            None => cancelled = true,
+            Some(Ok(resp)) if resp.status().is_success() || resp.status().as_u16() == 200 => {
                 let secs = t0.elapsed().as_secs_f64().max(0.001);
-                let mbps = (payload_bytes as f64 * 8.0) / (secs * 1_000_000.0);
+                let mbps = (payload_len as f64 * 8.0) / (secs * 1_000_000.0);
                 upload_mbps = Some(mbps);
                 emit_sample(app, "upload", mbps, "done");
             }
             Some(Ok(resp)) => emit_sample(app, "upload", 0.0, &format!("http:{}", resp.status())),
-            Some(Err(error)) => emit_sample(app, "upload", 0.0, &format!("error:{error}")),
-            None => emit_sample(app, "upload", 0.0, "cancelled"),
+            Some(Err(e)) => emit_sample(app, "upload", 0.0, &format!("error:{e}")),
         }
     } else {
         cancelled = cancelled || super::session::is_cancelled(&session_id);
     }
 
     cancelled = cancelled || super::session::is_cancelled(&session_id);
-    super::session::clear_session(&session_id);
-
-    let ok = ping_ms.is_some() || download_mbps.is_some() || upload_mbps.is_some();
+    let ok = has_bandwidth_sample(download_mbps, upload_mbps);
     Ok(SpeedTestResult {
         source_id: source.id,
         source_name: source.name,
@@ -230,15 +219,46 @@ pub async fn run_speed_test<R: Runtime>(
         message: if cancelled {
             Some("Speed test cancelled.".into())
         } else if !ok {
-            Some(
-                "Speed source unreachable or returned no usable samples. Wait before retrying (cooldown)."
-                    .into(),
-            )
+            Some("Speed source returned no usable bandwidth samples. Wait before retrying (cooldown).".into())
         } else {
             None
         },
         command_hint,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn speed_test_requires_a_bandwidth_sample_to_succeed() {
+        assert!(!has_bandwidth_sample(None, None));
+        assert!(has_bandwidth_sample(Some(0.0), None));
+        assert!(has_bandwidth_sample(None, Some(12.5)));
+    }
+
+    #[tokio::test]
+    async fn cancellation_interrupts_a_pending_phase() {
+        let mut session = super::super::session::new_cancellable_session();
+        let session_id = session.id.clone();
+        let cancel_id = session_id.clone();
+        let started = tokio::time::Instant::now();
+
+        let (result, ()) = tokio::join!(
+            cancellable(
+                &mut session.cancellation,
+                tokio::time::sleep(std::time::Duration::from_secs(30)),
+            ),
+            async move {
+                tokio::task::yield_now().await;
+                super::super::session::cancel_scan(cancel_id);
+            }
+        );
+
+        assert!(result.is_none());
+        assert!(started.elapsed() < std::time::Duration::from_secs(1));
+    }
 }
 
 fn emit_sample<R: Runtime>(app: Option<&AppHandle<R>>, phase: &str, value: f64, detail: &str) {

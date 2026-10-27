@@ -104,10 +104,10 @@ export function DnsLookupPanel({ loading, result, dnsPresets, onRun }: DnsLookup
     >
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
-          <div className="font-mono font-medium break-all">
-            {t("networkProbe.dns.resultFor", { domain: result.domain })}
+          <div>
+            {t("networkProbe.dns.domain")}: <span className="font-medium">{result.domain}</span>
           </div>
-          <div className="text-muted-foreground">
+          <div>
             {t("networkProbe.dns.meta", {
               rrType: result.rrType,
               resolver:

@@ -16,11 +16,29 @@ import type {
   HealthCheckItem,
   PingSampleEvent,
   SiteSampleResult,
+  SitesProbeResult,
   SpeedSampleEvent,
   PortSampleEvent,
   TracerouteHop,
 } from "@/lib/tauri/types/network-probe"
 import { listenToPlatformEvent } from "@/platform/events"
+
+async function settle<T>(operation: () => Promise<T>) {
+  try {
+    return { ok: true as const, value: await operation() }
+  } catch (error) {
+    return { ok: false as const, error: getErrorMessage(error) }
+  }
+}
+
+/** Log the IPC contract name only; never persist user-entered targets or credentials. */
+function logCommand(commandName: string) {
+  useNetworkProbeStore.getState().appendCommandLog(`${commandName}()`)
+}
+
+let bootstrapInFlight: Promise<void> | null = null
+let capabilityPacksRefreshInFlight: Promise<void> | null = null
+const activeScanCancelRequestByKind = new Map<NetworkProbeKind, () => void>()
 
 /**
  * 订阅 scan-session 事件, 把后端回传的会话只写进「本类探测专属」的槽位。
@@ -30,21 +48,42 @@ import { listenToPlatformEvent } from "@/platform/events"
 function createScanSessionTracker(kind: NetworkProbeKind, onSession?: (sessionId: string) => void) {
   let sessionId: string | null = null
   let unlisten: (() => void) | undefined
+  let cancelWhenSessionArrives = false
+  let active = false
+  const requestCancel = () => {
+    if (!active) return
+    if (sessionId) {
+      void networkProbeUseCases.cancelScan(kind)
+    } else {
+      cancelWhenSessionArrives = true
+    }
+  }
   return {
     async start() {
+      active = true
+      activeScanCancelRequestByKind.set(kind, requestCancel)
       // 起跑先占位清空, 槽里之后只可能是本轮会话, 取消目标不会串到上一轮。
       useNetworkProbeStore.getState().setActiveSessionId(kind, null)
       unlisten = await listenToPlatformEvent<{ sessionId: string; kind: string }>(
         TAURI_EVENTS.networkProbe.scanSession,
         (event) => {
+          if (!active) return
           if (event.payload.kind !== kind) return
           sessionId = event.payload.sessionId
           useNetworkProbeStore.getState().setActiveSessionId(kind, sessionId)
-          onSession?.(sessionId)
+          if (cancelWhenSessionArrives) {
+            cancelWhenSessionArrives = false
+            void networkProbeUseCases.cancelScan(kind)
+          }
         },
       )
     },
     stop() {
+      active = false
+      cancelWhenSessionArrives = false
+      if (activeScanCancelRequestByKind.get(kind) === requestCancel) {
+        activeScanCancelRequestByKind.delete(kind)
+      }
       unlisten?.()
       unlisten = undefined
       // 只清自己这轮占的槽, 别的探测进度不受影响。
@@ -151,20 +190,73 @@ function loadProbeNodesSnapshot(): Promise<ProbeNodesSnapshot> {
 
 export const networkProbeUseCases = {
   async bootstrap() {
+    if (bootstrapInFlight) return bootstrapInFlight
+
     const store = useNetworkProbeStore.getState()
-    store.clearError("networkProbe.errors.bootstrapFailed")
+    const probeNodesRevision = store.probeNodesRevision
+    const shouldLoadNodes = !store.loadingNodes
+    const task = (async () => {
+      store.setError(null)
+      if (shouldLoadNodes) {
+        store.setLoadingNodes(true)
+        store.setProbeNodesLoadError(null)
+      }
+      try {
+        logCommand("getNetworkProbeCapabilities")
+        logCommand("getNetworkProbeDefaults")
+        logCommand("listCapabilityPacks")
+        if (shouldLoadNodes) logCommand("listProbeNodes")
+        const [capabilities, defaults, packs, nodes] = await Promise.all([
+          settle(() => networkProbeRepository.getCapabilities()),
+          settle(() => networkProbeRepository.getDefaults()),
+          settle(() => networkProbeRepository.listCapabilityPacks()),
+          shouldLoadNodes
+            ? settle(() => networkProbeRepository.listProbeNodes())
+            : Promise.resolve(null),
+        ])
+        const failures: string[] = []
+        if (capabilities.ok) store.setCapabilities(capabilities.value)
+        else failures.push(`getNetworkProbeCapabilities: ${capabilities.error}`)
+        if (defaults.ok) store.setDefaults(defaults.value)
+        else failures.push(`getNetworkProbeDefaults: ${defaults.error}`)
+        if (packs.ok) store.setCapabilityPacks(packs.value)
+        else failures.push(`listCapabilityPacks: ${packs.error}`)
+
+        if (nodes) {
+          const latest = useNetworkProbeStore.getState()
+          if (latest.probeNodesRevision === probeNodesRevision) {
+            if (nodes.ok) {
+              latest.setProbeNodes(nodes.value)
+              latest.setProbeNodesLoadError(null)
+            } else {
+              latest.setProbeNodesLoadError(nodes.error)
+              failures.push(`listProbeNodes: ${nodes.error}`)
+            }
+          } else {
+            latest.setProbeNodesLoadError(null)
+          }
+        }
+
+        if (failures.length > 0) {
+          store.setError({
+            key: "networkProbe.errors.bootstrapFailed",
+            fallback: failures.join(" · "),
+          })
+        }
+      } catch (error) {
+        store.setError({
+          key: "networkProbe.errors.bootstrapFailed",
+          fallback: getErrorMessage(error),
+        })
+      } finally {
+        if (shouldLoadNodes) useNetworkProbeStore.getState().setLoadingNodes(false)
+      }
+    })()
+    bootstrapInFlight = task
     try {
-      const [, defaults] = await Promise.all([
-        loadCapabilityPackSnapshot(),
-        networkProbeRepository.getDefaults(),
-        loadProbeNodesSnapshot(),
-      ])
-      store.setDefaults(defaults)
-    } catch (error) {
-      store.setError({
-        key: "networkProbe.errors.bootstrapFailed",
-        fallback: getErrorMessage(error),
-      })
+      await task
+    } finally {
+      if (bootstrapInFlight === task) bootstrapInFlight = null
     }
   },
 
@@ -172,16 +264,40 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingSummary) return
     store.setLoadingSummary(true)
-    store.clearError("networkProbe.errors.overviewFailed")
+    store.setOverviewErrors({})
+    store.setError(null)
     try {
+      logCommand("getLocalNetworkSummary")
+      logCommand("getFirewallStatus")
+      logCommand("checkHostsOverrides")
       const [summary, firewall, hosts] = await Promise.all([
-        networkProbeRepository.getLocalNetworkSummary(),
-        networkProbeRepository.getFirewallStatus(),
-        networkProbeRepository.checkHostsOverrides(),
+        settle(() => networkProbeRepository.getLocalNetworkSummary()),
+        settle(() => networkProbeRepository.getFirewallStatus()),
+        settle(() => networkProbeRepository.checkHostsOverrides()),
       ])
-      store.setSummary(summary)
-      store.setFirewall(firewall)
-      store.setHosts(hosts)
+      const errors: NonNullable<typeof store.overviewErrors> = {}
+      if (summary.ok) store.setSummary(summary.value)
+      else {
+        useNetworkProbeStore.getState().setSummary(null)
+        errors.summary = summary.error
+      }
+      if (firewall.ok) store.setFirewall(firewall.value)
+      else {
+        useNetworkProbeStore.getState().setFirewall(null)
+        errors.firewall = firewall.error
+      }
+      if (hosts.ok) store.setHosts(hosts.value)
+      else {
+        useNetworkProbeStore.getState().setHosts(null)
+        errors.hosts = hosts.error
+      }
+      store.setOverviewErrors(errors)
+      if (Object.keys(errors).length > 0) {
+        store.setError({
+          key: "networkProbe.errors.overviewPartialFailed",
+          fallback: Object.values(errors).join(" · "),
+        })
+      }
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.overviewFailed",
@@ -196,13 +312,13 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingTcp) return
     store.setLoadingTcp(true)
-    store.clearError("networkProbe.errors.tcpFailed")
-    store.setTcpResult(null)
-    store.appendCommandLog(formatTcpConnectCommand(host, port))
+    store.setError(null)
+    logCommand("tcpConnect")
     try {
       const result = await networkProbeRepository.tcpConnect(host.trim(), port)
       store.setTcpResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setTcpResult(null)
       store.setError({
         key: "networkProbe.errors.tcpFailed",
         fallback: getErrorMessage(error),
@@ -216,13 +332,10 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingPing) return
     store.setLoadingPing(true)
-    store.clearError("networkProbe.errors.pingFailed")
+    store.setError(null)
     store.setPingResult(null)
-    store.setGlobalpingPingResult(null)
     store.resetPingStreaming()
-    store.appendCommandLog(`pingHost('${target.trim()}', ${count})`)
-    const sessions = createScanSessionTracker("ping")
-    let unlistenSamples: (() => void) | undefined
+    let unlisten: (() => void) | undefined
     try {
       await sessions.start()
       unlistenSamples = await listenToPlatformEvent<PingSampleEvent>(
@@ -233,6 +346,7 @@ export const networkProbeUseCases = {
           current.appendPingSample(event.payload.sample)
         },
       )
+      logCommand("probePingHost")
       const result = await networkProbeRepository.pingHost(target.trim(), count)
       store.setPingResult(result)
       if (result.cancelled) {
@@ -243,6 +357,7 @@ export const networkProbeUseCases = {
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.pingFailed",
+        code: getErrorCode(error),
         fallback: getErrorMessage(error),
       })
     } finally {
@@ -278,12 +393,13 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingDns) return
     store.setLoadingDns(true)
-    store.clearError("networkProbe.errors.dnsFailed")
-    store.setDnsResult(null)
+    store.setError(null)
+    logCommand("probeDnsLookup")
     try {
       const result = await networkProbeRepository.dnsLookup(domain.trim(), rrType, resolver)
       store.setDnsResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setDnsResult(null)
       store.setError({
         key: "networkProbe.errors.dnsFailed",
         fallback: getErrorMessage(error),
@@ -297,14 +413,13 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingProbe) return
     store.setLoadingProbe(true)
-    store.clearError("networkProbe.errors.probeFailed")
-    store.setProbeResult(null)
-    store.setGlobalpingHttpResult(null)
-    store.appendCommandLog(`probeTarget(local, '${redactProbeTargetForDisplay(input)}')`)
+    store.setError(null)
+    logCommand("probeTarget")
     try {
       const result = await networkProbeRepository.probeTarget(input.trim())
       store.setProbeResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setProbeResult(null)
       store.setError({
         key: "networkProbe.errors.probeFailed",
         fallback: getErrorMessage(error),
@@ -314,58 +429,9 @@ export const networkProbeUseCases = {
     }
   },
 
-  async runGlobalpingHttp(input: string, location: string) {
+  async runSitesProbe(packId: string): Promise<SitesProbeResult | null> {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingProbe) return
-    store.setLoadingProbe(true)
-    clearGlobalpingErrors()
-    store.setProbeResult(null)
-    store.setGlobalpingHttpResult(null)
-    // The URL may contain a signed query; never copy it into the in-app command log.
-    store.appendCommandLog(`globalpingHttp(target redacted, '${location}')`)
-    try {
-      const result = await networkProbeRepository.globalpingHttp(input.trim(), location)
-      store.setGlobalpingHttpResult(result)
-    } catch (error) {
-      store.setError({
-        key: globalpingErrorKey(error),
-        fallback: getErrorMessage(error),
-      })
-    } finally {
-      useNetworkProbeStore.getState().setLoadingProbe(false)
-    }
-  },
-
-  clearProbeOriginResults() {
-    const store = useNetworkProbeStore.getState()
-    store.setPingResult(null)
-    store.setGlobalpingPingResult(null)
-    store.setProbeResult(null)
-    store.setGlobalpingHttpResult(null)
-    store.resetPingStreaming()
-    // Switching between local and remote origins invalidates both result families and their notices.
-    store.clearError("networkProbe.errors.pingFailed")
-    store.clearError("networkProbe.errors.probeFailed")
-    clearGlobalpingErrors()
-  },
-
-  getGlobalpingTokenStatus() {
-    return networkProbeRepository.isGlobalpingTokenConfigured()
-  },
-
-  saveGlobalpingToken(token: string) {
-    return networkProbeRepository.saveGlobalpingToken(token)
-  },
-
-  deleteGlobalpingToken() {
-    return networkProbeRepository.deleteGlobalpingToken()
-  },
-
-  async runSitesProbe(packId: string) {
-    const store = useNetworkProbeStore.getState()
-    if (store.loadingSites) return
-    const isOfficial = packId === "official"
-    store.setSitesResultOwner(packId === "official" ? "official" : "packs")
+    if (store.loadingSites) return null
     store.setLoadingSites(true)
     store.clearError("networkProbe.errors.sitesFailed")
     store.resetSitesStreaming()
@@ -378,7 +444,6 @@ export const networkProbeUseCases = {
     // 重跑先清空上一轮结果, 否则面板会优先渲染旧结果而遮蔽本轮流式进度。
     store.setSitesResult(null)
     const sessions = createScanSessionTracker("sites")
-    store.appendCommandLog(`startSitesProbe(local, '${packId}')`)
     let unlistenSample: (() => void) | undefined
     try {
       await sessions.start()
@@ -390,6 +455,7 @@ export const networkProbeUseCases = {
           if (isOfficial) current.upsertOfficialSiteSample(event.payload)
         },
       )
+      logCommand("sitesProbe")
       const result = await networkProbeRepository.sitesProbe(packId)
       store.setSitesResult(result)
       if (isOfficial) {
@@ -402,11 +468,13 @@ export const networkProbeUseCases = {
           ? `sitesProbe cancelled sessionId=${result.sessionId}`
           : `sitesProbe done pack=${result.packId} n=${result.results.length}`,
       )
+      return result
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.sitesFailed",
         fallback: getErrorMessage(error),
       })
+      return null
     } finally {
       unlistenSample?.()
       sessions.stop()
@@ -416,10 +484,9 @@ export const networkProbeUseCases = {
     }
   },
 
-  async runSitesProbeCustom(targets: string[], resultOwner: SiteProbeResultOwner = "packs") {
+  async runSitesProbeCustom(targets: string[]): Promise<SitesProbeResult | null> {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingSites) return
-    store.setSitesResultOwner(resultOwner)
+    if (store.loadingSites) return null
     store.setLoadingSites(true)
     store.clearError("networkProbe.errors.sitesFailed")
     store.resetSitesStreaming()
@@ -430,7 +497,6 @@ export const networkProbeUseCases = {
     // 同上: 单站重测也要先清掉整包结果, 避免旧数据顶替本轮进度。
     store.setSitesResult(null)
     const sessions = createScanSessionTracker("sites")
-    store.appendCommandLog(`startSitesProbe(local, custom[${targets.length}])`)
     let unlistenSample: (() => void) | undefined
     try {
       await sessions.start()
@@ -442,6 +508,7 @@ export const networkProbeUseCases = {
           if (resultOwner === "official") current.upsertOfficialSiteSample(event.payload)
         },
       )
+      logCommand("sitesProbeCustom")
       const result = await networkProbeRepository.sitesProbeCustom(targets)
       store.setSitesResult(result)
       if (resultOwner === "official") {
@@ -454,11 +521,13 @@ export const networkProbeUseCases = {
           ? `sitesProbeCustom cancelled sessionId=${result.sessionId}`
           : `sitesProbeCustom done n=${result.results.length}`,
       )
+      return result
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.sitesFailed",
         fallback: getErrorMessage(error),
       })
+      return null
     } finally {
       unlistenSample?.()
       sessions.stop()
@@ -477,7 +546,6 @@ export const networkProbeUseCases = {
     // 重跑体检先清空上一轮结论: 报告 / 意见面板有各自空态, 不该继续显示旧扫描。
     store.setHealthResult(null)
     const sessions = createScanSessionTracker("health")
-    store.appendCommandLog("startHealthScan(local)")
     let unlistenItem: (() => void) | undefined
     try {
       await sessions.start()
@@ -487,6 +555,7 @@ export const networkProbeUseCases = {
           useNetworkProbeStore.getState().upsertHealthStreamingItem(event.payload)
         },
       )
+      logCommand("runHealthScan")
       const result = await networkProbeRepository.runHealthScan()
       store.setHealthResult(result)
       if (!result.cancelled) {
@@ -516,27 +585,29 @@ export const networkProbeUseCases = {
   async cancelScan(kind: NetworkProbeKind) {
     const store = useNetworkProbeStore.getState()
     const sessionId = store.activeSessionIdByKind[kind]
-    if (!sessionId) return
+    if (!sessionId) {
+      activeScanCancelRequestByKind.get(kind)?.()
+      return
+    }
     // 幂等 (A4-4): 同一会话只允许发出一次 cancel 请求。
     if (store.cancelRequestedSessionIdByKind[kind] === sessionId) return
     store.clearError("networkProbe.errors.cancelFailed")
     store.setCancelRequestedSessionId(kind, sessionId)
-    store.appendCommandLog(`cancelScan('${sessionId}')`)
+    logCommand("cancelScan")
     try {
       await networkProbeRepository.cancelScan(sessionId)
     } catch (error) {
-      const currentStore = useNetworkProbeStore.getState()
-      // 失败后恢复重试能力，但不能清除后来启动的新会话的取消标记。
-      if (currentStore.cancelRequestedSessionIdByKind[kind] === sessionId) {
-        currentStore.setCancelRequestedSessionId(kind, null)
+      const latest = useNetworkProbeStore.getState()
+      if (
+        latest.activeSessionIdByKind[kind] === sessionId &&
+        latest.cancelRequestedSessionIdByKind[kind] === sessionId
+      ) {
+        latest.setCancelRequestedSessionId(kind, null)
       }
-      // 如果本会话已经结束或槽位已属于新会话，这个迟到的错误不再对用户有用。
-      if (currentStore.activeSessionIdByKind[kind] === sessionId) {
-        currentStore.setError({
-          key: "networkProbe.errors.cancelFailed",
-          fallback: getErrorMessage(error),
-        })
-      }
+      store.setError({
+        key: "networkProbe.errors.cancelFailed",
+        fallback: getErrorMessage(error),
+      })
     }
   },
 
@@ -572,15 +643,17 @@ export const networkProbeUseCases = {
 
   async loadNetworkServices() {
     const store = useNetworkProbeStore.getState()
-    if (store.networkServicesLoadState === "loading") return
-    store.setNetworkServicesLoadState("loading")
-    store.clearError("networkProbe.errors.servicesFailed")
+    if (store.networkServicesStatus === "loading") return
+    store.setNetworkServicesStatus("loading")
+    store.setError(null)
+    logCommand("listNetworkServices")
     try {
       const services = await networkProbeRepository.listNetworkServices()
-      useNetworkProbeStore.getState().setNetworkServices(services)
+      store.setNetworkServices(services)
+      useNetworkProbeStore.getState().setNetworkServicesStatus("ready")
     } catch (error) {
-      const currentStore = useNetworkProbeStore.getState()
-      currentStore.setError({
+      useNetworkProbeStore.getState().setNetworkServicesStatus("error")
+      store.setError({
         key: "networkProbe.errors.servicesFailed",
         fallback: getErrorMessage(error),
       })
@@ -592,12 +665,13 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingFix) return
     store.setLoadingFix(true)
-    store.setFixResult(null)
-    store.clearError("networkProbe.errors.fixFailed")
+    store.setError(null)
+    logCommand("flushDns")
     try {
       const result = await networkProbeRepository.flushDns()
       store.setFixResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setFixResult(null)
       store.setError({
         key: "networkProbe.errors.fixFailed",
         fallback: getErrorMessage(error),
@@ -611,12 +685,13 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingFix) return
     store.setLoadingFix(true)
-    store.setFixResult(null)
-    store.clearError("networkProbe.errors.fixFailed")
+    store.setError(null)
+    logCommand("switchDns")
     try {
       const result = await networkProbeRepository.switchDns(service, servers)
       store.setFixResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setFixResult(null)
       store.setError({
         key: "networkProbe.errors.fixFailed",
         fallback: getErrorMessage(error),
@@ -630,12 +705,13 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingFix) return
     store.setLoadingFix(true)
-    store.setFixResult(null)
-    store.clearError("networkProbe.errors.fixFailed")
+    store.setError(null)
+    logCommand("renewDhcp")
     try {
       const result = await networkProbeRepository.renewDhcp(service)
       store.setFixResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setFixResult(null)
       store.setError({
         key: "networkProbe.errors.fixFailed",
         fallback: getErrorMessage(error),
@@ -649,12 +725,13 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingFix) return
     store.setLoadingFix(true)
-    store.setFixResult(null)
-    store.clearError("networkProbe.errors.fixFailed")
+    store.setError(null)
+    logCommand("resetNetworkStack")
     try {
       const result = await networkProbeRepository.resetNetworkStack(service)
       store.setFixResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setFixResult(null)
       store.setError({
         key: "networkProbe.errors.fixFailed",
         fallback: getErrorMessage(error),
@@ -673,9 +750,6 @@ export const networkProbeUseCases = {
     // 重跑先清掉上一轮跳数结果, 让本轮 streaming 可见。
     store.setTracerouteResult(null)
     const sessions = createScanSessionTracker("traceroute")
-    store.appendCommandLog(
-      `startTraceroute(local, '${target.trim()}', {maxTtl:${maxTtl},rounds:${rounds}})`,
-    )
     let unlistenHop: (() => void) | undefined
     try {
       await sessions.start()
@@ -685,6 +759,7 @@ export const networkProbeUseCases = {
           useNetworkProbeStore.getState().upsertTracerouteHop(event.payload)
         },
       )
+      logCommand("runTraceroute")
       const result = await networkProbeRepository.runTraceroute(target.trim(), maxTtl, rounds)
       store.setTracerouteResult(result)
       store.appendCommandLog(
@@ -706,15 +781,23 @@ export const networkProbeUseCases = {
 
   async checkIpv6Stack() {
     const store = useNetworkProbeStore.getState()
-    // This result is also written by the composite offline diagnostic.
     if (store.loadingIpv6 || store.loadingOffline) return
     store.setLoadingIpv6(true)
-    store.clearError("networkProbe.errors.ipv6Failed")
-    store.setIpv6Result(null)
+    const offlineErrors = { ...store.offlineErrors }
+    delete offlineErrors.ipv6
+    store.setOfflineErrors(offlineErrors)
+    store.setError(null)
+    logCommand("checkIpv6Stack")
     try {
       const result = await networkProbeRepository.checkIpv6Stack()
       store.setIpv6Result(result)
     } catch (error) {
+      const latest = useNetworkProbeStore.getState()
+      latest.setIpv6Result(null)
+      latest.setOfflineErrors({
+        ...latest.offlineErrors,
+        ipv6: getErrorMessage(error),
+      })
       store.setError({
         key: "networkProbe.errors.ipv6Failed",
         fallback: getErrorMessage(error),
@@ -726,15 +809,23 @@ export const networkProbeUseCases = {
 
   async probePathMtu(target: string) {
     const store = useNetworkProbeStore.getState()
-    // The standalone Test panel shares this result slot with the offline bundle.
     if (store.loadingMtu || store.loadingOffline) return
     store.setLoadingMtu(true)
-    store.clearError("networkProbe.errors.mtuFailed")
-    store.setMtuResult(null)
+    const offlineErrors = { ...store.offlineErrors }
+    delete offlineErrors.mtu
+    store.setOfflineErrors(offlineErrors)
+    store.setError(null)
+    logCommand("probePathMtu")
     try {
       const result = await networkProbeRepository.probePathMtu(target.trim() || "1.1.1.1")
       store.setMtuResult(result)
     } catch (error) {
+      const latest = useNetworkProbeStore.getState()
+      latest.setMtuResult(null)
+      latest.setOfflineErrors({
+        ...latest.offlineErrors,
+        mtu: getErrorMessage(error),
+      })
       store.setError({
         key: "networkProbe.errors.mtuFailed",
         fallback: getErrorMessage(error),
@@ -746,39 +837,57 @@ export const networkProbeUseCases = {
 
   async runOfflineDiagnostics() {
     const store = useNetworkProbeStore.getState()
-    // Reserve every result slot before starting; standalone IPv6/MTU panels can
-    // be reached from other tabs while the composite request is still running.
     if (store.loadingOffline || store.loadingIpv6 || store.loadingMtu) return
     store.setLoadingOffline(true)
-    store.clearError("networkProbe.errors.offlineFailed")
-    // all-or-nothing: a failed refresh must not leave an older composite diagnosis visible.
-    store.setCaptiveResult(null)
-    store.setPublicIpInfo(null)
-    store.setProxyVpnStatus(null)
-    store.setIpv6Result(null)
-    store.setMtuResult(null)
+    store.setOfflineErrors({})
+    store.setError(null)
+    logCommand("detectCaptivePortal")
+    logCommand("getPublicIpInfo")
+    logCommand("getProxyVpnStatus")
+    logCommand("checkIpv6Stack")
+    logCommand("probePathMtu")
     try {
-      // allSettled keeps the shared result-slot lock until every child request
-      // finishes, even when one fails early. Otherwise Promise.all would unlock
-      // while its remaining Tauri commands were still running.
-      const [captiveResult, publicIpResult, proxyVpnResult, ipv6Result, mtuResult] =
-        await Promise.allSettled([
-          networkProbeRepository.detectCaptivePortal(),
-          networkProbeRepository.getPublicIpInfo(),
-          networkProbeRepository.getProxyVpnStatus(),
-          networkProbeRepository.checkIpv6Stack(),
-          networkProbeRepository.probePathMtu("1.1.1.1"),
-        ])
-      const captive = unwrapSettled(captiveResult)
-      const publicIp = unwrapSettled(publicIpResult)
-      const proxyVpn = unwrapSettled(proxyVpnResult)
-      const ipv6 = unwrapSettled(ipv6Result)
-      const mtu = unwrapSettled(mtuResult)
-      store.setCaptiveResult(captive)
-      store.setPublicIpInfo(publicIp)
-      store.setProxyVpnStatus(proxyVpn)
-      store.setIpv6Result(ipv6)
-      store.setMtuResult(mtu)
+      const [captive, publicIp, proxyVpn, ipv6, mtu] = await Promise.all([
+        settle(() => networkProbeRepository.detectCaptivePortal()),
+        settle(() => networkProbeRepository.getPublicIpInfo()),
+        settle(() => networkProbeRepository.getProxyVpnStatus()),
+        settle(() => networkProbeRepository.checkIpv6Stack()),
+        settle(() => networkProbeRepository.probePathMtu("1.1.1.1")),
+      ])
+      const errors: NonNullable<typeof store.offlineErrors> = {}
+      const latest = useNetworkProbeStore.getState()
+      if (captive.ok) store.setCaptiveResult(captive.value)
+      else {
+        latest.setCaptiveResult(null)
+        errors.captive = captive.error
+      }
+      if (publicIp.ok) store.setPublicIpInfo(publicIp.value)
+      else {
+        latest.setPublicIpInfo(null)
+        errors.egress = publicIp.error
+      }
+      if (proxyVpn.ok) store.setProxyVpnStatus(proxyVpn.value)
+      else {
+        latest.setProxyVpnStatus(null)
+        errors.proxy = proxyVpn.error
+      }
+      if (ipv6.ok) store.setIpv6Result(ipv6.value)
+      else {
+        latest.setIpv6Result(null)
+        errors.ipv6 = ipv6.error
+      }
+      if (mtu.ok) store.setMtuResult(mtu.value)
+      else {
+        latest.setMtuResult(null)
+        errors.mtu = mtu.error
+      }
+      store.setOfflineErrors(errors)
+      if (Object.keys(errors).length > 0) {
+        store.setError({
+          key: "networkProbe.errors.offlinePartialFailed",
+          fallback: Object.values(errors).join(" · "),
+        })
+      }
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.offlineFailed",
@@ -793,12 +902,21 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingOffline) return
     store.setLoadingOffline(true)
-    store.clearError("networkProbe.errors.offlineFailed")
-    store.setPublicIpInfo(null)
+    const offlineErrors = { ...store.offlineErrors }
+    delete offlineErrors.egress
+    store.setOfflineErrors(offlineErrors)
+    store.setError(null)
+    logCommand("getPublicIpInfo")
     try {
       const publicIp = await networkProbeRepository.getPublicIpInfo()
       store.setPublicIpInfo(publicIp)
     } catch (error) {
+      const latest = useNetworkProbeStore.getState()
+      latest.setPublicIpInfo(null)
+      latest.setOfflineErrors({
+        ...latest.offlineErrors,
+        egress: getErrorMessage(error),
+      })
       store.setError({
         key: "networkProbe.errors.offlineFailed",
         fallback: getErrorMessage(error),
@@ -810,9 +928,8 @@ export const networkProbeUseCases = {
 
   async openSystemNetworkSettings() {
     const store = useNetworkProbeStore.getState()
-    if (store.openingSystemNetworkSettings) return
-    store.setOpeningSystemNetworkSettings(true)
-    store.clearError("networkProbe.errors.openSettingsFailed")
+    store.setError(null)
+    logCommand("openSystemNetworkSettings")
     try {
       await networkProbeRepository.openSystemNetworkSettings()
     } catch (error) {
@@ -825,17 +942,45 @@ export const networkProbeUseCases = {
     }
   },
 
-  async refreshCapabilityPacks() {
+  async openLocalNetworkPrivacySettings() {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingCapabilityPacks) return
-    store.clearError("networkProbe.errors.packsFailed")
+    store.setError(null)
+    logCommand("openPrivacySecuritySettings")
     try {
-      await loadCapabilityPackSnapshot()
+      await networkProbeRepository.openLocalNetworkPrivacySettings()
     } catch (error) {
-      useNetworkProbeStore.getState().setError({
-        key: "networkProbe.errors.packsFailed",
+      store.setError({
+        key: "networkProbe.errors.openSettingsFailed",
         fallback: getErrorMessage(error),
       })
+    }
+  },
+
+  async refreshCapabilityPacks() {
+    if (capabilityPacksRefreshInFlight) return capabilityPacksRefreshInFlight
+    const store = useNetworkProbeStore.getState()
+    const task = (async () => {
+      try {
+        logCommand("listCapabilityPacks")
+        logCommand("getNetworkProbeCapabilities")
+        const [packs, capabilities] = await Promise.all([
+          networkProbeRepository.listCapabilityPacks(),
+          networkProbeRepository.getCapabilities(),
+        ])
+        store.setCapabilityPacks(packs)
+        store.setCapabilities(capabilities)
+      } catch (error) {
+        store.setError({
+          key: "networkProbe.errors.packsFailed",
+          fallback: getErrorMessage(error),
+        })
+      }
+    })()
+    capabilityPacksRefreshInFlight = task
+    try {
+      await task
+    } finally {
+      if (capabilityPacksRefreshInFlight === task) capabilityPacksRefreshInFlight = null
     }
   },
 
@@ -843,7 +988,6 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     store.clearError("networkProbe.errors.packsFailed")
     store.setPackProgressText(null)
-    store.appendCommandLog(`installCapabilityPack('${packId}')`)
     let unlisten: (() => void) | undefined
     try {
       unlisten = await listenToPlatformEvent<CapabilityPackProgress>(
@@ -855,8 +999,18 @@ export const networkProbeUseCases = {
             .setPackProgressText(`${p.packId} ${p.phase} ${p.bytes}/${p.totalBytes}`)
         },
       )
+      logCommand("installCapabilityPack")
       const result = await networkProbeRepository.installCapabilityPack(packId)
-      store.appendCommandLog(result.commandHint)
+      store.appendCommandLog(`installCapabilityPack done ok=${result.ok} mode=${result.mode}`)
+      if (!result.ok) {
+        store.setError({
+          key:
+            result.mode === "hash-mismatch"
+              ? "networkProbe.errors.packHashMismatch"
+              : "networkProbe.errors.packsFailed",
+        })
+        return
+      }
       await networkProbeUseCases.refreshCapabilityPacks()
     } catch (error) {
       store.setError({
@@ -871,8 +1025,8 @@ export const networkProbeUseCases = {
 
   async uninstallCapabilityPack(packId: string) {
     const store = useNetworkProbeStore.getState()
-    store.clearError("networkProbe.errors.packsFailed")
-    store.appendCommandLog(`uninstallCapabilityPack('${packId}')`)
+    store.setError(null)
+    logCommand("uninstallCapabilityPack")
     try {
       await networkProbeRepository.uninstallCapabilityPack(packId)
       await networkProbeUseCases.refreshCapabilityPacks()
@@ -890,6 +1044,7 @@ export const networkProbeUseCases = {
     store.setSpeedSourcesLoadState("loading")
     store.clearError("networkProbe.errors.speedSourcesFailed")
     try {
+      logCommand("listSpeedSources")
       const sources = await networkProbeRepository.listSpeedSources()
       store.setSpeedSources(sources)
     } catch (error) {
@@ -911,7 +1066,6 @@ export const networkProbeUseCases = {
     store.setSpeedSample(null)
     store.setSpeedResult(null)
     const sessions = createScanSessionTracker("speed")
-    store.appendCommandLog(`startSpeedTest('${sourceId}')`)
     let unlistenSample: (() => void) | undefined
     try {
       await sessions.start()
@@ -921,6 +1075,7 @@ export const networkProbeUseCases = {
           useNetworkProbeStore.getState().setSpeedSample(event.payload)
         },
       )
+      logCommand("runSpeedTest")
       const result = await networkProbeRepository.runSpeedTest(sourceId)
       store.setSpeedResult(result)
       if (!result.ok && !result.cancelled) {
@@ -959,21 +1114,19 @@ export const networkProbeUseCases = {
     const authorizationRevision = store.securityAuthorizationRevision
     if (store.loadingPollution) return
     store.setLoadingPollution(true)
-    store.clearError("networkProbe.errors.pollutionFailed")
-    store.setPollutionResult(null)
-    store.appendCommandLog(`detectPollution(local, '${domain.trim()}')`)
+    store.setError(null)
+    logCommand("runPollutionCheck")
     try {
       const result = await networkProbeRepository.runPollutionCheck(domain.trim())
       if (isSecurityAuthorizationCurrent(authorizationRevision)) {
         useNetworkProbeStore.getState().setPollutionResult(result)
       }
     } catch (error) {
-      if (isSecurityAuthorizationCurrent(authorizationRevision)) {
-        useNetworkProbeStore.getState().setError({
-          key: "networkProbe.errors.pollutionFailed",
-          fallback: getErrorMessage(error),
-        })
-      }
+      useNetworkProbeStore.getState().setPollutionResult(null)
+      store.setError({
+        key: "networkProbe.errors.pollutionFailed",
+        fallback: getErrorMessage(error),
+      })
     } finally {
       useNetworkProbeStore.getState().setLoadingPollution(false)
     }
@@ -991,21 +1144,19 @@ export const networkProbeUseCases = {
     const authorizationRevision = store.securityAuthorizationRevision
     if (store.loadingWhois) return
     store.setLoadingWhois(true)
-    store.clearError("networkProbe.errors.whoisFailed")
-    store.setWhoisResult(null)
-    store.appendCommandLog(`whois('${query.trim()}')`)
+    store.setError(null)
+    logCommand("whoisLookup")
     try {
       const result = await networkProbeRepository.whoisLookup(query.trim())
       if (isSecurityAuthorizationCurrent(authorizationRevision)) {
         useNetworkProbeStore.getState().setWhoisResult(result)
       }
     } catch (error) {
-      if (isSecurityAuthorizationCurrent(authorizationRevision)) {
-        useNetworkProbeStore.getState().setError({
-          key: "networkProbe.errors.whoisFailed",
-          fallback: getErrorMessage(error),
-        })
-      }
+      useNetworkProbeStore.getState().setWhoisResult(null)
+      store.setError({
+        key: "networkProbe.errors.whoisFailed",
+        fallback: getErrorMessage(error),
+      })
     } finally {
       useNetworkProbeStore.getState().setLoadingWhois(false)
     }
@@ -1023,27 +1174,25 @@ export const networkProbeUseCases = {
     const authorizationRevision = store.securityAuthorizationRevision
     if (store.loadingDnssec) return
     store.setLoadingDnssec(true)
-    store.clearError("networkProbe.errors.dnssecFailed")
-    store.setDnssecResult(null)
-    store.appendCommandLog(`checkDnsSec('${domain.trim()}')`)
+    store.setError(null)
+    logCommand("checkDnssec")
     try {
       const result = await networkProbeRepository.checkDnssec(domain.trim())
       if (isSecurityAuthorizationCurrent(authorizationRevision)) {
         useNetworkProbeStore.getState().setDnssecResult(result)
       }
     } catch (error) {
-      if (isSecurityAuthorizationCurrent(authorizationRevision)) {
-        useNetworkProbeStore.getState().setError({
-          key: "networkProbe.errors.dnssecFailed",
-          fallback: getErrorMessage(error),
-        })
-      }
+      useNetworkProbeStore.getState().setDnssecResult(null)
+      store.setError({
+        key: "networkProbe.errors.dnssecFailed",
+        fallback: getErrorMessage(error),
+      })
     } finally {
       useNetworkProbeStore.getState().setLoadingDnssec(false)
     }
   },
 
-  async runPortScan(target: string, ports: string) {
+  async runPortScan(target: string, ports: string, fingerprint = false, highRiskConfirmed = false) {
     const store = useNetworkProbeStore.getState()
     if (!store.securityAuthorized) {
       store.setError({
@@ -1058,12 +1207,7 @@ export const networkProbeUseCases = {
     store.clearError("networkProbe.errors.portsFailed")
     store.resetPortScanStreaming()
     store.setPortScanResult(null)
-    const sessions = createScanSessionTracker("ports", () => {
-      if (!isSecurityAuthorizationCurrent(authorizationRevision)) {
-        void networkProbeUseCases.cancelScan("ports")
-      }
-    })
-    store.appendCommandLog(`scanPorts(local, '${target.trim()}', '${ports.trim()}')`)
+    const sessions = createScanSessionTracker("ports")
     let unlistenSample: (() => void) | undefined
     try {
       await sessions.start()
@@ -1075,25 +1219,29 @@ export const networkProbeUseCases = {
           }
         },
       )
-      if (!isSecurityAuthorizationCurrent(authorizationRevision)) return
-      const result = await networkProbeRepository.scanPorts(target.trim(), ports.trim())
-      if (isSecurityAuthorizationCurrent(authorizationRevision)) {
-        useNetworkProbeStore.getState().setPortScanResult(result)
-        useNetworkProbeStore
-          .getState()
-          .appendCommandLog(
-            result.cancelled
-              ? `scanPorts cancelled sessionId=${result.sessionId}`
-              : `scanPorts done open=${result.openPorts.join(",") || "none"} mode=${result.mode}`,
-          )
-      }
+      logCommand("scanPorts")
+      const result = await networkProbeRepository.scanPorts(
+        target.trim(),
+        ports.trim(),
+        fingerprint,
+        highRiskConfirmed,
+      )
+      store.setPortScanResult(result)
+      store.appendCommandLog(
+        result.cancelled
+          ? `scanPorts cancelled sessionId=${result.sessionId}`
+          : `scanPorts done open=${result.openPorts.join(",") || "none"} mode=${result.mode}`,
+      )
     } catch (error) {
-      if (isSecurityAuthorizationCurrent(authorizationRevision)) {
-        useNetworkProbeStore.getState().setError({
-          key: "networkProbe.errors.portsFailed",
-          fallback: getErrorMessage(error),
-        })
-      }
+      store.setError({
+        key:
+          getErrorCode(error) === "HIGH_RISK_CONFIRMATION_REQUIRED"
+            ? "networkProbe.errors.highRiskConfirmationRequired"
+            : getErrorCode(error) === "PORT_SCAN_SINGLE_HOST_REQUIRED"
+              ? "networkProbe.errors.singleHostPortScanOnly"
+              : "networkProbe.errors.portsFailed",
+        fallback: getErrorMessage(error),
+      })
     } finally {
       unlistenSample?.()
       sessions.stop()
@@ -1105,13 +1253,13 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingNat) return
     store.setLoadingNat(true)
-    store.clearError("networkProbe.errors.natFailed")
-    store.setNatResult(null)
-    store.appendCommandLog("probeNat(local)")
+    store.setError(null)
+    logCommand("probeNat")
     try {
       const result = await networkProbeRepository.probeNat()
       store.setNatResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setNatResult(null)
       store.setError({
         key: "networkProbe.errors.natFailed",
         fallback: getErrorMessage(error),
@@ -1125,13 +1273,13 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingNtp) return
     store.setLoadingNtp(true)
-    store.clearError("networkProbe.errors.ntpFailed")
-    store.setNtpResult(null)
-    store.appendCommandLog("probeNtp(local)")
+    store.setError(null)
+    logCommand("probeNtp")
     try {
       const result = await networkProbeRepository.probeNtp()
       store.setNtpResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setNtpResult(null)
       store.setError({
         key: "networkProbe.errors.ntpFailed",
         fallback: getErrorMessage(error),
@@ -1148,9 +1296,9 @@ export const networkProbeUseCases = {
     store.clearError("networkProbe.errors.lanFailed")
     store.setLanResult(null)
     const sessions = createScanSessionTracker("lan")
-    store.appendCommandLog("scanLan(local)")
     try {
       await sessions.start()
+      logCommand("discoverLan")
       const result = await networkProbeRepository.discoverLan()
       store.setLanResult(result)
       store.appendCommandLog(
@@ -1159,6 +1307,7 @@ export const networkProbeUseCases = {
           : `scanLan done neighbors=${result.neighbors.length}`,
       )
     } catch (error) {
+      useNetworkProbeStore.getState().setLanResult(null)
       store.setError({
         key: "networkProbe.errors.lanFailed",
         fallback: getErrorMessage(error),
@@ -1173,13 +1322,13 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingLanServices) return
     store.setLoadingLanServices(true)
-    store.clearError("networkProbe.errors.lanSvcFailed")
-    store.setLanServicesResult(null)
-    store.appendCommandLog("browseLanServices(local)")
+    store.setError(null)
+    logCommand("browseLanServices")
     try {
       const result = await networkProbeRepository.browseLanServices()
       store.setLanServicesResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setLanServicesResult(null)
       store.setError({
         key: "networkProbe.errors.lanSvcFailed",
         fallback: getErrorMessage(error),
@@ -1201,28 +1350,21 @@ export const networkProbeUseCases = {
     const authorizationRevision = store.securityAuthorizationRevision
     if (store.loadingPcap) return
     store.setLoadingPcap(true)
-    store.clearError("networkProbe.errors.pcapFailed")
-    store.setPcapResult(null)
-    const sessions = createScanSessionTracker("pcap", () => {
-      if (!isSecurityAuthorizationCurrent(authorizationRevision)) {
-        void networkProbeUseCases.cancelScan("pcap")
-      }
-    })
-    store.appendCommandLog(`startPacketCapture(local, {secs:${durationSecs ?? 5}})`)
+    store.setError(null)
+    const sessions = createScanSessionTracker("pcap")
     try {
       await sessions.start()
-      if (!isSecurityAuthorizationCurrent(authorizationRevision)) return
+      logCommand("runPcapDiag")
       const result = await networkProbeRepository.runPcapDiag(durationSecs ?? 5)
       if (isSecurityAuthorizationCurrent(authorizationRevision)) {
         useNetworkProbeStore.getState().setPcapResult(result)
       }
     } catch (error) {
-      if (isSecurityAuthorizationCurrent(authorizationRevision)) {
-        useNetworkProbeStore.getState().setError({
-          key: "networkProbe.errors.pcapFailed",
-          fallback: getErrorMessage(error),
-        })
-      }
+      useNetworkProbeStore.getState().setPcapResult(null)
+      store.setError({
+        key: "networkProbe.errors.pcapFailed",
+        fallback: getErrorMessage(error),
+      })
     } finally {
       sessions.stop()
       useNetworkProbeStore.getState().setLoadingPcap(false)
@@ -1231,15 +1373,26 @@ export const networkProbeUseCases = {
 
   async refreshProbeNodes() {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingNodes || store.agentAction) return
-    store.clearError("networkProbe.errors.nodesFailed")
+    if (store.loadingNodes || store.agentMutation) return
+    const probeNodesRevision = store.probeNodesRevision
+    store.setLoadingNodes(true)
+    store.setProbeNodesLoadError(null)
+    store.setError(null)
     try {
-      await loadProbeNodesSnapshot()
+      logCommand("listProbeNodes")
+      const nodes = await networkProbeRepository.listProbeNodes()
+      const latest = useNetworkProbeStore.getState()
+      if (latest.probeNodesRevision === probeNodesRevision) latest.setProbeNodes(nodes)
+      latest.setProbeNodesLoadError(null)
     } catch (error) {
-      useNetworkProbeStore.getState().setError({
-        key: "networkProbe.errors.nodesFailed",
-        fallback: getErrorMessage(error),
-      })
+      const latest = useNetworkProbeStore.getState()
+      if (latest.probeNodesRevision === probeNodesRevision) {
+        const message = getErrorMessage(error)
+        latest.setProbeNodesLoadError(message)
+        latest.setError({ key: "networkProbe.errors.nodesFailed", fallback: message })
+      }
+    } finally {
+      useNetworkProbeStore.getState().setLoadingNodes(false)
     }
   },
 
@@ -1247,9 +1400,8 @@ export const networkProbeUseCases = {
     const store = useNetworkProbeStore.getState()
     if (store.loadingMultiNode) return
     store.setLoadingMultiNode(true)
-    store.clearError("networkProbe.errors.multiNodeFailed")
-    store.setMultiNodeDnsResult(null)
-    store.appendCommandLog(`dnsLookup(multi, '${domain.trim()}')`)
+    store.setError(null)
+    logCommand("compareDnsMulti")
     try {
       const result = await networkProbeRepository.compareDnsMulti(domain.trim(), [
         "world",
@@ -1258,6 +1410,7 @@ export const networkProbeUseCases = {
       ])
       store.setMultiNodeDnsResult(result)
     } catch (error) {
+      useNetworkProbeStore.getState().setMultiNodeDnsResult(null)
       store.setError({
         key: "networkProbe.errors.multiNodeFailed",
         fallback: getErrorMessage(error),
@@ -1267,19 +1420,106 @@ export const networkProbeUseCases = {
     }
   },
 
+  async runGlobalpingMeasurement(kind: "ping" | "http", target: string, method?: string) {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingGlobalpingMeasurement) return
+    store.setLoadingGlobalpingMeasurement(true)
+    store.setGlobalpingMeasurementResult(null)
+    store.setError(null)
+    logCommand("runGlobalpingMeasurement")
+    try {
+      const result = await networkProbeRepository.runGlobalpingMeasurement(
+        kind,
+        target.trim(),
+        method,
+      )
+      useNetworkProbeStore.getState().setGlobalpingMeasurementResult(result)
+    } catch (error) {
+      const key =
+        getErrorCode(error) === "INVALID_INPUT"
+          ? "networkProbe.errors.globalpingInvalidTarget"
+          : "networkProbe.errors.globalpingFailed"
+      useNetworkProbeStore.getState().setError({ key, fallback: getErrorMessage(error) })
+    } finally {
+      useNetworkProbeStore.getState().setLoadingGlobalpingMeasurement(false)
+    }
+  },
+
+  async refreshGlobalpingTokenStatus() {
+    const store = useNetworkProbeStore.getState()
+    if (store.loadingGlobalpingToken) return null
+    store.setLoadingGlobalpingToken(true)
+    store.setError(null)
+    try {
+      const configured = await networkProbeRepository.isGlobalpingTokenConfigured()
+      useNetworkProbeStore.getState().setGlobalpingTokenConfigured(configured)
+      return configured
+    } catch (error) {
+      useNetworkProbeStore.getState().setError({
+        key: "networkProbe.errors.globalpingTokenFailed",
+        fallback: getErrorMessage(error),
+      })
+      return null
+    } finally {
+      useNetworkProbeStore.getState().setLoadingGlobalpingToken(false)
+    }
+  },
+
+  async saveGlobalpingToken(token: string) {
+    const store = useNetworkProbeStore.getState()
+    if (store.savingGlobalpingToken) return false
+    store.setSavingGlobalpingToken(true)
+    store.setError(null)
+    try {
+      await networkProbeRepository.saveGlobalpingToken(token)
+      useNetworkProbeStore.getState().setGlobalpingTokenConfigured(true)
+      return true
+    } catch (error) {
+      useNetworkProbeStore.getState().setError({
+        key: "networkProbe.errors.globalpingTokenFailed",
+        fallback: getErrorMessage(error),
+      })
+      return false
+    } finally {
+      useNetworkProbeStore.getState().setSavingGlobalpingToken(false)
+    }
+  },
+
+  async removeGlobalpingToken() {
+    const store = useNetworkProbeStore.getState()
+    if (store.savingGlobalpingToken) return false
+    store.setSavingGlobalpingToken(true)
+    store.setError(null)
+    try {
+      await networkProbeRepository.removeGlobalpingToken()
+      useNetworkProbeStore.getState().setGlobalpingTokenConfigured(false)
+      return true
+    } catch (error) {
+      useNetworkProbeStore.getState().setError({
+        key: "networkProbe.errors.globalpingTokenFailed",
+        fallback: getErrorMessage(error),
+      })
+      return false
+    } finally {
+      useNetworkProbeStore.getState().setSavingGlobalpingToken(false)
+    }
+  },
+
   async addAgent(label: string, endpoint: string) {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingNodes || store.agentAction) return
-    store.setAgentAction({ kind: "add" })
-    store.clearError("networkProbe.errors.agentFailed")
-    store.clearError("networkProbe.errors.agentInvalidInput")
-    store.appendCommandLog("addAgent(label, endpoint)")
+    if (store.agentMutation) return null
+    store.setAgentMutation({ kind: "add" })
+    store.setError(null)
+    store.appendCommandLog("addAgent()")
     try {
       const node = await networkProbeRepository.addAgent(label, endpoint)
-      const nodes = useNetworkProbeStore.getState().probeNodes
-      useNetworkProbeStore
-        .getState()
-        .setProbeNodes([...nodes.filter((current) => current.id !== node.id), node])
+      const latest = useNetworkProbeStore.getState()
+      latest.setProbeNodes([
+        ...latest.probeNodes.filter((existing) => existing.id !== node.id),
+        node,
+      ])
+      latest.setProbeNodesLoadError(null)
+      return node
     } catch (error) {
       store.setError({
         key:
@@ -1288,41 +1528,47 @@ export const networkProbeUseCases = {
             : "networkProbe.errors.agentFailed",
         fallback: getErrorMessage(error),
       })
+      return null
     } finally {
-      useNetworkProbeStore.getState().setAgentAction(null)
+      useNetworkProbeStore.getState().setAgentMutation(null)
     }
   },
 
   async removeAgent(agentId: string) {
     const store = useNetworkProbeStore.getState()
-    if (store.loadingNodes || store.agentAction) return
-    store.setAgentAction({ kind: "remove", agentId })
-    store.clearError("networkProbe.errors.agentFailed")
-    store.clearError("networkProbe.errors.agentInvalidInput")
-    store.appendCommandLog(`removeAgent('${agentId}')`)
+    if (store.agentMutation) return false
+    store.setAgentMutation({ kind: "remove", agentId })
+    store.setError(null)
+    logCommand("removeAgent")
     try {
       await networkProbeRepository.removeAgent(agentId)
-      const nodes = await networkProbeRepository.listProbeNodes()
-      store.setProbeNodes(nodes)
+      const latest = useNetworkProbeStore.getState()
+      latest.setProbeNodes(latest.probeNodes.filter((node) => node.id !== agentId))
+      latest.setProbeNodesLoadError(null)
+      return true
     } catch (error) {
       store.setError({
         key: "networkProbe.errors.agentFailed",
         fallback: getErrorMessage(error),
       })
+      return false
     } finally {
-      useNetworkProbeStore.getState().setAgentAction(null)
+      useNetworkProbeStore.getState().setAgentMutation(null)
     }
   },
 
   async installCapabilityPackVerifyFail(packId: string) {
     const store = useNetworkProbeStore.getState()
-    store.clearError("networkProbe.errors.packsFailed")
-    store.appendCommandLog(`installCapabilityPack('${packId}') // hash-mismatch test`)
+    store.setError(null)
+    store.setPackProgressText(null)
+    logCommand("installCapabilityPackVerifyFail")
     try {
       const result = await networkProbeRepository.installCapabilityPackVerifyFail(packId)
-      store.setPackProgressText(result.message)
       if (!result.ok) {
+        store.setError({ key: "networkProbe.errors.packHashMismatch" })
         store.appendCommandLog(`pack verify fail: ${result.mode}`)
+      } else {
+        store.setError({ key: "networkProbe.errors.packsFailed" })
       }
     } catch (error) {
       store.setError({
@@ -1334,10 +1580,11 @@ export const networkProbeUseCases = {
 
   async resetDefaults() {
     const store = useNetworkProbeStore.getState()
-    store.clearError("networkProbe.errors.defaultsFailed")
-    store.appendCommandLog("resetNetworkProbeDefaults()")
+    store.setError(null)
+    logCommand("resetNetworkProbeDefaults")
     try {
       await networkProbeRepository.resetDefaults()
+      logCommand("getNetworkProbeDefaults")
       const defaults = await networkProbeRepository.getDefaults()
       store.setDefaults(defaults)
     } catch (error) {

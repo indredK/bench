@@ -1,13 +1,10 @@
-//! Multi-server STUN mapping observation (RFC 8489) — design-discover §3.3.
+//! NAT mapping observations via STUN Binding (RFC 8489).
 
-use super::types::NatProbeResult;
+use super::types::{NatProbeResult, NatProbeServerResult};
 use crate::error::{AppError, AppResult};
 use rtc_stun::message::Getter;
-use rtc_stun::{
-    addr::MappedAddress,
-    message::{Message, TransactionId, BINDING_REQUEST, BINDING_SUCCESS, MESSAGE_HEADER_SIZE},
-    xoraddr::XorMappedAddress,
-};
+use rtc_stun::message::{Message, TransactionId, BINDING_REQUEST, BINDING_SUCCESS};
+use rtc_stun::xoraddr::XorMappedAddress;
 use std::collections::BTreeSet;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::{Duration, Instant};
@@ -20,243 +17,411 @@ const STUN_SERVERS: &[&str] = &[
     "stun.cloudflare.com:3478",
 ];
 const STUN_TIMEOUT: Duration = Duration::from_secs(3);
-const MAX_SERVER_ADDRESSES: usize = 2;
+const MAX_STUN_ADDRESSES_PER_SERVER: usize = 4;
 
 pub async fn probe_nat() -> AppResult<NatProbeResult> {
     let command_hint = "probeNat(local) // multi-STUN Binding (google/cloudflare)".to_string();
     let started = Instant::now();
 
-    let mut mapped = BTreeSet::new();
-    let mut observed = Vec::new();
-    let mut details = Vec::new();
-    let mut used = Vec::new();
+    // Reuse one socket per address family so requests to different servers use a stable local
+    // endpoint. Try IPv4 first, then IPv6, with up to two DNS addresses per family.
+    let mut socket_v4: Option<UdpSocket> = None;
+    let mut socket_v6: Option<UdpSocket> = None;
+    let mut server_results = Vec::with_capacity(STUN_SERVERS.len());
 
     for server_name in STUN_SERVERS {
-        used.push((*server_name).to_string());
-        match probe_one(server_name).await {
-            Ok(address) => {
-                observed.push(((*server_name).to_string(), address.clone()));
-                mapped.insert(address.clone());
-                details.push(format!("{server_name} → {address}"));
-            }
-            Err(error) => details.push(format!("{server_name} → {error}")),
-        }
+        let result = probe_server(server_name, &mut socket_v4, &mut socket_v6).await;
+
+        server_results.push(match result {
+            Ok(mapped_address) => NatProbeServerResult {
+                server: (*server_name).to_string(),
+                status: "mapped".into(),
+                mapped_address: Some(mapped_address),
+                error_code: None,
+            },
+            Err(error) if error.code == "NAT_TIMEOUT" => NatProbeServerResult {
+                server: (*server_name).to_string(),
+                status: "timeout".into(),
+                mapped_address: None,
+                error_code: Some(error.code),
+            },
+            Err(error) if error.code == "NAT_NO_MAPPING" => NatProbeServerResult {
+                server: (*server_name).to_string(),
+                status: "no-mapping".into(),
+                mapped_address: None,
+                error_code: Some(error.code),
+            },
+            Err(error) => NatProbeServerResult {
+                server: (*server_name).to_string(),
+                status: "error".into(),
+                mapped_address: None,
+                error_code: Some(error.code),
+            },
+        });
     }
 
-    let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
-    let (nat_type, mapped_address, detail) = match mapped.len() {
-        0 => (
-            "blocked-or-timeout".into(),
-            None,
-            Some(format!(
-                "No STUN server returned a valid mapped address; UDP may be blocked or timed out. {}",
-                details.join("; ")
-            )),
-        ),
-        1 => (
-            "consistent-across-servers".into(),
-            mapped.iter().next().cloned(),
-            Some(format!(
-                "The mapped address was consistent across {} responding STUN server(s). This does not identify a specific NAT type. {}",
-                observed.len(),
-                details.join("; ")
-            )),
-        ),
-        _ => (
-            "varied-across-servers".into(),
-            None,
-            Some(format!(
-                "Different mapped addresses were observed across STUN servers; this alone does not identify a specific NAT type. {}",
-                details.join("; ")
-            )),
-        ),
-    };
+    let (mapping_observation, mapped_address) = summarize_mapping_observations(&server_results);
 
     Ok(NatProbeResult {
-        nat_type,
+        mapping_observation: mapping_observation.into(),
         mapped_address,
-        stun_server: used.join(", "),
-        detail,
-        elapsed_ms,
+        server_results,
+        elapsed_ms: started.elapsed().as_secs_f64() * 1000.0,
         command_hint,
     })
 }
 
-async fn probe_one(server_name: &str) -> AppResult<String> {
-    let addresses = timeout(STUN_TIMEOUT, tokio::net::lookup_host(server_name))
-        .await
-        .map_err(|_| AppError::new("NAT_DNS", "STUN server lookup timed out"))?
-        .map_err(|error| AppError::new("NAT_DNS", error.to_string()))?
-        .collect::<Vec<_>>();
+fn summarize_mapping_observations(
+    results: &[NatProbeServerResult],
+) -> (&'static str, Option<String>) {
+    let mapped_addresses: BTreeSet<_> = results
+        .iter()
+        .filter(|server| server.status == "mapped")
+        .filter_map(|server| server.mapped_address.as_ref())
+        .cloned()
+        .collect();
+    let responding_servers = results
+        .iter()
+        .filter(|server| server.status == "mapped")
+        .count();
 
+    match mapped_addresses.len() {
+        0 if results.iter().any(|server| server.status == "no-mapping") => ("no-mapping", None),
+        0 => ("blocked-or-timeout", None),
+        1 if responding_servers == 1 => ("mapped-address", mapped_addresses.iter().next().cloned()),
+        1 => (
+            "consistent-mapping",
+            mapped_addresses.iter().next().cloned(),
+        ),
+        // There is no representative address when servers disagree. Keep each observation in
+        // `server_results` instead of selecting an arbitrary value for the summary field.
+        _ => ("varying-mapping", None),
+    }
+}
+
+async fn resolve_servers(server_name: &str) -> AppResult<Vec<SocketAddr>> {
+    let mut addresses: Vec<_> = tokio::net::lookup_host(server_name)
+        .await
+        .map_err(|e| AppError::new("NAT_DNS", e.to_string()))?
+        .collect();
     if addresses.is_empty() {
         return Err(AppError::new(
             "NAT_DNS",
             format!("No address for {server_name}"),
         ));
     }
+    prefer_socket_families(&mut addresses);
+    Ok(addresses)
+}
 
-    let address_timeout = STUN_TIMEOUT / addresses.len().min(MAX_SERVER_ADDRESSES) as u32;
-    let mut errors = Vec::new();
-    for server in addresses.into_iter().take(MAX_SERVER_ADDRESSES) {
-        match timeout(address_timeout, probe_address(server)).await {
-            Ok(Ok(address)) => return Ok(address),
-            Ok(Err(error)) => errors.push(error.to_string()),
-            Err(_) => errors.push(format!("timed out waiting for {server}")),
+fn prefer_socket_families(addresses: &mut Vec<SocketAddr>) {
+    let mut seen = BTreeSet::new();
+    addresses.retain(|address| seen.insert(*address));
+    addresses.sort_by_key(SocketAddr::is_ipv6);
+
+    let mut ipv4 = addresses.iter().copied().filter(SocketAddr::is_ipv4);
+    let mut ipv6 = addresses.iter().copied().filter(SocketAddr::is_ipv6);
+    let mut candidates = Vec::with_capacity(MAX_STUN_ADDRESSES_PER_SERVER);
+    for _ in 0..(MAX_STUN_ADDRESSES_PER_SERVER / 2) {
+        if let Some(address) = ipv4.next() {
+            candidates.push(address);
+        }
+        if let Some(address) = ipv6.next() {
+            candidates.push(address);
+        }
+    }
+    *addresses = candidates;
+}
+
+async fn probe_server(
+    server_name: &str,
+    socket_v4: &mut Option<UdpSocket>,
+    socket_v6: &mut Option<UdpSocket>,
+) -> AppResult<String> {
+    let deadline = Instant::now() + STUN_TIMEOUT;
+    let addresses = timeout(STUN_TIMEOUT, resolve_servers(server_name))
+        .await
+        .map_err(|_| AppError::new("NAT_DNS_TIMEOUT", "STUN server lookup timed out"))??;
+    let mut last_error = None;
+
+    for (index, server) in addresses.iter().copied().enumerate() {
+        if server.is_ipv4() && socket_v4.is_none() {
+            match UdpSocket::bind("0.0.0.0:0").await {
+                Ok(socket) => *socket_v4 = Some(socket),
+                Err(error) => last_error = Some(AppError::new("NAT_BIND_V4", error.to_string())),
+            }
+        } else if server.is_ipv6() && socket_v6.is_none() {
+            match UdpSocket::bind("[::]:0").await {
+                Ok(socket) => *socket_v6 = Some(socket),
+                Err(error) => last_error = Some(AppError::new("NAT_BIND_V6", error.to_string())),
+            }
+        }
+
+        let Some(socket) = (if server.is_ipv4() {
+            socket_v4.as_ref()
+        } else {
+            socket_v6.as_ref()
+        }) else {
+            // Keep trying another address family when binding this one fails.
+            continue;
+        };
+
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            break;
+        }
+        let attempts_left = (addresses.len() - index) as u32;
+        match probe_one(socket, server, remaining / attempts_left).await {
+            Ok(mapped_address) => return Ok(mapped_address),
+            Err(error) => last_error = Some(error),
         }
     }
 
-    Err(AppError::new("NAT_TIMEOUT", errors.join("; ")))
+    Err(last_error.unwrap_or_else(|| AppError::new("NAT_TIMEOUT", "STUN timed out")))
 }
 
-async fn probe_address(server: SocketAddr) -> AppResult<String> {
-    let bind_address = match server.ip() {
-        IpAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
-        IpAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
-    };
-    let socket = UdpSocket::bind(bind_address)
-        .await
-        .map_err(|error| AppError::new("NAT_BIND", error.to_string()))?;
-
+async fn probe_one(
+    socket: &UdpSocket,
+    server: SocketAddr,
+    request_timeout: Duration,
+) -> AppResult<String> {
     let transaction_id = TransactionId::new();
     let mut request = Message::new();
     request
-        .build(&[Box::new(BINDING_REQUEST), Box::new(transaction_id)])
-        .map_err(|error| AppError::new("NAT_SEND", error.to_string()))?;
+        .build(&[Box::new(transaction_id), Box::new(BINDING_REQUEST)])
+        .map_err(|e| AppError::new("NAT_STUN_ENCODE", e.to_string()))?;
+
     socket
         .send_to(&request.raw, server)
         .await
-        .map_err(|error| AppError::new("NAT_SEND", error.to_string()))?;
+        .map_err(|error| AppError::new("NAT_BIND", error.to_string()))?;
 
-    let mut buffer = vec![0u8; 65_535];
-    loop {
-        let (length, sender) = socket
-            .recv_from(&mut buffer)
-            .await
-            .map_err(|error| AppError::new("NAT_RECV", error.to_string()))?;
-        if sender != server {
-            continue;
-        }
-        return parse_binding_response(&buffer[..length], transaction_id)
-            .map_err(|error| AppError::new("NAT_RESPONSE", error));
+    match timeout(
+        request_timeout,
+        receive_binding_response(socket, server, transaction_id),
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(_) => Err(AppError::new("NAT_TIMEOUT", "STUN timed out")),
     }
 }
 
-fn parse_binding_response(bytes: &[u8], expected_id: TransactionId) -> Result<String, String> {
-    if bytes.len() < MESSAGE_HEADER_SIZE {
-        return Err("STUN response is shorter than its header".into());
-    }
-    let declared_length = u16::from_be_bytes([bytes[2], bytes[3]]) as usize;
-    if MESSAGE_HEADER_SIZE + declared_length != bytes.len() {
-        return Err("STUN response length does not match its header".into());
-    }
+async fn receive_binding_response(
+    socket: &UdpSocket,
+    server: SocketAddr,
+    transaction_id: TransactionId,
+) -> AppResult<String> {
+    let mut buf = [0u8; 1500];
+    loop {
+        let (n, source) = socket
+            .recv_from(&mut buf)
+            .await
+            .map_err(|e| AppError::new("NAT_RECV", e.to_string()))?;
+        if source != server {
+            continue;
+        }
 
+        match decode_binding_response(&buf[..n], transaction_id)? {
+            Some(mapped_address) => return Ok(mapped_address),
+            None => continue,
+        }
+    }
+}
+
+fn decode_binding_response(
+    bytes: &[u8],
+    expected_transaction_id: TransactionId,
+) -> AppResult<Option<String>> {
     let mut response = Message::new();
-    response.raw.clear();
-    response.raw.extend_from_slice(bytes);
-    response
-        .decode()
-        .map_err(|error| format!("Invalid STUN response: {error}"))?;
-
+    if response.unmarshal_binary(bytes).is_err()
+        || response.transaction_id != expected_transaction_id
+    {
+        // Ignore malformed and stale/unsolicited datagrams until the active request times out.
+        return Ok(None);
+    }
     if response.typ != BINDING_SUCCESS {
-        return Err(format!("Unexpected STUN response type: {}", response.typ));
-    }
-    if response.transaction_id != expected_id {
-        return Err("STUN response transaction ID does not match the request".into());
-    }
-
-    let mut xor_mapped = XorMappedAddress::default();
-    if xor_mapped.get_from(&response).is_ok() {
-        return Ok(xor_mapped.to_string());
+        return Err(AppError::new(
+            "NAT_STUN_RESPONSE",
+            "STUN returned a non-success Binding response",
+        ));
     }
 
-    // MAPPED-ADDRESS is retained only for older RFC 3489-compatible servers.
-    let mut mapped = MappedAddress::default();
+    let mut mapped = XorMappedAddress::default();
     mapped
         .get_from(&response)
-        .map_err(|error| format!("STUN response has no valid mapped address: {error}"))?;
-    Ok(mapped.to_string())
+        .map_err(|e| AppError::new("NAT_NO_MAPPING", e.to_string()))?;
+    Ok(Some(mapped.to_string()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::net::UdpSocket;
+    use rtc_stun::message::BINDING_ERROR;
+    use rtc_stun::xoraddr::XorMappedAddress;
 
-    fn success_response(id: TransactionId, ip: IpAddr, port: u16) -> Vec<u8> {
-        let mut response = Message::new();
-        response
+    fn binding_response(transaction_id: TransactionId, mapped: SocketAddr) -> Vec<u8> {
+        let mut message = Message::new();
+        message
             .build(&[
+                Box::new(transaction_id),
                 Box::new(BINDING_SUCCESS),
-                Box::new(id),
-                Box::new(XorMappedAddress { ip, port }),
+                Box::new(XorMappedAddress {
+                    ip: mapped.ip(),
+                    port: mapped.port(),
+                }),
             ])
-            .expect("build STUN success response");
-        response.raw
+            .expect("valid test response");
+        message.raw
     }
 
     #[test]
-    fn parses_ipv4_xor_mapped_address() {
-        let id = TransactionId([7; 12]);
-        let packet = success_response(id, "203.0.113.9".parse().unwrap(), 45_678);
+    fn decodes_ipv4_and_ipv6_xor_mapped_addresses() {
+        let transaction_id = TransactionId::new();
+        let ipv4: SocketAddr = "203.0.113.9:54321".parse().unwrap();
+        let ipv6: SocketAddr = "[2001:db8::9]:54321".parse().unwrap();
+
         assert_eq!(
-            parse_binding_response(&packet, id).unwrap(),
-            "203.0.113.9:45678"
+            decode_binding_response(&binding_response(transaction_id, ipv4), transaction_id)
+                .unwrap(),
+            Some(ipv4.to_string())
+        );
+        assert_eq!(
+            decode_binding_response(&binding_response(transaction_id, ipv6), transaction_id)
+                .unwrap(),
+            Some(ipv6.to_string())
         );
     }
 
     #[test]
-    fn parses_ipv6_xor_mapped_address() {
-        let id = TransactionId([8; 12]);
-        let packet = success_response(id, "2001:db8::9".parse().unwrap(), 45_678);
+    fn ignores_wrong_transaction_and_malformed_datagrams() {
+        let expected = TransactionId::new();
+        let stale = TransactionId::new();
+        let mapped: SocketAddr = "203.0.113.9:54321".parse().unwrap();
+
         assert_eq!(
-            parse_binding_response(&packet, id).unwrap(),
-            "[2001:db8::9]:45678"
+            decode_binding_response(&binding_response(stale, mapped), expected).unwrap(),
+            None
         );
+        assert_eq!(decode_binding_response(&[1, 2, 3], expected).unwrap(), None);
     }
 
     #[test]
-    fn rejects_wrong_transaction_id_and_trailing_bytes() {
-        let id = TransactionId([9; 12]);
-        let packet = success_response(id, "203.0.113.10".parse().unwrap(), 45_679);
-        assert!(parse_binding_response(&packet, TransactionId([10; 12]))
-            .unwrap_err()
-            .contains("transaction ID"));
+    fn rejects_non_success_response_for_active_transaction() {
+        let transaction_id = TransactionId::new();
+        let mut message = Message::new();
+        message
+            .build(&[Box::new(transaction_id), Box::new(BINDING_ERROR)])
+            .unwrap();
 
-        let mut packet_with_trailing_bytes = packet;
-        packet_with_trailing_bytes.push(0);
-        assert!(parse_binding_response(&packet_with_trailing_bytes, id)
-            .unwrap_err()
-            .contains("length"));
+        let error = decode_binding_response(&message.raw, transaction_id).unwrap_err();
+        assert_eq!(error.code, "NAT_STUN_RESPONSE");
     }
 
     #[tokio::test]
-    async fn ignores_response_from_unexpected_udp_sender() {
+    async fn accepts_only_the_resolved_server_response() {
         let server = UdpSocket::bind("127.0.0.1:0").await.unwrap();
         let spoof = UdpSocket::bind("127.0.0.1:0").await.unwrap();
-        let server_address = server.local_addr().unwrap();
+        let client = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let server_addr = server.local_addr().unwrap();
+        let mapped: SocketAddr = "203.0.113.9:54321".parse().unwrap();
 
-        let server_task = tokio::spawn(async move {
-            let mut request = [0u8; 128];
-            let (length, client_address) = server.recv_from(&mut request).await.unwrap();
-            let mut decoded = Message::new();
-            decoded.raw.clear();
-            decoded.raw.extend_from_slice(&request[..length]);
-            decoded.decode().unwrap();
-            let response = success_response(
-                decoded.transaction_id,
-                "198.51.100.14".parse().unwrap(),
-                40_000,
-            );
-            spoof.send_to(&response, client_address).await.unwrap();
-            server.send_to(&response, client_address).await.unwrap();
+        tokio::spawn(async move {
+            let mut request_bytes = [0; 1500];
+            let (n, client_addr) = server.recv_from(&mut request_bytes).await.unwrap();
+            let mut request = Message::new();
+            request.unmarshal_binary(&request_bytes[..n]).unwrap();
+
+            let stale_response = binding_response(TransactionId::new(), mapped);
+            spoof.send_to(&stale_response, client_addr).await.unwrap();
+            server.send_to(&stale_response, client_addr).await.unwrap();
+
+            let valid_response = binding_response(request.transaction_id, mapped);
+            server.send_to(&valid_response, client_addr).await.unwrap();
         });
 
-        let address = timeout(Duration::from_secs(1), probe_address(server_address))
-            .await
-            .expect("local STUN exchange should finish")
-            .unwrap();
-        assert_eq!(address, "198.51.100.14:40000");
-        server_task.await.unwrap();
+        let result = timeout(
+            Duration::from_secs(1),
+            probe_one(&client, server_addr, Duration::from_millis(500)),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(result, mapped.to_string());
+    }
+
+    fn server_result(status: &str, mapped_address: Option<&str>) -> NatProbeServerResult {
+        NatProbeServerResult {
+            server: "stun.example:3478".into(),
+            status: status.into(),
+            mapped_address: mapped_address.map(str::to_owned),
+            error_code: None,
+        }
+    }
+
+    #[test]
+    fn summary_counts_only_successful_mapping_responses() {
+        let (kind, address) = summarize_mapping_observations(&[
+            server_result("mapped", Some("203.0.113.9:54321")),
+            server_result("timeout", None),
+            server_result("error", None),
+        ]);
+        assert_eq!(kind, "mapped-address");
+        assert_eq!(address.as_deref(), Some("203.0.113.9:54321"));
+
+        let (kind, address) = summarize_mapping_observations(&[
+            server_result("mapped", Some("203.0.113.9:54321")),
+            server_result("mapped", Some("203.0.113.9:54321")),
+            server_result("timeout", None),
+        ]);
+        assert_eq!(kind, "consistent-mapping");
+        assert_eq!(address.as_deref(), Some("203.0.113.9:54321"));
+    }
+
+    #[test]
+    fn mapping_summary_does_not_infer_nat_type_from_server_variation() {
+        let (kind, address) = summarize_mapping_observations(&[
+            server_result("mapped", Some("203.0.113.9:54321")),
+            server_result("mapped", Some("198.51.100.3:31234")),
+        ]);
+        assert_eq!(kind, "varying-mapping");
+        assert_eq!(address, None);
+    }
+
+    #[test]
+    fn summary_reports_missing_mapping_separately_from_timeouts() {
+        assert_eq!(
+            summarize_mapping_observations(&[
+                server_result("no-mapping", None),
+                server_result("timeout", None),
+            ])
+            .0,
+            "no-mapping"
+        );
+        assert_eq!(
+            summarize_mapping_observations(&[server_result("timeout", None)]).0,
+            "blocked-or-timeout"
+        );
+    }
+
+    #[test]
+    fn address_selection_prefers_ipv4_and_keeps_bounded_fallbacks_for_both_families() {
+        let mut addresses = vec![
+            "[2001:db8::1]:3478".parse().unwrap(),
+            "192.0.2.1:3478".parse().unwrap(),
+            "192.0.2.2:3478".parse().unwrap(),
+            "[2001:db8::2]:3478".parse().unwrap(),
+            "192.0.2.1:3478".parse().unwrap(),
+            "192.0.2.3:3478".parse().unwrap(),
+            "[2001:db8::3]:3478".parse().unwrap(),
+        ];
+
+        prefer_socket_families(&mut addresses);
+
+        assert_eq!(addresses.len(), MAX_STUN_ADDRESSES_PER_SERVER);
+        assert!(addresses[0].is_ipv4());
+        assert!(addresses[1].is_ipv6());
+        assert!(addresses[2].is_ipv4());
+        assert!(addresses[3].is_ipv6());
     }
 }

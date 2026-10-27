@@ -141,6 +141,40 @@ beforeEach(() => {
 })
 
 describe("network-probe session slots per probe kind", () => {
+  it("localizes a backend rejection when high-risk confirmation is missing", async () => {
+    scanPorts.mockRejectedValue({
+      code: "HIGH_RISK_CONFIRMATION_REQUIRED",
+      message: "This target or port range requires explicit confirmation.",
+    })
+
+    await act(async () => {
+      await networkProbeUseCases.runPortScan("example.com", "22", false, false)
+    })
+
+    expect(scanPorts).toHaveBeenCalledWith("example.com", "22", false, false)
+    expect(useNetworkProbeStore.getState().error?.key).toBe(
+      "networkProbe.errors.highRiskConfirmationRequired",
+    )
+    expect(useNetworkProbeStore.getState().loadingPorts).toBe(false)
+  })
+
+  it("localizes a backend rejection for unsupported multi-host port targets", async () => {
+    scanPorts.mockRejectedValue({
+      code: "PORT_SCAN_SINGLE_HOST_REQUIRED",
+      message: "Port scanning accepts one IP address or hostname.",
+    })
+
+    await act(async () => {
+      await networkProbeUseCases.runPortScan("192.168.0.0/24", "80", false, false)
+    })
+
+    expect(scanPorts).toHaveBeenCalledWith("192.168.0.0/24", "80", false, false)
+    expect(useNetworkProbeStore.getState().error?.key).toBe(
+      "networkProbe.errors.singleHostPortScanOnly",
+    )
+    expect(useNetworkProbeStore.getState().loadingPorts).toBe(false)
+  })
+
   it("cancels only the requested probe kind and keeps the other kind's target", async () => {
     const health = deferred<Record<string, unknown>>()
     const ports = deferred<Record<string, unknown>>()
@@ -149,8 +183,9 @@ describe("network-probe session slots per probe kind", () => {
     cancelScan.mockResolvedValue(true)
 
     const healthPromise = networkProbeUseCases.runHealthScan()
-    const portsPromise = networkProbeUseCases.runPortScan("127.0.0.1", "22")
+    const portsPromise = networkProbeUseCases.runPortScan("example.com", "22", false, true)
     await flushMicrotasks()
+    expect(scanPorts).toHaveBeenCalledWith("example.com", "22", false, true)
 
     emitScanSession({ sessionId: "health-1", kind: "health" })
     emitScanSession({ sessionId: "ports-1", kind: "ports" })
@@ -198,6 +233,103 @@ describe("network-probe session slots per probe kind", () => {
       commandHint: "",
     })
     await healthPromise
+    expect(slots().health).toBeNull()
+  })
+
+  it("queues cancellation until a late session event arrives", async () => {
+    const sites = deferred<Record<string, unknown>>()
+    sitesProbe.mockReturnValue(sites.promise)
+    cancelScan.mockResolvedValue(true)
+
+    const sitesPromise = networkProbeUseCases.runSitesProbe("official")
+    await flushMicrotasks()
+
+    // Leaving a monitoring panel can happen before its IPC session ID is published.
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("sites")
+    })
+    expect(cancelScan).not.toHaveBeenCalled()
+
+    emitScanSession({ sessionId: "sites-late", kind: "sites" })
+    await flushMicrotasks()
+    expect(slots().sites).toBe("sites-late")
+    expect(cancelScan).toHaveBeenCalledTimes(1)
+    expect(cancelScan).toHaveBeenCalledWith("sites-late")
+
+    sites.resolve({
+      sessionId: "sites-late",
+      packId: "official",
+      results: [],
+      cancelled: true,
+      elapsedMs: 1,
+      commandHint: "",
+    })
+    await sitesPromise
+    expect(slots().sites).toBeNull()
+    expect(useNetworkProbeStore.getState().loadingSites).toBe(false)
+  })
+
+  it("does not carry a queued cancellation into a later scan after the current run fails early", async () => {
+    const firstSites = deferred<Record<string, unknown>>()
+    sitesProbe.mockReturnValueOnce(firstSites.promise)
+    cancelScan.mockResolvedValue(true)
+
+    const firstRun = networkProbeUseCases.runSitesProbe("official")
+    await flushMicrotasks()
+    await networkProbeUseCases.cancelScan("sites")
+    firstSites.resolve({
+      sessionId: "sites-no-session",
+      packId: "official",
+      results: [],
+      cancelled: true,
+      elapsedMs: 1,
+      commandHint: "",
+    })
+    await firstRun
+
+    // There is no active tracker now, so a later run is not canceled implicitly.
+    const secondSites = deferred<Record<string, unknown>>()
+    sitesProbe.mockReturnValueOnce(secondSites.promise)
+    const secondRun = networkProbeUseCases.runSitesProbe("official")
+    await flushMicrotasks()
+    expect(cancelScan).not.toHaveBeenCalled()
+    emitScanSession({ sessionId: "sites-next", kind: "sites" })
+    await flushMicrotasks()
+    expect(cancelScan).not.toHaveBeenCalled()
+
+    secondSites.resolve({
+      sessionId: "sites-next",
+      packId: "official",
+      results: [],
+      cancelled: false,
+      elapsedMs: 1,
+      commandHint: "",
+    })
+    await secondRun
+  })
+
+  it("ignores a queued session event after its scan has already ended", async () => {
+    const health = deferred<Record<string, unknown>>()
+    runHealthScan.mockReturnValue(health.promise)
+
+    const scanPromise = networkProbeUseCases.runHealthScan()
+    await flushMicrotasks()
+    const handler = [...(handlers.get(SCAN_SESSION) ?? [])][0]
+    expect(handler).toBeDefined()
+
+    health.resolve({
+      sessionId: "health-finished",
+      cancelled: false,
+      items: [],
+      opinions: [],
+      elapsedMs: 1,
+      commandHint: "",
+    })
+    await scanPromise
+    expect(slots().health).toBeNull()
+
+    // The native event may already be queued when its listener is removed.
+    act(() => handler?.({ payload: { sessionId: "health-finished", kind: "health" } }))
     expect(slots().health).toBeNull()
   })
 })

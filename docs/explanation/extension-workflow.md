@@ -144,7 +144,7 @@ bundled 与 market 描述的是分发方式：bundled 随 Bench 安装包发布�
 
 ## 8. 作者侧流程（P4.5 交付物）
 
-> 目标：**前端开发者零门槛** —— 会写 React 就能做插件，不需要懂 Rust（对标 uTools 生态的成功要素）。
+> 作者工具链已交付在 [kindred-plugin-market/bench-extension-template](https://github.com/kindred-plugin-market/bench-extension-template)。新作者应以模板仓库 README 为可执行指南；本节记录能力与发布边界。
 > 契约细节一律以 [extension-spec.md](../reference/extension-spec.md) 为准。
 
 作者工具的代码和上手步骤统一维护在公开模板仓库：[kindred-plugin-market/bench-extension-template](https://github.com/kindred-plugin-market/bench-extension-template)。不要在 Bench 宿主仓库里运行旧的 `extensions:create`、`extensions:sync` 或 `extensions:pack` 指令；这些作者侧入口已迁到模板仓库。
@@ -174,7 +174,58 @@ pnpm run extensions:pack <id> --key <private-key> --pubkey <public-key>
 
 正式分发时，作者按[市场提交流程](https://github.com/kindred-plugin-market/bench-extension-template#提交到插件市场)提交源码和 registry 元数据 PR。维护者复核 manifest、最小 ACL、SHA-256 与产物来源。官方和第三方来源采用不同验证策略，详见 [extension-spec.md §4 / §5.4](../reference/extension-spec.md)。
 
-### 8.4 版本升级与下架
+`id` 必须匹配 `^[a-z][a-z0-9-]*$`。
+
+模板打包器只接受 `platforms: ["macos"]`、`["windows"]` 或两者组合；省略 `platforms` 表示支持当前两个宿主平台。Linux 尚未纳入 Bench 构建与发布支持范围。
+
+### 8.2 本地开发与调试
+
+1. 在模板仓库执行 `pnpm install`，修改生成目录下的源码与 manifest。
+2. 本地验证时运行 `pnpm run extensions:pack <id> --dev-unsigned --install-dir <Bench 插件目录>`；模板 README 给出了 macOS / Windows 目标目录。
+3. 完全退出 Bench，再设 `BENCH_EXT_DEV_MODE=1` 启动宿主，在插件中心打开插件。
+4. 宿主捕获 window-error / unhandledrejection / console.error / boot 并写入追加式诊断日志；插件中心的诊断标签可查看结果。
+5. `BENCH_EXT_DEV_MODE=1` 只用于本地未签名调试，不得用于正式发行（[spec §4.3](../reference/extension-spec.md)）。
+
+### 8.3 构建
+
+```bash
+pnpm run extensions:build     # 宿主仓库维护者构建 bundled 插件；支持 --id <id>
+```
+
+产出 `extensions/<id>/assets/`（`base: "./"` 是硬性要求，否则子路径下 404 白屏）。
+
+> **真源反转后的源目录解析（2026-09-18）**：`extensions:build/sync/stage` 按优先级解析插件源：
+> `--market <dir>` > `BENCH_MARKET_DIR` > 兄弟市场仓（`../kindred-plugin-market/plugin-market/extensions`）> 旧 `cwd/extensions`（CI release 流程）。显式输入指向不存在的目录会 fail-closed；树外源由 build 脚本拷入宿主树临时区构建并回拷 `assets/`（与 CI release 流程一致）。市场仓插件根的 `index.html` 是 vite 源码入口，未构建时会被拒用（P2b 白屏防线），提示先跑 `extensions:build`。
+
+### 8.4 打包与签名
+
+```bash
+pnpm run extensions:pack <id>     # P4.5 交付
+```
+
+依次完成：
+
+1. 构建产物
+2. 扫描产物目录，生成 `manifest.files`（逐文件 sha256 + size）
+3. 按 [spec §4.1](../reference/extension-spec.md) 构造 canonical 文本
+4. minisign 签名，trusted comment 固定 `<id>@<version>`
+5. 写回 `manifest.signature`
+6. 打 zip（根即插件根），输出整包 sha256 与 size
+
+> 这一步**必须在签名前生成 files 清单**，否则清单未纳入签名（P3.1 的核心要求）。
+
+### 8.5 发布到 registry
+
+阶段二（开放第三方后）：
+
+1. 作者在自有仓库开发 → `extensions:pack` 产出 zip + manifest
+2. 向 canonical registry 仓库提交 PR，追加/更新条目（[spec §5.2](../reference/extension-spec.md)）
+3. 维护者人工审核：manifest 合法性、ACL 是否最小、产物与源码是否对应
+4. 合入即上架（静态托管，无服务端）
+
+当前官方插件源码由 [kindred-plugin-market/plugin-market](https://github.com/kindred-plugin-market/plugin-market) 管理，并由该仓库的发布流程生成 registry 产物；Bench 宿主按 `distribution` 与 registry 契约加载。不要把插件模板仓库当作官方插件源码仓。
+
+### 8.6 版本升级与下架
 
 | 场景       | 操作                                                                                                                         |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -182,7 +233,14 @@ pnpm run extensions:pack <id> --key <private-key> --pubkey <public-key>
 | 撤回某版本 | 该版本 `yanked: true`（已安装仍可运行，不再出现在可安装列表）                                                                |
 | 紧急吊销   | registry `revoked[]` 增加条目 → 宿主**强制禁用 + UI 显著警示**（不静默删除，见 [spec §5.3](../reference/extension-spec.md)） |
 
-模板操作手册和 SDK 指南以[作者模板仓库](https://github.com/kindred-plugin-market/bench-extension-template)为准；本节只保留宿主与市场之间的长期契约。
+### 8.7 作者文档清单（P4.5 一并交付）
+
+| 文档                              | 位置                                                                                                                          |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 快速开始（目标 30 分钟）          | [bench-extension-template README](https://github.com/kindred-plugin-market/bench-extension-template#30-分钟上手)              |
+| 契约参考                          | [extension-spec.md](../reference/extension-spec.md)                                                                           |
+| SDK 用法（IPC / i18n / 诊断上报） | [模板仓库 SDK README](https://github.com/kindred-plugin-market/bench-extension-template/blob/main/packages/ext-sdk/README.md) |
+| 提交 registry                     | 本文 §8.5                                                                                                                     |
 
 ---
 
@@ -238,7 +296,7 @@ pnpm run extensions:pack <id> --key <private-key> --pubkey <public-key>
 
 - [ ] IPC 命令**留在宿主 Rust 核心**，仅登记 ACL 注册表（`extension_host/acl.rs`）+ 补 `capability_face_all_allowed` 测试；纯前端插件 `acl.commands: []` 并在注释声明
 - [ ] manifest `engines.bench` 门槛必须 ≤ 宿主版本——**别硬编码**：验证包脚本是动态读 `tauri.conf.json` 的 version（bench-poc 曾写死 `>=2.0.0` 导致插件中心显示「宿主版本不兼容」）
-- [ ] 平台限制用 `platforms` 字段（spec §3.1，P5 增补；缺省全平台；宿主在已装列表按当前平台过滤）
+- [ ] 平台限制用 `platforms` 字段（spec §3.1，P5 增补；缺省表示当前支持的 macOS / Windows；宿主在已装列表按当前平台过滤）
 - [ ] 契约（contracts.ts / types）**留在宿主**不动——双写规则针对宿主 Rust 面，与 UI 位置无关
 
 ### 11.4 i18n 归集（守卫已强制）
@@ -260,7 +318,7 @@ pnpm run extensions:pack <id> --key <private-key> --pubkey <public-key>
 ### 11.6 测试
 
 - [ ] 插件测试放 `extensions/<id>/src/__tests__/`（随代码迁入）；**每个插件建 `vitest.config.ts` + `vitest.setup.ts`**（jsdom + 与构建一致的 alias，含 `"@/i18n/config"` 重绑定），并加**页面冒烟测试**（jsdom 渲染根组件 + 最小 invoke 桩）——"打开即白屏"类回归直接浮出
-- [ ] 跑 `pnpm run test:extensions -- --market <插件源码根>`（runner 循环全部带 vitest.config 的插件，fail-fast；缺输入/零发现/零实测一律失败，见 [D-036](./decisions.md)）；宿主 vitest 仍 exclude `extensions/**`，两套并行
+- [ ] 跑 `pnpm run test:extensions -- --market <plugin-market>/extensions`（Bench 入口委托市场仓 runner；以 `manifest.json` 为全集，缺配置/零发现/零实测一律失败，见 [D-036](./decisions.md)）；宿主 vitest 仍 exclude 插件源码，两套并行
 - [ ] 宿主侧更新：`src/features/registry.test.tsx` 断言反转（`not.toContain` 被迁路由）；`test:critical` 名单核对（被迁 feature 的测试若在列需移除）
 - [ ] **迁走共享工具前必须查全宿主消费者**（`grep -rln` 全 src，含测试文件）：两边都用 → 各留一份副本（如 `refresh.ts`：宿主原件保留、插件内 `lib/feature-refresh.ts` 副本，与 common 快照同理）；只删不查 = 宿主测试收集直接红（P5 实测踩坑）
 

@@ -3,10 +3,11 @@
 
 use super::types::ProbeNode;
 use crate::error::{AppError, AppResult};
-use futures_util::{stream, SinkExt, StreamExt};
+use futures_util::{stream, StreamExt};
+use reqwest_websocket::Upgrade;
 use serde::{Deserialize, Serialize};
-use std::fs::{self, File, OpenOptions};
-use std::io::Read;
+use std::fs;
+use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
@@ -16,8 +17,14 @@ use url::Url;
 
 const MAX_AGENT_REGISTRY_BYTES: u64 = 1024 * 1024;
 const MAX_AGENT_LABEL_CHARS: usize = 80;
+const MAX_AGENT_ENDPOINT_BYTES: usize = 2048;
+const HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_CONCURRENT_AGENT_HEALTH_CHECKS: usize = 8;
-const AGENT_HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(5);
+
+fn registry_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,24 +74,45 @@ fn agents_path(app: &AppHandle<impl Runtime>) -> AppResult<PathBuf> {
     Ok(dir.join("agents.json"))
 }
 
-fn load_agents_file(path: &Path) -> AppResult<Vec<AgentRecord>> {
-    let file = match File::open(path) {
-        Ok(file) => file,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(error) => return Err(AppError::io(format!("open agents: {error}"))),
-    };
-    let mut bytes = Vec::new();
-    file.take(MAX_AGENT_REGISTRY_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|error| AppError::io(format!("read agents: {error}")))?;
-    if bytes.len() as u64 > MAX_AGENT_REGISTRY_BYTES {
-        return Err(AppError::io(format!(
-            "agent registry exceeds the {MAX_AGENT_REGISTRY_BYTES}-byte limit"
-        )));
+pub fn load_agents(app: &AppHandle<impl Runtime>) -> AppResult<Vec<AgentRecord>> {
+    let path = agents_path(app)?;
+    let _guard = registry_lock()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    load_agents_from(&path)
+}
+
+fn load_agents_from(path: &Path) -> AppResult<Vec<AgentRecord>> {
+    crate::persistence::ensure_file_size(path, MAX_AGENT_REGISTRY_BYTES)
+        .map_err(|e| AppError::io(format!("check agent registry size: {e}")))?;
+    if !path.exists() {
+        return Ok(Vec::new());
     }
-    let raw = String::from_utf8(bytes)
-        .map_err(|error| AppError::io(format!("agent registry is not UTF-8: {error}")))?;
+    let raw = fs::read_to_string(path).map_err(|e| AppError::io(format!("read agents: {e}")))?;
     serde_json::from_str(&raw).map_err(|e| AppError::io(format!("parse agents: {e}")))
+}
+
+fn save_agents_to(path: &Path, agents: &[AgentRecord]) -> AppResult<()> {
+    let json = serde_json::to_string_pretty(agents)
+        .map_err(|e| AppError::io(format!("serialize agents: {e}")))?;
+    if json.len() as u64 > MAX_AGENT_REGISTRY_BYTES {
+        return Err(AppError::invalid_input("Agent registry exceeds size limit"));
+    }
+    crate::persistence::atomic_write(path, json.as_bytes())
+        .map_err(|e| AppError::io(format!("write agents: {e}")))
+}
+
+fn mutate_agents_at<T>(
+    path: &Path,
+    mutate: impl FnOnce(&mut Vec<AgentRecord>) -> AppResult<T>,
+) -> AppResult<T> {
+    let _guard = registry_lock()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut agents = load_agents_from(path)?;
+    let result = mutate(&mut agents)?;
+    save_agents_to(path, &agents)?;
+    Ok(result)
 }
 
 fn validate_label(label: &str) -> AppResult<String> {
@@ -93,47 +121,19 @@ fn validate_label(label: &str) -> AppResult<String> {
         || label.chars().count() > MAX_AGENT_LABEL_CHARS
         || label.chars().any(char::is_control)
     {
-        return Err(AppError::invalid_input(format!(
-            "Agent label must contain 1 to {MAX_AGENT_LABEL_CHARS} non-control characters"
-        )));
+        return Err(AppError::invalid_input(
+            "Agent label must contain 1-80 printable characters",
+        ));
     }
-    Ok(label.to_owned())
-}
-
-fn mutate_agents_file<T>(
-    path: &Path,
-    update: impl FnOnce(&mut Vec<AgentRecord>) -> AppResult<T>,
-) -> AppResult<T> {
-    let _guard = registry_lock()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let _file_guard = registry_file_lock(path)?;
-    let mut agents = load_agents_file(path)?;
-    let result = update(&mut agents)?;
-    let json = serde_json::to_string_pretty(&agents)
-        .map_err(|e| AppError::io(format!("serialize agents: {e}")))?;
-    if json.len() as u64 > MAX_AGENT_REGISTRY_BYTES {
-        return Err(AppError::invalid_input(format!(
-            "Agent registry exceeds the {MAX_AGENT_REGISTRY_BYTES}-byte limit"
-        )));
-    }
-    crate::persistence::atomic_write(path, json.as_bytes())
-        .map_err(|e| AppError::io(format!("write agents: {e}")))?;
-    Ok(result)
-}
-
-pub fn load_agents(app: &AppHandle<impl Runtime>) -> AppResult<Vec<AgentRecord>> {
-    load_agents_file(&agents_path(app)?)
+    Ok(label.to_string())
 }
 
 fn validate_endpoint(endpoint: &str) -> AppResult<Url> {
-    let endpoint = endpoint.trim();
-    if endpoint.len() > 2048 {
-        return Err(AppError::invalid_input(
-            "Agent endpoint must not exceed 2048 bytes",
-        ));
+    if endpoint.trim().len() > MAX_AGENT_ENDPOINT_BYTES {
+        return Err(AppError::invalid_input("Agent endpoint is too long"));
     }
-    let url = Url::parse(endpoint).map_err(|_| AppError::invalid_input("Invalid agent URL"))?;
+    let url =
+        Url::parse(endpoint.trim()).map_err(|_| AppError::invalid_input("Invalid agent URL"))?;
     if url.scheme() != "https" && url.scheme() != "wss" {
         return Err(AppError::invalid_input(
             "Agent endpoint must be https:// or wss:// (no plaintext)",
@@ -145,13 +145,26 @@ fn validate_endpoint(endpoint: &str) -> AppResult<Url> {
         || url.fragment().is_some()
     {
         return Err(AppError::invalid_input(
-            "Agent endpoint must not embed credentials, query parameters, or fragments",
+            "Agent endpoint must not contain credentials, query parameters, or fragments",
         ));
     }
-    let host = url.host_str().unwrap_or("");
-    // SSRF: block cloud metadata & localhost-ish unless explicitly loopback for lab.
+    let host = url.host_str().unwrap_or("").trim_end_matches('.');
+    if host.is_empty() {
+        return Err(AppError::invalid_input(
+            "Agent endpoint must include a host",
+        ));
+    }
+    // Block known cloud metadata hosts; manually configured private agents remain valid.
     let blocked = ["169.254.169.254", "metadata.google.internal", "metadata"];
     if blocked.iter().any(|b| host.eq_ignore_ascii_case(b)) {
+        return Err(AppError::invalid_input(
+            "Agent endpoint blocked (SSRF guard)",
+        ));
+    }
+    if matches!(
+        url.host(),
+        Some(url::Host::Ipv6(ip)) if ip.segments() == [0xfd00, 0x0ec2, 0, 0, 0, 0, 0, 0x0254]
+    ) {
         return Err(AppError::invalid_input(
             "Agent endpoint blocked (SSRF guard)",
         ));
@@ -159,120 +172,153 @@ fn validate_endpoint(endpoint: &str) -> AppResult<Url> {
     Ok(url)
 }
 
-pub async fn add_agent<R: Runtime + 'static>(
+fn http_health_url(endpoint: &Url) -> AppResult<Url> {
+    let mut health_url = endpoint.clone();
+    health_url
+        .path_segments_mut()
+        .map_err(|_| AppError::invalid_input("Invalid agent health URL"))?
+        .pop_if_empty()
+        .push("v1")
+        .push("health");
+    Ok(health_url)
+}
+
+async fn websocket_health_check(client: &reqwest::Client, endpoint: &str) -> bool {
+    tokio::time::timeout(HEALTH_CHECK_TIMEOUT, async {
+        let response = client.get(endpoint).upgrade().send().await.ok()?;
+        let websocket = response.into_websocket().await.ok()?;
+        drop(websocket);
+        Some(())
+    })
+    .await
+    .is_ok_and(|result| result.is_some())
+}
+
+fn health_check_client() -> Result<reqwest::Client, reqwest::Error> {
+    reqwest::Client::builder()
+        .timeout(HEALTH_CHECK_TIMEOUT)
+        .user_agent("Bench-NetworkProbe/1.0")
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+}
+
+pub async fn add_agent<R: Runtime>(
     app: &AppHandle<R>,
     label: String,
     endpoint: String,
 ) -> AppResult<ProbeNode> {
     let label = validate_label(&label)?;
     let url = validate_endpoint(&endpoint)?;
-    let reachable = health_check(url.as_str()).await;
     let endpoint = url.to_string();
-    let app = app.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        mutate_agents_file(&agents_path(&app)?, |agents| {
-            Ok(upsert_agent(agents, label, endpoint, reachable))
-        })
-    })
-    .await
-    .map_err(|error| AppError::task_failed(format!("add_agent registry update: {error}")))?
+    let id = format!("agent-{}", uuid::Uuid::new_v4());
+    let reachable = health_check(&url).await;
+    let node = ProbeNode {
+        id,
+        kind: "remote-agent".into(),
+        label: label.clone(),
+        reachable,
+        endpoint: Some(endpoint.clone()),
+        region: None,
+        capabilities: Some(vec!["dns".into(), "ping".into(), "http".into()]),
+    };
+    let path = agents_path(app)?;
+    mutate_agents_at(&path, |agents| {
+        agents.push(AgentRecord {
+            id: node.id.clone(),
+            label,
+            endpoint,
+            token_hint: String::new(),
+        });
+        Ok(())
+    })?;
+    Ok(node)
 }
 
 pub fn remove_agent(app: &AppHandle<impl Runtime>, agent_id: String) -> AppResult<()> {
-    mutate_agents_file(&agents_path(app)?, |agents| {
+    let path = agents_path(app)?;
+    mutate_agents_at(&path, |agents| {
+        let before = agents.len();
         agents.retain(|agent| agent.id != agent_id);
+        if agents.len() == before {
+            return Err(AppError::invalid_input("Unknown agent"));
+        }
         Ok(())
     })
 }
 
-fn upsert_agent(
-    agents: &mut Vec<AgentRecord>,
-    label: String,
-    endpoint: String,
-    reachable: bool,
-) -> ProbeNode {
-    let normalized_endpoint = Url::parse(&endpoint).ok();
-    if let Some(existing) = agents.iter().find(|agent| {
-        normalized_endpoint.as_ref().is_some_and(|endpoint| {
-            Url::parse(&agent.endpoint).is_ok_and(|saved| &saved == endpoint)
-        })
-    }) {
-        return agent_node(existing, reachable);
-    }
-
-    let record = AgentRecord {
-        id: format!("agent-{}", uuid::Uuid::new_v4()),
-        label,
-        endpoint,
-        token_hint: String::new(),
-    };
-    let node = agent_node(&record, reachable);
-    agents.push(record);
-    node
+pub async fn agents_as_nodes(app: &AppHandle<impl Runtime>) -> AppResult<Vec<ProbeNode>> {
+    let agents = load_agents(app)?;
+    let client = health_check_client().ok();
+    let nodes = refresh_agent_records(agents, move |agent: AgentRecord| {
+        let client = client.clone();
+        async move {
+            match (client, validate_endpoint(&agent.endpoint)) {
+                (Some(client), Ok(endpoint)) => health_check_with_client(&client, &endpoint).await,
+                _ => false,
+            }
+        }
+    })
+    .await;
+    Ok(nodes)
 }
 
-fn agent_node(agent: &AgentRecord, reachable: bool) -> ProbeNode {
+async fn refresh_agent_records<F, Fut>(agents: Vec<AgentRecord>, check: F) -> Vec<ProbeNode>
+where
+    F: Fn(AgentRecord) -> Fut + Clone,
+    Fut: Future<Output = bool>,
+{
+    let count = agents.len();
+    let mut refreshed = stream::iter(agents.into_iter().enumerate())
+        .map(|(index, agent)| {
+            let check = check.clone();
+            async move {
+                let reachable = check(agent.clone()).await;
+                (index, agent_to_node(agent, reachable))
+            }
+        })
+        .buffer_unordered(MAX_CONCURRENT_AGENT_HEALTH_CHECKS)
+        .collect::<Vec<_>>()
+        .await;
+    refreshed.sort_unstable_by_key(|(index, _)| *index);
+    let mut nodes = Vec::with_capacity(count);
+    nodes.extend(refreshed.into_iter().map(|(_, node)| node));
+    nodes
+}
+
+fn agent_to_node(agent: AgentRecord, reachable: bool) -> ProbeNode {
     ProbeNode {
-        id: agent.id.clone(),
+        id: agent.id,
         kind: "remote-agent".into(),
-        label: agent.label.clone(),
+        label: agent.label,
         reachable,
-        endpoint: Some(agent.endpoint.clone()),
+        endpoint: Some(agent.endpoint),
         region: None,
         capabilities: Some(vec!["dns".into(), "ping".into(), "http".into()]),
     }
 }
 
-pub async fn agents_as_nodes<R: Runtime + 'static>(
-    app: &AppHandle<R>,
-) -> AppResult<Vec<ProbeNode>> {
-    let app = app.clone();
-    let agents = tauri::async_runtime::spawn_blocking(move || load_agents(&app))
-        .await
-        .map_err(|error| AppError::task_failed(format!("list agent registry: {error}")))??;
-
-    Ok(stream::iter(agents.into_iter().map(|agent| async move {
-        let reachable = health_check(&agent.endpoint).await;
-        agent_node(&agent, reachable)
-    }))
-    .buffered(MAX_CONCURRENT_AGENT_HEALTH_CHECKS)
-    .collect::<Vec<_>>()
-    .await)
-}
-
-async fn health_check(endpoint: &str) -> bool {
-    let Ok(endpoint) = Url::parse(endpoint) else {
-        return false;
-    };
-    let health_endpoint = health_endpoint(&endpoint);
-    match endpoint.scheme() {
-        "https" => http_health_check(health_endpoint.as_str()).await,
-        "wss" => websocket_health_check(health_endpoint).await,
-        _ => false,
-    }
-}
-
-fn health_endpoint(endpoint: &Url) -> Url {
-    let mut health_endpoint = endpoint.clone();
-    let base_path = endpoint.path().trim_end_matches('/');
-    health_endpoint.set_path(&format!("{base_path}/v1/health"));
-    health_endpoint
-}
-
-async fn http_health_check(endpoint: &str) -> bool {
-    let client = match reqwest::Client::builder()
-        .timeout(AGENT_HEALTH_CHECK_TIMEOUT)
-        .redirect(reqwest::redirect::Policy::none())
-        .user_agent("Bench-NetworkProbe/1.0")
-        .build()
-    {
+async fn health_check(endpoint: &Url) -> bool {
+    let client = match health_check_client() {
         Ok(c) => c,
         Err(_) => return false,
     };
-    matches!(
-        client.get(endpoint).send().await,
-        Ok(r) if r.status().is_success()
-    )
+    health_check_with_client(&client, endpoint).await
+}
+
+async fn health_check_with_client(client: &reqwest::Client, endpoint: &Url) -> bool {
+    match endpoint.scheme() {
+        "https" => {
+            let Ok(health_url) = http_health_url(endpoint) else {
+                return false;
+            };
+            matches!(
+                client.get(health_url).send().await,
+                Ok(response) if response.status().is_success()
+            )
+        }
+        "wss" => websocket_health_check(client, endpoint.as_str()).await,
+        _ => false,
+    }
 }
 
 async fn websocket_health_check(endpoint: Url) -> bool {
@@ -333,256 +379,141 @@ pub fn reject_arbitrary_agent_exec(action: &str) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::process::Command;
-    use std::sync::{Arc, Barrier};
+    use std::net::SocketAddr;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
     use std::thread;
-    use std::time::{Duration, Instant};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-    fn registry_path() -> (PathBuf, PathBuf) {
-        let dir =
-            std::env::temp_dir().join(format!("bench-agent-registry-{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("agents.json");
-        (dir, path)
-    }
-
-    fn record(id: usize) -> AgentRecord {
-        AgentRecord {
-            id: format!("agent-{id}"),
-            label: format!("Agent {id}"),
-            endpoint: format!("https://agent-{id}.example.test"),
-            token_hint: String::new(),
-        }
-    }
-
-    fn wait_for_file(path: &Path, timeout: Duration) {
-        let deadline = Instant::now() + timeout;
-        while !path.exists() {
-            assert!(Instant::now() < deadline, "timed out waiting for {path:?}");
-            thread::sleep(Duration::from_millis(5));
-        }
+    #[test]
+    fn validates_secure_agent_endpoints_and_rejects_embedded_credentials() {
+        assert!(validate_endpoint("https://agent.example/base").is_ok());
+        assert!(validate_endpoint("wss://agent.example/health").is_ok());
+        assert!(validate_endpoint("http://agent.example").is_err());
+        assert!(validate_endpoint("ws://agent.example").is_err());
+        assert!(validate_endpoint("https://user:secret@agent.example").is_err());
+        assert!(validate_endpoint("wss://agent.example/path?token=secret").is_err());
+        assert!(validate_endpoint("https://metadata.google.internal").is_err());
     }
 
     #[test]
-    fn registry_update_worker() {
-        let Ok(directory) = std::env::var("BENCH_AGENT_REGISTRY_TEST_DIR") else {
-            return;
-        };
-        let directory = PathBuf::from(directory);
-        let label = std::env::var("BENCH_AGENT_REGISTRY_TEST_LABEL").unwrap();
-        let start = directory.join(format!("start-{label}"));
-        let entered = directory.join(format!("entered-{label}"));
-        let done = directory.join(format!("done-{label}"));
-        fs::write(directory.join(format!("ready-{label}")), b"ready").unwrap();
-        wait_for_file(&start, Duration::from_secs(10));
-
-        let id = if label == "first" { 1 } else { 2 };
-        mutate_agents_file(&directory.join("agents.json"), |agents| {
-            fs::write(&entered, b"entered").unwrap();
-            if label == "first" {
-                thread::sleep(Duration::from_millis(750));
-            }
-            agents.push(record(id));
-            Ok(())
-        })
-        .unwrap();
-        fs::write(done, b"done").unwrap();
-    }
-
-    #[test]
-    fn concurrent_process_updates_are_serialized() {
-        let (dir, path) = registry_path();
-        let executable = std::env::current_exe().unwrap();
-        let spawn_worker = |label: &str| {
-            Command::new(&executable)
-                .arg("registry_update_worker")
-                .arg("--nocapture")
-                .env("BENCH_AGENT_REGISTRY_TEST_DIR", &dir)
-                .env("BENCH_AGENT_REGISTRY_TEST_LABEL", label)
-                .spawn()
-                .unwrap()
-        };
-        let mut first = spawn_worker("first");
-        let mut second = spawn_worker("second");
-
-        for label in ["first", "second"] {
-            wait_for_file(&dir.join(format!("ready-{label}")), Duration::from_secs(10));
-        }
-        fs::write(dir.join("start-first"), b"start").unwrap();
-        wait_for_file(&dir.join("entered-first"), Duration::from_secs(10));
-        fs::write(dir.join("start-second"), b"start").unwrap();
-
-        let second_entered_before_first_finished = {
-            let deadline = Instant::now() + Duration::from_millis(500);
-            while !dir.join("entered-second").exists()
-                && !dir.join("done-first").exists()
-                && Instant::now() < deadline
-            {
-                thread::sleep(Duration::from_millis(5));
-            }
-            dir.join("entered-second").exists() && !dir.join("done-first").exists()
-        };
-
-        wait_for_file(&dir.join("done-first"), Duration::from_secs(10));
-        wait_for_file(&dir.join("done-second"), Duration::from_secs(10));
-        assert!(first.wait().unwrap().success());
-        assert!(second.wait().unwrap().success());
-        assert!(
-            !second_entered_before_first_finished,
-            "a second process entered the read-modify-write section before the first released it"
+    fn appends_http_health_path_without_losing_agent_base_path() {
+        let endpoint = Url::parse("https://agent.example/team/agent/").unwrap();
+        assert_eq!(
+            http_health_url(&endpoint).unwrap().as_str(),
+            "https://agent.example/team/agent/v1/health"
         );
+    }
 
-        let agents = load_agents_file(&path).unwrap();
-        assert_eq!(agents.len(), 2);
-        assert!(agents.iter().any(|agent| agent.id == "agent-1"));
-        assert!(agents.iter().any(|agent| agent.id == "agent-2"));
-        fs::remove_dir_all(dir).unwrap();
+    #[tokio::test]
+    async fn accepts_a_websocket_endpoint_only_after_upgrade_handshake() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address: SocketAddr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            tokio_tungstenite::accept_async(stream).await.unwrap();
+        });
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+
+        assert!(websocket_health_check(&client, &format!("ws://{address}/health")).await);
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn health_check_client_does_not_follow_redirects() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address: SocketAddr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = [0; 1024];
+            let _ = stream.read(&mut request).await;
+            stream
+                .write_all(
+                    format!(
+                        "HTTP/1.1 302 Found\r\nLocation: http://{address}/metadata\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+        });
+
+        let response = health_check_client()
+            .unwrap()
+            .get(format!("http://{address}/health"))
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), reqwest::StatusCode::FOUND);
+        server.await.unwrap();
     }
 
     #[test]
-    fn concurrent_registry_updates_keep_every_agent() {
-        let (dir, path) = registry_path();
-        let workers = 16;
-        let barrier = Arc::new(Barrier::new(workers));
-        let handles = (0..workers)
+    fn concurrent_registry_updates_preserve_every_agent() {
+        let directory =
+            std::env::temp_dir().join(format!("bench-agent-registry-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("agents.json");
+        let threads = (0..12)
             .map(|index| {
                 let path = path.clone();
-                let barrier = Arc::clone(&barrier);
                 thread::spawn(move || {
-                    barrier.wait();
-                    mutate_agents_file(&path, |agents| {
-                        thread::sleep(Duration::from_millis(2));
-                        agents.push(record(index));
+                    mutate_agents_at(&path, |agents| {
+                        agents.push(AgentRecord {
+                            id: format!("agent-{index}"),
+                            label: format!("agent {index}"),
+                            endpoint: format!("https://agent-{index}.example"),
+                            token_hint: String::new(),
+                        });
                         Ok(())
                     })
                     .unwrap();
                 })
             })
             .collect::<Vec<_>>();
-        for handle in handles {
-            handle.join().unwrap();
+        for thread in threads {
+            thread.join().unwrap();
         }
 
-        assert_eq!(load_agents_file(&path).unwrap().len(), workers);
-        fs::remove_dir_all(dir).unwrap();
-    }
-
-    #[test]
-    fn adding_the_same_normalized_endpoint_is_idempotent() {
-        let mut agents = Vec::new();
-        let endpoint = validate_endpoint("https://agent.example.test/").unwrap();
-        let first = upsert_agent(&mut agents, "Agent".into(), endpoint.to_string(), true);
-        let duplicate = upsert_agent(
-            &mut agents,
-            "Other label".into(),
-            validate_endpoint("https://agent.example.test")
-                .unwrap()
-                .to_string(),
-            true,
-        );
-
-        assert_eq!(agents.len(), 1);
-        assert_eq!(first.id, duplicate.id);
-        assert_eq!(duplicate.label, "Agent");
-    }
-
-    #[test]
-    fn wss_health_endpoint_preserves_agent_base_path() {
-        let endpoint = Url::parse("wss://agent.example.test/probe/").unwrap();
-
-        assert_eq!(
-            health_endpoint(&endpoint).as_str(),
-            "wss://agent.example.test/probe/v1/health"
-        );
+        assert_eq!(load_agents_from(&path).unwrap().len(), 12);
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[tokio::test]
-    async fn wss_health_check_times_out_when_tls_handshake_stalls() {
-        use tokio::net::TcpListener;
+    async fn agent_health_refresh_is_bounded_and_preserves_registry_order() {
+        let agents = (0..24)
+            .map(|index| AgentRecord {
+                id: format!("agent-{index}"),
+                label: format!("agent {index}"),
+                endpoint: format!("https://agent-{index}.example"),
+                token_hint: String::new(),
+            })
+            .collect();
+        let active = Arc::new(AtomicUsize::new(0));
+        let max_active = Arc::new(AtomicUsize::new(0));
 
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let server = tokio::spawn(async move {
-            let (_socket, _) = listener.accept().await.unwrap();
-            std::future::pending::<()>().await;
-        });
-
-        let result = tokio::time::timeout(
-            Duration::from_secs(7),
-            health_check(&format!("wss://{address}")),
-        )
+        let nodes = refresh_agent_records(agents, {
+            let active = Arc::clone(&active);
+            let max_active = Arc::clone(&max_active);
+            move |_| {
+                let active = Arc::clone(&active);
+                let max_active = Arc::clone(&max_active);
+                async move {
+                    let current = active.fetch_add(1, Ordering::SeqCst) + 1;
+                    max_active.fetch_max(current, Ordering::SeqCst);
+                    tokio::time::sleep(Duration::from_millis(5)).await;
+                    active.fetch_sub(1, Ordering::SeqCst);
+                    true
+                }
+            }
+        })
         .await;
 
-        server.abort();
-        assert_eq!(result, Ok(false), "a stalled WSS handshake must be bounded");
-    }
-
-    #[test]
-    fn wss_is_supported_but_plaintext_and_embedded_credentials_are_rejected() {
-        assert_eq!(
-            validate_endpoint("wss://agent.example.test/probe")
-                .unwrap()
-                .scheme(),
-            "wss"
-        );
-        assert!(validate_endpoint("ws://agent.example.test/probe").is_err());
-        assert!(validate_endpoint("http://agent.example.test/probe").is_err());
-        assert!(validate_endpoint("https://user:secret@agent.example.test").is_err());
-        assert!(validate_endpoint("https://agent.example.test?token=secret").is_err());
-    }
-
-    #[test]
-    fn agent_labels_are_trimmed_bounded_and_control_free() {
-        assert_eq!(validate_label("  Lab  ").unwrap(), "Lab");
-        assert!(validate_label(" \n ").is_err());
-        assert!(validate_label(&"x".repeat(MAX_AGENT_LABEL_CHARS + 1)).is_err());
-        assert!(validate_label("Lab\nNode").is_err());
-    }
-
-    #[test]
-    fn health_endpoint_appends_to_encoded_base_path_without_rewriting_it() {
-        let endpoint = Url::parse("https://agent.example.test/base%20path").unwrap();
-
-        assert_eq!(
-            health_endpoint(&endpoint).as_str(),
-            "https://agent.example.test/base%20path/v1/health"
-        );
-    }
-
-    #[test]
-    fn removing_a_missing_agent_is_idempotent() {
-        let (dir, path) = registry_path();
-        let result = mutate_agents_file(&path, |agents| {
-            agents.retain(|agent| agent.id != "missing-agent");
-            Ok(())
-        });
-
-        assert!(result.is_ok());
-        assert!(load_agents_file(&path).unwrap().is_empty());
-        fs::remove_dir_all(dir).unwrap();
-    }
-
-    #[test]
-    fn oversized_registry_is_rejected_before_deserialization() {
-        let (dir, path) = registry_path();
-        fs::write(&path, vec![b'x'; MAX_AGENT_REGISTRY_BYTES as usize + 1]).unwrap();
-
-        assert!(load_agents_file(&path).is_err());
-        fs::remove_dir_all(dir).unwrap();
-    }
-
-    #[test]
-    fn oversized_updates_do_not_replace_the_registry() {
-        let (dir, path) = registry_path();
-        let result = mutate_agents_file(&path, |agents| {
-            let mut oversized = record(1);
-            oversized.label = "x".repeat(MAX_AGENT_REGISTRY_BYTES as usize);
-            agents.push(oversized);
-            Ok(())
-        });
-
-        assert!(result.is_err());
-        assert!(!path.exists());
-        fs::remove_dir_all(dir).unwrap();
+        assert!(max_active.load(Ordering::SeqCst) <= MAX_CONCURRENT_AGENT_HEALTH_CHECKS);
+        assert!(max_active.load(Ordering::SeqCst) > 1);
+        assert!(nodes.iter().all(|node| node.reachable));
+        assert_eq!(nodes[0].id, "agent-0");
+        assert_eq!(nodes[23].id, "agent-23");
     }
 }

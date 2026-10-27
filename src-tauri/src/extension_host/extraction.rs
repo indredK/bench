@@ -161,7 +161,12 @@ pub fn extract_extension_zip(
         let entry = archive
             .by_index(index)
             .map_err(|e| AppError::forbidden_path(format!("zip entry {index}: {e}")))?;
-        let name = entry.name().to_string();
+        let name = entry
+            .name()
+            .map_err(|e| {
+                AppError::forbidden_path(format!("zip entry {index} has an invalid name: {e}"))
+            })?
+            .into_owned();
         // unix_mode 在 take() 消耗 entry 前捕获。
         #[cfg(unix)]
         let unix_mode = entry.unix_mode();
@@ -246,7 +251,8 @@ pub fn extract_extension_zip(
         #[cfg(unix)]
         if let Some(mode) = unix_mode {
             use std::os::unix::fs::PermissionsExt;
-            let _ = fs::set_permissions(&out_path, fs::Permissions::from_mode(mode));
+            let safe_mode = crate::archive::safe_archive_unix_mode(mode);
+            let _ = fs::set_permissions(&out_path, fs::Permissions::from_mode(safe_mode));
         }
     }
     Ok(())
@@ -383,6 +389,31 @@ mod tests {
             .expect("valid archive extracts");
         assert!(target.join("manifest.json").is_file());
         assert!(target.join("assets/app.js").is_file());
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn strips_group_and_world_write_permissions_from_archive_entries() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = temp_root("safe-mode");
+        let zip_path = write_zip("safe-mode-zip", |w| {
+            for (name, content) in VALID_ZIP_ENTRIES {
+                add_entry(w, name, content, None);
+            }
+            add_entry(w, "assets/run.sh", b"#!/bin/sh\n", Some(0o777));
+        });
+        let target = root.join("target");
+        extract_extension_zip(&zip_path, &target, &ExtractLimits::default())
+            .expect("archive with regular executable extracts");
+
+        let mode = fs::metadata(target.join("assets/run.sh"))
+            .expect("extracted executable exists")
+            .permissions()
+            .mode()
+            & 0o7777;
+        assert_eq!(mode, 0o755, "archive write bits must be stripped");
         fs::remove_dir_all(&root).ok();
     }
 

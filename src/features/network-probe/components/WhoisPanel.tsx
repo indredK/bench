@@ -65,12 +65,12 @@ export function WhoisPanel({ loading, result, toolEnabled, toolStatus, onRun }: 
     >
       {result ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">
-          <div className="font-medium">
+          <p className="font-medium">
             {t("networkProbe.whois.resultFor", { query: result.query })}
-          </div>
-          <div className="text-muted-foreground text-xs">
-            {sourceLabel}
-            {result.errorCode === "responseTruncated" && result.partial && result.rawText ? (
+          </p>
+          <div>
+            {result.source}
+            {result.partial ? (
               <span className="text-muted-foreground ml-2 text-xs">
                 ({t("networkProbe.whois.partial")})
               </span>

@@ -49,6 +49,7 @@ export function Ipv6Panel({ loading, result, onRun, dualFrom }: Ipv6PanelProps) 
               {loading ? t("networkProbe.ipv6.running") : t("networkProbe.ipv6.run")}
             </Button>
           </CommandHint>
+          <p className="text-muted-foreground font-mono text-xs">{t("networkProbe.cmd.ipv6")}</p>
         </>
       }
     >

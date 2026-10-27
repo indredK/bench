@@ -50,6 +50,14 @@ fn brew_path() -> Option<String> {
     find_brew().map(|p| p.to_string_lossy().to_string())
 }
 
+fn brew_metadata_command(brew: &str) -> Command {
+    let mut command = Command::new(brew);
+    // Inventory reads must not trigger Homebrew's background metadata update:
+    // it can perform network I/O and exceed the scan's bounded command timeout.
+    command.env("HOMEBREW_NO_AUTO_UPDATE", "1");
+    command
+}
+
 /// Verify that the located brew binary is actually executable and behaves
 /// like Homebrew. `brew_path` only checks for file existence, but the binary
 /// could be a broken symlink, lack execute permissions, or be a stub left by
@@ -71,7 +79,7 @@ fn brew_works(brew: &str) -> bool {
 
 fn list_installed_casks(brew: &str) -> Result<HashSet<String>, String> {
     let output = run_command_with_timeout(
-        Command::new(brew).args(["list", "--cask"]),
+        brew_metadata_command(brew).args(["list", "--cask"]),
         BREW_COMMAND_TIMEOUT,
     )
     .map_err(|e| format!("Failed to run brew list --cask: {}", e))?;
@@ -89,7 +97,7 @@ fn list_installed_casks(brew: &str) -> Result<HashSet<String>, String> {
 
 fn list_outdated_casks(brew: &str) -> Result<HashSet<String>, String> {
     let output = run_command_with_timeout(
-        Command::new(brew).args(["outdated", "--cask"]),
+        brew_metadata_command(brew).args(["outdated", "--cask"]),
         BREW_COMMAND_TIMEOUT,
     )
     .map_err(|e| format!("Failed to run brew outdated --cask: {}", e))?;
@@ -105,13 +113,9 @@ fn list_outdated_casks(brew: &str) -> Result<HashSet<String>, String> {
         .collect())
 }
 
-fn map_casks(brew: &str) -> Result<(HashSet<String>, HashSet<String>), String> {
-    Ok((list_installed_casks(brew)?, list_outdated_casks(brew)?))
-}
-
 fn list_cask_artifacts(brew: &str) -> Result<HashMap<String, String>, String> {
     let output = run_command_with_timeout(
-        Command::new(brew).args(["info", "--cask", "--json=v2", "--installed"]),
+        brew_metadata_command(brew).args(["info", "--cask", "--json=v2", "--installed"]),
         BREW_COMMAND_TIMEOUT,
     )
     .map_err(|error| format!("brew cask metadata failed: {error}"))?;
@@ -169,8 +173,12 @@ fn user_applications_dir() -> Option<PathBuf> {
 }
 
 fn external_application_dirs() -> Vec<PathBuf> {
+    external_application_dirs_at(Path::new("/Volumes"))
+}
+
+fn external_application_dirs_at(volumes_root: &Path) -> Vec<PathBuf> {
     let mut roots = Vec::new();
-    let Ok(volumes) = fs::read_dir("/Volumes") else {
+    let Ok(volumes) = fs::read_dir(volumes_root) else {
         return roots;
     };
     for volume in volumes.flatten() {
@@ -208,6 +216,7 @@ fn extract_app_metadata(app_path: &Path) -> Option<(String, String, String)> {
         dict.get(key)
             .and_then(|v| v.as_string())
             .map(|s| s.to_string())
+            .filter(|s| !s.trim().is_empty())
     };
 
     let display_name = read("CFBundleDisplayName").or_else(|| read("CFBundleName"));
@@ -441,23 +450,24 @@ pub fn scan_installed_apps(
 
     let brew = brew_path();
     let brew_available = brew.as_deref().map(brew_works).unwrap_or(false);
-    let mut brew_metadata_complete = true;
+    let mut brew_metadata_errors = Vec::new();
     let mut installed_casks = HashSet::new();
     let mut outdated_casks = HashSet::new();
     let mut artifact_casks = HashMap::new();
 
     if brew_available {
         if let Some(ref brew_bin) = brew {
-            match map_casks(brew_bin) {
-                Ok((casks, outdated)) => {
-                    installed_casks = casks;
-                    outdated_casks = outdated;
-                }
-                Err(_) => brew_metadata_complete = false,
+            match list_installed_casks(brew_bin) {
+                Ok(casks) => installed_casks = casks,
+                Err(_) => brew_metadata_errors.push("HOMEBREW_CASK_LIST_FAILED"),
+            }
+            match list_outdated_casks(brew_bin) {
+                Ok(outdated) => outdated_casks = outdated,
+                Err(_) => brew_metadata_errors.push("HOMEBREW_OUTDATED_QUERY_FAILED"),
             }
             match list_cask_artifacts(brew_bin) {
                 Ok(artifacts) => artifact_casks = artifacts,
-                Err(_) => brew_metadata_complete = false,
+                Err(_) => brew_metadata_errors.push("HOMEBREW_CASK_METADATA_FAILED"),
             }
         }
     }
@@ -577,17 +587,15 @@ pub fn scan_installed_apps(
             provider: "homebrew".to_string(),
             state: if !brew_available {
                 ProviderState::Unsupported
-            } else if brew_metadata_complete {
+            } else if brew_metadata_errors.is_empty() {
                 ProviderState::Ok
             } else {
                 ProviderState::Partial
             },
             error_code: if !brew_available {
                 Some("HOMEBREW_UNAVAILABLE".to_string())
-            } else if !brew_metadata_complete {
-                Some("HOMEBREW_METADATA_PARTIAL".to_string())
             } else {
-                None
+                brew_metadata_errors.first().map(|code| code.to_string())
             },
         },
     ];
@@ -632,6 +640,44 @@ mod scan_tests {
     }
 
     #[test]
+    fn empty_plist_names_fall_back_to_bundle_name_or_file_name() {
+        let root = unique_temp_dir("empty-name-fallback");
+        let with_bundle_name = root.join("InternalAlias.app");
+        let with_file_name = root.join("VisibleFileName.app");
+
+        for app_dir in [&with_bundle_name, &with_file_name] {
+            fs::create_dir_all(app_dir.join("Contents")).expect("create app contents");
+        }
+
+        let write_plist = |app_dir: &Path, bundle_name: &str| {
+            let plist = format!(
+                r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleDisplayName</key><string></string>
+  <key>CFBundleName</key><string>{bundle_name}</string>
+  <key>CFBundleIdentifier</key><string>com.example.empty-name</string>
+</dict></plist>"#
+            );
+            fs::write(app_dir.join("Contents/Info.plist"), plist).expect("write plist");
+        };
+
+        write_plist(&with_bundle_name, "Readable Bundle Name");
+        write_plist(&with_file_name, "  ");
+
+        assert_eq!(
+            extract_app_metadata(&with_bundle_name).map(|metadata| metadata.0),
+            Some("Readable Bundle Name".to_string())
+        );
+        assert_eq!(
+            extract_app_metadata(&with_file_name).map(|metadata| metadata.0),
+            Some("VisibleFileName".to_string())
+        );
+
+        fs::remove_dir_all(root).expect("remove temporary fixture");
+    }
+
+    #[test]
     fn scan_directory_raw_finds_nested_apps_outside_app_bundles() {
         let root = unique_temp_dir("nested");
         let nested_app = root.join("Vendor").join("Test.app");
@@ -663,6 +709,19 @@ mod scan_tests {
         assert_eq!(bundle_ids, vec!["com.example.outer".to_string()]);
 
         fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn external_application_dirs_discovers_fixture_volume_with_spaces() {
+        let volumes_root = unique_temp_dir("external-volumes");
+        let applications = volumes_root.join("Backup Drive").join("Applications");
+        fs::create_dir_all(&applications).expect("create external Applications directory");
+        fs::create_dir_all(volumes_root.join("Data Only")).expect("create non-app volume");
+
+        let roots = external_application_dirs_at(&volumes_root);
+
+        assert_eq!(roots, vec![applications]);
+        fs::remove_dir_all(volumes_root).expect("cleanup external volume fixture");
     }
 
     #[cfg(unix)]
@@ -1309,5 +1368,13 @@ mod tests {
         if Path::new("/bin/echo").exists() {
             assert!(!brew_works("/bin/echo"));
         }
+    }
+
+    #[test]
+    fn brew_metadata_commands_disable_automatic_network_updates() {
+        let command = brew_metadata_command("brew");
+        assert!(command.get_envs().any(|(key, value)| {
+            key == "HOMEBREW_NO_AUTO_UPDATE" && value == Some(std::ffi::OsStr::new("1"))
+        }));
     }
 }

@@ -19,3 +19,4 @@
 > 每轮功能改动先在此追加一行，再在实施后同步进产品说明。
 
 - 2026-09-03：生成产品说明与规划功能文档（依据 `src/features/updater/`、`src/components/common/UpdateDialog.tsx`、`src-tauri/src/app_updater/`、`docs/modules/updater/` 与 ROADMAP R05）。
+- 2026-10-25：Updater 明确拒绝降级；移除未使用的前端 updater 包和 WebView 权限，更新仍由 Rust `UpdaterExt` 执行。

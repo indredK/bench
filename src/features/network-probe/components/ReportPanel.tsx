@@ -6,22 +6,32 @@ import { useTranslation } from "react-i18next"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
+import { ReportHistoryComparison } from "@/features/network-probe/components/ReportHistoryComparison"
+import type { HealthReportSnapshot } from "@/features/network-probe/report-history"
 import type { HealthScanResult } from "@/lib/tauri/types/network-probe"
 
 interface ReportPanelProps {
   health: HealthScanResult | null
-  history: HealthScanResult[]
+  history: HealthReportSnapshot[]
   commandLog: string[]
   onClearLog: () => void
   onClearHistory: () => void
   onGoTree: () => void
+  embedded?: boolean
 }
 
-function toMarkdown(result: HealthScanResult, tTitle: string): string {
+function toMarkdown(
+  result: HealthScanResult,
+  tTitle: string,
+  exportedAt: string,
+  savedAt?: string,
+): string {
   const lines: string[] = [
     `# ${tTitle}`,
     "",
     `- sessionId: \`${result.sessionId}\``,
+    `- exportedAt: ${exportedAt}`,
+    ...(savedAt ? [`- savedAt: ${savedAt}`] : []),
     `- elapsedMs: ${result.elapsedMs.toFixed(0)}`,
     `- cancelled: ${result.cancelled}`,
     `- commandHint: \`${result.commandHint}\``,
@@ -64,13 +74,52 @@ export function ReportPanel({
   onClearLog,
   onClearHistory,
   onGoTree,
+  embedded = false,
 }: ReportPanelProps) {
-  const { t } = useTranslation()
-  const stamp = useMemo(() => new Date().toISOString().replace(/[:.]/g, "-"), [health])
+  const { t, i18n } = useTranslation()
   const [confirmClearHistory, setConfirmClearHistory] = useState(false)
+  const [confirmClearLog, setConfirmClearLog] = useState(false)
+  const stamp = useMemo(() => new Date().toISOString().replace(/[:.]/g, "-"), [health])
+  const locale = i18n?.resolvedLanguage || i18n?.language || "en"
+
+  function formatSnapshotDate(savedAt: string | undefined) {
+    if (!savedAt || !Number.isFinite(Date.parse(savedAt))) {
+      return t("networkProbe.report.timeUnavailable")
+    }
+
+    try {
+      return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(
+        new Date(savedAt),
+      )
+    } catch {
+      return t("networkProbe.report.timeUnavailable")
+    }
+  }
+
+  function downloadCurrentReport(format: "json" | "md") {
+    if (!health) return
+    const exportedAt = new Date().toISOString()
+    const savedAt = history.find((snapshot) => snapshot.sessionId === health.sessionId)?.savedAt
+
+    if (format === "json") {
+      downloadBlob(
+        `network-probe-health-${stamp}.json`,
+        JSON.stringify({ ...health, ...(savedAt ? { savedAt } : {}), exportedAt }, null, 2),
+        "application/json",
+      )
+      return
+    }
+
+    downloadBlob(
+      `network-probe-health-${stamp}.md`,
+      toMarkdown(health, t("networkProbe.report.title"), exportedAt, savedAt),
+      "text/markdown",
+    )
+  }
 
   return (
     <ProbePanelShell
+      embedded={embedded}
       toolbar={
         <>
           <p className="text-muted-foreground text-sm">{t("networkProbe.report.hint")}</p>
@@ -97,29 +146,10 @@ export function ReportPanel({
                 {t("networkProbe.report.privacyHint")}
               </p>
               <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  onClick={() =>
-                    downloadBlob(
-                      `network-probe-health-${stamp}.json`,
-                      JSON.stringify(health, null, 2),
-                      "application/json",
-                    )
-                  }
-                >
+                <Button type="button" onClick={() => downloadCurrentReport("json")}>
                   {t("networkProbe.report.exportJson")}
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() =>
-                    downloadBlob(
-                      `network-probe-health-${stamp}.md`,
-                      toMarkdown(health, t("networkProbe.report.title")),
-                      "text/markdown",
-                    )
-                  }
-                >
+                <Button type="button" variant="outline" onClick={() => downloadCurrentReport("md")}>
                   {t("networkProbe.report.exportMd")}
                 </Button>
               </div>
@@ -150,11 +180,22 @@ export function ReportPanel({
           <ul className="space-y-1 text-xs">
             {history.map((h, idx) => (
               <li key={`${h.sessionId}-${idx}`} className="bg-muted/30 rounded border px-2 py-1">
+                <time
+                  className="text-muted-foreground mr-2"
+                  dateTime={
+                    h.savedAt && Number.isFinite(Date.parse(h.savedAt)) ? h.savedAt : undefined
+                  }
+                >
+                  {formatSnapshotDate(h.savedAt)}
+                </time>
+                <span aria-hidden="true"> · </span>
                 {t("networkProbe.report.historyItem", {
                   session: h.sessionId.slice(0, 8),
                   count: h.items.length,
                   ms: h.elapsedMs.toFixed(0),
-                  opinions: h.opinions.length,
+                  opinionCount: t("networkProbe.report.opinionCount", {
+                    count: h.opinions.length,
+                  }),
                 })}
               </li>
             ))}
@@ -162,12 +203,20 @@ export function ReportPanel({
         )}
       </section>
 
+      {history.length > 0 ? <ReportHistoryComparison history={history} /> : null}
+
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-xs font-semibold tracking-wide uppercase">
             {t("networkProbe.report.logTitle")}
           </h3>
-          <Button type="button" variant="ghost" size="sm" onClick={onClearLog}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={commandLog.length === 0}
+            onClick={() => setConfirmClearLog(true)}
+          >
             {t("networkProbe.report.clearLog")}
           </Button>
         </div>
@@ -194,7 +243,23 @@ export function ReportPanel({
         description={t("networkProbe.report.clearHistoryConfirmDescription")}
         confirmLabel={t("networkProbe.report.clearHistory")}
         cancelLabel={t("common.cancel")}
-        onConfirm={onClearHistory}
+        onConfirm={() => {
+          onClearHistory()
+          setConfirmClearHistory(false)
+        }}
+      />
+
+      <DestructiveConfirmDialog
+        open={confirmClearLog}
+        onOpenChange={setConfirmClearLog}
+        title={t("networkProbe.sideLog.clearConfirmTitle")}
+        description={t("networkProbe.sideLog.clearConfirmDescription")}
+        confirmLabel={t("networkProbe.report.clearLog")}
+        cancelLabel={t("common.cancel")}
+        onConfirm={() => {
+          onClearLog()
+          setConfirmClearLog(false)
+        }}
       />
     </ProbePanelShell>
   )

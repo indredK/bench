@@ -7,12 +7,8 @@ import { useTranslation } from "react-i18next"
 import { CommandHint } from "@/components/common/CommandHint"
 import { Button } from "@/components/ui/button"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
-import { TechnicalDetails } from "@/features/network-probe/components/TechnicalDetails"
-import type {
-  LanServiceItem,
-  LanServiceProtocol,
-  LanServicesResult,
-} from "@/lib/tauri/types/network-probe"
+import { VirtualizedResultList } from "@/features/network-probe/components/VirtualizedResultList"
+import type { LanServicesResult } from "@/lib/tauri/types/network-probe"
 
 interface LanServicesPanelProps {
   loading: boolean
@@ -112,49 +108,23 @@ export function LanServicesPanel({
               )}
             </p>
           ) : (
-            <div
-              ref={listRef}
-              className="max-h-72 overflow-auto"
-              data-lan-services-scroll
-              style={{ height: `${virtualizer.getTotalSize()}px`, maxHeight: "18rem" }}
-            >
-              <ul
-                className="relative font-mono text-xs"
-                style={{ height: `${virtualizer.getTotalSize()}px` }}
-              >
-                {virtualizer.getVirtualItems().map((virtualItem) => {
-                  const it = items[virtualItem.index]
-                  if (!it) return null
-                  return (
-                    <li
-                      key={getItemKey(it, virtualItem.index)}
-                      ref={virtualizer.measureElement}
-                      data-index={virtualItem.index}
-                      className="absolute top-0 left-0 w-full pb-2 break-words"
-                      style={{ transform: `translateY(${virtualItem.start}px)` }}
-                    >
-                      <span className="font-semibold">[{protocolLabel(it.protocol)}]</span>{" "}
-                      {it.name || t("networkProbe.lanSvc.unknownDevice")}
-                      {it.serviceType ? ` · ${it.serviceType}` : ""}
-                      {it.host ? ` · ${it.host}` : ""}
-                      {it.port != null ? `:${it.port}` : ""}
-                      {it.uuid ? ` · ${t("networkProbe.lanSvc.deviceId")}: ${it.uuid}` : ""}
-                      {it.txtProperties?.length ? (
-                        <div className="text-muted-foreground">
-                          {t("networkProbe.lanSvc.txtProperties")}: {it.txtProperties.join(" · ")}
-                        </div>
-                      ) : null}
-                      {it.protocol === "ssdp" ? (
-                        <div className="text-muted-foreground">
-                          {t("networkProbe.lanSvc.location")}:{" "}
-                          {it.location ?? t("networkProbe.lanSvc.locationUnavailable")}
-                        </div>
-                      ) : null}
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
+            <VirtualizedResultList
+              items={result.items}
+              ariaLabel={t("networkProbe.lanSvc.servicesLabel")}
+              dataList="lan-services"
+              getItemKey={(item, index) => `${item.protocol}-${item.name}-${index}`}
+              className="space-y-1 font-mono text-xs"
+              itemClassName="flex h-7 min-w-0 items-center overflow-hidden whitespace-nowrap"
+              renderItem={(item) => (
+                <span className="min-w-0 truncate">
+                  [{item.protocol}] {item.name}
+                  {item.serviceType ? ` · ${item.serviceType}` : ""}
+                  {item.host ? ` · ${item.host}` : ""}
+                  {item.port ? `:${item.port}` : ""}
+                  {item.detail ? ` — ${item.detail}` : ""}
+                </span>
+              )}
+            />
           )}
         </div>
       ) : null}

@@ -16,21 +16,10 @@
 //! 吊销语义（spec §5.3）：命中 `revoked` → 宿主**强制禁用**（写 `.disabled`）
 //! + UI 显著警示，不静默删除。
 
-use std::{
-    error::Error,
-    io,
-    net::{IpAddr, SocketAddr},
-    sync::LazyLock,
-    time::Duration,
-};
+use std::net::{IpAddr, SocketAddr};
 
-use ipnet::IpNet;
-use reqwest::{
-    dns::{Addrs, Name, Resolve, Resolving},
-    redirect::Policy,
-};
 use serde::{Deserialize, Serialize};
-use url::{Host, Url};
+use url::Url;
 
 use crate::error::{AppError, AppResult};
 
@@ -197,12 +186,12 @@ pub fn validate_registry_doc(doc: &RegistryDoc) -> AppResult<()> {
                     entry.id, version.version
                 )));
             }
-            if !version.download_url.starts_with("https://") {
-                return Err(AppError::invalid_input(format!(
-                    "registry entry `{}` version `{}` downloadUrl must be https",
-                    entry.id, version.version
-                )));
-            }
+            validate_download_url(&version.download_url).map_err(|error| {
+                AppError::invalid_input(format!(
+                    "registry entry `{}` version `{}` downloadUrl rejected: {}",
+                    entry.id, version.version, error.message
+                ))
+            })?;
         }
     }
     Ok(())
@@ -223,6 +212,12 @@ pub fn registry_base_url() -> AppResult<String> {
             "extension registry URL must use HTTPS and resolve only to public hosts",
         ));
     }
+    validate_download_url(&url).map_err(|error| {
+        AppError::internal(format!(
+            "extension registry URL rejected: {}",
+            error.message
+        ))
+    })?;
     Ok(url)
 }
 
@@ -232,143 +227,63 @@ pub fn registry_index_url(base: &str) -> String {
     format!("{base}/registry.json")
 }
 
-/// 下载 URL 必须走 HTTPS 并指向公网地址；registry 内容不能诱导宿主访问本机或内网。
-/// 内容完整性仍由整包 sha256 + minisign 签名双通道兜底。
+/// Vet registry / download URLs against the public-internet egress policy.
 pub fn validate_download_url(url: &str) -> AppResult<()> {
-    let parsed = Url::parse(url).map_err(|_| {
-        AppError::forbidden_path("download URL must be a valid HTTPS URL to a public host")
-    })?;
-    if parsed.scheme() != "https" || !parsed.username().is_empty() || parsed.password().is_some() {
+    let parsed = Url::parse(url)
+        .map_err(|error| AppError::forbidden_path(format!("download url is invalid: {error}")))?;
+    if parsed.scheme() != "https" {
+        return Err(AppError::forbidden_path("download url must use HTTPS"));
+    }
+    affinidi_net_guard::EgressPolicy::public_internet()
+        .vet(url)
+        .map(|_| ())
+        .map_err(|error| AppError::forbidden_path(format!("download URL rejected: {error}")))
+}
+
+/// Resolve a vetted HTTPS URL and reject the whole answer set if any address is not public.
+/// The returned port-zero addresses can be passed to reqwest's `resolve_to_addrs` so a
+/// direct connection uses this exact validated DNS answer set instead of resolving again.
+pub(super) async fn resolve_public_download_addrs(url: &Url) -> AppResult<Vec<SocketAddr>> {
+    validate_download_url(url.as_str())?;
+    let Some(url::Host::Domain(host)) = url.host() else {
+        return Ok(Vec::new());
+    };
+    let port = url
+        .port_or_known_default()
+        .ok_or_else(|| AppError::forbidden_path("download url has no usable port"))?;
+    let resolved = tokio::net::lookup_host((host, port))
+        .await
+        .map_err(|error| {
+            AppError::internal(format!("resolve extension download host `{host}`: {error}"))
+        })?;
+    let mut addresses: Vec<SocketAddr> = resolved
+        .map(|address| SocketAddr::new(address.ip(), 0))
+        .collect();
+    addresses.sort_unstable();
+    addresses.dedup();
+    validate_resolved_download_addrs(&addresses)?;
+    Ok(addresses)
+}
+
+fn validate_resolved_download_addrs(addresses: &[SocketAddr]) -> AppResult<()> {
+    if addresses.is_empty() {
         return Err(AppError::forbidden_path(
-            "download URL must be HTTPS and must not contain credentials",
+            "download host resolved to no public addresses",
         ));
     }
-    let Some(host) = parsed.host() else {
+    if addresses
+        .iter()
+        .any(|address| !is_public_download_ip(address.ip()))
+    {
         return Err(AppError::forbidden_path(
-            "download URL must include a public host",
-        ));
-    };
-    let public = match host {
-        Host::Domain(domain) => !is_local_domain(domain),
-        Host::Ipv4(address) => is_public_ip(IpAddr::V4(address)),
-        Host::Ipv6(address) => is_public_ip(IpAddr::V6(address)),
-    };
-    if !public {
-        return Err(AppError::forbidden_path(
-            "download URL host must resolve to a public address",
+            "download host resolved to a private or reserved address",
         ));
     }
     Ok(())
 }
 
-const NON_PUBLIC_NETWORKS: &[&str] = &[
-    "0.0.0.0/8",
-    "10.0.0.0/8",
-    "100.64.0.0/10",
-    "127.0.0.0/8",
-    "169.254.0.0/16",
-    "172.16.0.0/12",
-    "192.0.0.0/24",
-    "192.0.2.0/24",
-    "192.88.99.0/24",
-    "192.168.0.0/16",
-    "198.18.0.0/15",
-    "198.51.100.0/24",
-    "203.0.113.0/24",
-    "224.0.0.0/4",
-    "240.0.0.0/4",
-    "2001::/23",
-    "2001:db8::/32",
-    "2002::/16",
-    "64:ff9b::/96",
-    "64:ff9b:1::/48",
-    "100::/64",
-    "fc00::/7",
-    "fe80::/10",
-    "ff00::/8",
-];
-
-static NON_PUBLIC_NETS: LazyLock<Vec<IpNet>> = LazyLock::new(|| {
-    NON_PUBLIC_NETWORKS
-        .iter()
-        .map(|network| network.parse().expect("valid non-public IP network"))
-        .collect()
-});
-static GLOBAL_IPV6_NET: LazyLock<IpNet> =
-    LazyLock::new(|| "2000::/3".parse().expect("valid global IPv6 network"));
-
-fn is_public_ip(address: IpAddr) -> bool {
-    let address = match address {
-        IpAddr::V6(address) => address
-            .to_ipv4_mapped()
-            .map(IpAddr::V4)
-            .unwrap_or(IpAddr::V6(address)),
-        IpAddr::V4(address) => IpAddr::V4(address),
-    };
-    if matches!(address, IpAddr::V6(_)) && !GLOBAL_IPV6_NET.contains(&address) {
-        return false;
-    }
-    !NON_PUBLIC_NETS
-        .iter()
-        .any(|network| network.contains(&address))
-}
-
-fn is_local_domain(domain: &str) -> bool {
-    let domain = domain.trim_end_matches('.').to_ascii_lowercase();
-    domain == "localhost"
-        || [
-            ".localhost",
-            ".local",
-            ".internal",
-            ".lan",
-            ".home.arpa",
-            ".test",
-            ".invalid",
-        ]
-        .iter()
-        .any(|suffix| domain.ends_with(suffix))
-}
-
-/// Reqwest resolver pins the checked addresses, so a public-looking hostname cannot
-/// resolve to a private address between validation and connect.
-#[derive(Debug, Clone, Copy)]
-struct PublicIpDnsResolver;
-
-impl Resolve for PublicIpDnsResolver {
-    fn resolve(&self, name: Name) -> Resolving {
-        let hostname = name.as_str().to_string();
-        Box::pin(async move {
-            let addresses = tokio::net::lookup_host((hostname.as_str(), 0))
-                .await
-                .map_err(|error| Box::new(error) as Box<dyn Error + Send + Sync>)?
-                .collect::<Vec<SocketAddr>>();
-            if addresses.is_empty() || addresses.iter().any(|address| !is_public_ip(address.ip())) {
-                return Err(Box::new(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    "host resolved to a non-public IP address",
-                )) as Box<dyn Error + Send + Sync>);
-            }
-            Ok(Box::new(addresses.into_iter()) as Addrs)
-        })
-    }
-}
-
-/// Shared HTTP policy for registry and package requests. Every redirect target receives
-/// URL checks; DNS results are validated and pinned before the connection is opened.
-pub fn public_https_client(timeout: Duration) -> Result<reqwest::Client, reqwest::Error> {
-    let redirect = Policy::custom(|attempt| {
-        if attempt.previous().len() >= 10 || validate_download_url(attempt.url().as_str()).is_err()
-        {
-            attempt.stop()
-        } else {
-            attempt.follow()
-        }
-    });
-    reqwest::Client::builder()
-        .timeout(timeout)
-        .redirect(redirect)
-        .dns_resolver(PublicIpDnsResolver)
-        .build()
+fn is_public_download_ip(address: IpAddr) -> bool {
+    affinidi_net_guard::is_globally_routable(address)
 }
 
 /// 判断某已安装版本是否命中吊销列表；命中返回原因。
@@ -470,39 +385,76 @@ mod tests {
     #[test]
     fn download_url_validation() {
         assert!(validate_download_url("https://cdn.example.com/a.zip").is_ok());
-        for rejected in [
-            "https://localhost/a.zip",
-            "https://LOCALHOST./a.zip",
-            "https://plugin.localhost/a.zip",
-            "https://metadata.internal/a.zip",
-            "https://127.0.0.1/a.zip",
-            "https://2130706433/a.zip",
-            "https://192.168.1.1/a.zip",
-            "https://169.254.169.254/latest/meta-data/",
-            "https://[::1]/a.zip",
-            "https://[fd00::1]/a.zip",
-            "https://[::ffff:127.0.0.1]/a.zip",
-            "https://user:password@cdn.example.com/a.zip",
-        ] {
-            assert_eq!(
-                validate_download_url(rejected).unwrap_err().code,
-                "FORBIDDEN_PATH",
-                "should reject {rejected}",
-            );
-        }
+        assert!(validate_download_url("https://93.184.216.34/a.zip").is_ok());
+        assert!(validate_download_url("https://[2606:4700:4700::1111]/a.zip").is_ok());
         assert_eq!(
             validate_download_url("http://cdn.example.com/a.zip")
                 .unwrap_err()
                 .code,
             "FORBIDDEN_PATH"
         );
+        assert_eq!(
+            validate_download_url("https://localhost/a.zip")
+                .unwrap_err()
+                .code,
+            "FORBIDDEN_PATH"
+        );
+        assert_eq!(
+            validate_download_url("https://127.0.0.1/a.zip")
+                .unwrap_err()
+                .code,
+            "FORBIDDEN_PATH"
+        );
+        for url in [
+            "https://10.0.0.1/a.zip",
+            "https://100.64.0.1/a.zip",
+            "https://169.254.169.254/a.zip",
+            "https://198.18.0.1/a.zip",
+            "https://240.0.0.1/a.zip",
+            "https://[::1]/a.zip",
+            "https://[fd00::1]/a.zip",
+            "https://[fe80::1]/a.zip",
+            "https://[2001:db8::1]/a.zip",
+            "https://[3fff::1]/a.zip",
+            "https://[2001:2::1]/a.zip",
+            "https://[2002:7f00:1::1]/a.zip",
+            "https://[64:ff9b::7f00:1]/a.zip",
+            "https://[::ffff:127.0.0.1]/a.zip",
+            "https://metadata/a.zip",
+            "https://service.internal/a.zip",
+            "https://user:secret@cdn.example.com/a.zip",
+        ] {
+            assert_eq!(
+                validate_download_url(url).unwrap_err().code,
+                "FORBIDDEN_PATH",
+                "expected URL to be refused: {url}"
+            );
+        }
     }
 
-    #[tokio::test]
-    async fn public_dns_resolver_rejects_loopback_resolution() {
-        let name = "localhost".parse::<Name>().expect("valid DNS name");
-        let result = PublicIpDnsResolver.resolve(name).await;
-        assert!(result.is_err());
+    #[test]
+    fn resolved_download_addresses_reject_empty_and_mixed_answers() {
+        let mixed = [
+            "93.184.216.34:0".parse().expect("public IPv4"),
+            "10.0.0.8:0".parse().expect("private IPv4"),
+        ];
+        assert_eq!(
+            validate_resolved_download_addrs(&mixed).unwrap_err().code,
+            "FORBIDDEN_PATH"
+        );
+        assert_eq!(
+            validate_resolved_download_addrs(&[]).unwrap_err().code,
+            "FORBIDDEN_PATH"
+        );
+    }
+
+    #[test]
+    fn resolved_download_addresses_allow_public_only_answers() {
+        let public = [
+            "93.184.216.34:0".parse().expect("public IPv4"),
+            "[2606:4700:4700::1111]:0".parse().expect("public IPv6"),
+        ];
+        assert!(validate_resolved_download_addrs(&public).is_ok());
     }
 
     #[test]

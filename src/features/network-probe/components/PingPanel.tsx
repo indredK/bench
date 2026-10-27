@@ -23,29 +23,19 @@ interface PingPanelProps {
   platform?: string
   toolEnabled: boolean
   toolStatus?: string
-  canCancel?: boolean
-  cancelRequested?: boolean
+  errorCode?: string
   onRun: (target: string, count: number) => void
-  onCancel?: () => void
+  onOpenLocalNetworkSettings?: () => void
 }
-
-const LOCAL_MAX_COUNT = 20
-const GLOBALPING_MAX_COUNT = 16
 
 export function PingPanel({
   loading,
   result,
-  streamingSamples = [],
-  remoteResult,
-  remoteMode = false,
-  remoteLocationLabel,
-  platform,
   toolEnabled,
   toolStatus,
-  canCancel = false,
-  cancelRequested = false,
+  errorCode,
   onRun,
-  onCancel,
+  onOpenLocalNetworkSettings,
 }: PingPanelProps) {
   const { t } = useTranslation()
   const [target, setTarget] = useState("1.1.1.1")
@@ -55,9 +45,8 @@ export function PingPanel({
   const countIsValid = Number.isInteger(countValue) && countValue >= 1 && countValue <= maxCount
   const showCountValidation = count.length > 0 && !countIsValid
   const showLocalNetworkHint =
-    result != null && result.packetsSent > 0 && result.packetsReceived === 0
-  const localFailureDetails = result?.samples.filter((sample) => !sample.ok && sample.error) ?? []
-  const localSamples = loading ? streamingSamples : (result?.samples ?? [])
+    errorCode === "ICMP_UNAVAILABLE" ||
+    (result != null && result.packetsSent > 0 && result.packetsReceived === 0)
 
   return (
     <ProbePanelShell
@@ -161,13 +150,23 @@ export function PingPanel({
       }
     >
       {showLocalNetworkHint ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          {t(
-            platform === "macos"
-              ? "networkProbe.ping.noRepliesMacHint"
-              : "networkProbe.ping.noRepliesHint",
-          )}
-        </p>
+        <div className="space-y-2">
+          <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+            {t("networkProbe.ping.localNetworkHint")}
+          </p>
+          {onOpenLocalNetworkSettings ? (
+            <CommandHint hint={t("networkProbe.cmd.openPrivacySettings")}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onOpenLocalNetworkSettings}
+              >
+                {t("networkProbe.ping.openSettings")}
+              </Button>
+            </CommandHint>
+          ) : null}
+        </div>
       ) : null}
       {result || localSamples.length > 0 ? (
         <div className="bg-muted/40 space-y-2 rounded-lg border px-3 py-2 text-sm">

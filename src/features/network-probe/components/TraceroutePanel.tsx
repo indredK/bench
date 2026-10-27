@@ -2,9 +2,10 @@
  * Feature UI / 功能界面: traceroute / MTR hop table.
  */
 import { useRef, useState } from "react"
-import { useVirtualizer } from "@tanstack/react-virtual"
 import { useTranslation } from "react-i18next"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { CommandHint } from "@/components/common/CommandHint"
+import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProbePanelShell } from "@/features/network-probe/components/ProbePanelShell"
@@ -12,14 +13,10 @@ import { ScanCancelButton } from "@/features/network-probe/components/ScanCancel
 import type { TracerouteHop, TracerouteResult } from "@/lib/tauri/types/network-probe"
 import { cn } from "@/lib/utils"
 
-const TRACEROUTE_MODE_LABEL_KEYS: Record<string, string> = {
-  privileged: "networkProbe.traceroute.mode.privileged",
-  unprivileged: "networkProbe.traceroute.mode.unprivileged",
-  unavailable: "networkProbe.traceroute.mode.unavailable",
-  cancelled: "networkProbe.traceroute.mode.cancelled",
-}
-
-const TRACEROUTE_VIRTUALIZATION_THRESHOLD = 16
+const VIRTUALIZE_HOPS_AFTER = 50
+const ESTIMATED_HOP_ROW_HEIGHT = 36
+const HOP_GRID_COLUMNS =
+  "3.5rem minmax(12rem, 1.3fr) minmax(10rem, 1fr) repeat(4, minmax(4.5rem, 0.55fr))"
 
 interface TraceroutePanelProps {
   loading: boolean
@@ -58,36 +55,19 @@ export function TraceroutePanel({
 
   // 跑动中只渲染本轮 streaming 跳数: 旧 result 优先会遮蔽新一轮逐跳进度。
   const hops = loading ? streamingHops : result?.hops?.length ? result.hops : streamingHops
-  const shouldVirtualizeHops = hops.length > TRACEROUTE_VIRTUALIZATION_THRESHOLD
-  const hopsVirtualizer = useVirtualizer({
-    count: shouldVirtualizeHops ? hops.length : 0,
-    getScrollElement: () => hopsScrollRef.current,
+  const hopScrollRef = useRef<HTMLDivElement>(null)
+  const virtualizedHops = hops.length >= VIRTUALIZE_HOPS_AFTER
+  const hopVirtualizer = useVirtualizer({
+    count: virtualizedHops ? hops.length : 0,
+    getScrollElement: () => hopScrollRef.current,
     getItemKey: (index) => hops[index]?.ttl ?? index,
-    estimateSize: () => 36,
-    overscan: 6,
-    initialRect: { width: 960, height: 288 },
+    estimateSize: () => ESTIMATED_HOP_ROW_HEIGHT,
+    overscan: 8,
+    initialRect: { width: 1024, height: 284 },
   })
-  const virtualHops = shouldVirtualizeHops
-    ? hopsVirtualizer.getVirtualItems()
-    : hops.map((hop, index) => ({ index, key: hop.ttl, start: 0, size: 36 }))
-  const totalHopSize = hopsVirtualizer.getTotalSize()
-  const firstVirtualHop = virtualHops[0]
-  const lastVirtualHop = virtualHops.at(-1)
-  const topPadding = firstVirtualHop?.start ?? 0
-  const bottomPadding = lastVirtualHop
-    ? Math.max(totalHopSize - lastVirtualHop.start - lastVirtualHop.size, 0)
-    : 0
-  const modeKey =
-    result && Object.hasOwn(TRACEROUTE_MODE_LABEL_KEYS, result.privilegeMode)
-      ? TRACEROUTE_MODE_LABEL_KEYS[result.privilegeMode]
-      : null
-  const messageKey = result?.cancelled
-    ? null
-    : result?.privilegeMode === "unprivileged"
-      ? "networkProbe.traceroute.message.unprivileged"
-      : result?.privilegeMode === "unavailable"
-        ? "networkProbe.traceroute.message.unavailable"
-        : null
+  const modeKey = result?.privilegeMode
+    ? `networkProbe.traceroute.mode.${result.privilegeMode}`
+    : null
 
   return (
     <ProbePanelShell
@@ -236,73 +216,90 @@ export function TraceroutePanel({
       ) : null}
 
       {hops.length > 0 ? (
-        <div
-          ref={hopsScrollRef}
-          role="region"
-          aria-label={t("networkProbe.traceroute.tableRegion")}
-          tabIndex={shouldVirtualizeHops ? 0 : undefined}
-          className={
-            shouldVirtualizeHops
-              ? "max-h-72 overflow-auto rounded-lg border"
-              : "overflow-x-auto rounded-lg border"
-          }
-          style={shouldVirtualizeHops ? { height: `${Math.min(totalHopSize, 288)}px` } : undefined}
-          data-traceroute-scroll
+        <ScrollableArea
+          ref={hopScrollRef}
+          aria-label={t("networkProbe.traceroute.hopsLabel")}
+          tabIndex={0}
+          className="focus-visible:ring-ring max-h-80 overflow-x-auto rounded-lg border focus-visible:ring-2 focus-visible:outline-none"
+          data-traceroute-hop-list
+          data-virtualized={virtualizedHops ? "true" : "false"}
+          data-total-count={hops.length}
         >
-          <table
-            className="w-full text-left text-sm"
+          <div
+            role="table"
+            aria-label={t("networkProbe.traceroute.hopsLabel")}
             aria-rowcount={hops.length + 1}
-            data-traceroute-table
+            aria-colcount={7}
+            className="min-w-[50rem] text-left text-sm"
           >
-            <caption className="sr-only">{t("networkProbe.traceroute.tableCaption")}</caption>
-            <thead className="bg-muted text-muted-foreground sticky top-0 z-10 text-xs">
-              <tr>
-                <th scope="col" className="px-2 py-1.5 font-medium">
-                  {t("networkProbe.traceroute.col.ttl")}
-                </th>
-                <th scope="col" className="px-2 py-1.5 font-medium">
-                  {t("networkProbe.traceroute.col.addr")}
-                </th>
-                <th scope="col" className="px-2 py-1.5 font-medium">
-                  {t("networkProbe.traceroute.col.asn")}
-                </th>
-                <th scope="col" className="px-2 py-1.5 font-medium">
-                  {t("networkProbe.traceroute.col.loss")}
-                </th>
-                <th scope="col" className="px-2 py-1.5 font-medium">
-                  {t("networkProbe.traceroute.col.avg")}
-                </th>
-                <th scope="col" className="px-2 py-1.5 font-medium">
-                  {t("networkProbe.traceroute.col.best")}
-                </th>
-                <th scope="col" className="px-2 py-1.5 font-medium">
-                  {t("networkProbe.traceroute.col.worst")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {shouldVirtualizeHops && topPadding > 0 ? (
-                <tr aria-hidden="true" className="border-0">
-                  <td colSpan={7} className="border-0 p-0" style={{ height: `${topPadding}px` }} />
-                </tr>
-              ) : null}
-              {virtualHops.map((virtualHop) => {
-                const hop = hops[virtualHop.index]
+            <div
+              role="rowgroup"
+              className="bg-muted/50 text-muted-foreground sticky top-0 z-10 text-xs"
+            >
+              <div
+                role="row"
+                className="grid h-9 items-center"
+                style={{ gridTemplateColumns: HOP_GRID_COLUMNS }}
+              >
+                {[
+                  t("networkProbe.traceroute.col.ttl"),
+                  t("networkProbe.traceroute.col.addr"),
+                  t("networkProbe.traceroute.col.asn"),
+                  t("networkProbe.traceroute.col.loss"),
+                  t("networkProbe.traceroute.col.avg"),
+                  t("networkProbe.traceroute.col.best"),
+                  t("networkProbe.traceroute.col.worst"),
+                ].map((label, index) => (
+                  <div key={index} role="columnheader" className="truncate px-2 font-medium">
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div
+              role="rowgroup"
+              style={
+                virtualizedHops
+                  ? { height: `${hopVirtualizer.getTotalSize()}px`, position: "relative" }
+                  : undefined
+              }
+            >
+              {(virtualizedHops
+                ? hopVirtualizer
+                    .getVirtualItems()
+                    .map((row) => ({ index: row.index, virtualRow: row }))
+                : hops.map((_, index) => ({ index, virtualRow: null }))
+              ).map(({ index, virtualRow }) => {
+                const hop = hops[index]
                 if (!hop) return null
                 return (
-                  <tr
-                    key={virtualHop.key}
-                    ref={shouldVirtualizeHops ? hopsVirtualizer.measureElement : undefined}
-                    data-index={shouldVirtualizeHops ? virtualHop.index : undefined}
-                    aria-rowindex={virtualHop.index + 2}
-                    className="border-t"
+                  <div
+                    key={hop.ttl}
+                    role="row"
+                    aria-rowindex={index + 2}
+                    className={cn(
+                      "grid h-9 items-center border-t",
+                      virtualRow && "absolute top-0 left-0 w-full",
+                    )}
+                    style={{
+                      gridTemplateColumns: HOP_GRID_COLUMNS,
+                      ...(virtualRow
+                        ? {
+                            height: `${virtualRow.size}px`,
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }
+                        : {}),
+                    }}
                   >
-                    <td className="px-2 py-1.5 font-mono text-xs">{hop.ttl}</td>
-                    <td className="max-w-[12rem] truncate px-2 py-1.5 font-mono text-xs">
+                    <div role="cell" className="px-2 font-mono text-xs">
+                      {hop.ttl}
+                    </div>
+                    <div role="cell" className="truncate px-2 font-mono text-xs">
                       {hop.addrs.length > 0 ? hop.addrs.join(", ") : "*"}
-                    </td>
-                    <td
-                      className="max-w-[10rem] truncate px-2 py-1.5 text-xs"
+                    </div>
+                    <div
+                      role="cell"
+                      className="truncate px-2 text-xs"
                       title={hop.asName ?? hop.asn}
                     >
                       {hop.asn ? (
@@ -315,10 +312,11 @@ export function TraceroutePanel({
                       ) : (
                         "—"
                       )}
-                    </td>
-                    <td
+                    </div>
+                    <div
+                      role="cell"
                       className={cn(
-                        "px-2 py-1.5 font-mono text-xs",
+                        "px-2 font-mono text-xs",
                         hop.lossPercent >= 50 && "text-destructive",
                         hop.lossPercent > 0 &&
                           hop.lossPercent < 50 &&
@@ -326,31 +324,22 @@ export function TraceroutePanel({
                       )}
                     >
                       {hop.lossPercent.toFixed(0)}%
-                    </td>
-                    <td className="px-2 py-1.5 font-mono text-xs">
+                    </div>
+                    <div role="cell" className="px-2 font-mono text-xs">
                       {hop.avgRttMs != null ? hop.avgRttMs.toFixed(1) : "—"}
-                    </td>
-                    <td className="px-2 py-1.5 font-mono text-xs">
+                    </div>
+                    <div role="cell" className="px-2 font-mono text-xs">
                       {hop.bestRttMs != null ? hop.bestRttMs.toFixed(1) : "—"}
-                    </td>
-                    <td className="px-2 py-1.5 font-mono text-xs">
+                    </div>
+                    <div role="cell" className="px-2 font-mono text-xs">
                       {hop.worstRttMs != null ? hop.worstRttMs.toFixed(1) : "—"}
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 )
               })}
-              {shouldVirtualizeHops && bottomPadding > 0 ? (
-                <tr aria-hidden="true" className="border-0">
-                  <td
-                    colSpan={7}
-                    className="border-0 p-0"
-                    style={{ height: `${bottomPadding}px` }}
-                  />
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+        </ScrollableArea>
       ) : null}
     </ProbePanelShell>
   )

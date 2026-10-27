@@ -6,14 +6,16 @@
 import { act } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { cancelScan, runHealthScan } = vi.hoisted(() => ({
+const { cancelScan, runHealthScan, runSpeedTest } = vi.hoisted(() => ({
   cancelScan: vi.fn(),
   runHealthScan: vi.fn(),
+  runSpeedTest: vi.fn(),
 }))
 
 vi.mock("@/features/network-probe/services/network-probe.repository", () => ({
   networkProbeRepository: {
     runHealthScan,
+    runSpeedTest,
     cancelScan,
   },
 }))
@@ -34,6 +36,7 @@ vi.mock("@/platform/events", () => ({
 import { networkProbeUseCases } from "@/features/network-probe/services/network-probe.use-cases"
 import { useNetworkProbeStore } from "@/features/network-probe/store"
 import { TAURI_EVENTS } from "@/lib/tauri/contracts"
+import type { SpeedTestResult } from "@/lib/tauri/types/network-probe"
 
 function healthResult(sessionId: string, cancelled: boolean) {
   return {
@@ -45,23 +48,30 @@ function healthResult(sessionId: string, cancelled: boolean) {
   } as unknown as Awaited<ReturnType<typeof runHealthScan>>
 }
 
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (error: Error) => void
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise
-    reject = rejectPromise
-  })
-  return { promise, resolve, reject }
+function speedResult(sessionId: string, cancelled: boolean): SpeedTestResult {
+  return {
+    sourceId: "self-hosted",
+    sourceName: "Self-hosted",
+    ok: !cancelled,
+    cancelled,
+    sessionId,
+    commandHint: `startSpeedTest('self-hosted') // sessionId=${sessionId}`,
+    ...(cancelled ? {} : { pingMs: 12 }),
+  }
 }
 
 beforeEach(() => {
   listeners.clear()
   cancelScan.mockReset()
   runHealthScan.mockReset()
+  runSpeedTest.mockReset()
   useNetworkProbeStore.setState({
     loadingHealth: false,
+    loadingSpeed: false,
     healthResult: null,
+    speedResult: null,
+    speedSample: null,
+    speedCooldownUntil: null,
     activeSessionIdByKind: {
       health: null,
       sites: null,
@@ -96,6 +106,38 @@ describe("network-probe cancel idempotency (A4-4)", () => {
     })
     expect(cancelScan).not.toHaveBeenCalled()
     expect(useNetworkProbeStore.getState().error).toBeNull()
+  })
+
+  it("allows retrying cancellation after the IPC request fails", async () => {
+    cancelScan.mockRejectedValueOnce(new Error("IPC unavailable")).mockResolvedValueOnce(true)
+    useNetworkProbeStore.setState({
+      activeSessionIdByKind: {
+        health: "session-retry",
+        sites: null,
+        traceroute: null,
+        speed: null,
+        ports: null,
+        pcap: null,
+        lan: null,
+      },
+    })
+
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("health")
+    })
+
+    expect(useNetworkProbeStore.getState().cancelRequestedSessionIdByKind.health).toBeNull()
+    expect(useNetworkProbeStore.getState().error?.key).toBe("networkProbe.errors.cancelFailed")
+
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("health")
+    })
+
+    expect(cancelScan).toHaveBeenCalledTimes(2)
+    expect(cancelScan).toHaveBeenLastCalledWith("session-retry")
+    expect(useNetworkProbeStore.getState().cancelRequestedSessionIdByKind.health).toBe(
+      "session-retry",
+    )
   })
 
   it("cancels the active session exactly once and is idempotent afterwards", async () => {
@@ -222,5 +264,67 @@ describe("network-probe cancel idempotency (A4-4)", () => {
     expect(useNetworkProbeStore.getState().reportHistory).toHaveLength(0)
     expect(useNetworkProbeStore.getState().healthResult?.cancelled).toBe(true)
     expect(useNetworkProbeStore.getState().commandLog.join("\n")).toContain("healthScan cancelled")
+  })
+
+  it("clears the loading state and allows an immediate retry after speed-test cancellation", async () => {
+    let resolveSpeedTest: (value: SpeedTestResult) => void = () => {}
+    runSpeedTest.mockImplementation(
+      () =>
+        new Promise<SpeedTestResult>((resolve) => {
+          resolveSpeedTest = resolve
+        }),
+    )
+    cancelScan.mockResolvedValue(true)
+
+    const cancelledRun = networkProbeUseCases.runSpeedTest("self-hosted")
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    act(() => {
+      listeners.get(TAURI_EVENTS.networkProbe.scanSession)?.({
+        payload: { sessionId: "speed-cancelled", kind: "speed" },
+      })
+    })
+
+    await act(async () => {
+      await networkProbeUseCases.cancelScan("speed")
+    })
+    expect(cancelScan).toHaveBeenCalledWith("speed-cancelled")
+
+    await act(async () => {
+      resolveSpeedTest(speedResult("speed-cancelled", true))
+      await cancelledRun
+    })
+    expect(useNetworkProbeStore.getState().loadingSpeed).toBe(false)
+    expect(useNetworkProbeStore.getState().speedCooldownUntil).toBeNull()
+
+    runSpeedTest.mockResolvedValueOnce(speedResult("speed-retry", false))
+    await act(async () => {
+      await networkProbeUseCases.runSpeedTest("self-hosted")
+    })
+
+    expect(runSpeedTest).toHaveBeenCalledTimes(2)
+    expect(useNetworkProbeStore.getState().speedResult?.sessionId).toBe("speed-retry")
+  })
+
+  it("cools down when ping works but neither bandwidth direction returns data", async () => {
+    runSpeedTest.mockResolvedValueOnce({
+      ...speedResult("speed-ping-only", false),
+      ok: false,
+      pingMs: 12,
+    })
+    const startedAt = Date.now()
+
+    await act(async () => {
+      await networkProbeUseCases.runSpeedTest("self-hosted")
+    })
+
+    expect(useNetworkProbeStore.getState().speedResult?.pingMs).toBe(12)
+    expect(useNetworkProbeStore.getState().speedCooldownUntil).toBeGreaterThanOrEqual(
+      Date.now() + 29_000,
+    )
+    expect(useNetworkProbeStore.getState().speedCooldownUntil).toBeLessThanOrEqual(
+      startedAt + 31_000,
+    )
   })
 })
