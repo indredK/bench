@@ -6,13 +6,12 @@ use crate::error::{AppError, AppResult};
 use futures_util::{stream, StreamExt};
 use reqwest_websocket::Upgrade;
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::fs::{self, File, OpenOptions};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::{AppHandle, Manager, Runtime};
-use tokio_tungstenite::tungstenite::Message;
 use url::Url;
 
 const MAX_AGENT_REGISTRY_BYTES: u64 = 1024 * 1024;
@@ -21,6 +20,7 @@ const MAX_AGENT_ENDPOINT_BYTES: usize = 2048;
 const HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_CONCURRENT_AGENT_HEALTH_CHECKS: usize = 8;
 
+/// Serialize registry reads and updates within the current Bench process.
 fn registry_lock() -> &'static Mutex<()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
     LOCK.get_or_init(|| Mutex::new(()))
@@ -34,12 +34,6 @@ pub struct AgentRecord {
     pub endpoint: String,
     #[serde(default)]
     pub token_hint: String,
-}
-
-/// Serialize registry read-modify-write operations within the single Bench process.
-fn registry_lock() -> &'static Mutex<()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
 }
 
 /// Use a stable sibling file because atomic replacement changes the registry file inode.
@@ -109,10 +103,29 @@ fn mutate_agents_at<T>(
     let _guard = registry_lock()
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _file_guard = registry_file_lock(path)?;
     let mut agents = load_agents_from(path)?;
     let result = mutate(&mut agents)?;
     save_agents_to(path, &agents)?;
     Ok(result)
+}
+
+fn insert_agent_at(path: &Path, agent: AgentRecord) -> AppResult<AgentRecord> {
+    mutate_agents_at(path, |agents| {
+        if let Some(existing) = agents.iter().find(|existing| {
+            if existing.label != agent.label {
+                return false;
+            }
+            Url::parse(&existing.endpoint)
+                .map(|url| url.to_string())
+                .unwrap_or_else(|_| existing.endpoint.clone())
+                == agent.endpoint
+        }) {
+            return Ok(existing.clone());
+        }
+        agents.push(agent.clone());
+        Ok(agent)
+    })
 }
 
 fn validate_label(label: &str) -> AppResult<String> {
@@ -222,15 +235,17 @@ pub async fn add_agent<R: Runtime>(
         capabilities: Some(vec!["dns".into(), "ping".into(), "http".into()]),
     };
     let path = agents_path(app)?;
-    mutate_agents_at(&path, |agents| {
-        agents.push(AgentRecord {
+    let saved = insert_agent_at(
+        &path,
+        AgentRecord {
             id: node.id.clone(),
             label,
             endpoint,
             token_hint: String::new(),
-        });
-        Ok(())
-    })?;
+        },
+    )?;
+    let mut node = node;
+    node.id = saved.id;
     Ok(node)
 }
 
@@ -321,49 +336,6 @@ async fn health_check_with_client(client: &reqwest::Client, endpoint: &Url) -> b
     }
 }
 
-async fn websocket_health_check(endpoint: Url) -> bool {
-    const PING_PAYLOAD: &[u8] = b"bench-health";
-
-    // reqwest/updater enable both ring and aws-lc through Cargo feature unification.
-    // Rustls cannot infer a provider in that case; select ring before constructing a
-    // WebSocket TLS stream so the command returns a controlled health result.
-    let _ = rustls::crypto::ring::default_provider().install_default();
-
-    let check = async move {
-        let (mut socket, _) = tokio_tungstenite::connect_async(endpoint.as_str())
-            .await
-            .ok()?;
-        socket
-            .send(Message::Ping(PING_PAYLOAD.to_vec().into()))
-            .await
-            .ok()?;
-
-        while let Some(message) = socket.next().await {
-            match message.ok()? {
-                Message::Pong(payload) if payload.as_ref() == PING_PAYLOAD => {
-                    let _ = socket.send(Message::Close(None)).await;
-                    return Some(true);
-                }
-                Message::Close(_) => return Some(false),
-                _ => {}
-            }
-        }
-        Some(false)
-    };
-
-    // Keep the deadline on the command task as well as around the connection task.
-    // This ensures a stuck resolver/TLS handshake cannot leave the UI's add/refresh
-    // action pending if the connection future stalls while being polled.
-    let mut check_task = tokio::spawn(check);
-    match tokio::time::timeout(AGENT_HEALTH_CHECK_TIMEOUT, &mut check_task).await {
-        Ok(Ok(Some(true))) => true,
-        _ => {
-            check_task.abort();
-            false
-        }
-    }
-}
-
 /// Reject non-whitelist agent actions (S-DIS-05 negative).
 pub fn reject_arbitrary_agent_exec(action: &str) -> AppResult<()> {
     let allowed = ["dns", "ping", "http", "health"];
@@ -447,6 +419,39 @@ mod tests {
 
         assert_eq!(response.status(), reqwest::StatusCode::FOUND);
         server.await.unwrap();
+    }
+
+    #[test]
+    fn repeated_agent_registration_is_idempotent_after_endpoint_normalization() {
+        let directory =
+            std::env::temp_dir().join(format!("bench-agent-registry-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("agents.json");
+
+        let first = insert_agent_at(
+            &path,
+            AgentRecord {
+                id: "agent-first".into(),
+                label: "Lab".into(),
+                endpoint: "https://agent.example/".into(),
+                token_hint: String::new(),
+            },
+        )
+        .unwrap();
+        let duplicate = insert_agent_at(
+            &path,
+            AgentRecord {
+                id: "agent-second".into(),
+                label: "Lab".into(),
+                endpoint: "https://AGENT.example:443/".into(),
+                token_hint: String::new(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(duplicate.id, first.id);
+        assert_eq!(load_agents_from(&path).unwrap().len(), 1);
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

@@ -1,27 +1,47 @@
-//! Scan session registry for cancelScan (idempotent).
+//! Scan session registry for cancellation with idempotent signaling and RAII cleanup.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use tokio::sync::watch;
 use uuid::Uuid;
 
-fn cancelled() -> &'static Mutex<HashSet<String>> {
-    static CANCELLED: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
-    CANCELLED.get_or_init(|| Mutex::new(HashSet::new()))
-}
-
-fn cancellable_sessions() -> &'static Mutex<HashMap<String, watch::Sender<bool>>> {
+fn sessions() -> &'static Mutex<HashMap<String, watch::Sender<bool>>> {
     static SESSIONS: OnceLock<Mutex<HashMap<String, watch::Sender<bool>>>> = OnceLock::new();
     SESSIONS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-pub fn new_session_id() -> String {
+fn register_session() -> (String, watch::Sender<bool>, watch::Receiver<bool>) {
     let id = Uuid::new_v4().to_string();
+    let (cancel, receiver) = watch::channel(false);
     sessions()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .insert(id.clone(), false);
-    id
+        .insert(id.clone(), cancel.clone());
+    (id, cancel, receiver)
+}
+
+pub fn new_session_id() -> String {
+    register_session().0
+}
+
+/// Clears the registered session on every exit path, including errors and dropped futures.
+#[must_use]
+pub struct SessionGuard {
+    session_id: String,
+}
+
+impl SessionGuard {
+    pub fn new(session_id: impl Into<String>) -> Self {
+        Self {
+            session_id: session_id.into(),
+        }
+    }
+}
+
+impl Drop for SessionGuard {
+    fn drop(&mut self) {
+        clear_session(&self.session_id);
+    }
 }
 
 /// A speed-test session with an immediate cancellation signal and RAII cleanup.
@@ -37,33 +57,23 @@ impl Drop for CancellableSession {
 }
 
 pub fn new_cancellable_session() -> CancellableSession {
-    let id = Uuid::new_v4().to_string();
-    let (cancel, receiver) = watch::channel(false);
-    cancellable_sessions()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .insert(id.clone(), cancel);
+    let (id, _cancel, receiver) = register_session();
     CancellableSession {
         id,
         cancellation: receiver,
     }
 }
 
-/// Idempotent: repeated cancel for the same id is a no-op success.
+/// Unknown or repeated IDs are harmless; active sessions receive an immediate signal.
 pub fn cancel_scan(session_id: String) {
     let id = session_id.trim();
     if id.is_empty() {
         return;
     }
-    let mut guard = sessions()
+
+    let cancel = sessions()
         .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    if let Some(cancelled) = guard.get_mut(id) {
-        *cancelled = true;
-    }
-    let cancel = cancellable_sessions()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .get(id)
         .cloned();
     if let Some(cancel) = cancel {
@@ -72,25 +82,30 @@ pub fn cancel_scan(session_id: String) {
 }
 
 pub fn is_cancelled(session_id: &str) -> bool {
-    let requested = cancelled()
+    let cancel = sessions()
         .lock()
-        .map(|guard| guard.contains(session_id))
-        .unwrap_or(false);
-    let signaled = cancellable_sessions()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .get(session_id)
         .cloned();
-    requested || signaled.map(|sender| *sender.borrow()).unwrap_or(false)
+    cancel.map(|signal| *signal.borrow()).unwrap_or(false)
 }
 
-/// Wait until a known active session is cancelled. Dropping this future is safe.
+/// Wait for an immediate cancellation signal from a registered session.
 pub async fn wait_for_cancel(session_id: &str) {
+    let Some(cancel) = sessions()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(session_id)
+        .cloned()
+    else {
+        return;
+    };
+    let mut receiver = cancel.subscribe();
+
     loop {
-        if is_cancelled(session_id) {
+        if *receiver.borrow() || receiver.changed().await.is_err() {
             return;
         }
-        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
     }
 }
 
@@ -106,55 +121,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn unknown_cancel_requests_do_not_create_session_entries() {
-        let id = Uuid::new_v4().to_string();
-
-        cancel_scan(id.clone());
-
-        assert!(!is_cancelled(&id));
-    }
-
-    #[test]
-    fn cancellation_only_applies_to_a_registered_session() {
-        let id = new_session_id();
-
-        assert!(!is_cancelled(&id));
-        cancel_scan(id.clone());
-        assert!(is_cancelled(&id));
-        clear_session(&id);
-        assert!(!is_cancelled(&id));
-    }
-
-    #[test]
-    fn session_guard_clears_the_entry_on_scope_exit() {
-        let id = new_session_id();
-        assert!(sessions()
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .contains_key(&id));
-
-        {
-            let _guard = SessionGuard::new(id.clone());
-        }
-
-        assert!(!sessions()
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .contains_key(&id));
-    }
-    cancellable_sessions()
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .remove(session_id);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
     fn cancel_is_idempotent_and_session_cleanup_allows_reuse() {
-        let session_id = format!("test-{}", Uuid::new_v4());
+        let session_id = new_session_id();
+        let _guard = SessionGuard::new(session_id.clone());
         assert!(!is_cancelled(&session_id));
 
         cancel_scan(session_id.clone());
@@ -166,10 +135,17 @@ mod tests {
     }
 
     #[test]
-    fn blank_session_ids_are_ignored() {
+    fn blank_and_unknown_session_ids_are_ignored() {
+        let unknown = Uuid::new_v4().to_string();
         cancel_scan(" \t ".into());
+        cancel_scan(unknown.clone());
         assert!(!is_cancelled(""));
         assert!(!is_cancelled(" \t "));
+        assert!(!is_cancelled(&unknown));
+        assert!(sessions()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .is_empty());
     }
 
     #[tokio::test]
@@ -187,12 +163,32 @@ mod tests {
         assert!(!is_cancelled(&session_id));
     }
 
+    #[tokio::test]
+    async fn wait_for_cancel_returns_on_the_first_signal() {
+        let session_id = new_session_id();
+        let _guard = SessionGuard::new(session_id.clone());
+        let wait = wait_for_cancel(&session_id);
+        cancel_scan(session_id.clone());
+        tokio::time::timeout(std::time::Duration::from_millis(100), wait)
+            .await
+            .expect("active session cancellation should wake immediately");
+    }
+
     #[test]
-    fn cancelling_an_unknown_session_does_not_create_a_cancellation_signal() {
-        let unknown = format!("unknown-{}", Uuid::new_v4());
-        cancel_scan(unknown.clone());
-        assert!(is_cancelled(&unknown));
-        clear_session(&unknown);
-        assert!(!is_cancelled(&unknown));
+    fn session_guard_clears_the_entry_on_scope_exit() {
+        let session_id = new_session_id();
+        assert!(sessions()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains_key(&session_id));
+
+        {
+            let _guard = SessionGuard::new(session_id.clone());
+        }
+
+        assert!(!sessions()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains_key(&session_id));
     }
 }
