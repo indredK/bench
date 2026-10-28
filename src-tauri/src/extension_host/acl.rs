@@ -5,9 +5,11 @@
 //! **deny-by-default 网关**：`ext-` 前缀窗口只能调用注册表内的命令，
 //! 其余窗口（main / splashscreen）行为不变。
 //!
-//! 注册表语义：**允许暴露给 extension 空间的命令全集**。单个插件的
-//! `manifest.acl.commands` 必须是本表的子集（见 [manifest]）。
+//! 全局 allow-list 定义宿主可以暴露给 extension 的命令；运行时再要求
+//! 命令同时出现在调用插件经验证的 `manifest.acl.commands` 中。
 
+use std::collections::{HashMap, HashSet};
+use std::sync::{OnceLock, RwLock};
 use tauri::{ipc::Invoke, Manager, Runtime};
 
 /// extension 窗口 label 前缀（`ext-<id>`）。
@@ -102,6 +104,7 @@ pub const EXTENSION_ALLOWED_COMMANDS: &[&str] = &[
     "batch_upgrade_apps",
     "batch_uninstall_apps",
     "install_app",
+    "install_private_native_tool",
     "cancel_batch_operation",
     "check_all_app_updates",
     "open_in_mac_app_store",
@@ -111,9 +114,71 @@ pub const EXTENSION_ALLOWED_COMMANDS: &[&str] = &[
     // hardware 为纯前端插件（零 IPC，acl.commands 为空，P5 迁移）
 ];
 
+static EXTENSION_ACL: OnceLock<RwLock<HashMap<String, HashSet<String>>>> = OnceLock::new();
+
+fn extension_acl() -> &'static RwLock<HashMap<String, HashSet<String>>> {
+    EXTENSION_ACL.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+/// Replace the effective ACL only after the host has verified a plugin's
+/// signature and file-integrity manifest. Unknown host commands are dropped.
+pub fn register_extension_permissions(extension_id: &str, commands: &[String]) {
+    let permissions = commands
+        .iter()
+        .filter(|command| is_command_allowed(command))
+        .cloned()
+        .collect();
+    extension_acl()
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(extension_id.to_string(), permissions);
+}
+
+/// Revoke a window's permissions when it is disabled or uninstalled.
+pub fn revoke_extension_permissions(extension_id: &str) {
+    extension_acl()
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .remove(extension_id);
+}
+
+/// Return the effective, manifest-approved command set for one open plugin.
+pub fn permissions_for_extension(extension_id: &str) -> Vec<String> {
+    let mut commands = extension_acl()
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(extension_id)
+        .map(|permissions| permissions.iter().cloned().collect::<Vec<_>>())
+        .unwrap_or_default();
+    commands.sort();
+    commands
+}
+
 /// 命令是否在 extension 允许清单内。
 pub fn is_command_allowed(command: &str) -> bool {
     EXTENSION_ALLOWED_COMMANDS.contains(&command)
+}
+
+/// Private native app installation is intentionally scoped to the bundled
+/// App Manager extension; other extensions cannot use it even though the
+/// command is part of the host-level extension allow-list.
+pub fn is_command_allowed_for_extension(extension_id: &str, command: &str) -> bool {
+    if !is_command_allowed(command) {
+        return false;
+    }
+    if command == "install_private_native_tool" && extension_id != "app-manager" {
+        return false;
+    }
+    // Host plumbing: the injected diagnostics script and read-only ACL
+    // discovery endpoint work without being repeated in every extension ACL.
+    if matches!(command, "ext_poc_report" | "ext_capabilities") {
+        return true;
+    }
+    extension_acl()
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(extension_id)
+        .is_some_and(|permissions| permissions.contains(command))
 }
 
 /// 窗口是否属于 extension 空间。
@@ -124,7 +189,7 @@ pub fn is_extension_window(label: &str) -> bool {
 /// IPC 网关：包装 `generate_handler` 生成的核心 handler。
 ///
 /// - 非 extension 窗口：原样转发，行为与 P1 之前完全一致；
-/// - extension 窗口：命令在注册表内才转发，否则以 IPC 错误响应拒绝
+/// - extension 窗口：命令在宿主 allow-list 和调用插件已验证 ACL 内才转发，否则拒绝
 ///   （deny-by-default，拒绝信息进入插件页 console）并记 `acl_deny` 审计。
 pub fn guarded<R: Runtime>(invoke: Invoke<R>, inner: impl FnOnce(Invoke<R>) -> bool) -> bool {
     let label = invoke.message.webview().label().to_string();
@@ -132,16 +197,14 @@ pub fn guarded<R: Runtime>(invoke: Invoke<R>, inner: impl FnOnce(Invoke<R>) -> b
         return inner(invoke);
     }
     let command = invoke.message.command().to_string();
-    if is_command_allowed(&command) {
+    let extension_id = label.strip_prefix(EXT_WINDOW_PREFIX).unwrap_or(&label);
+    if is_command_allowed_for_extension(extension_id, &command) {
         inner(invoke)
     } else {
         // P3.3：越权命令记审计（best-effort，拒绝本身不受影响）。
         let webview = invoke.message.webview();
         let app = webview.app_handle();
-        let extension_id = label
-            .strip_prefix(EXT_WINDOW_PREFIX)
-            .unwrap_or(&label)
-            .to_string();
+        let extension_id = extension_id.to_string();
         super::audit::record(
             app,
             super::audit::AuditEvent::AclDeny,
@@ -287,5 +350,46 @@ mod tests {
     #[test]
     fn unknown_command_denied() {
         assert!(!is_command_allowed("totally_unknown_command"));
+    }
+
+    #[test]
+    fn private_native_app_install_is_scoped_to_app_manager() {
+        assert!(is_command_allowed("install_private_native_tool"));
+        register_extension_permissions("app-manager", &["install_private_native_tool".to_string()]);
+        register_extension_permissions(
+            "photo-triage",
+            &["install_private_native_tool".to_string()],
+        );
+        assert!(is_command_allowed_for_extension(
+            "app-manager",
+            "install_private_native_tool"
+        ));
+        revoke_extension_permissions("app-manager");
+        revoke_extension_permissions("photo-triage");
+    }
+
+    #[test]
+    fn manifest_acl_is_enforced_and_revocable() {
+        register_extension_permissions("acl-test", &["launch_app".to_string()]);
+        assert!(is_command_allowed_for_extension("acl-test", "launch_app"));
+        assert!(!is_command_allowed_for_extension("acl-test", "install_app"));
+        assert!(is_command_allowed_for_extension(
+            "acl-test",
+            "ext_capabilities"
+        ));
+        assert!(is_command_allowed_for_extension(
+            "acl-test",
+            "ext_poc_report"
+        ));
+        assert!(!is_command_allowed_for_extension(
+            "acl-test",
+            "unknown_command"
+        ));
+        revoke_extension_permissions("acl-test");
+        assert!(!is_command_allowed_for_extension("acl-test", "launch_app"));
+        assert!(!is_command_allowed_for_extension(
+            "photo-triage",
+            "install_private_native_tool"
+        ));
     }
 }

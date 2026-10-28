@@ -109,6 +109,8 @@ export interface InstallListAppInfo {
   series: string
   description: string
   installSource: InstallSource
+  nativeToolId?: "local-toolbox" | "abb-dev-toolbox"
+  nameKey?: string
   iconKey: string
   installed: boolean
   installedAppId?: string

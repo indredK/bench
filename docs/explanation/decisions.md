@@ -57,6 +57,21 @@
 - **理由**：这两个症状（假成功、真丢数据）都源于同一处结构性缺失——**没有终态可回报**，所以只能猜。补回执通道而不是补文案。
 - **相关**：[D-030](#d-030--出向注入前自动补采-bench-内置登录态出向目标显式二选一) · [D-031](#d-031--扩展通道升级cookie--web-storage注入indexeddb-仍排除) · [D-033](#d-033--扩展通道升级cookie--web-storage--indexeddb全量注入版本号双端自证) · [浏览器互通三角流转（交互图）](../diagrams/account-manager-triangle.html)
 
+## D-038 · 私有 Swift 工具箱通过 App Manager 安装
+
+- **日期**：2026-10-29
+- **状态**：采纳（实现中；首个公证 Release 依赖 Developer ID）
+- **背景**：用户希望将现有「本地工具箱」和「ABB 开发工具箱」纳入 Bench 插件中心，同时保留 Swift / SwiftUI 原生实现。
+- **决策**：
+  1. 两款程序继续作为 macOS 原生 `.app`，源码集中在 GitHub 私有仓库 `indredK/bench-native-apps`；不改写为 JavaScript / Rust，也不做独立“脚本中心”。
+  2. 插件中心复用现有 App Manager 作为原生应用目录与安装入口。扩展 bundle 只提供 UI，实际下载、签名验证和安装由 Bench Rust 宿主执行。
+  3. 安装命令只接受固定 `nativeToolId`；后端固定 Release 仓库、应用 Bundle ID 和 Apple Team ID，校验 Release 清单、SHA-256、代码签名与 Gatekeeper assessment。不得移除 quarantine 或接收 renderer 提交的 URL / 路径。
+  4. 私有 Release 必须由 `Developer ID Application` 签名并经 Apple notarization。GitHub CLI 是私有下载凭据边界，安装用户需安装并登录 `gh` 且具备仓库读取权；访问令牌不传给插件前端或 IPC。
+  5. Developer ID 资格缺失时只允许验证源代码和开发预览构建，不发布可安装 Release。当前本机仅有 Apple Development 身份。
+- **理由**：Swift 工具需要访问 macOS 原生 API、辅助功能与本地环境；原生分发保持现有功能和代码投入。把执行权放在宿主可复用 App Manager 的用户确认、应用清单和签名校验流程。
+- **影响**：本机自动安装的先决条件是 GitHub CLI 和私有仓库权限；正式 Gatekeeper 安装还依赖与固定 Team ID 匹配的 Developer ID 和 Apple notarization。
+- **相关**：[App Manager design](https://github.com/kindred-plugin-market/plugin-market/blob/main/extensions/app-manager/docs/design.md) · [extension-center roadmap](../modules/extension-center/roadmap.md) · [D-010](#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)
+
 ## D-037 · 抖音内容资产插件：范围与预检结论
 
 - **日期**：2026-09-18

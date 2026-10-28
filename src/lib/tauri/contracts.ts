@@ -228,6 +228,9 @@ export const TAURI_COMMAND_CONTRACTS = {
     { appId: string; installSource: InstallSource },
     OperationResult
   >()("install_app"),
+  install_private_native_tool: defineTauriCommand<{ appId: string }, OperationResult>()(
+    "install_private_native_tool",
+  ),
   cancel_batch_operation: defineTauriCommand<undefined, boolean>()("cancel_batch_operation"),
   check_all_app_updates: defineTauriCommand<{ forceRefresh?: boolean }, UpdateScanReport>()(
     "check_all_app_updates",
@@ -1069,6 +1072,7 @@ export const TAURI_COMMANDS = {
     batchUpgradeApps: commandName("batch_upgrade_apps"),
     batchUninstallApps: commandName("batch_uninstall_apps"),
     installApp: commandName("install_app"),
+    installPrivateNativeTool: commandName("install_private_native_tool"),
     cancelBatchOperation: commandName("cancel_batch_operation"),
     checkAllAppUpdates: commandName("check_all_app_updates"),
     openInMacAppStore: commandName("open_in_mac_app_store"),
@@ -1443,6 +1447,7 @@ export const TAURI_COMMAND_ARG_KEYS = {
   batch_upgrade_apps: ["appIds"],
   batch_uninstall_apps: ["appIds"],
   install_app: ["appId", "installSource"],
+  install_private_native_tool: ["appId"],
   cancel_batch_operation: [],
   check_all_app_updates: ["forceRefresh"],
   open_in_mac_app_store: ["adamId"],

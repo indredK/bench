@@ -5,7 +5,7 @@
 > **架构边界与工作流**（含作者侧流程）：[extension-workflow.md](../../explanation/extension-workflow.md)
 > **插件中心功能规格**：[product-specs/extension-center.md](../../reference/product-specs/extension-center.md) ｜ **未完成项**：[planned/extension-center.md](../../roadmap/planned/extension-center.md)
 > **方向性决策**：[DECISIONS.md](../../explanation/decisions.md)（D-023 / D-024）
-> **最后更新**：2026-10-04（补齐 P4.5 交付状态与受支持平台契约）。
+> **最后更新**：2026-10-29（补齐私有 Swift 原生应用入口与逐插件 ACL）。
 
 ## 成本原则（贯穿全部阶段）
 
@@ -18,27 +18,29 @@
 | 插件签名                                           | ✅ minisign，私钥本地保管 + CI 走 GitHub Secrets                                                                        | 零费用；复用 `updater/keys/` 既有密钥链                                                                                                                    |
 | 更新框架                                           | ❌ **不引入 TUF**                                                                                                       | TUF 需在线 timestamp/snapshot 服务与密钥轮换仪式，持续运维成本远大于本规模收益；改用「trusted comment + 版本单调性 + expiresAt」三条低成本措施达到同等效果 |
 | 恶意代码沙箱动态检测 / marketplace 级 malware 扫描 | ❌ 不做                                                                                                                 | VS Code 那套 clean room VM + 多引擎扫描年度成本极高；改为「registry PR 人工审核 + 吊销通道 + ACL 最小授权」组合                                            |
-| Apple notarization / Windows Authenticode          | ❌ 维持 unsigned                                                                                                        | 同 [D-010](../../explanation/decisions.md#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)，不为一锤子证书付费                                         |
+| Bench 主应用签名 / Windows Authenticode            | ❌ 维持 unsigned                                                                                                        | 同 [D-010](../../explanation/decisions.md#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)                                                             |
+| 私有 Swift 工具箱 Release                          | ✅ Developer ID + Apple notarization                                                                                    | Bench 只安装固定 Team ID、Bundle ID 且通过 Gatekeeper 的原生应用；缺少签名资格时不发布可安装 Release                                                       |
 
 ---
 
 ## 进度总览
 
-| 阶段     | 内容                                                            | 状态                   |
-| -------- | --------------------------------------------------------------- | ---------------------- |
-| P0       | 产品定案（2.0 = 插件化第三方生态）                              | ✅ 完成                |
-| P1       | 概念验证（ExtensionAssets 同源加载 + IPC）                      | ✅ 完成                |
-| P2       | 契约先行 + 插件中心最小版 + photo-triage bundled                | ✅ 完成                |
-| P2b      | photo-triage 完整 UI 迁移（独立 bundle）                        | ✅ 完成                |
-| P3       | 运行时治理（engines 门控 / 签名骨架 / 语言注入 / 卸载）         | ✅ 完成                |
-| **P3.1** | **包完整性安全地基**（逐文件 hash 清单 + 降级防护 + 公钥三态）  | ✅ 完成（2026-09-08）  |
-| **P3.2** | **Windows 双平台 CI 门禁**（verify job，不产包）                | ✅ 完成（2026-09-08）* |
-| **P3.3** | **安全解压 + 审计日志**                                         | ✅ 完成（2026-09-08）  |
-| **P3.4** | **bundled 产物发布集成**（随正式包发布）                        | ✅ 完成（2026-09-08）* |
-| **P4**   | **market 端到端闭环**（静态 registry → 安装向导 → 验签 → 启用） | ✅ 完成（2026-09-08）* |
-| P4.5     | 作者侧交付（SDK / 模板 / 脚手架 / 打包签名）                    | ✅ 完成（2026-09-27）  |
-| P5       | 增量迁移（带停止线，每批复评）                                  | ⬜ P4 之后             |
-| P6       | Windows release 产物                                            | ⬜ 最后                |
+| 阶段        | 内容                                                            | 状态                                                 |
+| ----------- | --------------------------------------------------------------- | ---------------------------------------------------- |
+| P0          | 产品定案（2.0 = 插件化第三方生态）                              | ✅ 完成                                              |
+| P1          | 概念验证（ExtensionAssets 同源加载 + IPC）                      | ✅ 完成                                              |
+| P2          | 契约先行 + 插件中心最小版 + photo-triage bundled                | ✅ 完成                                              |
+| P2b         | photo-triage 完整 UI 迁移（独立 bundle）                        | ✅ 完成                                              |
+| P3          | 运行时治理（engines 门控 / 签名骨架 / 语言注入 / 卸载）         | ✅ 完成                                              |
+| **P3.1**    | **包完整性安全地基**（逐文件 hash 清单 + 降级防护 + 公钥三态）  | ✅ 完成（2026-09-08）                                |
+| **P3.2**    | **Windows 双平台 CI 门禁**（verify job，不产包）                | ✅ 完成（2026-09-08）*                               |
+| **P3.3**    | **安全解压 + 审计日志**                                         | ✅ 完成（2026-09-08）                                |
+| **P3.4**    | **bundled 产物发布集成**（随正式包发布）                        | ✅ 完成（2026-09-08）*                               |
+| **P4**      | **market 端到端闭环**（静态 registry → 安装向导 → 验签 → 启用） | ✅ 完成（2026-09-08）*                               |
+| P4.5        | 作者侧交付（SDK / 模板 / 脚手架 / 打包签名）                    | ✅ 完成（2026-09-27）                                |
+| Native apps | App Manager 安装私有 Swift 原生应用                             | ✅ 代码 / CI 完成；公证 Release 待 Developer ID 资格 |
+| P5          | 增量迁移（带停止线，每批复评）                                  | ⬜ P4 之后                                           |
+| P6          | Windows release 产物                                            | ⬜ 最后                                              |
 
 > **P3.1 已完成（2026-09-08）**：插件产物格式（manifest schema v2）已冻结，P3.3 的 download/extract 可在此格式上实现。
 > **P3.2–P4 已完成（2026-09-08）**：实现、单测与本地门禁全绿。双平台 CI 已由后续 PR runner 验证；P3.4 真机验收仍待 release 包全新安装；P4 真实 registry 端到端验收仍待 registry 私钥环境签出首批插件并配置 `BENCH_EXT_REGISTRY_URL`。
@@ -268,19 +270,29 @@ pnpm run test:critical       # ✓ 145 passed
 - [ ] 插件产物 Windows 签名策略确认（与 D-010 ad-hoc/unsigned 约定对齐）
 - [ ] 全部门禁双平台绿后，插件化能力才允许随正式版发布
 
+## 私有 Swift 原生应用
+
+- [x] 在 App Manager 提供「本地工具箱」与「ABB 开发工具箱」固定安装入口；不把 Swift `.app` 伪装成 extension bundle。
+- [x] Bench 后端固定 GitHub 私有 Release 来源，并校验清单、SHA-256、Bundle ID、Team ID、签名与 Gatekeeper；失败关闭，不移除 quarantine。
+- [x] 插件市场 manifest 显式申请 `install_private_native_tool`，并由逐插件 ACL 限制到 App Manager。
+- [x] 私有源码仓库配置 Swift / Python 回归验证和 macOS 开发预览构建。
+- [ ] 使用匹配 `TUMVNN65WH` 的 Developer ID Application 身份完成 Apple notarization 并发布首个可安装 Release。本机当前只有 Apple Development 身份，因此不能把开发预览包当作可分发安装包。
+- [ ] 在具备签名资格后，从 Bench App Manager 真机安装两款应用并做回归验收。
+
 ---
 
 ## 已知风险与依赖
 
-| 风险 / 依赖                                     | 影响阶段  | 说明                                                       |
-| ----------------------------------------------- | --------- | ---------------------------------------------------------- |
-| ~~P3.1 未做先写 download~~ 已消除（2026-09-08） | P3.3 / P4 | manifest schema v2 已冻结，download/extract 可安全实现     |
-| registry 私钥不在本机                           | P4        | 验签骨架已就绪；真实签名 registry 生命周期验收需要私钥环境 |
-| ~~Windows CI 暂停（D-021）~~（已恢复）          | P3.2 / P6 | 双平台 CI 已运行；Windows 真机覆盖仍待完成                 |
-| ~~bundled 不随包发布~~（已解决）                | P3.4      | 正式包已包含 bundled 插件；全新安装验收仍待完成            |
-| ~~诊断文件单条覆写~~（已解决）                  | P3.3      | 诊断日志现为追加式 JSONL                                   |
-| 253 条命令的 ACL 登记量                         | P5        | 改为按批登记 + 停止线，不再全量规划                        |
-| ~~缺少作者侧交付物~~（已由 P4.5 解决）          | P4.5      | 模板仓库、SDK、脚手架与打包签名工具链已交付                |
+| 风险 / 依赖                                     | 影响阶段    | 说明                                                                                               |
+| ----------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------- |
+| ~~P3.1 未做先写 download~~ 已消除（2026-09-08） | P3.3 / P4   | manifest schema v2 已冻结，download/extract 可安全实现                                             |
+| registry 私钥不在本机                           | P4          | 验签骨架已就绪；真实签名 registry 生命周期验收需要私钥环境                                         |
+| ~~Windows CI 暂停（D-021）~~（已恢复）          | P3.2 / P6   | 双平台 CI 已运行；Windows 真机覆盖仍待完成                                                         |
+| ~~bundled 不随包发布~~（已解决）                | P3.4        | 正式包已包含 bundled 插件；全新安装验收仍待完成                                                    |
+| ~~诊断文件单条覆写~~（已解决）                  | P3.3        | 诊断日志现为追加式 JSONL                                                                           |
+| 253 条命令的 ACL 登记量                         | P5          | 改为按批登记 + 停止线，不再全量规划                                                                |
+| ~~缺少作者侧交付物~~（已由 P4.5 解决）          | P4.5        | 模板仓库、SDK、脚手架与打包签名工具链已交付                                                        |
+| 私有 Swift Release 缺少 Developer ID            | Native apps | 仅 Apple Development 身份不能签发可被 Gatekeeper 接受的 Release；签名身份需与宿主固定 Team ID 一致 |
 
 ---
 

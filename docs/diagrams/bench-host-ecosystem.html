@@ -373,7 +373,7 @@
         <h1 id="title">Bench 宿主全景与 IPC 往返</h1>
         <div class="sub" id="subtitle">
           合并宿主分层与一次完整 IPC 往返：用户动作经 controller → use-case → repository → 类型化
-          IPC → Rust，结果经 Zustand selector 回流 UI；插件 WebView 经当前全局 ACL
+          IPC → Rust，结果经 Zustand selector 回流 UI；插件 WebView 经全局 allow-list 与逐插件 ACL
           网关复用宿主能力。
         </div>
       </div>
@@ -444,7 +444,7 @@
         zh: {
           title: "Bench 宿主全景与 IPC 往返",
           subtitle:
-            "合并宿主分层与一次完整 IPC 往返：用户动作经 controller → use-case → repository → 类型化 IPC → Rust，结果经 Zustand selector 回流 UI；插件 WebView 经当前全局 ACL 网关复用宿主能力。",
+            "合并宿主分层与一次完整 IPC 往返：用户动作经 controller → use-case → repository → 类型化 IPC → Rust，结果经 Zustand selector 回流 UI；插件 WebView 经全局 allow-list 与逐插件 manifest ACL 网关复用宿主能力。",
           owner: "所有者：宿主",
           sceneLbl: "场景：",
           lgBlue: "外壳 / 插件",
@@ -456,7 +456,7 @@
         en: {
           title: "Bench Host Panorama & IPC Round-trip",
           subtitle:
-            "Host layering fused with one full IPC round-trip: a user action flows controller → use-case → repository → typed IPC → Rust, and the result returns to the UI via a Zustand selector; plugin WebViews reuse host capabilities through the current global ACL gateway.",
+            "Host layering fused with one full IPC round-trip: a user action flows controller → use-case → repository → typed IPC → Rust, and the result returns to the UI via a Zustand selector; plugin WebViews reuse host capabilities through the global allow-list and per-plugin manifest ACL.",
           owner: "Owner: Host",
           sceneLbl: "Scenarios:",
           lgBlue: "Shell / Plugin",
@@ -585,7 +585,7 @@
           color: "purple",
           external: false,
           zh: {
-            name: "当前全局 ACL 网关",
+            name: "全局 allow-list + 逐插件 ACL",
             desc: "EXTENSION_ALLOWED_COMMANDS 白名单；按命令授权",
             badge: "gateway",
           },
@@ -731,15 +731,15 @@
           color: "purple",
           zh: {
             label: "插件 → ACL 网关",
-            flow: "插件 WebView 调命令先经当前全局 ACL 白名单校验。",
-            tech: "manifest.acl.commands 须 ∈ EXTENSION_ALLOWED_COMMANDS；否则 FORBIDDEN_PATH。",
+            flow: "插件 WebView 调命令同时经宿主 allow-list 和本插件已验证 ACL 校验。",
+            tech: "manifest.acl.commands 是 EXTENSION_ALLOWED_COMMANDS 的子集；运行时按窗口验证 ACL，否则拒绝。",
             risk: "当前仅官方源免签；尚未落实按插件 manifest 逐命令隔离（单插件越权缺口）。",
             plan: "事务安装 / 单插件授权 / 完整撤权为规划闸门，不放当前已实现。",
           },
           en: {
             label: "plugin → ACL gateway",
-            flow: "A plugin WebView's command first passes the current global ACL allow-list.",
-            tech: "manifest.acl.commands must be ⊆ EXTENSION_ALLOWED_COMMANDS, else FORBIDDEN_PATH.",
+            flow: "A plugin WebView command passes both the host allow-list and its verified manifest ACL.",
+            tech: "manifest.acl.commands is a subset of EXTENSION_ALLOWED_COMMANDS; runtime checks the window ACL and denies other commands.",
             risk: "Official source is signature-exempt today; per-plugin manifest command isolation is not yet enforced (single-plugin privilege gap).",
             plan: "Transactional install / per-plugin auth / full revocation are planned gates, not current features.",
           },

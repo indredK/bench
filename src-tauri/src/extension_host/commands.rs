@@ -27,6 +27,7 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use crate::error::{AppError, AppResult};
 
 use super::{
+    acl,
     assets::EXT_DIR_NAME,
     audit::{self, AuditEvent},
     integrity,
@@ -207,6 +208,12 @@ pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) ->
     let open_verified = || -> AppResult<(ExtensionManifest, PathBuf)> {
         let dir = extension_dir(&app, &extension_id)?;
         let (manifest, canonical_text) = read_manifest(&dir)?;
+        if manifest.id != extension_id {
+            return Err(AppError::invalid_input(format!(
+                "extension directory id `{extension_id}` does not match manifest id `{}`",
+                manifest.id
+            )));
+        }
         manifest.ensure_supported_host()?;
 
         let host_version = app.package_info().version.to_string();
@@ -256,24 +263,31 @@ pub fn ext_open(app: AppHandle, extension_id: String, locale: Option<String>) ->
     }
 
     let label = extension_window_label(&manifest.id);
+    let url = extension_url(&manifest.id, &manifest.entry.index)?;
+    // The IPC gateway enforces each plugin's verified manifest ACL, not only
+    // the host-wide command capability set.
+    acl::register_extension_permissions(&manifest.id, &manifest.acl.commands);
     if let Some(existing) = app.get_webview_window(&label) {
         let _ = existing.set_focus();
         return Ok(label);
     }
-
-    let url = extension_url(&manifest.id, &manifest.entry.index)?;
     let locale_script = format!(
         "window.__BENCH_EXT_LOCALE = {};",
         serde_json::to_string(&locale).unwrap_or_else(|_| "null".to_string())
     );
-    WebviewWindowBuilder::new(&app, &label, WebviewUrl::CustomProtocol(url))
+    let build_result = WebviewWindowBuilder::new(&app, &label, WebviewUrl::CustomProtocol(url))
         .title(format!("{} · Bench Extension", manifest.display_name("en")))
         .inner_size(960.0, 680.0)
         .center()
         .initialization_script(locale_script)
         .initialization_script(EXT_ERROR_CAPTURE_SCRIPT)
-        .build()
-        .map_err(|e| AppError::internal(format!("open extension window failed: {e}")))?;
+        .build();
+    if let Err(error) = build_result {
+        acl::revoke_extension_permissions(&manifest.id);
+        return Err(AppError::internal(format!(
+            "open extension window failed: {error}"
+        )));
+    }
     Ok(label)
 }
 
@@ -287,6 +301,13 @@ pub fn ext_uninstall(app: AppHandle, extension_id: String) -> AppResult<()> {
     let dir = extension_dir(&app, &extension_id)?;
     // 仅允许删除合法插件目录（防止误删任意路径）。
     let (manifest, _canonical) = read_manifest(&dir)?;
+    if manifest.id != extension_id {
+        return Err(AppError::invalid_input(format!(
+            "extension directory id `{extension_id}` does not match manifest id `{}`",
+            manifest.id
+        )));
+    }
+    acl::revoke_extension_permissions(&extension_id);
     if let Some(existing) = app.get_webview_window(extension_window_label(&extension_id).as_str()) {
         let _ = existing.close();
     }
@@ -311,6 +332,12 @@ pub fn ext_set_enabled(app: AppHandle, extension_id: String, enabled: bool) -> A
     let dir = extension_dir(&app, &extension_id)?;
     // id 合法性之外再确认插件存在（manifest 可读）。
     let (manifest, _canonical) = read_manifest(&dir)?;
+    if manifest.id != extension_id {
+        return Err(AppError::invalid_input(format!(
+            "extension directory id `{extension_id}` does not match manifest id `{}`",
+            manifest.id
+        )));
+    }
     let marker = dir.join(EXT_DISABLED_MARKER);
     if enabled {
         if marker.exists() {
@@ -318,6 +345,7 @@ pub fn ext_set_enabled(app: AppHandle, extension_id: String, enabled: bool) -> A
         }
     } else {
         fs::write(&marker, "").map_err(|e| AppError::io(format!("write marker: {e}")))?;
+        acl::revoke_extension_permissions(&extension_id);
         if let Some(existing) =
             app.get_webview_window(extension_window_label(&extension_id).as_str())
         {
@@ -359,25 +387,27 @@ pub fn ext_data_dir(webview: tauri::WebviewWindow) -> AppResult<String> {
 /// 宿主开放给插件空间的 IPC 命令清单（能力面快照，spec §7 / §9.4）。
 ///
 /// 供插件在运行时自助发现可用命令，无需依赖「两仓库同目录」或试错式调用。
-/// 等价于 `acl::EXTENSION_ALLOWED_COMMANDS` 的只读视图（deny-by-default 白名单）。
+/// 返回调用插件已验证 manifest 中登记的有效命令子集。
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HostCapability {
-    /// 允许 `ext-*` 窗口调用的全部命令名。
+    /// 该插件经签名、完整性和 manifest ACL 校验后获准调用的命令名。
     pub commands: Vec<String>,
 }
 
-/// 返回宿主当前开放给插件空间的 IPC 命令清单（能力面）。
+/// 返回调用插件当前获准使用的 IPC 命令清单。
 ///
-/// 命令名集合即 `acl::EXTENSION_ALLOWED_COMMANDS`；本命令自身也在该白名单内，
-/// 因此插件窗口可直接 `invoke("ext_capabilities")` 拉取后校验自身 `acl.commands`，
-/// 在调用前给出友好报错而非靠网关拒绝反推（spec §9.4）。
+/// 命令本身也必须列在调用插件的 `manifest.acl.commands` 中。返回值按窗口 label
+/// 解析插件 ID，并只公开该插件已验证的 ACL，避免暴露其他插件的权限清单。
 #[tauri::command]
-pub fn ext_capabilities() -> AppResult<HostCapability> {
-    let commands = super::acl::EXTENSION_ALLOWED_COMMANDS
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
+pub fn ext_capabilities(webview: tauri::WebviewWindow) -> AppResult<HostCapability> {
+    let label = webview.label();
+    let Some(extension_id) = label.strip_prefix(super::acl::EXT_WINDOW_PREFIX) else {
+        return Err(AppError::invalid_input(
+            "ext_capabilities is only available to extension windows",
+        ));
+    };
+    let commands = super::acl::permissions_for_extension(extension_id);
     Ok(HostCapability { commands })
 }
 

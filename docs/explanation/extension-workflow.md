@@ -121,14 +121,14 @@ tauri-app/
 
 ### 7.1 宿主架构（B′，D-023）
 
-| 组件                                     | 职责                                                                    | 说明                                                                                                                                             |
-| ---------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ExtensionAssets`（asset provider 包装） | 资源解析顺序：插件目录 `$APPDATA/extensions/<id>/…` → 内置资源          | P1 实读 Tauri 源码后选择的路径，优于原计划的 `asset://` 顶层窗口：IPC 天然同源、CSP 零改动、无 `asset://` 与 `http://asset.localhost` 的平台差异 |
-| `acl::guarded`（IPC 网关）               | `ext-` 前缀窗口只能调用 `EXTENSION_ALLOWED_COMMANDS` 注册表内的命令     | 补上 **Tauri 自定命令默认全窗口放行**的缺口；capability 只约束 core/plugin 命令，不能替代此网关                                                  |
-| `manifest.rs`                            | schema 校验、id/semver/entry/ACL 子集/engines，fail-closed              | 新增与其对接的签名与完整性校验见 roadmap P3.1                                                                                                    |
-| 命令面                                   | `ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall` | 契约双写，单测护航                                                                                                                               |
+| 组件                                     | 职责                                                                            | 说明                                                                                                                                             |
+| ---------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ExtensionAssets`（asset provider 包装） | 资源解析顺序：插件目录 `$APPDATA/extensions/<id>/…` → 内置资源                  | P1 实读 Tauri 源码后选择的路径，优于原计划的 `asset://` 顶层窗口：IPC 天然同源、CSP 零改动、无 `asset://` 与 `http://asset.localhost` 的平台差异 |
+| `acl::guarded`（IPC 网关）               | `ext-` 前缀窗口只能调用宿主 allow-list 与本插件已验证 manifest ACL 均允许的命令 | 补上 **Tauri 自定命令默认全窗口放行**的缺口；capability 只约束 core/plugin 命令，不能替代此网关                                                  |
+| `manifest.rs`                            | schema 校验、id/semver/entry/ACL 子集/engines，fail-closed                      | 新增与其对接的签名与完整性校验见 roadmap P3.1                                                                                                    |
+| 命令面                                   | `ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall`         | 契约双写，单测护航                                                                                                                               |
 
-**单个插件的权限边界** = `manifest.acl.commands` ⊆ `EXTENSION_ALLOWED_COMMANDS` ⊆ 后端全部命令。越权一律 fail-closed。
+**单个插件的权限边界** = `manifest.acl.commands` ⊆ `EXTENSION_ALLOWED_COMMANDS` ⊆ 后端全部命令；运行时网关还会按调用窗口对应的已验证 manifest ACL 再检查一次。只有宿主诊断回报与只读 ACL 发现属于内部 plumbing 命令，其余命令均需显式声明。越权一律 fail-closed。
 
 ### 7.2 仍然有效的约束（来自被取代的设计，未失效）
 

@@ -115,6 +115,7 @@ macro_rules! app_invoke_handler {
             $crate::app_manager::commands::batch_upgrade_apps,
             $crate::app_manager::commands::batch_uninstall_apps,
             $crate::app_manager::commands::install_app,
+            $crate::app_manager::commands::install_private_native_tool,
             $crate::app_manager::commands::cancel_batch_operation,
             $crate::app_manager::commands::check_all_app_updates,
             $crate::app_manager::commands::open_in_mac_app_store,

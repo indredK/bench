@@ -6,6 +6,7 @@ pub mod gatekeeper;
 pub mod installer;
 pub mod linux;
 pub mod macos;
+pub mod native_apps;
 pub mod operations;
 pub mod sources;
 pub mod state;
