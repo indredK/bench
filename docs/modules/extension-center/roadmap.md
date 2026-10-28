@@ -275,7 +275,8 @@ pnpm run test:critical       # ✓ 145 passed
 - [x] 在 App Manager 提供「本地工具箱」与「ABB 开发工具箱」固定安装入口；不把 Swift `.app` 伪装成 extension bundle。
 - [x] Bench 后端固定 GitHub 私有 Release 来源，并校验清单、SHA-256、Bundle ID、Team ID、签名与 Gatekeeper；失败关闭，不移除 quarantine。
 - [x] 插件市场 manifest 显式申请 `install_private_native_tool`，并由逐插件 ACL 限制到 App Manager。
-- [x] 私有源码仓库配置 Swift / Python 回归验证和 macOS 开发预览构建。
+- [x] 私有源码仓库已创建并推送两款 Swift 应用、构建脚本与公证发布脚本。
+- [ ] GitHub Actions 回归验证和开发预览 workflow 暂留本地 `workflow-ready` 分支，待授权后上传。
 - [ ] 使用匹配 `78KG7YW724` 的 Developer ID Application 身份完成 Apple notarization 并发布首个可安装 Release。本机当前只有 Apple Development 身份，因此不能把开发预览包当作可分发安装包。
 - [ ] 在具备签名资格后，从 Bench App Manager 真机安装两款应用并做回归验收。
 
