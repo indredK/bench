@@ -9,7 +9,9 @@
 use super::installer::{codesign, extractor};
 use super::operations::operation_result;
 use super::types::OperationResult;
+#[cfg(target_os = "macos")]
 use serde::Deserialize;
+#[cfg(target_os = "macos")]
 use std::collections::HashSet;
 #[cfg(target_os = "macos")]
 use std::io::Read;
@@ -22,6 +24,7 @@ use std::time::Duration;
 
 #[cfg(target_os = "macos")]
 const PRIVATE_REPOSITORY: &str = "indredK/bench-native-apps";
+#[cfg(target_os = "macos")]
 const TRUSTED_TEAM_ID: &str = "78KG7YW724";
 #[cfg(target_os = "macos")]
 const MANIFEST_FILE: &str = "native-apps-manifest.json";
@@ -30,6 +33,7 @@ const MAX_NATIVE_ASSET_BYTES: u64 = 1024 * 1024 * 1024;
 #[cfg(target_os = "macos")]
 const GH_COMMAND_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
+#[cfg(target_os = "macos")]
 #[derive(Debug, Clone, Copy)]
 struct NativeAppSpec {
     id: &'static str,
@@ -39,6 +43,7 @@ struct NativeAppSpec {
     asset_name: &'static str,
 }
 
+#[cfg(target_os = "macos")]
 const NATIVE_APPS: [NativeAppSpec; 2] = [
     NativeAppSpec {
         id: "local-toolbox",
@@ -56,6 +61,7 @@ const NATIVE_APPS: [NativeAppSpec; 2] = [
     },
 ];
 
+#[cfg(target_os = "macos")]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ReleaseManifest {
@@ -65,6 +71,7 @@ struct ReleaseManifest {
     apps: Vec<ReleaseApp>,
 }
 
+#[cfg(target_os = "macos")]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ReleaseApp {
@@ -76,10 +83,12 @@ struct ReleaseApp {
     sha256: String,
 }
 
+#[cfg(target_os = "macos")]
 fn app_spec(id: &str) -> Option<&'static NativeAppSpec> {
     NATIVE_APPS.iter().find(|spec| spec.id == id)
 }
 
+#[cfg(target_os = "macos")]
 fn is_semver(value: &str) -> bool {
     let parts = value.split('.').collect::<Vec<_>>();
     parts.len() == 3
@@ -88,10 +97,12 @@ fn is_semver(value: &str) -> bool {
             .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
 }
 
+#[cfg(target_os = "macos")]
 fn is_release_tag(value: &str) -> bool {
     value.strip_prefix("native-apps-v").is_some_and(is_semver)
 }
 
+#[cfg(target_os = "macos")]
 fn is_sha256(value: &str) -> bool {
     value.len() == 64
         && value
@@ -99,6 +110,7 @@ fn is_sha256(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
+#[cfg(target_os = "macos")]
 fn validate_manifest<'a>(
     manifest: &'a ReleaseManifest,
     selected_id: &str,
@@ -363,7 +375,7 @@ pub fn install(id: &str) -> OperationResult {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "macos"))]
 mod tests {
     use super::*;
 
