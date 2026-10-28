@@ -22,7 +22,7 @@ use std::time::Duration;
 
 #[cfg(target_os = "macos")]
 const PRIVATE_REPOSITORY: &str = "indredK/bench-native-apps";
-const TRUSTED_TEAM_ID: &str = "TUMVNN65WH";
+const TRUSTED_TEAM_ID: &str = "78KG7YW724";
 #[cfg(target_os = "macos")]
 const MANIFEST_FILE: &str = "native-apps-manifest.json";
 #[cfg(target_os = "macos")]
