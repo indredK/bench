@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.39.0](https://github.com/indredK/bench/compare/v1.38.4...v1.39.0) (2026-10-29)
+
+
+### Features
+
+* install private native Swift toolboxes from App Manager ([#187](https://github.com/indredK/bench/issues/187)) ([2a7b991](https://github.com/indredK/bench/commit/2a7b9914078bc8add174aa758ce8296618520ce4))
+
 ## [1.38.4](https://github.com/indredK/bench/compare/v1.38.3...v1.38.4) (2026-10-27)
 
 
