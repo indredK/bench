@@ -173,7 +173,7 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
     >
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         {/* L1 top bar — prototype .l1 */}
-        <header className="bg-background flex h-12 shrink-0 items-center gap-2 border-b px-3">
+        <header className="bg-background -mx-3 flex h-12 shrink-0 items-center gap-2 border-b px-3">
           <div className="flex shrink-0 items-center gap-2 border-r pr-3">
             <span
               className="bg-primary/20 ring-primary/30 size-2 rounded-full ring-2"

@@ -29,7 +29,7 @@ export function BottomTabNavigation({ items, configItems, onPrefs }: BottomTabNa
   )
 
   return (
-    <div className="border-border bg-background flex shrink-0 items-center justify-center gap-1.5 border-t px-4 py-2 select-none">
+    <div className="border-border bg-background flex shrink-0 items-center justify-start gap-1.5 overflow-x-auto border-t px-4 py-1 select-none sm:justify-center">
       {allItems.map((item) => {
         const isActive = location === item.path
         return (
@@ -37,13 +37,13 @@ export function BottomTabNavigation({ items, configItems, onPrefs }: BottomTabNa
             key={item.path}
             href={item.path}
             className={cn(
-              "flex min-w-[64px] flex-col items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] transition",
+              "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition",
               isActive
                 ? "bg-primary/15 text-primary font-medium"
                 : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
             )}
           >
-            <span className="flex size-5 items-center justify-center">{item.icon}</span>
+            <span className="flex size-4 items-center justify-center">{item.icon}</span>
             <span className="whitespace-nowrap">{item.name}</span>
           </Link>
         )

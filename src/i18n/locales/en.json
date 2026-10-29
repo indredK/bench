@@ -1334,6 +1334,16 @@
     "glass": "Frosted Glass",
     "unsupportedTooltip": "This theme is only available on macOS"
   },
+  "appearanceBackground": {
+    "label": "Content background",
+    "default": "Default",
+    "color": "Custom background color",
+    "image": "Choose image",
+    "hint": "PNG, JPEG or WebP up to 1 MB. Backgrounds are stored on this device.",
+    "invalidImage": "Choose a PNG, JPEG or WebP image no larger than 1 MB.",
+    "readError": "Could not read the image. Try again.",
+    "saveError": "Could not save the background. Check local storage space."
+  },
   "navigationLayout": {
     "label": "Navigation Layout",
     "desc": "How the menu is positioned on screen",

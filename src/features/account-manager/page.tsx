@@ -61,7 +61,7 @@ function SkeletonColumn({
       )}
       data-skeleton-column
     >
-      <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
+      <div className="flex h-[47px] shrink-0 items-center justify-between border-b px-3">
         <SkeletonLine className="h-4 w-24" />
         <SkeletonLine className="h-8 w-20" />
       </div>
