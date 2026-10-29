@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.40.0](https://github.com/indredK/bench/compare/v1.39.0...v1.40.0) (2026-10-29)
+
+
+### Features
+
+* **extension-center:** manage native apps from market ([f33213d](https://github.com/indredK/bench/commit/f33213d314f290fedd04af3983622b767ab1a070))
+* **extension-center:** manage native apps from market ([0efea01](https://github.com/indredK/bench/commit/0efea010d9123e295d25f1f29ffae53560bd956a))
+
+
+### Bug Fixes
+
+* **app-manager:** gate managed app filter on macOS ([c70519e](https://github.com/indredK/bench/commit/c70519eee43e73299e82bc77b648c7e29cf720f1))
+* **app-manager:** gate native paths to macOS ([43b196f](https://github.com/indredK/bench/commit/43b196f0edf6a948b75373090b36ba801c897cd1))
+* **extension-center:** show unsupported native app targets ([fb4bb3b](https://github.com/indredK/bench/commit/fb4bb3b90f23e30f6a5c0f25d858f32b780563d8))
+
 ## [1.39.0](https://github.com/indredK/bench/compare/v1.38.4...v1.39.0) (2026-10-29)
 
 
