@@ -9,7 +9,9 @@ import type {
   HostCapability,
   MarketInstallPreview,
   MarketListing,
+  NativeAppMarketItem,
 } from "@/lib/tauri/types/extension-center"
+import type { OperationResult } from "@/lib/tauri/types/app-manager"
 
 export function listInstalledExtensions() {
   return invokeTauriCommand(TAURI_COMMANDS.extensionHost.listInstalled)
@@ -40,6 +42,25 @@ export function getExtensionDataDir() {
 /** 浏览 market（canonical registry 由后端配置；renderer 不提交下载地址）。 */
 export function listMarketExtensions() {
   return invokeTauriCommand(TAURI_COMMANDS.extensionHost.marketList)
+}
+
+/** The host-owned native app catalog does not depend on the extension registry. */
+export function listNativeMarketApps(): Promise<NativeAppMarketItem[]> {
+  return invokeTauriCommand(TAURI_COMMANDS.nativeApps.marketList)
+}
+
+export function installNativeMarketApp(appId: NativeAppMarketItem["id"]): Promise<OperationResult> {
+  return invokeTauriCommand(TAURI_COMMANDS.nativeApps.install, { appId })
+}
+
+export function uninstallNativeMarketApp(
+  appId: NativeAppMarketItem["id"],
+): Promise<OperationResult> {
+  return invokeTauriCommand(TAURI_COMMANDS.nativeApps.uninstall, { appId })
+}
+
+export function openNativeMarketApp(appId: NativeAppMarketItem["id"]): Promise<OperationResult> {
+  return invokeTauriCommand(TAURI_COMMANDS.nativeApps.open, { appId })
 }
 
 /**
@@ -76,4 +97,5 @@ export type {
   MarketInstallPreview,
   ExtensionDiagnostics,
   HostCapability,
+  NativeAppMarketItem,
 }

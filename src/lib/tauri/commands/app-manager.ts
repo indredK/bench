@@ -57,10 +57,6 @@ export function installApp(appId: string, installSource: InstallSource) {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.installApp, { appId, installSource })
 }
 
-export function installPrivateNativeTool(appId: string) {
-  return invokeTauriCommand(TAURI_COMMANDS.appManager.installPrivateNativeTool, { appId })
-}
-
 export function cancelBatchOperation() {
   return invokeTauriCommand(TAURI_COMMANDS.appManager.cancelBatchOperation)
 }

@@ -766,33 +766,6 @@ pub fn cancel_batch_operation(state: tauri::State<'_, AppManagerState>) -> bool 
     state.cancel_batch_operation()
 }
 
-fn install_private_native_tool_blocking(
-    app_id: String,
-    state: tauri::State<'_, AppManagerState>,
-) -> AppResult<OperationResult> {
-    let _guard = match state.try_lock_operation(&app_id) {
-        Some(guard) => guard,
-        None => return Ok(locked_operation_result()),
-    };
-    Ok(super::native_apps::install(&app_id))
-}
-
-/// Install one of the private, allow-listed Bench native toolbox apps.
-/// The renderer supplies only the catalog ID; repository, asset, hashes and
-/// signature policy are fixed and validated by the host.
-#[tauri::command]
-pub async fn install_private_native_tool(
-    app_id: String,
-    app: tauri::AppHandle,
-) -> AppResult<OperationResult> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let state: tauri::State<'_, AppManagerState> = app.state();
-        install_private_native_tool_blocking(app_id, state)
-    })
-    .await
-    .map_err(|error| AppError::internal(format!("install_private_native_tool task: {error}")))?
-}
-
 const UPDATE_CACHE_TTL_MS: u64 = 5 * 60 * 1000;
 
 #[tauri::command]

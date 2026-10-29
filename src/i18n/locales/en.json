@@ -2572,6 +2572,12 @@
     "tabMarket": "Market",
     "tabDiagnostics": "Diagnostics",
     "market": {
+      "typeLabel": "Market type",
+      "type": {
+        "all": "All",
+        "extensions": "Extensions",
+        "nativeApps": "Native apps"
+      },
       "loadFailed": "Failed to load the market",
       "empty": "No extensions available in the market",
       "install": "Install",
@@ -2593,6 +2599,39 @@
       "prepareFailed": "Install verification failed",
       "commitFailed": "Install failed",
       "toastInstalled": "Extension installed"
+    },
+    "nativeApps": {
+      "title": "Personal native apps",
+      "loadFailed": "Failed to load native apps",
+      "empty": "No native apps are available",
+      "unsupported": "macOS Apple Silicon only",
+      "unsupportedDescription": "These installers currently target Apple Silicon Macs. Intel Macs and Windows are not supported.",
+      "pathConflict": "Install location is occupied",
+      "pathConflictDescription": "The Bench-managed location contains an item with a different app identity. Actions are disabled to avoid replacing or moving unrelated files.",
+      "sourceDisclosure": "Source: macOS CI artifacts from the private indredK/bench-native-apps repository. Before installation Bench verifies the successful build for the current main commit, GitHub SHA-256, Bundle ID, and ad-hoc signature. GitHub CLI (gh) must be signed in with private repository and Actions read access. Xcode and a paid Apple Developer account are not required. macOS Gatekeeper may still block the app; you decide whether to open it.",
+      "open": "Open",
+      "opening": "Opening…",
+      "installing": "Installing…",
+      "uninstall": "Uninstall",
+      "installSuccess": "Native app installed",
+      "installFailed": "Native app installation failed",
+      "openSuccess": "Native app launched",
+      "openFailed": "Failed to launch native app",
+      "uninstallSuccess": "Native app moved to Trash",
+      "uninstallFailed": "Failed to uninstall native app",
+      "uninstallConfirmTitle": "Uninstall native app",
+      "uninstallConfirmDescription": "Move “{{name}}” to Trash?",
+      "uninstallConsequence": "Only the Bench-managed .app is moved. App data is kept.",
+      "apps": {
+        "localToolbox": {
+          "name": "Local Toolbox",
+          "description": "Local workflows, knowledge base, and everyday tools."
+        },
+        "abbDevToolbox": {
+          "name": "ABB Development Toolbox",
+          "description": "Development tools for ABB projects and local workflows."
+        }
+      }
     },
     "diagnostics": {
       "hint": "Extension audit log and runtime errors (last 200 entries)",

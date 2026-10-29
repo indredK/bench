@@ -11,16 +11,30 @@ use super::operations::operation_result;
 use super::types::OperationResult;
 #[cfg(target_os = "macos")]
 use serde::Deserialize;
+use serde::Serialize;
 #[cfg(target_os = "macos")]
 use std::io::Read;
 #[cfg(target_os = "macos")]
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(target_os = "macos")]
+use std::path::PathBuf;
 #[cfg(target_os = "macos")]
 use std::process::{Command, Output, Stdio};
 #[cfg(target_os = "macos")]
 use std::time::Duration;
 #[cfg(target_os = "macos")]
 use std::time::Instant;
+#[cfg(target_os = "macos")]
+use std::time::{SystemTime, UNIX_EPOCH};
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeAppMarketItem {
+    pub id: String,
+    pub supported: bool,
+    pub installed: bool,
+    pub conflict: bool,
+}
 
 #[cfg(target_os = "macos")]
 const PRIVATE_REPOSITORY: &str = "indredK/bench-native-apps";
@@ -35,30 +49,142 @@ const MAX_ARTIFACT_EXTRACTED_BYTES: u64 = 1024 * 1024 * 1024;
 #[cfg(target_os = "macos")]
 const GH_COMMAND_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
-#[cfg(target_os = "macos")]
 #[derive(Debug, Clone, Copy)]
 struct NativeAppSpec {
     id: &'static str,
+    #[cfg(target_os = "macos")]
     bundle_id: &'static str,
+    #[cfg(target_os = "macos")]
     display_name: &'static str,
+    #[cfg(target_os = "macos")]
     bundle_name: &'static str,
 }
 
-#[cfg(target_os = "macos")]
 const NATIVE_APPS: [NativeAppSpec; 2] = [
     NativeAppSpec {
         id: "local-toolbox",
+        #[cfg(target_os = "macos")]
         bundle_id: "com.local.dailycheckin.helper",
+        #[cfg(target_os = "macos")]
         display_name: "本地工具箱",
+        #[cfg(target_os = "macos")]
         bundle_name: "本地工具箱.app",
     },
     NativeAppSpec {
         id: "abb-dev-toolbox",
+        #[cfg(target_os = "macos")]
         bundle_id: "com.local.devservicemanager",
+        #[cfg(target_os = "macos")]
         display_name: "ABB 开发工具箱",
+        #[cfg(target_os = "macos")]
         bundle_name: "ABB开发工具箱.app",
     },
 ];
+
+/// User-owned install location reserved for the plugin-center native app cards.
+#[cfg(target_os = "macos")]
+pub fn managed_apps_dir() -> Option<PathBuf> {
+    dirs::home_dir().map(|home| home.join("Applications").join("Bench Apps"))
+}
+
+/// App Manager deliberately skips this dedicated directory.
+#[cfg(target_os = "macos")]
+pub fn is_managed_apps_dir(path: &Path) -> bool {
+    managed_apps_dir().is_some_and(|managed| {
+        let managed = std::fs::canonicalize(&managed).unwrap_or(managed);
+        let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        managed == path
+    })
+}
+
+/// Local catalog state is independent of the extension registry/network.
+pub fn market_list() -> Vec<NativeAppMarketItem> {
+    NATIVE_APPS.iter().map(market_item).collect()
+}
+
+#[cfg(target_os = "macos")]
+fn market_item(spec: &NativeAppSpec) -> NativeAppMarketItem {
+    let mut item = NativeAppMarketItem {
+        id: spec.id.to_string(),
+        supported: std::env::consts::ARCH == "aarch64",
+        installed: false,
+        conflict: false,
+    };
+    if !item.supported {
+        return item;
+    }
+    let Some(target) = managed_apps_dir().map(|dir| dir.join(spec.bundle_name)) else {
+        item.conflict = true;
+        return item;
+    };
+    let Some(managed_dir) = target.parent() else {
+        item.conflict = true;
+        return item;
+    };
+    let Some(applications_dir) = managed_dir.parent() else {
+        item.conflict = true;
+        return item;
+    };
+    if !directory_is_safe_or_missing(applications_dir) || !directory_is_safe_or_missing(managed_dir)
+    {
+        item.conflict = true;
+        return item;
+    }
+    match std::fs::symlink_metadata(&target) {
+        Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {
+            match read_bundle_identifier(&target) {
+                Some(bundle_id) if bundle_id == spec.bundle_id => item.installed = true,
+                _ => item.conflict = true,
+            }
+        }
+        Ok(_) => item.conflict = true,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => item.conflict = true,
+    }
+    item
+}
+
+#[cfg(not(target_os = "macos"))]
+fn market_item(spec: &NativeAppSpec) -> NativeAppMarketItem {
+    NativeAppMarketItem {
+        id: spec.id.to_string(),
+        supported: false,
+        installed: false,
+        conflict: false,
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn directory_is_safe_or_missing(path: &Path) -> bool {
+    match std::fs::symlink_metadata(path) {
+        Ok(metadata) => metadata.is_dir() && !metadata.file_type().is_symlink(),
+        Err(error) => error.kind() == std::io::ErrorKind::NotFound,
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn managed_bundle_path(spec: &NativeAppSpec) -> Result<PathBuf, String> {
+    let managed_dir = managed_apps_dir().ok_or("无法定位当前用户目录")?;
+    let applications_dir = managed_dir
+        .parent()
+        .ok_or_else(|| "无法定位用户应用程序目录".to_string())?;
+    if !directory_is_safe_or_missing(applications_dir)
+        || !directory_is_safe_or_missing(&managed_dir)
+    {
+        return Err("Bench 原生应用目录不是安全的普通目录。".into());
+    }
+    Ok(managed_dir.join(spec.bundle_name))
+}
+
+#[cfg(target_os = "macos")]
+fn read_bundle_identifier(app_bundle: &Path) -> Option<String> {
+    plist::Value::from_file(app_bundle.join("Contents/Info.plist"))
+        .ok()?
+        .into_dictionary()?
+        .get("CFBundleIdentifier")?
+        .as_string()
+        .map(ToString::to_string)
+}
 
 #[cfg(target_os = "macos")]
 #[derive(Debug, Deserialize)]
@@ -431,6 +557,31 @@ fn verify_native_bundle(app_bundle: &Path, spec: &NativeAppSpec) -> Result<(), S
 }
 
 #[cfg(target_os = "macos")]
+fn ensure_managed_apps_dir() -> Result<PathBuf, String> {
+    let managed_dir = managed_apps_dir().ok_or("无法定位当前用户目录")?;
+    let applications_dir = managed_dir
+        .parent()
+        .ok_or_else(|| "无法定位用户应用程序目录".to_string())?;
+    for directory in [applications_dir, managed_dir.as_path()] {
+        match std::fs::symlink_metadata(directory) {
+            Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
+            Ok(_) => return Err("Bench 原生应用目录不是安全的普通目录。".into()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                std::fs::create_dir(directory)
+                    .map_err(|_| "无法创建 Bench 原生应用目录。".to_string())?;
+                let metadata = std::fs::symlink_metadata(directory)
+                    .map_err(|_| "无法检查 Bench 原生应用目录。".to_string())?;
+                if !metadata.is_dir() || metadata.file_type().is_symlink() {
+                    return Err("Bench 原生应用目录不是安全的普通目录。".into());
+                }
+            }
+            Err(_) => return Err("无法安全检查 Bench 原生应用目录。".into()),
+        }
+    }
+    Ok(managed_dir)
+}
+
+#[cfg(target_os = "macos")]
 fn install_macos(id: &str) -> Result<String, String> {
     if std::env::consts::ARCH != "aarch64" {
         return Err("这两款 CI 预编译应用目前只支持 Apple Silicon Mac。".into());
@@ -474,20 +625,12 @@ fn install_macos(id: &str) -> Result<String, String> {
             return Err("下载期间 main 已更新；请等待新提交通过 CI 后重试。".into());
         }
 
-        let home = dirs::home_dir().ok_or("无法定位当前用户目录")?;
-        let applications = home.join("Applications");
-        std::fs::create_dir_all(&applications)
-            .map_err(|_| "无法创建用户应用程序目录".to_string())?;
-        let metadata = std::fs::symlink_metadata(&applications)
-            .map_err(|_| "无法检查用户应用程序目录".to_string())?;
-        if !metadata.is_dir() || metadata.file_type().is_symlink() {
-            return Err("用户应用程序目录不是安全的普通目录".into());
-        }
+        let applications = ensure_managed_apps_dir()?;
         let target = applications.join(spec.bundle_name);
         match std::fs::symlink_metadata(&target) {
             Ok(_) => {
                 return Err(format!(
-                    "{} 已安装在 ~/Applications；为避免覆盖，已停止安装。",
+                    "{} 的 Bench 安装位置已被占用；为避免覆盖，已停止安装。",
                     spec.display_name
                 ));
             }
@@ -495,7 +638,7 @@ fn install_macos(id: &str) -> Result<String, String> {
             Err(_) => return Err("无法安全检查目标应用路径；已停止安装。".into()),
         }
         std::fs::rename(&app_bundle, &target)
-            .map_err(|_| "无法将应用安全移动到 ~/Applications。".to_string())?;
+            .map_err(|_| "无法将应用安全移动到 Bench 原生应用目录。".to_string())?;
         Ok(format!(
             "{} 下载并安装完成：{}（CI main@{}，ad-hoc 签名）。若 macOS 拦截，请在系统设置中手动确认。",
             spec.display_name,
@@ -507,6 +650,114 @@ fn install_macos(id: &str) -> Result<String, String> {
     result
 }
 
+#[cfg(target_os = "macos")]
+fn unique_trash_destination(trash_dir: &Path, bundle_name: &str) -> Result<PathBuf, String> {
+    let original = trash_dir.join(bundle_name);
+    if std::fs::symlink_metadata(&original).is_err() {
+        return Ok(original);
+    }
+    let stem = bundle_name
+        .strip_suffix(".app")
+        .ok_or_else(|| "原生应用包名称无效。".to_string())?;
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    let process_id = std::process::id();
+    for suffix in 0..1000_u16 {
+        let candidate = trash_dir.join(format!("{stem} (Bench {process_id}-{nonce}-{suffix}).app"));
+        if std::fs::symlink_metadata(&candidate)
+            .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound)
+        {
+            return Ok(candidate);
+        }
+    }
+    Err("无法为卸载的应用找到安全的废纸篓名称。".into())
+}
+
+#[cfg(target_os = "macos")]
+fn uninstall_macos(id: &str) -> Result<String, String> {
+    let spec = app_spec(id).ok_or_else(|| "未登记的原生工具箱应用。".to_string())?;
+    let home = dirs::home_dir().ok_or("无法定位当前用户目录")?;
+    let target = managed_bundle_path(spec)?;
+    let metadata = std::fs::symlink_metadata(&target)
+        .map_err(|_| "Bench 管理的原生应用不存在。".to_string())?;
+    if !metadata.is_dir()
+        || metadata.file_type().is_symlink()
+        || read_bundle_identifier(&target).as_deref() != Some(spec.bundle_id)
+    {
+        return Err("应用身份与 Bench 原生应用目录不匹配；为保护其他文件，已停止卸载。".into());
+    }
+
+    let trash_dir = home.join(".Trash");
+    match std::fs::symlink_metadata(&trash_dir) {
+        Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
+        Ok(_) => return Err("废纸篓目录不安全；已停止卸载。".into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            std::fs::create_dir(&trash_dir).map_err(|_| "无法访问用户废纸篓。".to_string())?;
+        }
+        Err(_) => return Err("无法安全检查用户废纸篓。".into()),
+    }
+    let destination = unique_trash_destination(&trash_dir, spec.bundle_name)?;
+    std::fs::rename(&target, &destination)
+        .map_err(|_| "无法将应用移入废纸篓；应用和数据均已保留。".to_string())?;
+    Ok(format!(
+        "{} 已移入废纸篓；应用数据未删除。",
+        spec.display_name
+    ))
+}
+
+#[cfg(target_os = "macos")]
+fn open_macos(id: &str) -> Result<String, String> {
+    let spec = app_spec(id).ok_or_else(|| "未登记的原生工具箱应用。".to_string())?;
+    let target = managed_bundle_path(spec)?;
+    let metadata = std::fs::symlink_metadata(&target)
+        .map_err(|_| "Bench 管理的原生应用不存在。".to_string())?;
+    if !metadata.is_dir()
+        || metadata.file_type().is_symlink()
+        || read_bundle_identifier(&target).as_deref() != Some(spec.bundle_id)
+    {
+        return Err("应用身份与 Bench 原生应用目录不匹配；已停止启动。".into());
+    }
+    let status = Command::new("open")
+        .arg(&target)
+        .status()
+        .map_err(|_| "无法启动原生应用。".to_string())?;
+    if !status.success() {
+        return Err("macOS 未能启动原生应用。".into());
+    }
+    Ok(format!("{} 已启动。", spec.display_name))
+}
+
+pub fn uninstall(id: &str) -> OperationResult {
+    #[cfg(target_os = "macos")]
+    let result = uninstall_macos(id);
+    #[cfg(not(target_os = "macos"))]
+    let result: Result<String, String> = {
+        let _ = id;
+        Err("Bench 原生工具箱目前仅支持 macOS。".into())
+    };
+    result_to_operation_result(result, "NATIVE_TOOL_UNINSTALL_FAILED")
+}
+
+pub fn open(id: &str) -> OperationResult {
+    #[cfg(target_os = "macos")]
+    let result = open_macos(id);
+    #[cfg(not(target_os = "macos"))]
+    let result: Result<String, String> = {
+        let _ = id;
+        Err("Bench 原生工具箱目前仅支持 macOS。".into())
+    };
+    result_to_operation_result(result, "NATIVE_TOOL_OPEN_FAILED")
+}
+
+fn result_to_operation_result(result: Result<String, String>, error_code: &str) -> OperationResult {
+    match result {
+        Ok(message) => operation_result(true, message, Some(0), None, false),
+        Err(message) => operation_result(false, message, None, Some(error_code.into()), false),
+    }
+}
+
 pub fn install(id: &str) -> OperationResult {
     #[cfg(target_os = "macos")]
     let result = install_macos(id);
@@ -516,15 +767,52 @@ pub fn install(id: &str) -> OperationResult {
         Err("Bench 原生工具箱目前仅支持 macOS。".into())
     };
 
-    match result {
-        Ok(message) => operation_result(true, message, Some(0), None, false),
-        Err(message) => operation_result(
-            false,
-            message,
-            None,
-            Some("NATIVE_TOOL_INSTALL_FAILED".into()),
-            false,
-        ),
+    result_to_operation_result(result, "NATIVE_TOOL_INSTALL_FAILED")
+}
+
+/// Serialize install/open/uninstall operations for one catalog ID.
+pub fn run_market_operation(
+    id: &str,
+    operation: fn(&str) -> OperationResult,
+    state: &super::state::AppManagerState,
+) -> OperationResult {
+    let operation_key = format!("bench-native-app:{id}");
+    let Some(_guard) = state.try_lock_operation(&operation_key) else {
+        return super::locked_operation_result();
+    };
+    operation(id)
+}
+
+#[cfg(test)]
+mod market_catalog_tests {
+    use super::*;
+
+    #[test]
+    fn exposes_only_the_two_fixed_native_app_ids() {
+        let mut ids = market_list()
+            .into_iter()
+            .map(|item| item.id)
+            .collect::<Vec<_>>();
+        ids.sort();
+        assert_eq!(ids, vec!["abb-dev-toolbox", "local-toolbox"]);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn marks_native_apps_supported_and_excludes_the_managed_directory_from_inventory() {
+        let expected_supported = std::env::consts::ARCH == "aarch64";
+        assert!(market_list()
+            .iter()
+            .all(|item| item.supported == expected_supported));
+        let managed_dir = managed_apps_dir().expect("home directory");
+        assert!(is_managed_apps_dir(&managed_dir));
+        assert!(!is_managed_apps_dir(&managed_dir.join("nested")));
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn marks_macos_native_apps_unsupported_on_other_platforms() {
+        assert!(market_list().iter().all(|item| !item.supported));
     }
 }
 

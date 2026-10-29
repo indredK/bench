@@ -71,6 +71,14 @@ export interface MarketListing {
   revokedHits: RevokedHit[]
 }
 
+/** Host-owned native app state, independent of the remote extension registry. */
+export interface NativeAppMarketItem {
+  id: "local-toolbox" | "abb-dev-toolbox"
+  supported: boolean
+  installed: boolean
+  conflict: boolean
+}
+
 /** 插件诊断（Rust `ext_diagnostics` 返回；JSONL 尾部行）。 */
 export interface ExtensionDiagnostics {
   audit: string[]

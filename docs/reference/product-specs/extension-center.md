@@ -7,7 +7,7 @@
 ## 1. 定位
 
 - **宿主前端的一部分**（插件中心本身**不是**插件），入口：路由 `/extension-center`，侧边栏注册，全平台显示。
-- 用途：浏览、安装、启用/禁用、卸载、更新 extension（插件），并查看其权限与诊断信息。
+- 用途：浏览、安装、启用/禁用、卸载、更新 extension（插件），并查看其权限与诊断信息；同时管理宿主固定目录中的自用 macOS 原生应用。
 - 核心保证：
   - 插件是**不受信任的前端代码**，只能调用 manifest 声明且宿主能力面允许的命令；
   - 任何校验失败都**阻止加载或阻止开窗**，不改变已安装版本（fail-closed）；
@@ -29,12 +29,25 @@
 
 ### 2.2 市场（P4 ✅）
 
+市场顶部提供「全部 / 插件 / 原生应用」类型筛选。原生应用是宿主管理的 `.app`，不属于 extension bundle，也不进入 App Manager 的推荐安装目录或普通软件清单。
+
 | 区块     | 内容                                                                                                                  |
 | -------- | --------------------------------------------------------------------------------------------------------------------- |
 | 目录浏览 | 从后端 canonical registry 拉取，**renderer 不提供 URL**；展示展示名、描述、发布者、最新版本（✅）                     |
 | 安装向导 | 浏览 → 下载 → 权限披露 → 验签 → 解压 → 启用（步骤与失败提示见 [../extension-spec.md](../extension-spec.md) §6）（✅） |
 | 权限披露 | 安装前展示该插件申请的 `acl.commands` 的**人类可读描述**，而非裸命令名（✅）                                          |
 | 更新提示 | registry 版本比对；`engines` 不满足时给出升级引导；`yanked` 版本提示（✅）                                            |
+
+### 2.2.1 原生应用（macOS）
+
+| 区块 | 内容                                                                                                                                         |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 目录 | 宿主固定目录列出「本地工具箱」和「ABB 开发工具箱」；不读取插件 registry，因此插件源离线时仍可见                                              |
+| 卡片 | 显示名称、简介、私有 CI 来源说明与安装状态；Apple Silicon Mac 可安装，Intel Mac 与 Windows 显示不支持状态                                    |
+| 安装 | 只提交固定 app ID；宿主从私有 GitHub Actions Artifact 下载，并校验当前 main 成功 CI、run/SHA、GitHub digest、Bundle ID 与 ad-hoc 签名        |
+| 打开 | 安装后可从卡片启动；应用固定安装于 `~/Applications/Bench Apps/`，不进入 App Manager 清单                                                     |
+| 卸载 | `DestructiveConfirmDialog` 二次确认；只移动经 Bundle ID 校验的目标 `.app` 到废纸篓，不删除应用数据                                           |
+| 限制 | 需要 Apple Silicon、GitHub CLI 登录及私有仓库 / Actions 读取权限；不需要本机 Xcode 或付费 Developer ID；Gatekeeper 决策仍由 macOS / 用户控制 |
 
 ### 2.3 详情与诊断（P4 ✅）
 
@@ -50,17 +63,18 @@
 
 ## 4. 交互细节
 
-| 场景      | 行为                                                          |
-| --------- | ------------------------------------------------------------- |
-| 加载态    | 首次加载且无数据时显示骨架区块；刷新按钮禁用                  |
-| 空态      | 「暂无插件」+ 引导文案                                        |
-| 失败态    | 红色区块展示 `[错误码] 消息` **与**重试按钮（不只显示"失败"） |
-| 行级 busy | 操作中的行按钮全部禁用（`busyIds`），防重入                   |
-| 打开      | 仅启用状态可点；点击后宿主开独立 `ext-<id>` 窗口，已开则聚焦  |
-| 启用/禁用 | 切换 `.disabled` 标记；禁用时关闭已开窗口                     |
-| 卸载      | 二次确认（DestructiveConfirmDialog）→ 关窗 → 删产物目录       |
-| 不兼容    | `engines` 不满足时列表标记 incompatible 且禁止打开            |
-| 长文本    | 插件名、id 允许截断但不遮挡操作按钮                           |
+| 场景      | 行为                                                                   |
+| --------- | ---------------------------------------------------------------------- |
+| 加载态    | 首次加载且无数据时显示骨架区块；刷新按钮禁用                           |
+| 空态      | 「暂无插件」+ 引导文案                                                 |
+| 失败态    | 红色区块展示 `[错误码] 消息` **与**重试按钮（不只显示"失败"）          |
+| 行级 busy | 操作中的行按钮全部禁用（`busyIds`），防重入                            |
+| 原生应用  | 独立读取和刷新原生应用目录；插件 registry 加载失败不得隐藏原生应用卡片 |
+| 打开      | 仅启用状态可点；点击后宿主开独立 `ext-<id>` 窗口，已开则聚焦           |
+| 启用/禁用 | 切换 `.disabled` 标记；禁用时关闭已开窗口                              |
+| 卸载      | 二次确认（DestructiveConfirmDialog）→ 关窗 → 删产物目录                |
+| 不兼容    | `engines` 不满足时列表标记 incompatible 且禁止打开                     |
+| 长文本    | 插件名、id 允许截断但不遮挡操作按钮                                    |
 
 ## 5. 异常处理
 
@@ -77,10 +91,10 @@
 ## 6. 技术实现要点
 
 - 前端：`src/features/extension-center/`（page + hooks/controller + store），zustand selector + `parseCommandError` / `translateError` + 重入保护。
-- 后端：`src-tauri/src/extension_host/`（manifest / acl / assets / signature / commands / url / mod）。
+- 后端：`src-tauri/src/extension_host/`（manifest / acl / assets / signature / commands / url / mod）；原生应用目录由宿主固定 allowlist 与 `app_manager/native_apps.rs` 提供，命令仅供宿主窗口调用，不加入 extension ACL。
 - 契约：`ext_list_installed` / `ext_open` / `ext_set_enabled` / `ext_uninstall`，三张表双写（`src/lib/tauri/contracts.ts`）。
 - 插件产物：`extensions/<id>/`（仓库）→ `scripts/plugins/sync-extensions.mjs` → `$APPDATA/extensions/<id>/`（运行时）。
-- 安全：deny-by-default 命令网关 + manifest fail-closed + 逐文件 hash 校验 + minisign 验签（[../extension-spec.md](../extension-spec.md)）。
+- 安全：extension 使用 deny-by-default 命令网关 + manifest fail-closed + 逐文件 hash 校验 + minisign 验签（[../extension-spec.md](../extension-spec.md)）；原生应用使用固定来源、Artifact digest 与应用身份校验。
 
 ## 7. 数据模型
 

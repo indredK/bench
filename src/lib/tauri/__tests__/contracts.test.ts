@@ -65,6 +65,7 @@ import type {
   McpTargetStatus,
   NmRegistration,
 } from "@/lib/tauri/types/browser-ext"
+import type { NativeAppMarketItem } from "@/lib/tauri/types/extension-center"
 
 describe("Tauri contracts", () => {
   it("keeps grouped command constants derived from the canonical command contracts", () => {
@@ -363,6 +364,11 @@ describe("Tauri contracts", () => {
         ]),
       ],
       [
+        "NativeAppMarketItem",
+        "camel",
+        dtoKeys<NativeAppMarketItem>(["id", "supported", "installed", "conflict"]),
+      ],
+      [
         "BatchOperationResult",
         "camel",
         dtoKeys<BatchOperationResult>(["total", "succeeded", "failed", "cancelled", "results"]),
@@ -657,6 +663,7 @@ function parseTauriCommandArgs(
           !arg.includes("tauri::State") &&
           !arg.includes("tauri::AppHandle") &&
           !arg.includes("tauri::WebviewWindow") &&
+          !arg.includes("WebviewWindow") &&
           !arg.includes("tauri::Window") &&
           !arg.includes("AppHandle") &&
           !/(^|\W)State\s*</.test(arg),
