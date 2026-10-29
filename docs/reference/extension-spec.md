@@ -320,10 +320,9 @@
 
 - **宿主能力面**：`src-tauri/src/extension_host/acl.rs` 的 `EXTENSION_ALLOWED_COMMANDS`，deny-by-default。
 - **单插件**：`manifest.acl.commands` 必须是能力面的子集，否则 manifest 校验失败。
-- **运行时**：`acl::guarded` 网关拦截 `ext-` 前缀窗口的命令调用，越权即拒绝。
-- **自助发现**：插件窗口可调用 `ext_capabilities`（命令本身在白名单内）拉取当前能力面
-  命令清单，在调用前校验自身 `acl.commands` 并给出友好报错，无需依赖仓库同目录或
-  试错式调用（见 §9.4）。
+- **运行时**：`acl::guarded` 网关拦截 `ext-` 前缀窗口的命令调用；除宿主诊断和只读能力发现命令外，调用命令必须同时出现在该插件已验证的 ACL 中，越权即拒绝。
+- **私有原生应用安装**：`install_private_native_tool` 仅授予 `app-manager`。插件只能提交固定应用 ID；仓库、CI Artifact、下载地址和应用身份由宿主固定，并在安装前校验当前 `main` 构建来源、Artifact digest、Bundle ID、ad-hoc 签名和架构。此能力不向插件暴露 GitHub 凭据，也不允许任意 URL 或路径。
+- **自助发现**：插件窗口可调用 `ext_capabilities`（宿主 plumbing 命令）读取该插件获准调用的命令清单，在调用前检查能力，无需依赖仓库同目录或试错式调用（见 §9.4）。
 
 > **为什么不能只靠 capability**：Tauri v2 对 `invoke_handler` 注册的自定命令**默认全窗口放行**，capability 只约束 core/plugin 命令。网关是必需的补充。
 
@@ -359,7 +358,7 @@
 | --------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `window.__BENCH_EXT_LOCALE` | 宿主当前语言（如 `zh` / `en`）                                | 由 `ext_open(locale)` 经 init script 注入。dev/prod 跨 origin 下 `localStorage` 不共享，Rust 注入是唯一可靠通道 |
 | IPC `invoke`                | 调用能力面内的命令                                            | 经 `acl::guarded` 网关，越权即拒绝                                                                              |
-| IPC `ext_capabilities`      | 拉取宿主开放给插件空间的命令清单（能力面快照）                | 返回 `EXTENSION_ALLOWED_COMMANDS` 的只读视图；插件据此校验自身 `acl.commands`（spec §9.4）                      |
+| IPC `ext_capabilities`      | 读取调用插件已获准的命令清单                                  | 返回经全局 allow-list 过滤的、该插件已验证 `manifest.acl.commands` 子集；不披露其他插件权限（spec §9.4）        |
 | 错误捕获脚本                | 捕获 window-error / unhandledrejection / console.error / boot | 宿主在开窗时注入，回传宿主落盘（追加式）                                                                        |
 
 ### 9.2 i18n
@@ -395,13 +394,13 @@
 
 插件**无需**依赖「宿主机仓库同目录」或试错式调用即可得知可用命令：
 
-- 调用 `ext_capabilities`（命令本身在 `EXTENSION_ALLOWED_COMMANDS` 白名单内，任何 `ext-*` 窗口可直接 `invoke`）。
-- 返回 `{ commands: string[] }`，即宿主当前能力面全部命令名（`acl.rs` 的 `EXTENSION_ALLOWED_COMMANDS` 快照）。
+- 调用 `ext_capabilities`（宿主只读 plumbing 命令，任何已打开的 `ext-*` 窗口可直接 `invoke`）。
+- 返回 `{ commands: string[] }`，即调用插件已验证 ACL 与宿主全局 allow-list 的交集。
 - 插件应在调用业务命令前，用返回的清单校验自身 `manifest.acl.commands` 是否全部命中：
   命中缺失时**提前给出可读报错**（如「插件需要 `foo_bar` 但宿主未开放」），而非等到
   `acl::guarded` 网关拒绝后从 console 反推（网关拒绝信息见 §9.1 / `acl.rs` 第 144 行）。
 
-> 能力面是宿主私有常量，本命令是其**唯一官方只读出口**；不要硬编码命令名列表到插件侧。
+> 宿主能力面是宿主私有常量，本命令是调用插件权限的**唯一官方只读出口**；不要硬编码命令名列表到插件侧。`ext_poc_report` 是宿主注入诊断脚本使用的内部 plumbing 命令，不需要重复写入每个插件 ACL。
 
 ---
 

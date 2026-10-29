@@ -33,10 +33,10 @@ AI 从 [`AGENTS.md`](../AGENTS.md) 开始，按其必读清单读取规范后按
 手工维护、离线单文件 SVG/HTML 交互图，内嵌 CSS/JS、无外部 fetch/CDN，支持点击节点/边/编号
 打开抽屉、场景高亮、中英文切换、键盘导航与 `prefers-reduced-motion`。
 
-| 图                  | FIG    | 所有者 | 用途                                                       | 实际 HTML                                                                 |
-| ------------------- | ------ | ------ | ---------------------------------------------------------- | ------------------------------------------------------------------------- |
-| 宿主全景与 IPC 往返 | FIG-01 | host   | 分层 + 一次完整 IPC 往返 + 插件经全局 ACL 网关复用宿主能力 | [bench-host-ecosystem.html](./diagrams/bench-host-ecosystem.html)         |
-| 账号管理三角闭环    | FIG-04 | host   | 目标软件 ⇄ 浏览器 ⇄ Bench 登录态三角闭环（既有）           | [account-manager-triangle.html](./diagrams/account-manager-triangle.html) |
+| 图                  | FIG    | 所有者 | 用途                                                                       | 实际 HTML                                                                 |
+| ------------------- | ------ | ------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 宿主全景与 IPC 往返 | FIG-01 | host   | 分层 + 一次完整 IPC 往返 + 插件经全局 allow-list 与逐插件 ACL 复用宿主能力 | [bench-host-ecosystem.html](./diagrams/bench-host-ecosystem.html)         |
+| 账号管理三角闭环    | FIG-04 | host   | 目标软件 ⇄ 浏览器 ⇄ Bench 登录态三角闭环（既有）                           | [account-manager-triangle.html](./diagrams/account-manager-triangle.html) |
 
 本地预览：
 

@@ -57,6 +57,21 @@
 - **理由**：这两个症状（假成功、真丢数据）都源于同一处结构性缺失——**没有终态可回报**，所以只能猜。补回执通道而不是补文案。
 - **相关**：[D-030](#d-030--出向注入前自动补采-bench-内置登录态出向目标显式二选一) · [D-031](#d-031--扩展通道升级cookie--web-storage注入indexeddb-仍排除) · [D-033](#d-033--扩展通道升级cookie--web-storage--indexeddb全量注入版本号双端自证) · [浏览器互通三角流转（交互图）](../diagrams/account-manager-triangle.html)
 
+## D-041 · 私有 Swift 工具箱通过 App Manager 安装
+
+- **日期**：2026-10-29
+- **状态**：采纳（预编译 ad-hoc CI 包方案进入 Draft PR；外部分发签名另行处理）
+- **背景**：用户希望将现有「本地工具箱」和「ABB 开发工具箱」纳入 Bench 插件中心，同时保留 Swift / SwiftUI 原生实现。
+- **决策**：
+  1. 两款程序继续作为 macOS 原生 `.app`，源码集中在 GitHub 私有仓库 `indredK/bench-native-apps`；不改写为 JavaScript / Rust，也不做独立“脚本中心”。
+  2. 插件中心复用现有 App Manager 作为原生应用目录与安装入口。CI 构建两款预编译 `.app`，Bench Rust 宿主从 GitHub Actions Artifact 下载、校验与安装；用户本机不要求 Xcode / XcodeGen。
+  3. 安装命令只接受固定 `nativeToolId`；后端固定 GitHub 私有仓库、Artifact 名、Bundle ID 和 `arm64` 架构，仅支持 Apple Silicon。只有当私有仓库 `main` 当前提交与成功的 macOS `verify.yml` push 或 workflow_dispatch run 的 SHA 完全一致，且 Artifact 的来源 run、分支、SHA、状态和 GitHub SHA-256 digest 均匹配时，才安装包内 `.app`。不得接收 renderer 提交的 URL / 路径或移除 quarantine。
+  4. GitHub Actions 用 ad-hoc 签名生成 CI 包，Artifacts 保留 90 天；用户需要 GitHub CLI 登录并有私有仓库及 Actions 读取权限。过期后可在 `main` 上手动运行 `verify.yml` 更新产物。个人本机安装不要求 Apple Developer Program 年费，访问令牌不传给插件前端或 IPC。
+  5. 本机编译产物不作为外部分发 Release。Bench 不调用 `spctl`、不自动清除 quarantine，也不自动批准 Gatekeeper；若系统仍拦截，由用户自行检查并在系统设置中决定是否打开。跨设备或公开分发仍需 Developer ID + notarization，或符合 Apple 条件的组织费用豁免。
+- **理由**：Swift 工具需要访问 macOS 原生 API、辅助功能与本地环境；保留原生代码可继续复用现有投入。下载 CI 预编译包比要求每位安装者配置 Xcode 更直接，同时绕开个人开发者年费，并由宿主固定来源、CI 提交、GitHub Artifact digest 与应用身份。
+- **影响**：个人本机安装依赖 GitHub CLI 登录、私有仓库 / Actions 读取权限和网络；Artifact 在 90 天后过期，可手动运行 `verify.yml` 重新生成。ad-hoc 签名可能使重装后的辅助功能权限需要重新授予。该方式不提供给没有私有仓库权限的其他用户，也不声称产物已公证或可直接外部分发。
+- **相关**：[App Manager design](https://github.com/kindred-plugin-market/plugin-market/blob/main/extensions/app-manager/docs/design.md) · [extension-center roadmap](../modules/extension-center/roadmap.md) · [D-010](#d-010--默认使用-ad-hoc-macos-与-unsigned-windows-包)
+
 ## D-037 · 抖音内容资产插件：范围与预检结论
 
 - **日期**：2026-09-18

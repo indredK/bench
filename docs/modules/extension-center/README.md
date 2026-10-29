@@ -7,6 +7,7 @@
 
 - 浏览/管理已安装 extension（bundled / market）；
 - 浏览 market registry、披露权限、校验签名并安装/升级插件；
+- 在 App Manager 中安装经宿主校验的私有 macOS Swift 应用；它们作为原生 `.app` 安装，不作为 extension bundle 运行；
 - 本 feature 是**宿主前端**的一部分（插件中心本身不是插件）。
 
 ## 架构边界
@@ -19,7 +20,7 @@
 ## 安全模型（D-024）
 
 - 插件窗口 label 固定 `ext-<id>`，capability 仅 `core:default`；
-- **自定命令 deny-by-default 网关**：`ext-` 窗口只能调用 `extension_host::acl::EXTENSION_ALLOWED_COMMANDS` 注册表内的命令（photo-triage 15 条 + ext 自身）；
+- **自定命令 deny-by-default 网关**：`ext-` 窗口只能调用宿主 allow-list 与该插件已验证 manifest ACL 均允许的命令（宿主诊断与只读能力发现除外）；
 - manifest fail-closed：schema 版本不匹配、id/version/entry 非法、ACL 越权或插件不支持当前平台时拒绝加载/安装。
 
 ## 关联文档

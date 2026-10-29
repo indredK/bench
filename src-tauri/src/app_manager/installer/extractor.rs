@@ -65,13 +65,24 @@ pub fn find_app_bundle(root: &Path) -> Result<PathBuf, String> {
     Err("SU_EXTRACT_FAIL: no .app bundle found in archive".into())
 }
 
-/// Extract a `.zip` archive to `work_dir` and return the path of the contained
-/// `.app` bundle. Restores Unix permissions so executable bits survive.
-pub fn extract_zip_with_cancel(
+/// Extract a `.zip` archive to `work_dir` using bounded, traversal-safe writes.
+/// Restores sanitized Unix permissions so executable bits survive.
+pub fn extract_zip_contents_with_cancel(
     zip_path: &Path,
     work_dir: &Path,
     cancel: Option<&AtomicBool>,
-) -> Result<PathBuf, String> {
+) -> Result<(), String> {
+    extract_zip_contents_with_limit(zip_path, work_dir, cancel, MAX_EXTRACTED_BYTES)
+}
+
+/// Extract a `.zip` archive with a caller-selected aggregate expansion limit.
+/// Per-entry and entry-count limits remain bounded by the shared defaults.
+pub fn extract_zip_contents_with_limit(
+    zip_path: &Path,
+    work_dir: &Path,
+    cancel: Option<&AtomicBool>,
+    max_extracted_bytes: u64,
+) -> Result<(), String> {
     let file =
         std::fs::File::open(zip_path).map_err(|e| format!("SU_EXTRACT_FAIL: open zip {e}"))?;
     let mut archive =
@@ -109,15 +120,16 @@ pub fn extract_zip_with_cancel(
             let mut out = std::fs::File::create(&outpath)
                 .map_err(|e| format!("SU_EXTRACT_FAIL: create {e}"))?;
             let declared = entry.size();
-            if declared > MAX_ENTRY_BYTES
-                || extracted_bytes.saturating_add(declared) > MAX_EXTRACTED_BYTES
+            let max_entry_bytes = MAX_ENTRY_BYTES.min(max_extracted_bytes);
+            if declared > max_entry_bytes
+                || extracted_bytes.saturating_add(declared) > max_extracted_bytes
             {
                 return Err("SU_EXTRACT_SIZE_LIMIT".to_string());
             }
-            let written = std::io::copy(&mut (&mut entry).take(MAX_ENTRY_BYTES + 1), &mut out)
+            let written = std::io::copy(&mut (&mut entry).take(max_entry_bytes + 1), &mut out)
                 .map_err(|e| format!("SU_EXTRACT_FAIL: write {e}"))?;
-            if written > MAX_ENTRY_BYTES
-                || extracted_bytes.saturating_add(written) > MAX_EXTRACTED_BYTES
+            if written > max_entry_bytes
+                || extracted_bytes.saturating_add(written) > max_extracted_bytes
             {
                 return Err("SU_EXTRACT_SIZE_LIMIT".to_string());
             }
@@ -133,6 +145,17 @@ pub fn extract_zip_with_cancel(
         }
     }
 
+    Ok(())
+}
+
+/// Extract a `.zip` archive to `work_dir` and return the path of the contained
+/// `.app` bundle.
+pub fn extract_zip_with_cancel(
+    zip_path: &Path,
+    work_dir: &Path,
+    cancel: Option<&AtomicBool>,
+) -> Result<PathBuf, String> {
+    extract_zip_contents_with_cancel(zip_path, work_dir, cancel)?;
     find_app_bundle(work_dir)
 }
 
