@@ -1,9 +1,9 @@
-//! Host-managed installation for the two private, notarized Swift toolbox apps.
+//! Host-managed downloads of the two private, ad-hoc-signed Swift toolbox apps.
 //!
-//! The renderer can submit only a fixed catalog ID. GitHub repository, asset
-//! names, bundle identifiers and Apple Team ID are pinned here; the manifest
-//! supplies only the release tag, version and digest, all of which are
-//! validated before an app bundle is installed.
+//! The renderer can submit only a fixed catalog ID. The host accepts an app
+//! only from a successful macOS CI run for the current private main commit,
+//! verifies GitHub's artifact digest, then validates the app bundle before
+//! installing it. No local Xcode build or paid Developer ID is needed.
 
 #[cfg(target_os = "macos")]
 use super::installer::{codesign, extractor};
@@ -12,24 +12,26 @@ use super::types::OperationResult;
 #[cfg(target_os = "macos")]
 use serde::Deserialize;
 #[cfg(target_os = "macos")]
-use std::collections::HashSet;
-#[cfg(target_os = "macos")]
 use std::io::Read;
 #[cfg(target_os = "macos")]
 use std::path::{Path, PathBuf};
 #[cfg(target_os = "macos")]
-use std::process::Command;
+use std::process::{Command, Output, Stdio};
 #[cfg(target_os = "macos")]
 use std::time::Duration;
+#[cfg(target_os = "macos")]
+use std::time::Instant;
 
 #[cfg(target_os = "macos")]
 const PRIVATE_REPOSITORY: &str = "indredK/bench-native-apps";
 #[cfg(target_os = "macos")]
-const TRUSTED_TEAM_ID: &str = "78KG7YW724";
+const VERIFY_WORKFLOW: &str = "verify.yml";
 #[cfg(target_os = "macos")]
-const MANIFEST_FILE: &str = "native-apps-manifest.json";
+const DEVELOPMENT_ARTIFACT: &str = "native-toolbox-macos-arm64-development";
 #[cfg(target_os = "macos")]
-const MAX_NATIVE_ASSET_BYTES: u64 = 1024 * 1024 * 1024;
+const MAX_ARTIFACT_ARCHIVE_BYTES: u64 = 512 * 1024 * 1024;
+#[cfg(target_os = "macos")]
+const MAX_ARTIFACT_EXTRACTED_BYTES: u64 = 1024 * 1024 * 1024;
 #[cfg(target_os = "macos")]
 const GH_COMMAND_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
@@ -40,7 +42,6 @@ struct NativeAppSpec {
     bundle_id: &'static str,
     display_name: &'static str,
     bundle_name: &'static str,
-    asset_name: &'static str,
 }
 
 #[cfg(target_os = "macos")]
@@ -50,37 +51,59 @@ const NATIVE_APPS: [NativeAppSpec; 2] = [
         bundle_id: "com.local.dailycheckin.helper",
         display_name: "本地工具箱",
         bundle_name: "本地工具箱.app",
-        asset_name: "LocalToolbox-arm64.zip",
     },
     NativeAppSpec {
         id: "abb-dev-toolbox",
         bundle_id: "com.local.devservicemanager",
         display_name: "ABB 开发工具箱",
         bundle_name: "ABB开发工具箱.app",
-        asset_name: "ABBDevelopmentToolbox-arm64.zip",
     },
 ];
 
 #[cfg(target_os = "macos")]
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ReleaseManifest {
-    schema_version: u32,
-    release_tag: String,
-    team_id: String,
-    apps: Vec<ReleaseApp>,
+#[serde(rename_all = "camelCase")]
+struct WorkflowRun {
+    database_id: u64,
+    status: String,
+    conclusion: Option<String>,
+    event: String,
+    head_branch: String,
+    head_sha: String,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct VerifiedRun {
+    id: u64,
+    head_sha: String,
 }
 
 #[cfg(target_os = "macos")]
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct ReleaseApp {
-    id: String,
-    bundle_id: String,
-    display_name: String,
-    version: String,
-    asset_name: String,
-    sha256: String,
+struct WorkflowArtifacts {
+    artifacts: Vec<WorkflowArtifact>,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+struct WorkflowArtifact {
+    id: u64,
+    name: String,
+    digest: String,
+    expired: bool,
+    size_in_bytes: u64,
+    workflow_run: ArtifactRun,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+struct ArtifactRun {
+    id: u64,
+    head_branch: String,
+    head_sha: String,
 }
 
 #[cfg(target_os = "macos")]
@@ -89,64 +112,65 @@ fn app_spec(id: &str) -> Option<&'static NativeAppSpec> {
 }
 
 #[cfg(target_os = "macos")]
-fn is_semver(value: &str) -> bool {
-    let parts = value.split('.').collect::<Vec<_>>();
-    parts.len() == 3
-        && parts
-            .iter()
-            .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
-}
-
-#[cfg(target_os = "macos")]
-fn is_release_tag(value: &str) -> bool {
-    value.strip_prefix("native-apps-v").is_some_and(is_semver)
+fn is_commit_sha(value: &str) -> bool {
+    value.len() == 40 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 #[cfg(target_os = "macos")]
 fn is_sha256(value: &str) -> bool {
-    value.len() == 64
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 #[cfg(target_os = "macos")]
-fn validate_manifest<'a>(
-    manifest: &'a ReleaseManifest,
-    selected_id: &str,
-) -> Result<&'a ReleaseApp, String> {
-    if manifest.schema_version != 1
-        || manifest.team_id != TRUSTED_TEAM_ID
-        || !is_release_tag(&manifest.release_tag)
-        || manifest.apps.len() != NATIVE_APPS.len()
+fn verified_main_run(runs_json: &str, current_main_sha: &str) -> Result<VerifiedRun, String> {
+    if !is_commit_sha(current_main_sha) {
+        return Err("无法确认私有应用仓库的 main 提交。".into());
+    }
+    let runs: Vec<WorkflowRun> = serde_json::from_str(runs_json)
+        .map_err(|_| "无法读取私有应用仓库的 CI 状态。".to_string())?;
+    let Some(run) = runs.into_iter().find(|run| {
+        matches!(run.event.as_str(), "push" | "workflow_dispatch")
+            && run.head_branch == "main"
+            && is_commit_sha(&run.head_sha)
+            && run.head_sha == current_main_sha
+    }) else {
+        return Err("私有应用仓库还没有可用的 macOS CI 结果。".into());
+    };
+    if run.status != "completed" || run.conclusion.as_deref() != Some("success") {
+        return Err("当前 main 提交尚未通过 macOS CI；请稍后重试。".into());
+    }
+    Ok(VerifiedRun {
+        id: run.database_id,
+        head_sha: run.head_sha.clone(),
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn verified_artifact(artifacts_json: &str, run: &VerifiedRun) -> Result<WorkflowArtifact, String> {
+    let response: WorkflowArtifacts =
+        serde_json::from_str(artifacts_json).map_err(|_| "无法读取 CI 应用包信息。".to_string())?;
+    let mut matches = response
+        .artifacts
+        .into_iter()
+        .filter(|artifact| artifact.name == DEVELOPMENT_ARTIFACT);
+    let Some(artifact) = matches.next() else {
+        return Err("CI 没有上传可安装的 macOS 应用包；请重新运行验证工作流。".into());
+    };
+    if matches.next().is_some()
+        || artifact.expired
+        || artifact.size_in_bytes == 0
+        || artifact.size_in_bytes > MAX_ARTIFACT_ARCHIVE_BYTES
+        || !artifact
+            .digest
+            .strip_prefix("sha256:")
+            .is_some_and(is_sha256)
+        || artifact.workflow_run.id != run.id
+        || artifact.workflow_run.head_branch != "main"
+        || artifact.workflow_run.head_sha != run.head_sha
     {
-        return Err("私有应用发布清单不符合 Bench 的信任策略".into());
+        return Err("CI 应用包的来源、状态或摘要无效；已拒绝安装。".into());
     }
-
-    let mut seen = HashSet::with_capacity(manifest.apps.len());
-    for app in &manifest.apps {
-        let Some(spec) = app_spec(&app.id) else {
-            return Err("发布清单包含未登记的应用".into());
-        };
-        if !seen.insert(app.id.as_str())
-            || app.bundle_id != spec.bundle_id
-            || app.asset_name != spec.asset_name
-            || app.display_name != spec.display_name
-            || !is_semver(&app.version)
-            || !is_sha256(&app.sha256)
-        {
-            return Err("私有应用发布清单的应用信息无效".into());
-        }
-    }
-
-    if seen.len() != NATIVE_APPS.len() {
-        return Err("私有应用发布清单缺少已登记的应用".into());
-    }
-    manifest
-        .apps
-        .iter()
-        .find(|app| app.id == selected_id)
-        .ok_or_else(|| "私有应用发布清单中没有请求的应用".into())
+    Ok(artifact)
 }
 
 #[cfg(target_os = "macos")]
@@ -159,46 +183,165 @@ fn find_gh_cli() -> Option<PathBuf> {
     if let Some(path) = std::env::var_os("PATH") {
         candidates.extend(std::env::split_paths(&path).map(|dir| dir.join("gh")));
     }
-    candidates.into_iter().find(|path| {
-        path.is_file()
-            && std::fs::metadata(path).ok().is_some_and(|metadata| {
-                use std::os::unix::fs::PermissionsExt;
-                metadata.permissions().mode() & 0o111 != 0
-            })
-    })
+    candidates.into_iter().find(|path| is_executable_file(path))
 }
 
 #[cfg(target_os = "macos")]
-fn run_gh(gh: &Path, args: &[&str], cwd: &Path) -> Result<(), String> {
-    let output = super::run_command_with_timeout(
-        Command::new(gh).args(args).current_dir(cwd),
+fn is_executable_file(path: &Path) -> bool {
+    path.is_file()
+        && std::fs::metadata(path).ok().is_some_and(|metadata| {
+            use std::os::unix::fs::PermissionsExt;
+            metadata.permissions().mode() & 0o111 != 0
+        })
+}
+
+#[cfg(target_os = "macos")]
+fn gh_output(gh: &Path, args: &[String], cwd: &Path) -> Result<Output, String> {
+    super::run_command_with_timeout(
+        Command::new(gh)
+            .args(args)
+            .current_dir(cwd)
+            .env("GH_PROMPT_DISABLED", "1")
+            .env("GH_PAGER", "cat")
+            .env("GIT_TERMINAL_PROMPT", "0"),
         GH_COMMAND_TIMEOUT,
     )
-    .map_err(|_| "GitHub 下载超时或无法启动；请检查网络和 GitHub CLI。".to_string())?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        // Do not echo CLI diagnostics into the UI or logs: they can contain
-        // private repository metadata and vary by authentication failure.
-        Err("无法读取私有 Release。请确认 `gh auth login` 已完成，且当前账号能访问该仓库。".into())
+    .map_err(|_| "访问 GitHub 超时或无法启动 GitHub CLI。".to_string())
+}
+
+#[cfg(target_os = "macos")]
+fn gh_text(gh: &Path, args: &[String], cwd: &Path, error: &str) -> Result<String, String> {
+    let output = gh_output(gh, args, cwd)?;
+    if !output.status.success() {
+        return Err(error.to_string());
     }
+    String::from_utf8(output.stdout).map_err(|_| error.to_string())
+}
+
+#[cfg(target_os = "macos")]
+fn git_main_commit(gh: &Path, cwd: &Path) -> Result<String, String> {
+    let output = gh_text(
+        gh,
+        &[
+            "api".into(),
+            format!("repos/{PRIVATE_REPOSITORY}/commits/main"),
+            "--jq".into(),
+            ".sha".into(),
+        ],
+        cwd,
+        "无法访问私有应用仓库。请确认 gh 已登录且当前账号有仓库读取权限。",
+    )?;
+    Ok(output.trim().to_string())
+}
+
+#[cfg(target_os = "macos")]
+fn latest_ci_run_json(gh: &Path, cwd: &Path) -> Result<String, String> {
+    gh_text(
+        gh,
+        &[
+            "run".into(),
+            "list".into(),
+            "--repo".into(),
+            PRIVATE_REPOSITORY.into(),
+            "--workflow".into(),
+            VERIFY_WORKFLOW.into(),
+            "--branch".into(),
+            "main".into(),
+            "--limit".into(),
+            "100".into(),
+            "--json".into(),
+            "databaseId,status,conclusion,event,headBranch,headSha".into(),
+        ],
+        cwd,
+        "无法读取私有应用仓库的 macOS CI 状态。",
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn artifact_list_json(gh: &Path, run_id: u64, cwd: &Path) -> Result<String, String> {
+    gh_text(
+        gh,
+        &[
+            "api".into(),
+            format!("repos/{PRIVATE_REPOSITORY}/actions/runs/{run_id}/artifacts"),
+        ],
+        cwd,
+        "无法读取 CI 应用包清单；请确认 gh 有 Actions 读取权限。",
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn download_artifact_archive(
+    gh: &Path,
+    artifact_id: u64,
+    archive: &Path,
+    cwd: &Path,
+) -> Result<(), String> {
+    let archive_file =
+        std::fs::File::create(archive).map_err(|_| "无法创建应用包下载文件。".to_string())?;
+    let endpoint = format!("repos/{PRIVATE_REPOSITORY}/actions/artifacts/{artifact_id}/zip");
+    let mut child = Command::new(gh)
+        .args(["api", endpoint.as_str()])
+        .current_dir(cwd)
+        .env("GH_PROMPT_DISABLED", "1")
+        .env("GH_PAGER", "cat")
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .stdout(Stdio::from(archive_file))
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|_| "无法启动 GitHub CLI 下载应用包。".to_string())?;
+    let started = Instant::now();
+    loop {
+        if std::fs::metadata(archive)
+            .is_ok_and(|metadata| metadata.len() > MAX_ARTIFACT_ARCHIVE_BYTES)
+        {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err("CI 应用包大小超出安全限制。".into());
+        }
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => break,
+            Ok(Some(_)) => return Err("无法下载 CI 应用包；请确认 Actions 读取权限。".into()),
+            Ok(None) if started.elapsed() < GH_COMMAND_TIMEOUT => {
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("CI 应用包下载超时；请检查网络后重试。".into());
+            }
+            Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("无法检查 CI 应用包下载进度。".into());
+            }
+        }
+    }
+    let size = std::fs::metadata(archive)
+        .map_err(|_| "GitHub 未返回有效的 CI 应用包。".to_string())?
+        .len();
+    if size == 0 || size > MAX_ARTIFACT_ARCHIVE_BYTES {
+        return Err("CI 应用包大小超出安全限制。".into());
+    }
+    Ok(())
 }
 
 #[cfg(target_os = "macos")]
 fn sha256_file(path: &Path) -> Result<String, String> {
     use sha2::{Digest, Sha256};
 
-    let metadata = std::fs::metadata(path).map_err(|_| "无法读取下载的应用包".to_string())?;
-    if metadata.len() == 0 || metadata.len() > MAX_NATIVE_ASSET_BYTES {
-        return Err("应用包大小超出允许范围".into());
+    let metadata = std::fs::metadata(path).map_err(|_| "无法读取下载的 CI 应用包。".to_string())?;
+    if metadata.len() == 0 || metadata.len() > MAX_ARTIFACT_ARCHIVE_BYTES {
+        return Err("CI 应用包大小超出安全限制。".into());
     }
-    let mut file = std::fs::File::open(path).map_err(|_| "无法打开下载的应用包".to_string())?;
+    let mut file =
+        std::fs::File::open(path).map_err(|_| "无法打开下载的 CI 应用包。".to_string())?;
     let mut hasher = Sha256::new();
     let mut buffer = [0_u8; 1024 * 1024];
     loop {
         let bytes = file
             .read(&mut buffer)
-            .map_err(|_| "读取应用包失败".to_string())?;
+            .map_err(|_| "读取 CI 应用包失败。".to_string())?;
         if bytes == 0 {
             break;
         }
@@ -209,6 +352,51 @@ fn sha256_file(path: &Path) -> Result<String, String> {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect())
+}
+
+#[cfg(target_os = "macos")]
+fn extract_app_bundle(
+    archive: &Path,
+    extraction_dir: &Path,
+    spec: &NativeAppSpec,
+) -> Result<PathBuf, String> {
+    std::fs::create_dir(extraction_dir).map_err(|_| "无法创建 CI 应用包解压目录。".to_string())?;
+    extractor::extract_zip_contents_with_limit(
+        archive,
+        extraction_dir,
+        None,
+        MAX_ARTIFACT_EXTRACTED_BYTES,
+    )
+    .map_err(|_| "CI 应用包结构无效，已拒绝解压。".to_string())?;
+
+    let expected = NATIVE_APPS
+        .iter()
+        .map(|app| app.bundle_name)
+        .collect::<std::collections::HashSet<_>>();
+    let entries = std::fs::read_dir(extraction_dir)
+        .map_err(|_| "无法读取解压后的 CI 应用包。".to_string())?;
+    let mut seen = std::collections::HashSet::with_capacity(NATIVE_APPS.len());
+    for entry in entries {
+        let entry = entry.map_err(|_| "无法读取解压后的 CI 应用包。".to_string())?;
+        let name = entry
+            .file_name()
+            .to_str()
+            .map(str::to_owned)
+            .ok_or_else(|| "CI 应用包含有无效文件名。".to_string())?;
+        let metadata = std::fs::symlink_metadata(entry.path())
+            .map_err(|_| "无法检查解压后的 CI 应用包。".to_string())?;
+        if !expected.contains(name.as_str())
+            || !seen.insert(name)
+            || !metadata.is_dir()
+            || metadata.file_type().is_symlink()
+        {
+            return Err("CI 应用包目录不符合 Bench 的固定目录。".into());
+        }
+    }
+    if seen.len() != NATIVE_APPS.len() {
+        return Err("CI 应用包缺少已登记的应用。".into());
+    }
+    Ok(extraction_dir.join(spec.bundle_name))
 }
 
 #[cfg(target_os = "macos")]
@@ -223,11 +411,7 @@ fn read_bundle_id(app_bundle: &Path) -> Result<String, String> {
 }
 
 #[cfg(target_os = "macos")]
-fn verify_native_bundle(
-    app_bundle: &Path,
-    app: &ReleaseApp,
-    spec: &NativeAppSpec,
-) -> Result<(), String> {
+fn verify_native_bundle(app_bundle: &Path, spec: &NativeAppSpec) -> Result<(), String> {
     if read_bundle_id(app_bundle)? != spec.bundle_id {
         return Err("应用包 Bundle ID 与 Bench 目录不一致".into());
     }
@@ -235,38 +419,25 @@ fn verify_native_bundle(
     let signature =
         codesign::read_codesign_info(app_bundle).map_err(|_| "无法读取应用代码签名".to_string())?;
     if signature.bundle_id.as_deref() != Some(spec.bundle_id)
-        || signature.team_id.as_deref() != Some(TRUSTED_TEAM_ID)
-        || !signature
-            .authority
-            .as_deref()
-            .is_some_and(|authority| authority.starts_with("Developer ID Application:"))
+        || signature.signature.as_deref() != Some("adhoc")
+        || signature.team_id.is_some()
+        || signature.authority.is_some()
     {
-        return Err("应用必须由已登记的 Developer ID 团队签名".into());
-    }
-    if app.bundle_id != spec.bundle_id {
-        return Err("Release 清单与应用包 Bundle ID 不一致".into());
+        return Err("CI 应用必须是 Bench 允许的 ad-hoc 签名包。".into());
     }
     codesign::verify_platform_compatibility(app_bundle)
-        .map_err(|_| "应用不兼容当前 macOS 或 Apple 芯片".to_string())?;
-
-    let assessment = super::run_command_with_timeout(
-        Command::new("spctl")
-            .args(["--assess", "--type", "execute", "--verbose=2"])
-            .arg(app_bundle),
-        Duration::from_secs(30),
-    )
-    .map_err(|_| "Gatekeeper 无法验证应用".to_string())?;
-    if !assessment.status.success() {
-        return Err("Gatekeeper 未认可应用；该 Release 可能没有完成 Apple notarization".into());
-    }
+        .map_err(|_| "应用不兼容当前 macOS 或 Apple 芯片。".to_string())?;
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
 fn install_macos(id: &str) -> Result<String, String> {
+    if std::env::consts::ARCH != "aarch64" {
+        return Err("这两款 CI 预编译应用目前只支持 Apple Silicon Mac。".into());
+    }
     let spec = app_spec(id).ok_or_else(|| "未登记的原生工具箱应用".to_string())?;
     let gh = find_gh_cli().ok_or_else(|| {
-        "未找到 GitHub CLI。请先安装 gh，并登录可访问此私有仓库的 GitHub 账号。".to_string()
+        "未找到 GitHub CLI。请先安装 gh，并登录可访问私有应用仓库的 GitHub 账号。".to_string()
     })?;
     let auth = super::run_command_with_timeout(
         Command::new(&gh).args(["auth", "status", "--hostname", "github.com"]),
@@ -276,59 +447,32 @@ fn install_macos(id: &str) -> Result<String, String> {
         return Err("GitHub CLI 尚未登录。请先在终端运行 `gh auth login`。".into());
     }
 
-    let work_dir = extractor::make_work_dir(&format!("native-{}", spec.id))?;
+    let work_dir = extractor::make_work_dir(&format!("native-artifact-{}", spec.id))?;
     let result = (|| {
-        run_gh(
-            &gh,
-            &[
-                "release",
-                "download",
-                "--repo",
-                PRIVATE_REPOSITORY,
-                "--pattern",
-                MANIFEST_FILE,
-                "--dir",
-                work_dir.to_str().ok_or("无法解析缓存目录")?,
-            ],
-            &work_dir,
-        )?;
-        let manifest_text = std::fs::read_to_string(work_dir.join(MANIFEST_FILE))
-            .map_err(|_| "无法读取私有应用发布清单".to_string())?;
-        let manifest: ReleaseManifest = serde_json::from_str(&manifest_text)
-            .map_err(|_| "私有应用发布清单格式无效".to_string())?;
-        let release_app = validate_manifest(&manifest, spec.id)?;
-        let release_tag = manifest.release_tag.clone();
-        let asset_name = release_app.asset_name.clone();
-        let expected_hash = release_app.sha256.clone();
+        let current_main_sha = git_main_commit(&gh, &work_dir)?;
+        let run_json = latest_ci_run_json(&gh, &work_dir)?;
+        let run = verified_main_run(&run_json, &current_main_sha)?;
+        let artifacts_json = artifact_list_json(&gh, run.id, &work_dir)?;
+        let artifact = verified_artifact(&artifacts_json, &run)?;
 
-        run_gh(
-            &gh,
-            &[
-                "release",
-                "download",
-                &release_tag,
-                "--repo",
-                PRIVATE_REPOSITORY,
-                "--pattern",
-                &asset_name,
-                "--dir",
-                work_dir.to_str().ok_or("无法解析缓存目录")?,
-            ],
-            &work_dir,
-        )?;
-        let archive = work_dir.join(&asset_name);
-        if sha256_file(&archive)? != expected_hash {
-            return Err("应用包 SHA-256 不匹配，已拒绝安装".into());
+        let archive = work_dir.join("apps.zip");
+        download_artifact_archive(&gh, artifact.id, &archive, &work_dir)?;
+        let actual_digest = sha256_file(&archive)?;
+        let expected_digest = artifact
+            .digest
+            .strip_prefix("sha256:")
+            .ok_or_else(|| "CI 应用包缺少 SHA-256 摘要。".to_string())?;
+        if actual_digest != expected_digest {
+            return Err("CI 应用包 SHA-256 不匹配，已拒绝安装。".into());
         }
 
-        let extracted = work_dir.join("extracted");
-        std::fs::create_dir(&extracted).map_err(|_| "无法创建安全解压目录".to_string())?;
-        let app_bundle = extractor::extract_zip_with_cancel(&archive, &extracted, None)?;
-        if app_bundle.file_name().and_then(|name| name.to_str()) != Some(spec.bundle_name) {
-            return Err("Release 中的应用包名称无效".into());
+        let extraction_dir = work_dir.join("extracted");
+        let app_bundle = extract_app_bundle(&archive, &extraction_dir, spec)?;
+        verify_native_bundle(&app_bundle, spec)?;
+
+        if git_main_commit(&gh, &work_dir)? != run.head_sha {
+            return Err("下载期间 main 已更新；请等待新提交通过 CI 后重试。".into());
         }
-        let release_app = validate_manifest(&manifest, spec.id)?;
-        verify_native_bundle(&app_bundle, release_app, spec)?;
 
         let home = dirs::home_dir().ok_or("无法定位当前用户目录")?;
         let applications = home.join("Applications");
@@ -340,15 +484,24 @@ fn install_macos(id: &str) -> Result<String, String> {
             return Err("用户应用程序目录不是安全的普通目录".into());
         }
         let target = applications.join(spec.bundle_name);
-        if std::fs::symlink_metadata(&target).is_ok() {
-            return Err(format!(
-                "{} 已安装在 ~/Applications；为避免覆盖，已停止安装。",
-                spec.display_name
-            ));
+        match std::fs::symlink_metadata(&target) {
+            Ok(_) => {
+                return Err(format!(
+                    "{} 已安装在 ~/Applications；为避免覆盖，已停止安装。",
+                    spec.display_name
+                ));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err("无法安全检查目标应用路径；已停止安装。".into()),
         }
         std::fs::rename(&app_bundle, &target)
-            .map_err(|_| "无法将应用安全移动到 ~/Applications".to_string())?;
-        Ok(target.display().to_string())
+            .map_err(|_| "无法将应用安全移动到 ~/Applications。".to_string())?;
+        Ok(format!(
+            "{} 下载并安装完成：{}（CI main@{}，ad-hoc 签名）。若 macOS 拦截，请在系统设置中手动确认。",
+            spec.display_name,
+            target.display(),
+            &run.head_sha[..12]
+        ))
     })();
     extractor::cleanup_work_dir(&work_dir);
     result
@@ -364,7 +517,7 @@ pub fn install(id: &str) -> OperationResult {
     };
 
     match result {
-        Ok(path) => operation_result(true, format!("安装完成：{path}"), Some(0), None, false),
+        Ok(message) => operation_result(true, message, Some(0), None, false),
         Err(message) => operation_result(
             false,
             message,
@@ -379,59 +532,156 @@ pub fn install(id: &str) -> OperationResult {
 mod tests {
     use super::*;
 
-    fn valid_manifest() -> ReleaseManifest {
-        ReleaseManifest {
-            schema_version: 1,
-            release_tag: "native-apps-v1.2.3".into(),
-            team_id: TRUSTED_TEAM_ID.into(),
-            apps: vec![
-                ReleaseApp {
-                    id: "local-toolbox".into(),
-                    bundle_id: "com.local.dailycheckin.helper".into(),
-                    display_name: "本地工具箱".into(),
-                    version: "0.1.0".into(),
-                    asset_name: "LocalToolbox-arm64.zip".into(),
-                    sha256: "a".repeat(64),
-                },
-                ReleaseApp {
-                    id: "abb-dev-toolbox".into(),
-                    bundle_id: "com.local.devservicemanager".into(),
-                    display_name: "ABB 开发工具箱".into(),
-                    version: "2.0.0".into(),
-                    asset_name: "ABBDevelopmentToolbox-arm64.zip".into(),
-                    sha256: "b".repeat(64),
-                },
-            ],
-        }
+    fn run(status: &str, conclusion: &str, event: &str, branch: &str, sha: &str) -> String {
+        serde_json::json!([{
+            "databaseId": 42,
+            "status": status,
+            "conclusion": conclusion,
+            "event": event,
+            "headBranch": branch,
+            "headSha": sha,
+        }])
+        .to_string()
+    }
+
+    fn artifacts(run_id: u64, head_branch: &str, head_sha: &str) -> String {
+        serde_json::json!({
+            "artifacts": [{
+                "id": 99,
+                "name": DEVELOPMENT_ARTIFACT,
+                "digest": format!("sha256:{}", "b".repeat(64)),
+                "expired": false,
+                "size_in_bytes": 100,
+                "workflow_run": {
+                    "id": run_id,
+                    "head_branch": head_branch,
+                    "head_sha": head_sha,
+                }
+            }]
+        })
+        .to_string()
     }
 
     #[test]
-    fn accepts_only_the_exact_catalog_entry_and_release_contract() {
-        let manifest = valid_manifest();
-        let app = validate_manifest(&manifest, "local-toolbox").unwrap();
-        assert_eq!(app.bundle_id, "com.local.dailycheckin.helper");
-        assert!(validate_manifest(&manifest, "unknown-tool").is_err());
+    fn accepts_only_current_main_sha_with_successful_push_ci() {
+        let sha = "a".repeat(40);
+        let verified =
+            verified_main_run(&run("completed", "success", "push", "main", &sha), &sha).unwrap();
+        assert_eq!(verified.id, 42);
+        assert_eq!(verified.head_sha, sha);
     }
 
     #[test]
-    fn rejects_wrong_signing_team_and_untrusted_asset_names() {
-        let mut manifest = valid_manifest();
-        manifest.team_id = "OTHERTEAM1".into();
-        assert!(validate_manifest(&manifest, "local-toolbox").is_err());
-
-        let mut manifest = valid_manifest();
-        manifest.apps[0].asset_name = "../../unsafe.zip".into();
-        assert!(validate_manifest(&manifest, "local-toolbox").is_err());
+    fn accepts_manual_main_workflow_dispatch_for_artifact_renewal() {
+        let sha = "a".repeat(40);
+        let verified = verified_main_run(
+            &run("completed", "success", "workflow_dispatch", "main", &sha),
+            &sha,
+        )
+        .unwrap();
+        assert_eq!(verified.id, 42);
+        assert_eq!(verified.head_sha, sha);
     }
 
     #[test]
-    fn rejects_duplicate_apps_and_malformed_digest() {
-        let mut manifest = valid_manifest();
-        manifest.apps[1].id = manifest.apps[0].id.clone();
-        assert!(validate_manifest(&manifest, "local-toolbox").is_err());
+    fn skips_other_events_when_selecting_current_main_ci_run() {
+        let sha = "a".repeat(40);
+        let runs = serde_json::json!([
+            {
+                "databaseId": 41,
+                "status": "completed",
+                "conclusion": "success",
+                "event": "pull_request",
+                "headBranch": "main",
+                "headSha": sha,
+            },
+            {
+                "databaseId": 42,
+                "status": "completed",
+                "conclusion": "success",
+                "event": "push",
+                "headBranch": "main",
+                "headSha": sha,
+            },
+        ])
+        .to_string();
+        let verified = verified_main_run(&runs, &sha).unwrap();
+        assert_eq!(verified.id, 42);
+    }
 
-        let mut manifest = valid_manifest();
-        manifest.apps[0].sha256 = "g".repeat(64);
-        assert!(validate_manifest(&manifest, "local-toolbox").is_err());
+    #[test]
+    fn rejects_pending_failed_stale_and_non_main_ci_runs() {
+        let sha = "a".repeat(40);
+        let stale = "b".repeat(40);
+        assert!(verified_main_run(&run("in_progress", "", "push", "main", &sha), &sha).is_err());
+        assert!(
+            verified_main_run(&run("completed", "failure", "push", "main", &sha), &sha).is_err()
+        );
+        assert!(
+            verified_main_run(&run("completed", "success", "push", "main", &stale), &sha).is_err()
+        );
+        assert!(verified_main_run(
+            &run("completed", "success", "pull_request", "main", &sha),
+            &sha
+        )
+        .is_err());
+        assert!(
+            verified_main_run(&run("completed", "success", "schedule", "main", &sha), &sha)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn accepts_only_live_artifact_pinned_to_the_verified_run() {
+        let sha = "a".repeat(40);
+        let run = VerifiedRun {
+            id: 42,
+            head_sha: sha.clone(),
+        };
+        let artifact = verified_artifact(&artifacts(42, "main", &sha), &run).unwrap();
+        assert_eq!(artifact.id, 99);
+        assert!(verified_artifact(&artifacts(41, "main", &sha), &run).is_err());
+        assert!(verified_artifact(&artifacts(42, "feature", &sha), &run).is_err());
+        assert!(verified_artifact(&artifacts(42, "main", &"b".repeat(40)), &run).is_err());
+    }
+
+    #[test]
+    fn rejects_expired_oversized_and_malformed_artifact_metadata() {
+        let sha = "a".repeat(40);
+        let run = VerifiedRun {
+            id: 42,
+            head_sha: sha.clone(),
+        };
+        let mut value: serde_json::Value =
+            serde_json::from_str(&artifacts(42, "main", &sha)).unwrap();
+        value["artifacts"][0]["expired"] = serde_json::Value::Bool(true);
+        assert!(verified_artifact(&value.to_string(), &run).is_err());
+
+        let mut value: serde_json::Value =
+            serde_json::from_str(&artifacts(42, "main", &sha)).unwrap();
+        value["artifacts"][0]["size_in_bytes"] = serde_json::json!(MAX_ARTIFACT_ARCHIVE_BYTES + 1);
+        assert!(verified_artifact(&value.to_string(), &run).is_err());
+
+        let mut value: serde_json::Value =
+            serde_json::from_str(&artifacts(42, "main", &sha)).unwrap();
+        value["artifacts"][0]["digest"] = serde_json::json!("sha256:bad");
+        assert!(verified_artifact(&value.to_string(), &run).is_err());
+    }
+
+    #[test]
+    fn rejects_unregistered_app_ids_and_invalid_commit_hashes() {
+        assert!(app_spec("../../local-toolbox").is_none());
+        assert!(verified_main_run("[]", &"a".repeat(40)).is_err());
+        assert!(verified_main_run("[]", "not-a-commit").is_err());
+    }
+
+    #[test]
+    fn catalog_pins_bundle_ids_and_app_names() {
+        let local = app_spec("local-toolbox").unwrap();
+        assert_eq!(local.bundle_id, "com.local.dailycheckin.helper");
+        assert_eq!(local.bundle_name, "本地工具箱.app");
+        let abb = app_spec("abb-dev-toolbox").unwrap();
+        assert_eq!(abb.bundle_id, "com.local.devservicemanager");
+        assert_eq!(abb.bundle_name, "ABB开发工具箱.app");
     }
 }

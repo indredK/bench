@@ -10,6 +10,8 @@ pub struct CodesignInfo {
     /// 10-char Team Identifier (e.g. "ABCDE12345"). `None` when the bundle
     /// is unsigned or codesign reports "not set".
     pub team_id: Option<String>,
+    /// Signature mode reported by `codesign -dvvv` (for example `adhoc`).
+    pub signature: Option<String>,
     /// First `Authority=` line, e.g. "Developer ID Application: Foo (ABCDE12345)".
     pub authority: Option<String>,
 }
@@ -144,6 +146,11 @@ fn parse_codesign_output(text: &str) -> CodesignInfo {
             if !v.is_empty() && v != "not set" {
                 info.team_id = Some(v.to_string());
             }
+        } else if let Some(v) = line.strip_prefix("Signature=") {
+            let v = v.trim();
+            if !v.is_empty() {
+                info.signature = Some(v.to_string());
+            }
         } else if info.authority.is_none() {
             if let Some(v) = line.strip_prefix("Authority=") {
                 info.authority = Some(v.trim().to_string());
@@ -202,6 +209,16 @@ Sealed Resources version=2 rules=13 files=98
     fn parse_handles_unsigned_bundle() {
         let text = "Executable=/x\nIdentifier=anon\nTeamIdentifier=not set\n";
         let info = parse_codesign_output(text);
+        assert!(info.team_id.is_none());
+        assert!(info.authority.is_none());
+    }
+
+    #[test]
+    fn parse_extracts_ad_hoc_signature_mode() {
+        let info = parse_codesign_output(
+            "Identifier=com.example.demo\nSignature=adhoc\nTeamIdentifier=not set\n",
+        );
+        assert_eq!(info.signature.as_deref(), Some("adhoc"));
         assert!(info.team_id.is_none());
         assert!(info.authority.is_none());
     }

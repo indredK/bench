@@ -130,6 +130,8 @@ tauri-app/
 
 **单个插件的权限边界** = `manifest.acl.commands` ⊆ `EXTENSION_ALLOWED_COMMANDS` ⊆ 后端全部命令；运行时网关还会按调用窗口对应的已验证 manifest ACL 再检查一次。只有宿主诊断回报与只读 ACL 发现属于内部 plumbing 命令，其余命令均需显式声明。越权一律 fail-closed。
 
+`install_private_native_tool` 是 `app-manager` 专属能力：调用方只传固定应用 ID，仓库、CI Artifact 和目标 Bundle ID 均由宿主固定；宿主校验当前 `main` CI 来源、Artifact digest、应用身份、签名结构与架构。GitHub CLI 凭据只由宿主进程使用，不进入插件 IPC 参数或 renderer。
+
 ### 7.2 仍然有效的约束（来自被取代的设计，未失效）
 
 - **D-017 红线**：禁止运行时 cargo/npm 拉依赖；核心 Rust 命令保持编译期链接；插件是数据/bundle，不进核心二进制完整性边界。
