@@ -57,10 +57,25 @@
 - **理由**：这两个症状（假成功、真丢数据）都源于同一处结构性缺失——**没有终态可回报**，所以只能猜。补回执通道而不是补文案。
 - **相关**：[D-030](#d-030--出向注入前自动补采-bench-内置登录态出向目标显式二选一) · [D-031](#d-031--扩展通道升级cookie--web-storage注入indexeddb-仍排除) · [D-033](#d-033--扩展通道升级cookie--web-storage--indexeddb全量注入版本号双端自证) · [浏览器互通三角流转（交互图）](../diagrams/account-manager-triangle.html)
 
+## D-042 · 私有 Swift 工具箱作为插件中心原生应用类型管理
+
+- **日期**：2026-10-29
+- **状态**：采纳（推翻 D-041 的 App Manager 入口设计）
+- **背景**：用户明确要求「本地工具箱」和「ABB 开发工具箱」在插件中心市场直接显示为两张卡片，可安装和卸载；App Manager 继续管理其他软件。
+- **决策**：
+  1. 市场类型新增「原生应用」；这两款 Swift `.app` 由宿主固定目录提供，不伪装成 extension bundle，也不依赖插件 registry。
+  2. 原生应用命令仅允许主宿主窗口调用，不加入 extension ACL；App Manager 不提供这两款应用的推荐安装入口，也不枚举 Bench 管理的原生应用目录。
+  3. 应用安装到 `~/Applications/Bench Apps/`，由插件中心卡片负责打开和卸载；卸载校验固定 Bundle ID 后将 `.app` 移入废纸篓，不删除应用数据。
+  4. 继续使用私有 GitHub Actions Artifact、当前 main 成功 CI 与 digest / Bundle ID / ad-hoc 签名校验。个人本机使用不要求 Apple Developer Program 年费或公证；GitHub CLI 仍需登录并拥有私有仓库和 Actions 读取权限。
+  5. Bench 主程序安装到内置磁盘；本机从 T7 工作区构建并验证后安装，应用数据仍保留在本机用户目录。
+- **理由**：两款 App 的生命周期与普通软件 inventory、第三方 extension bundle 都不同。把它们做成宿主控制的原生应用市场卡片，既保留 Swift 原生实现，也提供清晰的独立安装与卸载边界。
+- **影响**：插件中心市场增加原生应用类型筛选和独立状态；新增宿主专用 IPC 契约；App Manager 摘除专属推荐入口与 extension ACL 权限。
+- **相关**：[extension-center product spec](../reference/product-specs/extension-center.md) · [extension-center roadmap](../modules/extension-center/roadmap.md) · [D-041](#d-041--私有-swift-工具箱通过-app-manager-安装)
+
 ## D-041 · 私有 Swift 工具箱通过 App Manager 安装
 
 - **日期**：2026-10-29
-- **状态**：采纳（预编译 ad-hoc CI 包方案进入 Draft PR；外部分发签名另行处理）
+- **状态**：撤销（由 D-042 推翻入口设计；CI 下载与校验方案继续有效）
 - **背景**：用户希望将现有「本地工具箱」和「ABB 开发工具箱」纳入 Bench 插件中心，同时保留 Swift / SwiftUI 原生实现。
 - **决策**：
   1. 两款程序继续作为 macOS 原生 `.app`，源码集中在 GitHub 私有仓库 `indredK/bench-native-apps`；不改写为 JavaScript / Rust，也不做独立“脚本中心”。

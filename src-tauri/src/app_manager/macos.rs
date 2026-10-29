@@ -271,12 +271,14 @@ fn scan_directory_raw(
     let mut results = Vec::new();
     let mut queue = VecDeque::from([(dir.to_path_buf(), 0usize)]);
     let mut visited = HashSet::new();
-
     while let Some((current_dir, depth)) = queue.pop_front() {
         if cancel.load(std::sync::atomic::Ordering::Acquire) {
             break;
         }
         let canonical_dir = fs::canonicalize(&current_dir).unwrap_or(current_dir.clone());
+        if crate::app_manager::native_apps::is_managed_apps_dir(&canonical_dir) {
+            continue;
+        }
         if !visited.insert(canonical_dir.clone()) {
             continue;
         }

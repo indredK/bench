@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -8,7 +9,11 @@ import type {
 } from "@/lib/tauri/types/extension-center"
 
 import { useMarketController } from "../hooks/useMarketController"
+import { useNativeAppMarketController } from "../hooks/useNativeAppMarketController"
+import { NativeAppMarketSection } from "./NativeAppMarketSection"
 import { selectMetadata, useResolvedLocale } from "../lib/metadata"
+
+type MarketKind = "all" | "extensions" | "nativeApps"
 
 /** 数字段比较（与后端 `version_at_least` 同口径）：a &gt; b 返回正数。 */
 export function compareVersions(a: string, b: string): number {
@@ -124,83 +129,133 @@ function ExtensionCard({
 /** P4 market 面板：registry 目录浏览 + 信任披露 + 安装/升级。 */
 export function MarketPanel() {
   const { t } = useTranslation()
+  const [marketKind, setMarketKind] = useState<MarketKind>("all")
   const { marketListing, marketLoading, marketError, busyIds, refreshMarket, prepareInstall } =
     useMarketController()
-
-  if (marketLoading && marketListing === null) {
-    return (
-      <div className="text-muted-foreground rounded border border-dashed p-8 text-center text-sm">
-        {t("extensionCenter.loading")}
-      </div>
-    )
-  }
-  if (marketError) {
-    return (
-      <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        <p>{t("extensionCenter.market.loadFailed")}</p>
-        <p className="mt-1 font-mono text-xs opacity-80">
-          [{marketError.code}] {marketError.message}
-        </p>
-        <Button variant="outline" size="sm" className="mt-2" onClick={() => void refreshMarket()}>
-          {t("extensionCenter.retry")}
-        </Button>
-      </div>
-    )
-  }
-  if (!marketListing || marketListing.extensions.length === 0) {
-    return (
-      <div className="rounded border border-dashed p-8 text-center">
-        <p className="text-sm font-medium">{t("extensionCenter.market.empty")}</p>
-        <Button variant="outline" size="sm" className="mt-3" onClick={() => void refreshMarket()}>
-          {t("extensionCenter.refresh")}
-        </Button>
-      </div>
-    )
-  }
+  const nativeMarket = useNativeAppMarketController()
+  const showExtensions = marketKind !== "nativeApps"
+  const showNativeApps = marketKind !== "extensions"
 
   const revokedById = new Map<string, RevokedHit>(
-    marketListing.revokedHits.map((hit) => [hit.id, hit]),
+    (marketListing?.revokedHits ?? []).map((hit) => [hit.id, hit]),
   )
 
   return (
     <div className="flex flex-col gap-3">
-      {marketListing.revokedHits.length > 0 && (
-        <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-800">
-          <p className="font-semibold">{t("extensionCenter.market.revokedBanner")}</p>
-          <ul className="mt-1 list-inside list-disc text-xs">
-            {marketListing.revokedHits.map((hit) => (
-              <li key={hit.id}>
-                {hit.id} @ {hit.version} — {hit.reason}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {marketListing.extensions.map((entry) => {
-        const hit = revokedById.get(entry.id)
-        const busy = entry.versions.some((version) =>
-          busyIds.includes(`${entry.id}@${version.version}`),
-        )
-        return (
-          <div key={entry.id} className={hit ? "opacity-60" : undefined}>
-            <ExtensionCard
-              entry={entry}
-              t={t}
-              revoked={Boolean(hit)}
-              onInstall={(id, version) => {
-                if (revokedById.has(id)) return
-                void prepareInstall(id, version)
-              }}
-              busy={busy}
-            />
-            {hit && (
-              <p className="mt-1 text-xs text-red-700">
-                {t("extensionCenter.market.revokedNote").replace("{reason}", hit.reason)}
-              </p>
-            )}
+      <div
+        className="flex flex-wrap gap-1"
+        role="group"
+        aria-label={t("extensionCenter.market.typeLabel")}
+      >
+        {(["all", "extensions", "nativeApps"] as const).map((kind) => (
+          <Button
+            key={kind}
+            size="sm"
+            variant={marketKind === kind ? "secondary" : "ghost"}
+            aria-pressed={marketKind === kind}
+            onClick={() => setMarketKind(kind)}
+          >
+            {t(`extensionCenter.market.type.${kind}`)}
+          </Button>
+        ))}
+      </div>
+
+      {showExtensions && (
+        <section className="flex flex-col gap-3" aria-labelledby="extension-market-heading">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="extension-market-heading" className="text-sm font-semibold">
+              {t("extensionCenter.market.type.extensions")}
+            </h2>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={marketLoading}
+              onClick={() => void refreshMarket()}
+            >
+              {marketLoading ? t("extensionCenter.loading") : t("extensionCenter.refresh")}
+            </Button>
           </div>
-        )
-      })}
+
+          {marketError && (
+            <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <p>{t("extensionCenter.market.loadFailed")}</p>
+              <p className="mt-1 font-mono text-xs opacity-80">
+                [{marketError.code}] {marketError.message}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => void refreshMarket()}
+              >
+                {t("extensionCenter.retry")}
+              </Button>
+            </div>
+          )}
+
+          {marketLoading && marketListing === null && !marketError && (
+            <div className="text-muted-foreground rounded border border-dashed p-8 text-center text-sm">
+              {t("extensionCenter.loading")}
+            </div>
+          )}
+
+          {marketListing?.revokedHits.length ? (
+            <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+              <p className="font-semibold">{t("extensionCenter.market.revokedBanner")}</p>
+              <ul className="mt-1 list-inside list-disc text-xs">
+                {marketListing.revokedHits.map((hit) => (
+                  <li key={hit.id}>
+                    {hit.id} @ {hit.version} — {hit.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {marketListing?.extensions.map((entry) => {
+            const hit = revokedById.get(entry.id)
+            const busy = entry.versions.some((version) =>
+              busyIds.includes(`${entry.id}@${version.version}`),
+            )
+            return (
+              <div key={entry.id} className={hit ? "opacity-60" : undefined}>
+                <ExtensionCard
+                  entry={entry}
+                  t={t}
+                  revoked={Boolean(hit)}
+                  onInstall={(id, version) => {
+                    if (revokedById.has(id)) return
+                    void prepareInstall(id, version)
+                  }}
+                  busy={busy}
+                />
+                {hit && (
+                  <p className="mt-1 text-xs text-red-700">
+                    {t("extensionCenter.market.revokedNote").replace("{reason}", hit.reason)}
+                  </p>
+                )}
+              </div>
+            )
+          })}
+
+          {!marketLoading && !marketError && marketListing?.extensions.length === 0 && (
+            <div className="rounded border border-dashed p-6 text-center">
+              <p className="text-sm font-medium">{t("extensionCenter.market.empty")}</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {showNativeApps && (
+        <NativeAppMarketSection
+          apps={nativeMarket.apps}
+          loading={nativeMarket.loading}
+          error={nativeMarket.error}
+          busyIds={nativeMarket.busyIds}
+          refresh={() => void nativeMarket.refresh()}
+          runAction={(appId, action) => nativeMarket.runAction(appId, action)}
+        />
+      )}
     </div>
   )
 }

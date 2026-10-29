@@ -17,6 +17,7 @@ import type {
   HostCapability,
   MarketInstallPreview,
   MarketListing,
+  NativeAppMarketItem,
 } from "@/lib/tauri/types/extension-center"
 import type {
   BrowserExtensionExport,
@@ -228,9 +229,6 @@ export const TAURI_COMMAND_CONTRACTS = {
     { appId: string; installSource: InstallSource },
     OperationResult
   >()("install_app"),
-  install_private_native_tool: defineTauriCommand<{ appId: string }, OperationResult>()(
-    "install_private_native_tool",
-  ),
   cancel_batch_operation: defineTauriCommand<undefined, boolean>()("cancel_batch_operation"),
   check_all_app_updates: defineTauriCommand<{ forceRefresh?: boolean }, UpdateScanReport>()(
     "check_all_app_updates",
@@ -999,6 +997,16 @@ export const TAURI_COMMAND_CONTRACTS = {
     "ext_market_commit",
   ),
   ext_diagnostics: defineTauriCommand<undefined, ExtensionDiagnostics>()("ext_diagnostics"),
+  native_app_market_list: defineTauriCommand<undefined, NativeAppMarketItem[]>()(
+    "native_app_market_list",
+  ),
+  native_app_install: defineTauriCommand<{ appId: string }, OperationResult>()(
+    "native_app_install",
+  ),
+  native_app_uninstall: defineTauriCommand<{ appId: string }, OperationResult>()(
+    "native_app_uninstall",
+  ),
+  native_app_open: defineTauriCommand<{ appId: string }, OperationResult>()("native_app_open"),
   // browser extension export / MCP one-click install（能力出口：bench-host）
   // 返回 null = 用户在原生目录选择器里点了取消（不是错误，调用方不得报失败）。
   browser_ext_export: defineTauriCommand<undefined, BrowserExtensionExport | null>()(
@@ -1072,7 +1080,6 @@ export const TAURI_COMMANDS = {
     batchUpgradeApps: commandName("batch_upgrade_apps"),
     batchUninstallApps: commandName("batch_uninstall_apps"),
     installApp: commandName("install_app"),
-    installPrivateNativeTool: commandName("install_private_native_tool"),
     cancelBatchOperation: commandName("cancel_batch_operation"),
     checkAllAppUpdates: commandName("check_all_app_updates"),
     openInMacAppStore: commandName("open_in_mac_app_store"),
@@ -1393,6 +1400,12 @@ export const TAURI_COMMANDS = {
     marketCommit: commandName("ext_market_commit"),
     diagnostics: commandName("ext_diagnostics"),
   },
+  nativeApps: {
+    marketList: commandName("native_app_market_list"),
+    install: commandName("native_app_install"),
+    uninstall: commandName("native_app_uninstall"),
+    open: commandName("native_app_open"),
+  },
   browserExt: {
     export: commandName("browser_ext_export"),
     status: commandName("browser_ext_status"),
@@ -1447,7 +1460,6 @@ export const TAURI_COMMAND_ARG_KEYS = {
   batch_upgrade_apps: ["appIds"],
   batch_uninstall_apps: ["appIds"],
   install_app: ["appId", "installSource"],
-  install_private_native_tool: ["appId"],
   cancel_batch_operation: [],
   check_all_app_updates: ["forceRefresh"],
   open_in_mac_app_store: ["adamId"],
@@ -1774,6 +1786,10 @@ export const TAURI_COMMAND_ARG_KEYS = {
   ext_market_prepare: ["extensionId", "version"],
   ext_market_commit: ["extensionId", "version"],
   ext_diagnostics: [],
+  native_app_market_list: [],
+  native_app_install: ["appId"],
+  native_app_uninstall: ["appId"],
+  native_app_open: ["appId"],
   browser_ext_export: [],
   browser_ext_status: [],
   browser_ext_open_extensions_page: ["browserId"],

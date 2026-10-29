@@ -321,7 +321,7 @@
 - **宿主能力面**：`src-tauri/src/extension_host/acl.rs` 的 `EXTENSION_ALLOWED_COMMANDS`，deny-by-default。
 - **单插件**：`manifest.acl.commands` 必须是能力面的子集，否则 manifest 校验失败。
 - **运行时**：`acl::guarded` 网关拦截 `ext-` 前缀窗口的命令调用；除宿主诊断和只读能力发现命令外，调用命令必须同时出现在该插件已验证的 ACL 中，越权即拒绝。
-- **私有原生应用安装**：`install_private_native_tool` 仅授予 `app-manager`。插件只能提交固定应用 ID；仓库、CI Artifact、下载地址和应用身份由宿主固定，并在安装前校验当前 `main` 构建来源、Artifact digest、Bundle ID、ad-hoc 签名和架构。此能力不向插件暴露 GitHub 凭据，也不允许任意 URL 或路径。
+- **宿主原生应用**：原生 `.app` 不是 extension，不进入本 ACL。插件窗口不能调用 `native_app_market_list` / `native_app_install` / `native_app_uninstall` / `native_app_open`；这些市场命令只供宿主窗口使用，应用 ID、CI 来源、Artifact digest、Bundle ID、签名和架构均由宿主固定校验。
 - **自助发现**：插件窗口可调用 `ext_capabilities`（宿主 plumbing 命令）读取该插件获准调用的命令清单，在调用前检查能力，无需依赖仓库同目录或试错式调用（见 §9.4）。
 
 > **为什么不能只靠 capability**：Tauri v2 对 `invoke_handler` 注册的自定命令**默认全窗口放行**，capability 只约束 core/plugin 命令。网关是必需的补充。

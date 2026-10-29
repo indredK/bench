@@ -25,9 +25,10 @@ use http::Uri;
 use hyper_util::client::proxy::matcher::{Intercept, Matcher};
 use serde::Serialize;
 use sha2::Digest;
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Manager, Runtime, WebviewWindow};
 use url::Url;
 
+use crate::app_manager::types::OperationResult;
 use crate::error::{AppError, AppResult};
 
 use super::{
@@ -343,6 +344,92 @@ pub async fn ext_market_list(app: AppHandle) -> AppResult<MarketListing> {
         extensions,
         revoked_hits,
     })
+}
+
+/// Host-owned native app catalog. It is local and remains available if the
+/// extension registry cannot be reached.
+#[tauri::command]
+pub async fn native_app_market_list(
+    window: WebviewWindow,
+) -> AppResult<Vec<crate::app_manager::native_apps::NativeAppMarketItem>> {
+    ensure_native_market_host_window(&window)?;
+    tauri::async_runtime::spawn_blocking(crate::app_manager::native_apps::market_list)
+        .await
+        .map_err(|error| AppError::internal(format!("native_app_market_list task: {error}")))
+}
+
+async fn run_native_app_operation(
+    app_id: String,
+    app: AppHandle,
+    operation: fn(&str) -> OperationResult,
+    operation_name: &'static str,
+) -> AppResult<OperationResult> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state: tauri::State<'_, crate::app_manager::state::AppManagerState> = app.state();
+        crate::app_manager::native_apps::run_market_operation(&app_id, operation, &state)
+    })
+    .await
+    .map_err(|error| AppError::internal(format!("{operation_name} task: {error}")))
+}
+
+fn ensure_native_market_host_window(window: &WebviewWindow) -> AppResult<()> {
+    if window.label() != "main" {
+        return Err(AppError::forbidden_path(
+            "原生应用市场命令仅允许 Bench 主窗口调用。",
+        ));
+    }
+    Ok(())
+}
+
+/// Install a fixed private CI app. Renderer input is limited to a catalog ID.
+#[tauri::command]
+pub async fn native_app_install(
+    app_id: String,
+    app: AppHandle,
+    window: WebviewWindow,
+) -> AppResult<OperationResult> {
+    ensure_native_market_host_window(&window)?;
+    run_native_app_operation(
+        app_id,
+        app,
+        crate::app_manager::native_apps::install,
+        "native_app_install",
+    )
+    .await
+}
+
+/// Move a verified Bench-managed app bundle to the user's Trash.
+#[tauri::command]
+pub async fn native_app_uninstall(
+    app_id: String,
+    app: AppHandle,
+    window: WebviewWindow,
+) -> AppResult<OperationResult> {
+    ensure_native_market_host_window(&window)?;
+    run_native_app_operation(
+        app_id,
+        app,
+        crate::app_manager::native_apps::uninstall,
+        "native_app_uninstall",
+    )
+    .await
+}
+
+/// Launch a verified Bench-managed app bundle.
+#[tauri::command]
+pub async fn native_app_open(
+    app_id: String,
+    app: AppHandle,
+    window: WebviewWindow,
+) -> AppResult<OperationResult> {
+    ensure_native_market_host_window(&window)?;
+    run_native_app_operation(
+        app_id,
+        app,
+        crate::app_manager::native_apps::open,
+        "native_app_open",
+    )
+    .await
 }
 
 /// engines 探针（复用 manifest 的 satisfies_engines 逻辑而不构造完整 manifest）。

@@ -104,7 +104,6 @@ pub const EXTENSION_ALLOWED_COMMANDS: &[&str] = &[
     "batch_upgrade_apps",
     "batch_uninstall_apps",
     "install_app",
-    "install_private_native_tool",
     "cancel_batch_operation",
     "check_all_app_updates",
     "open_in_mac_app_store",
@@ -159,14 +158,8 @@ pub fn is_command_allowed(command: &str) -> bool {
     EXTENSION_ALLOWED_COMMANDS.contains(&command)
 }
 
-/// Private native app installation is intentionally scoped to the bundled
-/// App Manager extension; other extensions cannot use it even though the
-/// command is part of the host-level extension allow-list.
 pub fn is_command_allowed_for_extension(extension_id: &str, command: &str) -> bool {
     if !is_command_allowed(command) {
-        return false;
-    }
-    if command == "install_private_native_tool" && extension_id != "app-manager" {
         return false;
     }
     // Host plumbing: the injected diagnostics script and read-only ACL
@@ -353,19 +346,17 @@ mod tests {
     }
 
     #[test]
-    fn private_native_app_install_is_scoped_to_app_manager() {
-        assert!(is_command_allowed("install_private_native_tool"));
-        register_extension_permissions("app-manager", &["install_private_native_tool".to_string()]);
-        register_extension_permissions(
-            "photo-triage",
-            &["install_private_native_tool".to_string()],
-        );
-        assert!(is_command_allowed_for_extension(
-            "app-manager",
-            "install_private_native_tool"
-        ));
-        revoke_extension_permissions("app-manager");
-        revoke_extension_permissions("photo-triage");
+    fn private_native_app_market_commands_are_host_only() {
+        for command in [
+            "native_app_market_list",
+            "native_app_install",
+            "native_app_uninstall",
+            "native_app_open",
+            "install_private_native_tool",
+        ] {
+            assert!(!is_command_allowed(command));
+            assert!(!is_command_allowed_for_extension("app-manager", command));
+        }
     }
 
     #[test]
@@ -389,7 +380,7 @@ mod tests {
         assert!(!is_command_allowed_for_extension("acl-test", "launch_app"));
         assert!(!is_command_allowed_for_extension(
             "photo-triage",
-            "install_private_native_tool"
+            "native_app_install"
         ));
     }
 }
