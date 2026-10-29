@@ -16,6 +16,7 @@ use serde::Serialize;
 use std::io::Read;
 #[cfg(target_os = "macos")]
 use std::path::Path;
+#[cfg(target_os = "macos")]
 use std::path::PathBuf;
 #[cfg(target_os = "macos")]
 use std::process::{Command, Output, Stdio};
