@@ -276,6 +276,7 @@ fn scan_directory_raw(
             break;
         }
         let canonical_dir = fs::canonicalize(&current_dir).unwrap_or(current_dir.clone());
+        #[cfg(target_os = "macos")]
         if crate::app_manager::native_apps::is_managed_apps_dir(&canonical_dir) {
             continue;
         }
