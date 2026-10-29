@@ -106,10 +106,13 @@ pub fn market_list() -> Vec<NativeAppMarketItem> {
 fn market_item(spec: &NativeAppSpec) -> NativeAppMarketItem {
     let mut item = NativeAppMarketItem {
         id: spec.id.to_string(),
-        supported: true,
+        supported: std::env::consts::ARCH == "aarch64",
         installed: false,
         conflict: false,
     };
+    if !item.supported {
+        return item;
+    }
     let Some(target) = managed_apps_dir().map(|dir| dir.join(spec.bundle_name)) else {
         item.conflict = true;
         return item;
@@ -797,7 +800,10 @@ mod market_catalog_tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn marks_native_apps_supported_and_excludes_the_managed_directory_from_inventory() {
-        assert!(market_list().iter().all(|item| item.supported));
+        let expected_supported = std::env::consts::ARCH == "aarch64";
+        assert!(market_list()
+            .iter()
+            .all(|item| item.supported == expected_supported));
         let managed_dir = managed_apps_dir().expect("home directory");
         assert!(is_managed_apps_dir(&managed_dir));
         assert!(!is_managed_apps_dir(&managed_dir.join("nested")));

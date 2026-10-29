@@ -109,6 +109,11 @@ export function NativeAppMarketSection({
                     {t("extensionCenter.nativeApps.pathConflictDescription")}
                   </p>
                 )}
+                {!app.supported && (
+                  <p className="text-muted-foreground text-xs">
+                    {t("extensionCenter.nativeApps.unsupportedDescription")}
+                  </p>
+                )}
 
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {app.installed && (

@@ -43,7 +43,7 @@
 | 区块 | 内容                                                                                                                                         |
 | ---- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | 目录 | 宿主固定目录列出「本地工具箱」和「ABB 开发工具箱」；不读取插件 registry，因此插件源离线时仍可见                                              |
-| 卡片 | 显示名称、简介、私有 CI 来源说明与安装状态；macOS 可安装，Windows 显示不支持状态                                                             |
+| 卡片 | 显示名称、简介、私有 CI 来源说明与安装状态；Apple Silicon Mac 可安装，Intel Mac 与 Windows 显示不支持状态                                    |
 | 安装 | 只提交固定 app ID；宿主从私有 GitHub Actions Artifact 下载，并校验当前 main 成功 CI、run/SHA、GitHub digest、Bundle ID 与 ad-hoc 签名        |
 | 打开 | 安装后可从卡片启动；应用固定安装于 `~/Applications/Bench Apps/`，不进入 App Manager 清单                                                     |
 | 卸载 | `DestructiveConfirmDialog` 二次确认；只移动经 Bundle ID 校验的目标 `.app` 到废纸篓，不删除应用数据                                           |

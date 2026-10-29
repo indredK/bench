@@ -2605,6 +2605,7 @@
       "loadFailed": "Failed to load native apps",
       "empty": "No native apps are available",
       "unsupported": "macOS Apple Silicon only",
+      "unsupportedDescription": "These installers currently target Apple Silicon Macs. Intel Macs and Windows are not supported.",
       "pathConflict": "Install location is occupied",
       "pathConflictDescription": "The Bench-managed location contains an item with a different app identity. Actions are disabled to avoid replacing or moving unrelated files.",
       "sourceDisclosure": "Source: macOS CI artifacts from the private indredK/bench-native-apps repository. Before installation Bench verifies the successful build for the current main commit, GitHub SHA-256, Bundle ID, and ad-hoc signature. GitHub CLI (gh) must be signed in with private repository and Actions read access. Xcode and a paid Apple Developer account are not required. macOS Gatekeeper may still block the app; you decide whether to open it.",

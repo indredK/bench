@@ -2605,6 +2605,7 @@
       "loadFailed": "原生应用列表加载失败",
       "empty": "暂无可用原生应用",
       "unsupported": "仅支持 macOS Apple Silicon",
+      "unsupportedDescription": "当前安装包仅面向 Apple Silicon Mac；Intel Mac 与 Windows 暂不支持。",
       "pathConflict": "安装路径被占用",
       "pathConflictDescription": "Bench 专属安装位置存在身份不匹配的文件。为避免覆盖或移动其他内容，已停用该卡片操作。",
       "sourceDisclosure": "来源：私有仓库 indredK/bench-native-apps 的 macOS CI Artifact。安装前会校验当前 main 的成功构建、GitHub SHA-256、Bundle ID 与 ad-hoc 签名。需要 gh 已登录并有私有仓库与 Actions 读取权限；不需要本机 Xcode 或付费开发者账号。macOS Gatekeeper 仍可能拦截，是否打开由你决定。",
