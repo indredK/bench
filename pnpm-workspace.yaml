@@ -12,9 +12,12 @@ minimumReleaseAgeExclude:
   - lefthook-windows-arm64@2.1.14
   - lefthook-windows-x64@2.1.14
   - lefthook@2.1.14
-  - "@tanstack/react-virtual@3.14.13"
-  - "@tanstack/virtual-core@3.17.11"
-  - lucide-react@1.46.0
+  - '@tanstack/react-virtual@3.14.13 || 3.14.24'
+  - '@tanstack/virtual-core@3.17.11 || 3.19.9'
+  - lucide-react@1.46.0 || 1.64.0
   - zod@4.6.5
   - "@clack/core@1.5.1"
   - "@clack/prompts@1.8.1"
+  - framer-motion@14.8.0
+  - motion-dom@14.8.0
+  - motion@14.8.0
