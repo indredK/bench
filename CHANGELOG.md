@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.41.0](https://github.com/indredK/bench/compare/v1.40.0...v1.41.0) (2026-10-30)
+
+
+### Features
+
+* **ui:** refine compact layouts and custom backgrounds ([9a69c05](https://github.com/indredK/bench/commit/9a69c05e570f5d911fc7b9ebf4bef0f5b9f832df))
+* **ui:** 紧凑布局与可自定义背景 ([d14a8b6](https://github.com/indredK/bench/commit/d14a8b687a42893d595117d6c26544ac63715848))
+
 ## [1.40.0](https://github.com/indredK/bench/compare/v1.39.0...v1.40.0) (2026-10-29)
 
 
