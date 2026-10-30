@@ -39,7 +39,8 @@ fn detected_macos_major() -> Option<u32> {
     if std::env::consts::OS != "macos" {
         return None;
     }
-    sysinfo::System::long_os_version()?
+    sysinfo::System::long_os_version()
+        .ok()?
         .split(|character: char| !character.is_ascii_digit())
         .find(|part| !part.is_empty())?
         .parse()
