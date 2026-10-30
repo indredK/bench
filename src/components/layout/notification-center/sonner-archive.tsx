@@ -11,7 +11,7 @@
  * 非字符串内容（JSX）降级为空并跳过，避免把 React 对象序列化成噪音。
  */
 import { useEffect, useRef } from "react"
-import { useSonner } from "sonner"
+import { toast as sonner, useSonner } from "sonner"
 import { useNotificationCenterStore } from "./store"
 import type { AppNotificationLevel } from "./store"
 
@@ -20,6 +20,12 @@ type SonnerToast = {
   type?: string
   title?: unknown
   description?: unknown
+  action?: unknown
+  cancel?: unknown
+  promise?: unknown
+  onDismiss?: unknown
+  onAutoClose?: unknown
+  duration?: number
 }
 
 function asText(value: unknown): string | null {
@@ -37,16 +43,21 @@ function toLevel(type: SonnerToast["type"]): AppNotificationLevel {
 export function SonnerNotificationArchive() {
   const { toasts } = useSonner()
   const pushNotification = useNotificationCenterStore((s) => s.pushNotification)
-  const archived = useRef(new Set<string>())
+  const archived = useRef(new Map<string, string>())
 
   useEffect(() => {
+    const activeIds = new Set((toasts as SonnerToast[]).map((item) => String(item.id)))
+    for (const id of archived.current.keys()) {
+      if (!activeIds.has(id)) archived.current.delete(id)
+    }
     for (const toast of toasts as SonnerToast[]) {
       const id = String(toast.id)
-      if (archived.current.has(id)) continue
-      archived.current.add(id)
       const title = asText(toast.title)
       const description = asText(toast.description)
       if (title === null && description === null) continue
+      const fingerprint = JSON.stringify([toast.type, title, description])
+      if (archived.current.get(id) === fingerprint) continue
+      archived.current.set(id, fingerprint)
       pushNotification({
         id: `toast:${id}`,
         level: toLevel(toast.type),
@@ -54,6 +65,21 @@ export function SonnerNotificationArchive() {
         descriptionText: description ?? "",
         category: "system",
       })
+      // Only simple, fully archived success/info messages are moved to the bell.
+      // Keep actionable, long-running, callback-bearing and custom-content toasts visible.
+      if (
+        (toast.type === "success" || toast.type === "info") &&
+        title !== null &&
+        (toast.description == null || description !== null) &&
+        !toast.action &&
+        !toast.cancel &&
+        !toast.promise &&
+        !toast.onDismiss &&
+        !toast.onAutoClose &&
+        toast.duration !== Infinity
+      ) {
+        sonner.dismiss(toast.id)
+      }
     }
   }, [toasts, pushNotification])
 

@@ -7,7 +7,8 @@
  *   - top-tab    → nav as a top bar, content below
  *   - bottom-tab → content above, nav as a bottom dock
  */
-import type { ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
+import { useAppearanceBackground } from "@/hooks/useAppearanceBackground"
 import type { NavigationItem } from "@/features/types"
 import type { NavigationLayoutId } from "@/lib/navigationLayout"
 import Sidebar from "./Sidebar"
@@ -29,9 +30,23 @@ export function NavigationShell({
   onPrefs,
   children,
 }: NavigationShellProps) {
+  const background = useAppearanceBackground()
+  const backgroundStyle =
+    background.kind === "default"
+      ? undefined
+      : ({
+          "--bench-custom-background":
+            background.kind === "color" ? background.value : `url("${background.value}")`,
+        } as CSSProperties)
   const content = (
     <div className="bg-background flex flex-1 flex-col overflow-hidden">
-      <div className="flex-1 overflow-hidden p-4">{children}</div>
+      <div
+        className="bench-content-surface flex-1 overflow-hidden p-3"
+        data-custom-background={background.kind === "default" ? undefined : background.kind}
+        style={backgroundStyle}
+      >
+        {children}
+      </div>
     </div>
   )
 

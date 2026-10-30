@@ -33,15 +33,15 @@ tauri-build = { version = "2", features = [] }
 bench-capabilities = { path = "crates/bench-capabilities", version = "0.1.0" }
 tauri = { version = "2", features = ["protocol-asset", "macos-private-api", "tray-icon", "macos-proxy", "image-png"] }
 tauri-plugin-dialog = "2"
-tauri-plugin-shell = "=2.3.6"
+tauri-plugin-shell = "=2.6.0"
 tauri-plugin-store = "2"
 tauri-plugin-clipboard-manager = "2"
-tauri-plugin-deep-link = "=2.6.2"
+tauri-plugin-deep-link = "=2.6.3"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
-tauri-plugin-notification = "=2.7.0"
+tauri-plugin-notification = "=2.8.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sysinfo = "0.39"
+sysinfo = "0.40"
 walkdir = "2"
 chrono = "0.4"
 cookie = "0.18"
@@ -78,10 +78,10 @@ uuid = { version = "1", features = ["v4"] }
 url = "2"
 zeroize = "1"
 if-addrs = "0.15"
-surge-ping = "0.9.0"
-hickory-resolver = "0.26.1"
+surge-ping = "0.9.1"
+hickory-resolver = "0.26.3"
 trippy-core = "0.13.0"
-rtc-stun = { version = "0.21.0", default-features = false, features = ["crypto-ring"] }
+rtc-stun = { version = "0.21.1", default-features = false, features = ["crypto-ring"] }
 
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 # The published updater 2.14.0 still pulls vulnerable zip 4; pin the official v2 source
@@ -106,7 +106,7 @@ objc2-app-kit = "=0.3.2"
 objc2-web-kit = "=0.3.2"
 # 遍历 webview 子视图树所需（NSArray<NSView> 的正确编码，避免裸指针编码校验 panic）。
 objc2-foundation = "=0.3.2"
-rusqlite = { version = "0.40.2", features = ["bundled"] }
+rusqlite = { version = "0.41.1", features = ["bundled"] }
 pbkdf2 = "0.13.0"
 aes = "0.9.3"
 cbc = { version = "0.2.1", features = ["alloc", "block-padding"] }

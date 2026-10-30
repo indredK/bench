@@ -533,14 +533,14 @@ export default function DevToolbox(_props: DevToolboxProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 gap-1 overflow-x-auto border-b px-4">
+      <div className="-mx-3 flex h-12 shrink-0 gap-1 overflow-x-auto border-b px-3">
         {tabs.map(({ id, labelKey, icon: Icon }) => (
           <Button
             key={id}
             variant="ghost"
             onClick={() => setActiveTab(id)}
             className={cn(
-              "-mb-[1px] flex items-center gap-1.5 rounded-none border-b-2 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors",
+              "-mb-[1px] flex h-full shrink-0 items-center gap-1.5 rounded-none border-b-2 px-3 text-xs font-medium whitespace-nowrap transition-colors",
               activeTab === id
                 ? "border-primary text-primary"
                 : "text-muted-foreground hover:text-foreground hover:border-border border-transparent",

@@ -30,6 +30,13 @@ import { useWindowTheme } from "@/hooks/useWindowTheme"
 import { WINDOW_THEMES } from "@/lib/windowTheme"
 import { NAVIGATION_LAYOUTS } from "@/lib/navigationLayout"
 import { useNavigationLayout } from "@/hooks/useNavigationLayout"
+import { useAppearanceBackground } from "@/hooks/useAppearanceBackground"
+import {
+  DEFAULT_BACKGROUND,
+  MAX_BACKGROUND_BYTES,
+  saveBackground,
+  type AppearanceBackground,
+} from "@/lib/appearanceBackground"
 import { getAutostartStatus, setAutostart } from "@/lib/tauri/commands/system-settings"
 import { setTrayLabels } from "@/lib/tauri/commands"
 import { getCloseBehavior, setCloseBehavior } from "@/lib/tauri/commands/app-preferences"
@@ -85,6 +92,45 @@ export function SettingsDialog({
   const currentTheme = (theme as ThemeMode) || "system"
   const { themeId: windowThemeId, setThemeId: setWindowThemeId, isSupported } = useWindowTheme()
   const navLayout = useNavigationLayout()
+  const background = useAppearanceBackground()
+  const [backgroundError, setBackgroundError] = useState("")
+  const backgroundInputRef = useRef<HTMLInputElement>(null)
+  const backgroundRequestRef = useRef(0)
+
+  const changeBackground = (value: AppearanceBackground) => {
+    backgroundRequestRef.current += 1
+    setBackgroundError(saveBackground(value) ? "" : t("appearanceBackground.saveError"))
+  }
+
+  const selectBackgroundImage = (file: File | undefined) => {
+    if (!file) return
+    const request = ++backgroundRequestRef.current
+    if (
+      !["image/png", "image/jpeg", "image/webp"].includes(file.type) ||
+      file.size > MAX_BACKGROUND_BYTES
+    ) {
+      setBackgroundError(t("appearanceBackground.invalidImage"))
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (request !== backgroundRequestRef.current) return
+      if (typeof reader.result !== "string") {
+        setBackgroundError(t("appearanceBackground.readError"))
+        return
+      }
+      setBackgroundError(
+        saveBackground({ kind: "image", value: reader.result })
+          ? ""
+          : t("appearanceBackground.saveError"),
+      )
+    }
+    reader.onerror = () => {
+      if (request === backgroundRequestRef.current)
+        setBackgroundError(t("appearanceBackground.readError"))
+    }
+    reader.readAsDataURL(file)
+  }
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("general")
 
@@ -401,6 +447,61 @@ export function SettingsDialog({
                         )
                       })}
                     </div>
+                  </div>
+
+                  <div className="border-border border-t" />
+
+                  {/* Background */}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <label htmlFor="background-color" className="text-sm font-medium">
+                        {t("appearanceBackground.label")}
+                      </label>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Button
+                          variant={background.kind === "default" ? "default" : "outline"}
+                          size="xs"
+                          onClick={() => changeBackground(DEFAULT_BACKGROUND)}
+                        >
+                          {t("appearanceBackground.default")}
+                        </Button>
+                        <input
+                          id="background-color"
+                          type="color"
+                          value={background.kind === "color" ? background.value : "#3b8791"}
+                          onChange={(event) =>
+                            changeBackground({ kind: "color", value: event.target.value })
+                          }
+                          className="border-input h-7 w-9 cursor-pointer rounded border bg-transparent p-0.5"
+                          aria-label={t("appearanceBackground.color")}
+                        />
+                        <input
+                          ref={backgroundInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          hidden
+                          onChange={(event) => {
+                            selectBackgroundImage(event.target.files?.[0])
+                            event.target.value = ""
+                          }}
+                        />
+                        <Button
+                          variant={background.kind === "image" ? "default" : "outline"}
+                          size="xs"
+                          onClick={() => backgroundInputRef.current?.click()}
+                        >
+                          {t("appearanceBackground.image")}
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      {t("appearanceBackground.hint")}
+                    </p>
+                    {backgroundError && (
+                      <p role="alert" className="text-destructive text-xs">
+                        {backgroundError}
+                      </p>
+                    )}
                   </div>
 
                   <div className="border-border border-t" />

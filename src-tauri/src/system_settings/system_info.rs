@@ -27,11 +27,19 @@ pub fn get_system_info() -> SystemInfo {
 }
 
 fn collect_system_info() -> SystemInfo {
-    let mut sys = System::new_all();
-    sys.refresh_all();
+    let mut sys = System::new_all().ok();
+    if let Some(sys) = sys.as_mut() {
+        sys.refresh_all();
+    }
 
-    let total_memory = sys.total_memory();
-    let available_memory = sys.available_memory();
+    let total_memory = sys
+        .as_ref()
+        .map(|sys| sys.total_memory())
+        .unwrap_or_default();
+    let available_memory = sys
+        .as_ref()
+        .map(|sys| sys.available_memory())
+        .unwrap_or_default();
     let used_memory = total_memory.saturating_sub(available_memory);
     let memory_usage_percent = if total_memory > 0 {
         ((used_memory as f64 / total_memory as f64) * 100.0).clamp(0.0, 100.0) as f32
@@ -40,21 +48,24 @@ fn collect_system_info() -> SystemInfo {
     };
 
     SystemInfo {
-        os_name: System::name().unwrap_or_else(|| "Unknown".to_string()),
-        os_version: System::long_os_version().unwrap_or_else(|| "Unknown".to_string()),
-        kernel_version: System::kernel_version().unwrap_or_else(|| "Unknown".to_string()),
-        hostname: System::host_name().unwrap_or_else(|| "Unknown".to_string()),
+        os_name: System::name().unwrap_or_else(|_| "Unknown".to_string()),
+        os_version: System::long_os_version().unwrap_or_else(|_| "Unknown".to_string()),
+        kernel_version: System::kernel_version().unwrap_or_else(|_| "Unknown".to_string()),
+        hostname: System::host_name().unwrap_or_else(|_| "Unknown".to_string()),
         cpu_brand: sys
-            .cpus()
-            .first()
+            .as_ref()
+            .and_then(|sys| sys.cpus().first())
             .map(|cpu| cpu.brand().to_string())
             .unwrap_or_else(|| "Unknown".to_string()),
-        cpu_cores: sys.cpus().len() as u32,
+        cpu_cores: sys
+            .as_ref()
+            .map(|sys| sys.cpus().len() as u32)
+            .unwrap_or_default(),
         total_memory,
         available_memory,
         used_memory,
         memory_usage_percent,
-        uptime_seconds: System::uptime(),
+        uptime_seconds: System::uptime().unwrap_or_default(),
         arch: std::env::consts::ARCH.to_string(),
         model_name: detect_model_name(),
         distribution: detect_distribution(),

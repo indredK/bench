@@ -6,6 +6,8 @@ import type { StationAccount } from "@/lib/tauri/types/account-manager"
 
 const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight")
 const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth")
+const originalClientHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight")
+const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth")
 
 afterEach(() => {
   if (originalOffsetHeight) {
@@ -17,6 +19,16 @@ afterEach(() => {
     Object.defineProperty(HTMLElement.prototype, "offsetWidth", originalOffsetWidth)
   } else {
     Reflect.deleteProperty(HTMLElement.prototype, "offsetWidth")
+  }
+  if (originalClientHeight) {
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", originalClientHeight)
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, "clientHeight")
+  }
+  if (originalClientWidth) {
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", originalClientWidth)
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, "clientWidth")
   }
 })
 
@@ -46,6 +58,14 @@ describe("VirtualAccountList", () => {
       get: () => 600,
     })
     Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+      configurable: true,
+      get: () => 480,
+    })
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+      configurable: true,
+      get: () => 600,
+    })
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", {
       configurable: true,
       get: () => 480,
     })

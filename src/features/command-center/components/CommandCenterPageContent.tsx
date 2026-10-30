@@ -343,13 +343,15 @@ export function CommandCenterPageContent({
   const activeCard = activeId ? (cards.find((c) => c.id === activeId) ?? null) : null
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">{t("commandCenter.title")}</h1>
-          <p className="text-muted-foreground text-sm">{t("commandCenter.subtitle")}</p>
+    <div className="h-full space-y-3 overflow-y-auto">
+      <div className="flex h-12 items-center justify-between gap-2 border-b">
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-base font-semibold">{t("commandCenter.title")}</h1>
+          <p className="text-muted-foreground truncate text-xs" title={t("commandCenter.subtitle")}>
+            {t("commandCenter.subtitle")}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Button variant="outline" size="sm" onClick={onImport} disabled={ioBusy !== null}>
             {ioBusy === "import" ? (
               <Loader2 size={16} className="animate-spin" />
@@ -370,7 +372,7 @@ export function CommandCenterPageContent({
             )}
             {t("commandCenter.io.export")}
           </Button>
-          <Button onClick={onAdd}>
+          <Button size="sm" onClick={onAdd}>
             <Plus size={16} />
             {t("commandCenter.addCard")}
           </Button>
@@ -397,7 +399,7 @@ export function CommandCenterPageContent({
           {t("common.loading")}
         </div>
       ) : cards.length === 0 ? (
-        <div className="border-border text-muted-foreground flex flex-col items-center gap-3 rounded-xl border border-dashed py-16 text-center">
+        <div className="border-border text-muted-foreground flex flex-col items-center gap-3 rounded-xl border border-dashed py-10 text-center">
           <Terminal size={32} className="opacity-40" />
           <p className="text-sm">{t("commandCenter.empty")}</p>
           <Button variant="outline" size="sm" onClick={onAdd}>

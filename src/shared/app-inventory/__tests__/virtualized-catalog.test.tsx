@@ -20,6 +20,8 @@ interface Row {
 
 const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight")
 const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth")
+const originalClientHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight")
+const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth")
 
 afterEach(() => {
   if (originalOffsetHeight) {
@@ -27,6 +29,12 @@ afterEach(() => {
   }
   if (originalOffsetWidth) {
     Object.defineProperty(HTMLElement.prototype, "offsetWidth", originalOffsetWidth)
+  }
+  if (originalClientHeight) {
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", originalClientHeight)
+  }
+  if (originalClientWidth) {
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", originalClientWidth)
   }
 })
 
@@ -36,6 +44,14 @@ function mockViewport(height = 600) {
     get: () => height,
   })
   Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    get: () => 1280,
+  })
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+    configurable: true,
+    get: () => height,
+  })
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", {
     configurable: true,
     get: () => 1280,
   })

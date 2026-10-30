@@ -200,11 +200,16 @@ export default function ExtensionCenterPage() {
   ]
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-auto p-6">
-      <header className="flex items-start justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">{t("extensionCenter.title")}</h1>
-          <p className="text-muted-foreground text-sm">{t("extensionCenter.subtitle")}</p>
+    <div className="flex h-full flex-col gap-2 overflow-auto">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b">
+        <div className="min-w-0">
+          <h1 className="truncate text-base font-semibold">{t("extensionCenter.title")}</h1>
+          <p
+            className="text-muted-foreground truncate text-xs"
+            title={t("extensionCenter.subtitle")}
+          >
+            {t("extensionCenter.subtitle")}
+          </p>
         </div>
         {tab === "installed" && (
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>

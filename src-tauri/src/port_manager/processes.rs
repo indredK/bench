@@ -17,7 +17,21 @@ pub mod error_codes {
 }
 
 pub(super) fn query_port_processes(ports: Vec<u16>) -> Vec<PortProcessDetail> {
-    let all_processes = get_all_processes();
+    let all_processes = match get_all_processes() {
+        Ok(processes) => processes,
+        Err(error) => {
+            return ports
+                .into_iter()
+                .map(|port| PortProcessDetail {
+                    port,
+                    pids: vec![],
+                    process_trees: vec![],
+                    fingerprint: None,
+                    error: Some(format!("Failed to query processes: {error}")),
+                })
+                .collect();
+        }
+    };
     let children_by_parent = build_children_index(&all_processes);
 
     ports
@@ -67,7 +81,20 @@ pub(super) fn query_port_processes(ports: Vec<u16>) -> Vec<PortProcessDetail> {
 }
 
 pub(super) fn kill_processes(targets: Vec<KillTarget>) -> Vec<KillPidResult> {
-    let all_processes = get_all_processes();
+    let all_processes = match get_all_processes() {
+        Ok(processes) => processes,
+        Err(error) => {
+            return targets
+                .into_iter()
+                .map(|target| KillPidResult {
+                    pid: target.pid,
+                    success: false,
+                    message: format!("Unable to verify process identity: {error}"),
+                    error_code: None,
+                })
+                .collect();
+        }
+    };
     targets
         .into_iter()
         .map(|target| kill_one(target, &all_processes))
@@ -357,10 +384,11 @@ fn is_listening_foreign(foreign: &str) -> bool {
     foreign == "0.0.0.0:0" || foreign == "[::]:0" || foreign == "*:*" || foreign.ends_with(":*")
 }
 
-fn get_all_processes() -> ProcessSnapshot {
-    let mut sys = System::new_all();
+fn get_all_processes() -> Result<ProcessSnapshot, String> {
+    let mut sys = System::new_all().map_err(|error| error.to_string())?;
     sys.refresh_all();
-    sys.processes()
+    Ok(sys
+        .processes()
         .iter()
         .map(|(pid, p)| {
             let ppid = p.parent().map(|p| p.as_u32()).unwrap_or(0);
@@ -373,7 +401,7 @@ fn get_all_processes() -> ProcessSnapshot {
                 .join(" ");
             (pid.as_u32(), (ppid, name, cmd))
         })
-        .collect()
+        .collect())
 }
 
 #[cfg(test)]

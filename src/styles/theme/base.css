@@ -114,3 +114,24 @@
     font-family: var(--font-sans);
   }
 }
+
+/* Keep text readable on user-selected colors and images. */
+.bench-content-surface[data-custom-background="color"] {
+  background-color: var(--bench-custom-background);
+}
+.bench-content-surface[data-custom-background] {
+  background-image: linear-gradient(rgb(255 255 255 / 82%), rgb(255 255 255 / 82%));
+}
+.bench-content-surface[data-custom-background="image"] {
+  background-image:
+    linear-gradient(rgb(255 255 255 / 82%), rgb(255 255 255 / 82%)), var(--bench-custom-background);
+  background-position: center;
+  background-size: cover;
+}
+.dark .bench-content-surface[data-custom-background] {
+  background-image: linear-gradient(rgb(15 19 27 / 82%), rgb(15 19 27 / 82%));
+}
+.dark .bench-content-surface[data-custom-background="image"] {
+  background-image:
+    linear-gradient(rgb(15 19 27 / 82%), rgb(15 19 27 / 82%)), var(--bench-custom-background);
+}

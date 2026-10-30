@@ -23,7 +23,7 @@ export function ColumnHeader({
   titleId?: string
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+    <div className="flex h-[47px] shrink-0 items-center justify-between gap-3 border-b px-3">
       <h2 id={titleId} className="text-sm font-semibold whitespace-nowrap">
         {title}
       </h2>

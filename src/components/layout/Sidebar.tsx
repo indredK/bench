@@ -31,9 +31,9 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
   const { reduce } = useReducedMotionProps()
 
   return (
-    <div className="border-border bg-background text-foreground flex w-[200px] shrink-0 flex-col border-r select-none">
+    <div className="border-border bg-background text-foreground flex w-[184px] shrink-0 flex-col border-r select-none">
       {/* Smaller header */}
-      <div className="border-border border-b px-4 pt-4 pb-3 text-center">
+      <div className="border-border flex h-[60px] shrink-0 flex-col justify-center border-b px-3 text-center">
         <h1
           className="cursor-default text-lg font-bold tracking-tight tabular-nums"
           onMouseEnter={scrambleTitle}
@@ -59,7 +59,7 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
               key={item.path}
               href={item.path}
               className={cn(
-                "mr-2 ml-6 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm leading-relaxed transition",
+                "mx-2 flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm leading-normal transition",
                 isActive
                   ? "bg-primary/10 text-primary font-medium"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
@@ -84,7 +84,7 @@ function Sidebar({ items, configItems, onPrefs }: SidebarProps) {
               key={item.path}
               href={item.path}
               className={cn(
-                "mr-2 ml-6 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm leading-relaxed transition",
+                "mx-2 flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm leading-normal transition",
                 isActive
                   ? "bg-primary/10 text-primary font-medium"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
