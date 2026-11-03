@@ -450,3 +450,5 @@ export function useNetworkProbeController() {
     resetDefaults,
   }
 }
+
+export type NetworkProbeController = ReturnType<typeof useNetworkProbeController>

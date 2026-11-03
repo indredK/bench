@@ -1,7 +1,7 @@
 /**
  * Feature UI / 功能界面: integrated six-section basic network dashboard.
  */
-import { useRef } from "react"
+import { useState } from "react"
 import type { ComponentProps, ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
@@ -69,44 +69,41 @@ const SECTIONS: { id: SectionId; titleKey: string }[] = [
 
 export function BasicView({ overview, health, offline, fix, report }: BasicViewProps) {
   const { t } = useTranslation()
-  const sectionRefs = useRef<Partial<Record<SectionId, HTMLElement | null>>>({})
+  // 六个小节一次只显示一个：原来是一整页纵向堆叠 + 锚点滚动，要滚两三屏才看完。
+  const [active, setActive] = useState<SectionId>("overview")
 
-  const scrollTo = (id: SectionId) => {
-    const section = sectionRefs.current[id]
-    if (!section) return
-    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false
-    section.scrollIntoView?.({ behavior: reduceMotion ? "auto" : "smooth", block: "start" })
-  }
-
-  const section = (id: SectionId, children: ReactNode) => (
-    <section
-      key={id}
-      id={`network-probe-basic-${id}`}
-      ref={(element) => {
-        sectionRefs.current[id] = element
-      }}
-      aria-labelledby={`network-probe-basic-${id}-title`}
-      className="bg-card/30 min-w-0 scroll-mt-3 space-y-3 rounded-lg border p-3"
-    >
-      <h3 id={`network-probe-basic-${id}-title`} className="text-sm font-semibold">
-        {t(`networkProbe.l2.${id}`)}
-      </h3>
-      {children}
-    </section>
-  )
+  const section = (id: SectionId, children: ReactNode) =>
+    active === id ? (
+      <section
+        key={id}
+        id={`network-probe-basic-${id}`}
+        role="tabpanel"
+        aria-labelledby={`network-probe-basic-${id}-tab`}
+        className="bg-card/30 min-w-0 space-y-3 rounded-lg border p-3"
+      >
+        {children}
+      </section>
+    ) : null
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <nav className="flex shrink-0 flex-wrap gap-1.5 pb-2" aria-label={t("networkProbe.nav.l2")}>
+      <nav
+        className="flex shrink-0 flex-wrap gap-1.5 pb-2"
+        role="tablist"
+        aria-label={t("networkProbe.nav.l2")}
+      >
         {SECTIONS.map(({ id, titleKey }) => (
           <Button
             key={id}
+            id={`network-probe-basic-${id}-tab`}
             type="button"
-            variant="outline"
+            role="tab"
+            aria-selected={active === id}
+            variant={active === id ? "secondary" : "outline"}
             size="sm"
             className="h-7 px-2.5 text-xs"
             aria-controls={`network-probe-basic-${id}`}
-            onClick={() => scrollTo(id)}
+            onClick={() => setActive(id)}
           >
             {t(titleKey)}
           </Button>
@@ -123,7 +120,7 @@ export function BasicView({ overview, health, offline, fix, report }: BasicViewP
           {section("tree", <HealthTreePanel {...health} embedded />)}
           {section(
             "opinion",
-            <ScanOpinionPanel result={health.result} onGoTree={() => scrollTo("tree")} embedded />,
+            <ScanOpinionPanel result={health.result} onGoTree={() => setActive("tree")} embedded />,
           )}
           {section(
             "offline",
@@ -188,7 +185,7 @@ export function BasicView({ overview, health, offline, fix, report }: BasicViewP
           {section("fix", <FixPanel {...fix} embedded />)}
           {section(
             "report",
-            <ReportPanel {...report} onGoTree={() => scrollTo("tree")} embedded />,
+            <ReportPanel {...report} onGoTree={() => setActive("tree")} embedded />,
           )}
         </div>
       </ScrollableArea>
