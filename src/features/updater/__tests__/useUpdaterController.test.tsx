@@ -315,15 +315,17 @@ describe("useUpdaterController", () => {
     })
   })
 
-  it("blocks closeDialog while downloading", async () => {
-    useUpdaterStore.setState({ open: true, status: "downloading" })
+  it("closeDialog hides the dialog while downloading without interrupting the download", async () => {
+    useUpdaterStore.setState({ open: true, status: "downloading", downloadedBytes: 10 })
 
     const { result } = renderHook(() => useUpdaterController())
     act(() => {
       result.current.closeDialog()
     })
 
-    expect(useUpdaterStore.getState().open).toBe(true)
+    expect(useUpdaterStore.getState().open).toBe(false)
+    expect(useUpdaterStore.getState().status).toBe("downloading")
+    expect(useUpdaterStore.getState().downloadedBytes).toBe(10)
   })
 
   it("blocks dismissDialog while installing", async () => {

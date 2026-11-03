@@ -7,6 +7,9 @@ use tauri_plugin_updater::{Update, Updater, UpdaterExt};
 
 use crate::error::{AppError, AppResult};
 
+/// 下载进度事件的最小间隔。
+const PROGRESS_EMIT_INTERVAL: std::time::Duration = std::time::Duration::from_millis(80);
+
 #[derive(Clone, Copy)]
 enum UpdaterOperation {
     Check,
@@ -232,6 +235,7 @@ pub async fn download_and_install_app_update<R: Runtime>(
     let finished_handle: AppHandle<R> = app.clone();
     let mut download_started = false;
     let mut downloaded_bytes: u64 = 0;
+    let mut last_emit: Option<std::time::Instant> = None;
     let cancel_signal = cache.cancel_signal();
 
     let outcome = {
@@ -253,6 +257,14 @@ pub async fn download_and_install_app_update<R: Runtime>(
                     None => raw,
                 };
 
+                // 每个网络块都 emit 会在快网络下每秒上千条 IPC，拖慢渲染；
+                // 节流到 ~12 次/秒，但下载完成（达到总长度）那一条必发，保证进度条走到 100%。
+                let finished_chunk = content_length.is_some_and(|total| downloaded_bytes >= total);
+                let due = last_emit.is_none_or(|at| at.elapsed() >= PROGRESS_EMIT_INTERVAL);
+                if !(due || finished_chunk) {
+                    return;
+                }
+                last_emit = Some(std::time::Instant::now());
                 let _ = progress_handle.emit(
                     APP_UPDATER_DOWNLOAD_EVENT,
                     AppUpdateDownloadEvent::Progress {

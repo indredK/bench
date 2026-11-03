@@ -18,6 +18,7 @@ import { AboutDialog } from "@/components/common/AboutDialog"
 import { CloseBehaviorDialog } from "@/components/common/CloseBehaviorDialog"
 import { SettingsDialog } from "@/components/common/SettingsDialog"
 import { UpdateDialog } from "@/components/common/UpdateDialog"
+import { UpdateStatusChip } from "@/components/common/UpdateStatusChip"
 import { useNotificationCenterStore } from "@/components/layout/notification-center/store"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useReducedMotionProps } from "@/lib/motion-utils"
@@ -279,6 +280,7 @@ function App() {
       <CloseBehaviorDialog open={closeBehaviorOpen} onOpenChange={setCloseBehaviorOpen} />
 
       <UpdateDialog {...updater} />
+      <UpdateStatusChip {...updater} />
     </>
   )
 }

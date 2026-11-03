@@ -26,17 +26,15 @@ import { ScrollableArea } from "@/components/common/ScrollableArea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { cn } from "@/lib/utils"
+import {
+  etaSeconds,
+  formatBytes,
+  formatEta,
+  formatSpeed,
+  percentOf,
+} from "@/features/updater/services/download-progress"
 
 const MAX_RELEASE_NOTES_LENGTH = 20_000
-
-function formatBytes(bytes: number): string {
-  // Guard against NaN / Infinity / negative — otherwise `${NaN} GB` would render.
-  if (!Number.isFinite(bytes) || bytes < 0) return "—"
-  if (bytes < 1024) return `${Math.round(bytes)} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
-}
 
 function formatDate(value: string) {
   const date = new Date(value)
@@ -300,7 +298,7 @@ type UpdateDialogProps = Pick<
   | "restartNow"
   | "closeDialog"
   | "dismissDialog"
->
+> & { speedBytesPerSec?: number | null }
 
 export function UpdateDialog({
   open,
@@ -311,6 +309,7 @@ export function UpdateDialog({
   errorInfo,
   downloadedBytes,
   totalBytes,
+  speedBytesPerSec = null,
   lastCheckedAt,
   checkUpdates,
   downloadAndInstall,
@@ -326,14 +325,14 @@ export function UpdateDialog({
   const latestVersion = updateInfo?.version ?? null
   const publishedAt = updateInfo?.date ?? null
   const releaseNotes = updateInfo?.body?.trim().slice(0, MAX_RELEASE_NOTES_LENGTH) || ""
-  const progressPercent =
-    totalBytes && totalBytes > 0
-      ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 100))
-      : null
+  const progressPercent = percentOf(downloadedBytes, totalBytes)
+  const speedLabel = formatSpeed(speedBytesPerSec)
+  const etaLabel = formatEta(etaSeconds(downloadedBytes, totalBytes, speedBytesPerSec))
   const checking = status === "checking"
   const busy = status === "downloading" || status === "cancelling" || status === "installing"
   const canInstall = status === "available"
   const canRestart = status === "readyToRestart"
+  const showProgress = busy || canRestart || (status === "installFailed" && downloadedBytes > 0)
   const retryAction = errorInfo?.retryAction ?? null
   const hasKnownLatestVersion = Boolean(latestVersion)
   const errorCopy = getErrorCopy(t, errorInfo)
@@ -487,7 +486,7 @@ export function UpdateDialog({
                   </span>
                 </div>
               )}
-              {downloadedBytes > 0 && (
+              {downloadedBytes > 0 && !showProgress && (
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-muted-foreground">{t("updater.downloadedSize")}</span>
                   <span className="min-w-0 text-right font-mono [overflow-wrap:anywhere]">
@@ -516,28 +515,43 @@ export function UpdateDialog({
               </Collapsible>
             )}
 
-            {(busy || canRestart) && (
-              <div className="space-y-2">
-                <div className="bg-muted h-2 overflow-hidden rounded-full">
-                  {progressPercent === null && !canRestart ? (
+            {showProgress && (
+              <div className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-sm font-medium">
+                    {status === "installing"
+                      ? t("updater.installing")
+                      : canRestart
+                        ? t("updater.progressDone")
+                        : t("updater.downloading")}
+                  </span>
+                  {(progressPercent !== null || canRestart) && (
+                    <span className="font-mono text-lg leading-none font-semibold tabular-nums">
+                      {canRestart ? 100 : progressPercent}%
+                    </span>
+                  )}
+                </div>
+                <div className="bg-muted h-2.5 overflow-hidden rounded-full">
+                  {(progressPercent === null && !canRestart) || status === "installing" ? (
                     <div
                       className="bg-primary h-full w-1/3 rounded-full motion-safe:animate-pulse"
                       data-progress="indeterminate"
                     />
                   ) : (
                     <div
-                      className="bg-primary h-full rounded-full transition-[width]"
-                      style={{ width: `${progressPercent ?? 100}%` }}
+                      className="bg-primary h-full rounded-full transition-[width] duration-150"
+                      style={{ width: `${canRestart ? 100 : (progressPercent ?? 0)}%` }}
                       role="progressbar"
+                      aria-label={t("updater.downloading")}
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      aria-valuenow={progressPercent ?? 100}
+                      aria-valuenow={canRestart ? 100 : (progressPercent ?? 0)}
                       data-progress="determinate"
                     />
                   )}
                 </div>
-                <div className="text-muted-foreground flex items-center justify-between gap-3 text-xs">
-                  <span className="min-w-0 [overflow-wrap:anywhere]">
+                <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs">
+                  <span className="min-w-0 font-mono [overflow-wrap:anywhere]">
                     {status === "downloading" || status === "cancelling"
                       ? t("updater.progressLabel", {
                           downloaded: formatBytes(downloadedBytes),
@@ -547,10 +561,17 @@ export function UpdateDialog({
                         ? t("updater.updatedSize", { size: formatBytes(downloadedBytes) })
                         : t("updater.progressDone")}
                   </span>
-                  {(progressPercent !== null || canRestart) && (
-                    <span className="shrink-0">{progressPercent ?? 100}%</span>
+                  {status === "downloading" && (speedLabel || etaLabel) && (
+                    <span className="shrink-0 font-mono">
+                      {[speedLabel, etaLabel ? t("updater.eta", { time: etaLabel }) : null]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
                   )}
                 </div>
+                {busy && (
+                  <p className="text-muted-foreground text-xs">{t("updater.backgroundHint")}</p>
+                )}
               </div>
             )}
 
@@ -568,9 +589,15 @@ export function UpdateDialog({
         </ScrollableArea>
 
         <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="outline" onClick={dismissDialog} disabled={busy}>
-            {canRestart ? t("updater.later") : t("updater.close")}
-          </Button>
+          {busy ? (
+            <Button variant="outline" onClick={closeDialog}>
+              {t("updater.continueInBackground")}
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={dismissDialog}>
+              {canRestart ? t("updater.later") : t("updater.close")}
+            </Button>
+          )}
 
           {status === "downloading" && (
             <Button variant="outline" onClick={() => void cancelDownload()}>
