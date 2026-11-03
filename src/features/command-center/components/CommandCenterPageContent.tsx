@@ -25,18 +25,16 @@ import {
 } from "@dnd-kit/core"
 import { SortableContext, rectSortingStrategy, useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, Terminal, Trash2, Store } from "lucide-react"
+import { ArrowUpCircle, GripVertical, Terminal, Trash2, Store } from "lucide-react"
 import {
   CheckCircle2,
   Copy,
-  Download,
   ExternalLink,
   Loader2,
   Pencil,
   Play,
   Plus,
   ShieldAlert,
-  Upload,
   XCircle,
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -86,6 +84,7 @@ function CommandCardTile({
   onExpand,
   onTerminate,
   peekable,
+  updatable,
   dragDisabled,
 }: {
   card: CommandCard
@@ -96,6 +95,7 @@ function CommandCardTile({
   onExpand: (card: CommandCard) => void
   onTerminate: () => void
   peekable: boolean
+  updatable: boolean
   dragDisabled?: boolean
 }) {
   const { t } = useTranslation()
@@ -158,13 +158,17 @@ function CommandCardTile({
               <span className="truncate">{card.title}</span>
               {card.market && (
                 <span
-                  title={t("commandCenter.market.badgeTitle", {
-                    version: card.market.version,
-                  })}
+                  title={t(
+                    updatable
+                      ? "commandCenter.market.badgeTitleUpdatable"
+                      : "commandCenter.market.badgeTitle",
+                    { version: card.market.version },
+                  )}
                   className="inline-flex shrink-0 items-center gap-0.5 rounded border border-blue-200 bg-blue-50 px-1 py-px text-[10px] font-normal text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300"
                 >
                   <Store size={9} />
                   {card.market.version}
+                  {updatable ? <ArrowUpCircle size={9} aria-hidden /> : null}
                 </span>
               )}
             </h3>
@@ -291,13 +295,10 @@ export function CommandCenterPageContent({
   onDelete,
   onExpand,
   onTerminate,
-  onExport,
-  onImport,
-  onOpenMarket,
-  ioBusy,
   onReorder,
   onDismissError,
   hasResult,
+  updatableIds,
 }: {
   cards: CommandCard[]
   loading: boolean
@@ -309,13 +310,11 @@ export function CommandCenterPageContent({
   onDelete: (card: CommandCard) => void
   onExpand: (card: CommandCard) => void
   onTerminate: () => void
-  onExport: () => void
-  onImport: () => void
-  onOpenMarket: () => void
-  ioBusy: "export" | "import" | null
   onReorder: (orderedIds: string[]) => void
   onDismissError: () => void
   hasResult: (id: string) => boolean
+  /** 市场里有更高版本的命令 id（卡片版本徽标上提示「可更新」）。 */
+  updatableIds: ReadonlySet<string>
 }) {
   const { t } = useTranslation()
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -343,42 +342,7 @@ export function CommandCenterPageContent({
   const activeCard = activeId ? (cards.find((c) => c.id === activeId) ?? null) : null
 
   return (
-    <div className="h-full space-y-3 overflow-y-auto">
-      <div className="flex h-12 items-center justify-between gap-2 border-b">
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-base font-semibold">{t("commandCenter.title")}</h1>
-          <p className="text-muted-foreground truncate text-xs" title={t("commandCenter.subtitle")}>
-            {t("commandCenter.subtitle")}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onImport} disabled={ioBusy !== null}>
-            {ioBusy === "import" ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Download size={16} />
-            )}
-            {t("commandCenter.io.import")}
-          </Button>
-          <Button variant="outline" size="sm" onClick={onOpenMarket}>
-            <Store size={16} />
-            {t("commandCenter.market.open")}
-          </Button>
-          <Button variant="outline" size="sm" onClick={onExport} disabled={ioBusy !== null}>
-            {ioBusy === "export" ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Upload size={16} />
-            )}
-            {t("commandCenter.io.export")}
-          </Button>
-          <Button size="sm" onClick={onAdd}>
-            <Plus size={16} />
-            {t("commandCenter.addCard")}
-          </Button>
-        </div>
-      </div>
-
+    <div className="space-y-3">
       {error && (
         <Alert variant="destructive" className="flex items-center">
           <AlertDescription className="flex-1">{error}</AlertDescription>
@@ -428,6 +392,7 @@ export function CommandCenterPageContent({
                   onExpand={onExpand}
                   onTerminate={onTerminate}
                   peekable={hasResult(card.id)}
+                  updatable={updatableIds.has(card.id)}
                 />
               ))}
             </div>

@@ -173,15 +173,20 @@ export default function NetworkProbePage({ feature }: { feature?: FeatureDescrip
     >
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         {/* L1 top bar — prototype .l1 */}
-        <header className="bg-background -mx-3 flex h-12 shrink-0 items-center gap-2 border-b px-3">
-          <div className="flex shrink-0 items-center gap-2 border-r pr-3">
-            <span
-              className="bg-primary/20 ring-primary/30 size-2 rounded-full ring-2"
-              aria-hidden
-            />
-            <span className="text-sm font-semibold whitespace-nowrap">
+        <header className="flex h-12 shrink-0 items-center gap-4 border-b">
+          <div className="max-w-[16rem] min-w-0 shrink-0">
+            <h1
+              className="truncate text-base leading-tight font-semibold"
+              title={t("networkProbe.title")}
+            >
               {t("networkProbe.title")}
-            </span>
+            </h1>
+            <p
+              className="text-muted-foreground truncate text-xs leading-tight"
+              title={t("networkProbe.headerSubtitle")}
+            >
+              {t("networkProbe.headerSubtitle")}
+            </p>
           </div>
           <nav
             className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"

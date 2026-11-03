@@ -13,6 +13,7 @@ import { portManagerFeature } from "@/features/port-manager/feature"
 import { systemSettingsFeature } from "@/features/system-settings/feature"
 import { devToolboxFeature } from "@/features/dev-toolbox/feature"
 import { extensionCenterFeature } from "@/features/extension-center/feature"
+import { integrationsFeature } from "@/features/integrations/feature"
 import type { AppFeature, NavigationItem } from "@/features/types"
 import { canUseFeature, type RuntimeEnvironment } from "@/platform/capabilities"
 
@@ -25,6 +26,7 @@ export const appFeatures: AppFeature[] = [
   envDetectorFeature,
   commandCenterFeature,
   extensionCenterFeature,
+  integrationsFeature,
   networkProbeFeature,
   accountManagerFeature,
   // Config

@@ -6,7 +6,9 @@ import {
   deleteCommandCard,
   exportCommandCards,
   importCommandCards,
+  installMarketCommand,
   listCommandCards,
+  listMarketCommands,
   runCommandCard,
   saveCommandCards,
   upsertCommandCard,
@@ -21,4 +23,6 @@ export const commandCenterRepository = {
   exportCommandCards,
   importCommandCards,
   saveCommandCards,
+  listMarketCommands,
+  installMarketCommand,
 }

@@ -12,7 +12,8 @@
     "settings": "Preferences",
     "preferences": "Preferences",
     "restart": "Restart App",
-    "extensionCenter": "Extensions"
+    "extensionCenter": "Extensions",
+    "integrations": "Integrations"
   },
   "systemSettings": {
     "tabs": {
@@ -295,7 +296,8 @@
       "lockScreen": "Lock Screen Settings",
       "languageRegion": "Language & Region",
       "keyboard": "Keyboard Settings"
-    }
+    },
+    "subtitle": "Appearance, security and system behavior"
   },
   "accountManager": {
     "stationTitle": "Station List",
@@ -1050,7 +1052,8 @@
       "accountAction": "Account operation failed. Please retry.",
       "detailAction": "Session detection failed. Please retry.",
       "fingerprintCapture": "Failed to capture the login fingerprint. Please retry."
-    }
+    },
+    "subtitle": "Sites, accounts and sign-in sessions"
   },
   "envDetector": {
     "title": "Environment Detector",
@@ -1485,11 +1488,12 @@
     "title": "Dev Toolbox",
     "devtools": "Dev Tools",
     "diagnostics": "Diagnostics",
-    "info": "System Info"
+    "info": "System Info",
+    "subtitle": "Ports, environments and everyday dev utilities"
   },
   "commandCenter": {
     "title": "Command Center",
-    "subtitle": "Save frequently used commands, scripts and shortcuts as cards and run them in one click.",
+    "subtitle": "Save commands as cards and run them in one click",
     "addCard": "New Card",
     "empty": "No command cards yet. Click New Card to add one.",
     "kind": {
@@ -1577,21 +1581,41 @@
       "importCanceled": "Import canceled"
     },
     "market": {
-      "open": "Command Market",
-      "title": "Command Market",
-      "sourceLabel": "Market source",
+      "title": "Command market",
+      "sourceLabel": "Source",
       "empty": "The command market is empty",
-      "emptyHint": "Configure a market source environment variable (BENCH_COMMAND_MARKET_URL pointing to a remote registry.json, or BENCH_COMMAND_MARKET_DIR pointing to a local market directory) to browse and install commands here.",
       "install": "Install",
       "update": "Update",
       "installed": "Installed",
       "upgradable": "Update available",
-      "installSuccess": "Command installed to your local card library",
       "installFailed": "Install failed",
-      "badgeTitle": "From command market v{{version}}",
-      "toastInstalled": "Command installed to your local card library",
-      "refresh": "Reload"
-    }
+      "badgeTitle": "From the command market v{{version}}",
+      "toastInstalled": "Installed \"{{title}}\"",
+      "refresh": "Refresh",
+      "uninstall": "Uninstall",
+      "notInstalled": "Not installed",
+      "col": {
+        "name": "Command",
+        "kind": "Type",
+        "version": "Version",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "badgeTitleUpdatable": "From the command market v{{version}}; a newer version is available in the Command market tab",
+      "toastUpdated": "Updated \"{{title}}\"",
+      "toastUninstalled": "Uninstalled \"{{title}}\"",
+      "uninstallFailed": "Uninstall failed",
+      "loadFailed": "Failed to load the command market",
+      "loadFailedHint": "The catalog is hosted on GitHub (raw.githubusercontent.com). Check your network or proxy and retry; the error details are listed above.",
+      "refreshFailed": "Refresh failed; showing the last loaded catalog",
+      "localStoreError": "The local command store is unreadable, so installed state is unknown; install/uninstall will fail until the store directory is fixed",
+      "uninstallConfirm": {
+        "title": "Uninstall market command?",
+        "description": "\"{{title}}\" will be removed from the local command store. You can reinstall it from the market at any time."
+      }
+    },
+    "tabMine": "My commands",
+    "tabMarket": "Command market"
   },
   "closeBehavior": {
     "title": "Close Behavior",
@@ -2542,11 +2566,12 @@
       "globalpingFailed": "Globalping remote test failed.",
       "globalpingInvalidTarget": "Enter a public host or HTTP(S) URL. Local, LAN, and private-network targets are not allowed.",
       "globalpingTokenFailed": "Cannot access system secure storage. Check any system prompt and retry."
-    }
+    },
+    "headerSubtitle": "Emergency diagnostics and active probing"
   },
   "extensionCenter": {
     "title": "Extension Center",
-    "subtitle": "Installed official & third-party capabilities (bundled / market)",
+    "subtitle": "Install, update, enable and uninstall Bench plugins",
     "name": "Name",
     "version": "Version",
     "distribution": {
@@ -2579,15 +2604,9 @@
     "uninstallFailed": "Failed to uninstall extension",
     "loading": "Loading…",
     "tabInstalled": "Installed",
-    "tabMarket": "Market",
+    "tabMarket": "Plugin market",
     "tabDiagnostics": "Diagnostics",
     "market": {
-      "typeLabel": "Market type",
-      "type": {
-        "all": "All",
-        "extensions": "Extensions",
-        "nativeApps": "Native apps"
-      },
       "loadFailed": "Failed to load the market",
       "empty": "No extensions available in the market",
       "install": "Install",
@@ -2608,8 +2627,54 @@
       "installing": "Installing…",
       "prepareFailed": "Install verification failed",
       "commitFailed": "Install failed",
-      "toastInstalled": "Extension installed"
+      "toastInstalled": "Extension installed",
+      "latest": "Latest",
+      "notInstalled": "Not installed",
+      "refreshFailed": "Refresh failed; showing the last loaded catalog"
     },
+    "diagnostics": {
+      "hint": "Extension audit log and runtime errors (last 200 entries)",
+      "audit": "Audit log ext-audit.log",
+      "runtime": "Runtime diagnostics ext-diagnostics.jsonl",
+      "empty": "No records"
+    }
+  },
+  "integrations": {
+    "browser": {
+      "export": "Export browser extension",
+      "exporting": "Exporting…",
+      "exported": "Exported",
+      "exportedVersion": "Exported Bench Companion v{{version}}",
+      "extVersion": "Extension version",
+      "notExported": "Not exported",
+      "extDir": "Extension dir",
+      "locationHint": "Exporting first asks where to put the files: they go into a bench-companion folder inside the location you pick, and that choice is remembered as the next default. After moving it, remove the old folder in your browser's extensions page and load the new one.",
+      "extId": "Extension ID",
+      "nmTitle": "Native Messaging registrations",
+      "browsers": "Browsers on this machine",
+      "openExtensionsPage": "Open extensions page",
+      "openFailed": "Failed to open the extensions page",
+      "stepsTitle": "Install steps",
+      "step1": "1. Click \"Export browser extension\" to write the unpacked extension and register NM hosts",
+      "step2": "2. Open the browser extensions page and enable \"Developer mode\"",
+      "step3": "3. Click \"Load unpacked\" and pick the extension directory",
+      "step4": "4. Click the Bench icon in the toolbar to use it (Bench must be running)",
+      "title": "Browser extension"
+    },
+    "mcp": {
+      "title": "AI clients (MCP)",
+      "hint": "Select clients and write config in one click (existing servers are preserved; a backup is created first). Restart clients afterwards.",
+      "configured": "configured",
+      "write": "Write selected clients",
+      "writing": "Writing…",
+      "done": "MCP configuration written",
+      "failed": "Some clients failed",
+      "empty": "No supported MCP client detected"
+    },
+    "statusError": "Failed to load status",
+    "refresh": "Refresh status",
+    "hostMissing": "bench-host binary not found (run cargo build -p bench-host first)",
+    "copy": "Copy",
     "nativeApps": {
       "title": "Personal native apps",
       "loadFailed": "Failed to load native apps",
@@ -2641,46 +2706,14 @@
           "name": "ABB Development Toolbox",
           "description": "Development tools for ABB projects and local workflows."
         }
-      }
+      },
+      "installed": "Installed",
+      "install": "Install"
     },
-    "diagnostics": {
-      "hint": "Extension audit log and runtime errors (last 200 entries)",
-      "audit": "Audit log ext-audit.log",
-      "runtime": "Runtime diagnostics ext-diagnostics.jsonl",
-      "empty": "No records"
-    },
-    "tabBridge": "Cross-platform",
-    "bridgeTitle": "Browser Extension & MCP",
-    "bridgeSubtitle": "Bring Bench capabilities beyond the desktop app: the bench-companion browser extension and AI clients (MCP) share the local bench-host.",
-    "bridgeExportBtn": "Export browser extension",
-    "bridgeExporting": "Exporting…",
-    "bridgeExported": "Exported",
-    "bridgeExportedVersion": "Exported Bench Companion v{{version}}",
-    "bridgeExtVersion": "Extension version",
-    "bridgeNotExported": "Not exported",
-    "bridgeHostMissing": "bench-host binary not found (run cargo build -p bench-host first)",
-    "bridgeExtDir": "Extension dir",
-    "bridgeExportLocationHint": "Exporting first asks where to put the files: they go into a bench-companion folder inside the location you pick, and that choice is remembered as the next default. After moving it, remove the old folder in your browser's extensions page and load the new one.",
-    "bridgeExtId": "Extension ID",
-    "bridgeCopy": "Copy",
-    "bridgeCopied": "Copied",
-    "bridgeNmTitle": "Native Messaging registrations",
-    "bridgeBrowsers": "Browsers on this machine",
-    "bridgeOpenExtensionsPage": "Open extensions page",
-    "bridgeOpenFailed": "Failed to open the extensions page",
-    "bridgeStepsTitle": "Install steps",
-    "bridgeStep1": "1. Click \"Export browser extension\" to write the unpacked extension and register NM hosts",
-    "bridgeStep2": "2. Open the browser extensions page and enable \"Developer mode\"",
-    "bridgeStep3": "3. Click \"Load unpacked\" and pick the extension directory",
-    "bridgeStep4": "4. Click the Bench icon in the toolbar to use it (Bench must be running)",
-    "bridgeMcpTitle": "AI clients (MCP)",
-    "bridgeMcpHint": "Select clients and write config in one click (existing servers are preserved; a backup is created first). Restart clients afterwards.",
-    "bridgeMcpInstalled": "configured",
-    "bridgeMcpWrite": "Write selected clients",
-    "bridgeMcpWriting": "Writing…",
-    "bridgeMcpDone": "MCP configuration written",
-    "bridgeMcpFailed": "Some clients failed",
-    "bridgeStatusError": "Failed to load status",
-    "bridgeRefresh": "Refresh status"
+    "title": "Integrations",
+    "subtitle": "Browser extension, AI clients (MCP) and personal native apps",
+    "loading": "Loading…",
+    "retry": "Retry",
+    "cancel": "Cancel"
   }
 }

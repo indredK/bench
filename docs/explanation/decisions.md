@@ -57,6 +57,20 @@
 - **理由**：这两个症状（假成功、真丢数据）都源于同一处结构性缺失——**没有终态可回报**，所以只能猜。补回执通道而不是补文案。
 - **相关**：[D-030](#d-030--出向注入前自动补采-bench-内置登录态出向目标显式二选一) · [D-031](#d-031--扩展通道升级cookie--web-storage注入indexeddb-仍排除) · [D-033](#d-033--扩展通道升级cookie--web-storage--indexeddb全量注入版本号双端自证) · [浏览器互通三角流转（交互图）](../diagrams/account-manager-triangle.html)
 
+## D-043 · 插件中心收窄为「只管 Bench 插件」，跨端接入独立成模块
+
+- **日期**：2026-11-03
+- **状态**：采纳（调整 D-042 中「原生应用在插件中心市场」的入口位置；CI 下载与校验方案不变）
+- **背景**：插件中心同时承载插件、原生应用（关联私有仓库 bench-native-apps）、浏览器扩展导出与 MCP 写入，定位模糊；原生应用与浏览器扩展都不是 extension bundle，不走 registry、不沙箱。
+- **决策**：
+  1. 插件中心只保留：已安装 / 插件市场 / 诊断；已安装列表直接显示可更新版本并提供更新。
+  2. 新增 `integrations`（跨端接入）模块，承载浏览器扩展、MCP 客户端、自用原生应用。后端命令与 IPC 契约不变，仅前端归属与 i18n 键（`integrations.*`）调整。
+  3. 命令中心的命令市场从弹窗改为页内「命令市场」标签，展示每条命令的版本，支持安装 / 更新 / 卸载；本地命令库不可读时不再让市场目录整体失败。
+  4. 所有模块页顶部统一使用 `PageHeader`（标题 + 副标题 | 页内导航 | 操作），主体用 `PageBody` 作为唯一滚动容器。
+- **理由**：一个入口只回答一个问题。插件有 registry、版本、签名、ACL；原生应用有私有仓库与 CI Artifact；浏览器扩展与 MCP 是本机配置写入，三者生命周期完全不同。
+- **影响**：侧栏新增「跨端接入」；`extensionCenter.bridge*` / `extensionCenter.nativeApps.*` 文案迁到 `integrations.*`；`commandCenter.market` 弹窗专用文案移除。
+- **相关**：[D-042](#d-042--私有-swift-工具箱作为插件中心原生应用类型管理) · [integrations](../modules/integrations/README.md) · [ux-standards](../how-to/ux-standards.md)
+
 ## D-042 · 私有 Swift 工具箱作为插件中心原生应用类型管理
 
 - **日期**：2026-10-29

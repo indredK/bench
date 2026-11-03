@@ -4,6 +4,7 @@
  */
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { PageHeader } from "@/components/layout/PageHeader"
 import { FeatureLoadError } from "@/components/common/FeatureLoadError"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
@@ -319,7 +320,8 @@ function AccountManagerPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <PageHeader title={t("sidebar.accountManager")} subtitle={t("accountManager.subtitle")} />
       {c.credentialsLocked ? (
         <div className="border-border flex items-center gap-3 rounded-md border p-3">
           <div className="min-w-0 flex-1">

@@ -92,6 +92,8 @@ pub struct CommandMarketListing {
     /// 市场源描述（url / dir）；未配置时为 None（UI 显示空态）。
     pub source: Option<String>,
     pub updated_at: Option<String>,
+    /// 本地命令库不可读时的原因（此时已安装状态未知；市场目录仍可浏览）。
+    pub local_store_error: Option<String>,
     pub commands: Vec<MarketCommandDto>,
 }
 
@@ -107,6 +109,8 @@ pub struct MarketCommandDto {
     pub installed: bool,
     /// 本地已装版本更低，可升级。
     pub upgradable: bool,
+    /// 本地已装的市场版本（未装 / 手建同 id 卡片 / 命令库不可读时为 None）。
+    pub installed_version: Option<String>,
 }
 
 /// 市场源解析结果。
@@ -232,21 +236,18 @@ async fn fetch_registry_bytes(source: &MarketSource) -> AppResult<Vec<u8>> {
                 .timeout(std::time::Duration::from_secs(30))
                 .build()
                 .map_err(|e| AppError::internal(format!("build http client: {e}")))?;
-            let response = client
-                .get(url)
-                .send()
-                .await
-                .map_err(|e| AppError::internal(format!("fetch {url}: {e}")))?;
+            let response = client.get(url).send().await.map_err(|e| {
+                AppError::internal(format!("fetch {url}: {}", describe_http_error(&e)))
+            })?;
             if !response.status().is_success() {
                 return Err(AppError::internal(format!(
                     "fetch {url}: HTTP {}",
                     response.status()
                 )));
             }
-            let bytes = response
-                .bytes()
-                .await
-                .map_err(|e| AppError::internal(format!("read {url}: {e}")))?;
+            let bytes = response.bytes().await.map_err(|e| {
+                AppError::internal(format!("read {url}: {}", describe_http_error(&e)))
+            })?;
             Ok(bytes.to_vec())
         }
     }
@@ -271,24 +272,40 @@ async fn fetch_command_bytes(source: &MarketSource, file: &str) -> AppResult<Vec
                 .timeout(std::time::Duration::from_secs(60))
                 .build()
                 .map_err(|e| AppError::internal(format!("build http client: {e}")))?;
-            let response = client
-                .get(&file_url)
-                .send()
-                .await
-                .map_err(|e| AppError::internal(format!("fetch {file_url}: {e}")))?;
+            let response = client.get(&file_url).send().await.map_err(|e| {
+                AppError::internal(format!("fetch {file_url}: {}", describe_http_error(&e)))
+            })?;
             if !response.status().is_success() {
                 return Err(AppError::internal(format!(
                     "fetch {file_url}: HTTP {}",
                     response.status()
                 )));
             }
-            let bytes = response
-                .bytes()
-                .await
-                .map_err(|e| AppError::internal(format!("read {file_url}: {e}")))?;
+            let bytes = response.bytes().await.map_err(|e| {
+                AppError::internal(format!("read {file_url}: {}", describe_http_error(&e)))
+            })?;
             Ok(bytes.to_vec())
         }
     }
+}
+
+/// reqwest 的 `Display` 只给一句 `error sending request for url`，真正的根因
+/// （DNS / 连接被拒 / 超时 / 证书）在 source 链里；拼出来用户才知道该查代理还是网络。
+fn describe_http_error(e: &reqwest::Error) -> String {
+    use std::error::Error as _;
+    let mut parts = vec![e.to_string()];
+    if e.is_timeout() {
+        parts.push("timeout".to_string());
+    }
+    let mut source = e.source();
+    while let Some(inner) = source {
+        let text = inner.to_string();
+        if !parts.contains(&text) {
+            parts.push(text);
+        }
+        source = inner.source();
+    }
+    parts.join(": ")
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -303,6 +320,7 @@ pub async fn command_market_list() -> AppResult<CommandMarketListing> {
         return Ok(CommandMarketListing {
             source: None,
             updated_at: None,
+            local_store_error: None,
             commands: Vec::new(),
         });
     };
@@ -312,10 +330,19 @@ pub async fn command_market_list() -> AppResult<CommandMarketListing> {
         .map_err(|e| AppError::invalid_input(format!("market registry JSON invalid: {e}")))?;
     validate_registry(&doc)?;
 
-    let installed: BTreeMap<String, String> = storage::load_cards()?
-        .into_iter()
-        .filter_map(|card| card.market.map(|m| (card.id, m.version)))
-        .collect();
+    // 命令库不可读（如目录是悬空软链接）不应让整个市场不可浏览：目录照常展示，
+    // 已安装状态未知，并把原因带给前端；真正安装时仍会在落位阶段明确失败。
+    let (installed, local_store_error): (BTreeMap<String, String>, Option<String>) =
+        match storage::load_cards() {
+            Ok(cards) => (
+                cards
+                    .into_iter()
+                    .filter_map(|card| card.market.map(|m| (card.id, m.version)))
+                    .collect(),
+                None,
+            ),
+            Err(e) => (BTreeMap::new(), Some(e.message)),
+        };
 
     let commands = doc
         .commands
@@ -336,6 +363,7 @@ pub async fn command_market_list() -> AppResult<CommandMarketListing> {
                 kind: entry.kind,
                 installed,
                 upgradable,
+                installed_version: installed_version.cloned(),
             }
         })
         .collect();
@@ -346,6 +374,7 @@ pub async fn command_market_list() -> AppResult<CommandMarketListing> {
             MarketSource::Dir(dir) => dir.display().to_string(),
         }),
         updated_at: doc.updated_at,
+        local_store_error,
         commands,
     })
 }

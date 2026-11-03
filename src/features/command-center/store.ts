@@ -3,7 +3,7 @@
  */
 import { create } from "zustand"
 import type { LocalizedError } from "@/lib/errors"
-import type { CommandCard, RunResult } from "@/lib/tauri/types/command-center"
+import type { CommandCard, CommandMarketListing, RunResult } from "@/lib/tauri/types/command-center"
 
 export type RunStatus = "idle" | "running" | "success" | "failed"
 
@@ -20,6 +20,12 @@ interface CommandCenterState {
   runOutcome: Record<string, RunOutcome>
   /** Currently expanded (zoomed-in) card id, or null when grid is collapsed. */
   expandedId: string | null
+  /** 命令市场目录（只读快照）；null = 还没拉取成功过。 */
+  market: CommandMarketListing | null
+  marketLoading: boolean
+  marketError: string | null
+  /** 正在安装/更新/卸载的命令 id。 */
+  marketBusyId: string | null
 
   setCards: (cards: CommandCard[]) => void
   setLoading: (loading: boolean) => void
@@ -28,6 +34,10 @@ interface CommandCenterState {
   setRunOutcome: (id: string, outcome: RunOutcome) => void
   setExpandedId: (id: string | null) => void
   clearRunOutcome: (id: string) => void
+  setMarket: (market: CommandMarketListing | null) => void
+  setMarketLoading: (loading: boolean) => void
+  setMarketError: (error: string | null) => void
+  setMarketBusyId: (id: string | null) => void
 }
 
 export const useCommandCenterStore = create<CommandCenterState>((set) => ({
@@ -37,6 +47,10 @@ export const useCommandCenterStore = create<CommandCenterState>((set) => ({
   runStatus: {},
   runOutcome: {},
   expandedId: null,
+  market: null,
+  marketLoading: false,
+  marketError: null,
+  marketBusyId: null,
 
   setCards: (cards) => set({ cards }),
   setLoading: (loading) => set({ loading }),
@@ -54,4 +68,8 @@ export const useCommandCenterStore = create<CommandCenterState>((set) => ({
       delete nextStatus[id]
       return { runOutcome: nextOutcome, runStatus: nextStatus }
     }),
+  setMarket: (market) => set({ market }),
+  setMarketLoading: (marketLoading) => set({ marketLoading }),
+  setMarketError: (marketError) => set({ marketError }),
+  setMarketBusyId: (marketBusyId) => set({ marketBusyId }),
 }))

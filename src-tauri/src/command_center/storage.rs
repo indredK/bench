@@ -18,13 +18,41 @@ struct CardsFile {
     cards: Vec<CommandCard>,
 }
 
+/// 命令库目录不可用时的错误码（前端据此区分「本地存储坏了」与「市场/网络坏了」）。
+pub const STORE_UNAVAILABLE_CODE: &str = "COMMAND_STORE_UNAVAILABLE";
+
 fn store_path() -> AppResult<PathBuf> {
-    let dir = dirs::config_dir()
-        .ok_or_else(|| AppError::io("Cannot determine config directory"))?
-        .join("bench")
-        .join("command-center");
-    fs::create_dir_all(&dir).map_err(|_| AppError::io("Cannot create store directory"))?;
+    let base =
+        dirs::config_dir().ok_or_else(|| AppError::io("Cannot determine config directory"))?;
+    let dir = base.join("bench").join("command-center");
+    fs::create_dir_all(&dir).map_err(|e| store_unavailable(&base.join("bench"), &dir, &e))?;
     Ok(dir.join("cards.json"))
+}
+
+/// 生成带路径与根因的错误：命令库目录常见的失败是 `bench` 目录被做成了指向外接卷的
+/// 软链接，卷未挂载时链接悬空，`create_dir_all` 只会得到一句 `No such file or directory`。
+fn store_unavailable(
+    root: &std::path::Path,
+    dir: &std::path::Path,
+    cause: &std::io::Error,
+) -> AppError {
+    let dangling = fs::symlink_metadata(root).is_ok_and(|meta| meta.file_type().is_symlink())
+        && !root.exists();
+    let reason = if dangling {
+        let target = fs::read_link(root)
+            .map(|p| p.display().to_string())
+            .unwrap_or_default();
+        format!(
+            "{} is a dangling symlink (target `{target}` is missing; is the volume mounted?)",
+            root.display()
+        )
+    } else {
+        format!("{}: {cause}", dir.display())
+    };
+    AppError::new(
+        STORE_UNAVAILABLE_CODE,
+        format!("Command store directory is unavailable: {reason}"),
+    )
 }
 
 /// 内置示例卡片；按 id 合并进用户卡片，用户可自由删除。
@@ -159,4 +187,47 @@ pub fn import_cards_from_path(path: &std::path::Path) -> AppResult<Vec<CommandCa
     }
     save_cards(&existing)?;
     Ok(existing)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("bench-cc-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("scratch dir");
+        dir
+    }
+
+    #[test]
+    fn dangling_symlink_root_is_reported_with_target() {
+        let sandbox = scratch("dangling");
+        let root = sandbox.join("bench");
+        std::os::unix::fs::symlink(sandbox.join("missing-volume"), &root).expect("symlink");
+        let dir = root.join("command-center");
+        let cause = fs::create_dir_all(&dir).expect_err("must fail through dangling link");
+
+        let err = store_unavailable(&root, &dir, &cause);
+
+        assert_eq!(err.code, STORE_UNAVAILABLE_CODE);
+        assert!(err.message.contains("dangling symlink"), "{}", err.message);
+        assert!(err.message.contains("missing-volume"), "{}", err.message);
+        let _ = fs::remove_dir_all(&sandbox);
+    }
+
+    #[test]
+    fn plain_failure_keeps_path_and_cause() {
+        let sandbox = scratch("plain");
+        let root = sandbox.join("bench");
+        let dir = root.join("command-center");
+        let cause = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
+
+        let err = store_unavailable(&root, &dir, &cause);
+
+        assert_eq!(err.code, STORE_UNAVAILABLE_CODE);
+        assert!(err.message.contains("command-center"), "{}", err.message);
+        assert!(err.message.contains("denied"), "{}", err.message);
+        let _ = fs::remove_dir_all(&sandbox);
+    }
 }

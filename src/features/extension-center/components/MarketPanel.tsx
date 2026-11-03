@@ -1,261 +1,214 @@
-import { useState } from "react"
+/**
+ * Market Panel / 插件市场: 只做渲染.
+ *
+ * 官方插件目录（plugin-market 仓库的静态 registry）：一行 = 一个插件，
+ * 名称/说明 | 最新版本（已装 → 最新）| 状态 | 安装 · 更新。
+ * 安装走「prepare 校验 → 信任披露 → commit」两段，这里只触发 prepare。
+ */
 import { useTranslation } from "react-i18next"
+import { ArrowRight, Loader2, Puzzle } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type {
   MarketExtensionSummary,
-  MarketVersionSummary,
+  MarketListing,
   RevokedHit,
 } from "@/lib/tauri/types/extension-center"
+import type { AppErrorShape } from "@/lib/tauri/errors"
 
-import { useMarketController } from "../hooks/useMarketController"
-import { useNativeAppMarketController } from "../hooks/useNativeAppMarketController"
-import { NativeAppMarketSection } from "./NativeAppMarketSection"
 import { selectMetadata, useResolvedLocale } from "../lib/metadata"
+import { latestInstallable } from "../lib/versions"
 
-type MarketKind = "all" | "extensions" | "nativeApps"
+const GRID = "grid-cols-[minmax(0,1fr)_9rem_8rem_8rem]"
 
-/** 数字段比较（与后端 `version_at_least` 同口径）：a &gt; b 返回正数。 */
-export function compareVersions(a: string, b: string): number {
-  const parse = (value: string) =>
-    value
-      .split(".")
-      .slice(0, 3)
-      .map((part) => Number.parseInt(part, 10) || 0)
-  const [left, right] = [parse(a), parse(b)]
-  for (let index = 0; index < 3; index += 1) {
-    const diff = (left[index] ?? 0) - (right[index] ?? 0)
-    if (diff !== 0) return diff
-  }
-  return 0
-}
-
-function VersionBadges({
-  version,
-  t,
+export function MarketPanel({
+  listing,
+  loading,
+  error,
+  busyIds,
+  installedVersions,
+  onRefresh,
+  onInstall,
 }: {
-  version: MarketVersionSummary
-  t: (key: string) => string
+  listing: MarketListing | null
+  loading: boolean
+  error: AppErrorShape | null
+  busyIds: string[]
+  /** 本地已装插件的版本（id → version），用来显示「已装 → 最新」。 */
+  installedVersions: Record<string, string>
+  onRefresh: () => void
+  onInstall: (extensionId: string, version: string) => void
 }) {
+  const { t } = useTranslation()
+  const locale = useResolvedLocale()
+
+  const revokedById = new Map<string, RevokedHit>(
+    (listing?.revokedHits ?? []).map((hit) => [hit.id, hit]),
+  )
+
+  if (loading && listing === null && !error) {
+    return (
+      <div className="text-muted-foreground flex items-center gap-2 py-12 text-sm">
+        <Loader2 size={16} className="animate-spin" />
+        {t("extensionCenter.loading")}
+      </div>
+    )
+  }
+
+  if (error && listing === null) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <p>{t("extensionCenter.market.loadFailed")}</p>
+        <p className="mt-1 font-mono text-xs break-all opacity-80">
+          [{error.code}] {error.message}
+        </p>
+        <Button variant="outline" size="sm" className="mt-2" onClick={onRefresh}>
+          {t("extensionCenter.retry")}
+        </Button>
+      </div>
+    )
+  }
+
+  const extensions = listing?.extensions ?? []
+
   return (
-    <div className="flex flex-wrap items-center gap-1">
-      {version.yanked && (
-        <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
-          {t("extensionCenter.market.yanked")}
-        </span>
-      )}
-      {!version.compatible && (
-        <span className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-700">
-          {t("extensionCenter.market.requiresBench").replace("{range}", version.enginesBench)}
-        </span>
-      )}
-      {version.installed && (
-        <span className="rounded border border-green-200 bg-green-50 px-2 py-0.5 text-xs text-green-700">
-          {t("extensionCenter.market.installed")}
-        </span>
-      )}
-      {version.updateAvailable && (
-        <span className="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
-          {t("extensionCenter.market.updateAvailable")}
-        </span>
+    <div className="flex flex-col gap-2">
+      {error ? (
+        <p className="text-xs text-red-700">
+          {t("extensionCenter.market.refreshFailed")}：
+          <span className="font-mono">
+            [{error.code}] {error.message}
+          </span>
+        </p>
+      ) : null}
+
+      {listing?.revokedHits.length ? (
+        <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+          <p className="font-semibold">{t("extensionCenter.market.revokedBanner")}</p>
+          <ul className="mt-1 list-inside list-disc text-xs">
+            {listing.revokedHits.map((hit) => (
+              <li key={hit.id}>
+                {hit.id} @ {hit.version} — {hit.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {extensions.length === 0 ? (
+        <div className="text-muted-foreground flex flex-col items-center gap-2 rounded-xl border border-dashed py-10 text-center">
+          <Puzzle size={28} className="opacity-40" />
+          <p className="text-sm">{t("extensionCenter.market.empty")}</p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border">
+          <div
+            className={`bg-muted/50 text-muted-foreground grid ${GRID} items-center gap-3 px-4 py-2 text-xs font-medium`}
+          >
+            <span>{t("extensionCenter.name")}</span>
+            <span>{t("extensionCenter.market.latest")}</span>
+            <span>{t("extensionCenter.status")}</span>
+            <span className="text-right">{t("extensionCenter.actions")}</span>
+          </div>
+          {extensions.map((entry) => (
+            <MarketRow
+              key={entry.id}
+              entry={entry}
+              locale={locale}
+              revoked={revokedById.get(entry.id)}
+              installedVersion={installedVersions[entry.id]}
+              busy={entry.versions.some((version) =>
+                busyIds.includes(`${entry.id}@${version.version}`),
+              )}
+              onInstall={onInstall}
+            />
+          ))}
+        </div>
       )}
     </div>
   )
 }
 
-function ExtensionCard({
+function MarketRow({
   entry,
-  t,
-  onInstall,
-  busy,
+  locale,
   revoked,
+  installedVersion,
+  busy,
+  onInstall,
 }: {
   entry: MarketExtensionSummary
-  t: (key: string) => string
-  onInstall: (extensionId: string, version: string) => void
+  locale: string
+  revoked: RevokedHit | undefined
+  installedVersion: string | undefined
   busy: boolean
-  revoked?: boolean
+  onInstall: (extensionId: string, version: string) => void
 }) {
-  // 可安装版本：非 yanked；优先最新。必须按数字段比较 —— localeCompare 会把
-  // 0.10.0 排在 0.9.0 之前，导致真正的最新版被判「已装」而整颗按钮不渲染。
-  const sortedVersions = [...entry.versions].sort((a, b) => compareVersions(b.version, a.version))
-  const installable = sortedVersions.filter((version) => !version.yanked)
-  const latestInstallable = installable[0]
-  const locale = useResolvedLocale()
+  const { t } = useTranslation()
+  const latest = latestInstallable(entry)
   const description = selectMetadata(locale, { zh: entry.descriptionZh, en: entry.descriptionEn })
+  const canInstall = Boolean(latest && !latest.installed && latest.compatible && !revoked)
+  const detail = [entry.id, entry.publisherName].filter(Boolean).join(" · ")
 
   return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="text-sm font-semibold">
-            {selectMetadata(locale, { zh: entry.displayZh, en: entry.displayEn }, entry.id)}
-          </h3>
-          <p className="text-muted-foreground text-xs">
-            {entry.id}
-            {entry.publisherName ? ` · ${entry.publisherName}` : ""}
+    <div className={`grid ${GRID} items-center gap-3 border-t px-4 py-2.5`}>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">
+          {selectMetadata(locale, { zh: entry.displayZh, en: entry.displayEn }, entry.id)}
+        </p>
+        <p className="text-muted-foreground truncate text-xs" title={description || detail}>
+          {description || detail}
+        </p>
+        {revoked ? (
+          <p className="truncate text-xs text-red-700" title={revoked.reason}>
+            {t("extensionCenter.market.revokedNote").replace("{reason}", revoked.reason)}
           </p>
-          {description && <p className="mt-1 text-xs">{description}</p>}
-        </div>
-        {latestInstallable && !latestInstallable.installed && (
+        ) : null}
+      </div>
+      <span className="inline-flex items-center gap-1 font-mono text-xs">
+        {latest?.updateAvailable && installedVersion ? (
+          <>
+            <span className="text-muted-foreground">{installedVersion}</span>
+            <ArrowRight size={11} className="text-muted-foreground" aria-hidden />
+            <span className="font-semibold">{latest.version}</span>
+          </>
+        ) : (
+          (latest?.version ?? "—")
+        )}
+      </span>
+      <div className="flex flex-col items-start gap-1">
+        {latest?.updateAvailable ? (
+          <Badge variant="outline" className="border-blue-300 text-blue-700 dark:text-blue-300">
+            {t("extensionCenter.market.updateAvailable")}
+          </Badge>
+        ) : latest?.installed ? (
+          <Badge variant="secondary">{t("extensionCenter.market.installed")}</Badge>
+        ) : (
+          <span className="text-muted-foreground text-xs">
+            {t("extensionCenter.market.notInstalled")}
+          </span>
+        )}
+        {latest && !latest.compatible ? (
+          <Badge variant="destructive">
+            {t("extensionCenter.market.requiresBench").replace("{range}", latest.enginesBench)}
+          </Badge>
+        ) : null}
+      </div>
+      <div className="flex justify-end">
+        {latest && (canInstall || (latest.updateAvailable && !revoked)) ? (
           <Button
             size="sm"
-            /* 已吊销的插件不得再安装/更新：卡片下方就是红色吊销说明，
-               按钮若仍可点，等于告诉用户「警示只是装饰」。 */
-            disabled={busy || !latestInstallable.compatible || Boolean(revoked)}
-            onClick={() => onInstall(entry.id, latestInstallable.version)}
+            disabled={busy || !canInstall}
+            onClick={() => onInstall(entry.id, latest.version)}
           >
-            {latestInstallable.updateAvailable
+            {busy ? <Loader2 size={14} className="animate-spin" /> : null}
+            {latest.updateAvailable
               ? t("extensionCenter.market.update")
               : t("extensionCenter.market.install")}
           </Button>
-        )}
+        ) : null}
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {sortedVersions.map((version) => (
-          <div
-            key={version.version}
-            className="flex items-center gap-2 rounded border px-2 py-1 text-xs"
-          >
-            <span className="font-mono">{version.version}</span>
-            <VersionBadges version={version} t={t} />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/** P4 market 面板：registry 目录浏览 + 信任披露 + 安装/升级。 */
-export function MarketPanel() {
-  const { t } = useTranslation()
-  const [marketKind, setMarketKind] = useState<MarketKind>("all")
-  const { marketListing, marketLoading, marketError, busyIds, refreshMarket, prepareInstall } =
-    useMarketController()
-  const nativeMarket = useNativeAppMarketController()
-  const showExtensions = marketKind !== "nativeApps"
-  const showNativeApps = marketKind !== "extensions"
-
-  const revokedById = new Map<string, RevokedHit>(
-    (marketListing?.revokedHits ?? []).map((hit) => [hit.id, hit]),
-  )
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div
-        className="flex flex-wrap gap-1"
-        role="group"
-        aria-label={t("extensionCenter.market.typeLabel")}
-      >
-        {(["all", "extensions", "nativeApps"] as const).map((kind) => (
-          <Button
-            key={kind}
-            size="sm"
-            variant={marketKind === kind ? "secondary" : "ghost"}
-            aria-pressed={marketKind === kind}
-            onClick={() => setMarketKind(kind)}
-          >
-            {t(`extensionCenter.market.type.${kind}`)}
-          </Button>
-        ))}
-      </div>
-
-      {showExtensions && (
-        <section className="flex flex-col gap-3" aria-labelledby="extension-market-heading">
-          <div className="flex items-center justify-between gap-3">
-            <h2 id="extension-market-heading" className="text-sm font-semibold">
-              {t("extensionCenter.market.type.extensions")}
-            </h2>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={marketLoading}
-              onClick={() => void refreshMarket()}
-            >
-              {marketLoading ? t("extensionCenter.loading") : t("extensionCenter.refresh")}
-            </Button>
-          </div>
-
-          {marketError && (
-            <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <p>{t("extensionCenter.market.loadFailed")}</p>
-              <p className="mt-1 font-mono text-xs opacity-80">
-                [{marketError.code}] {marketError.message}
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() => void refreshMarket()}
-              >
-                {t("extensionCenter.retry")}
-              </Button>
-            </div>
-          )}
-
-          {marketLoading && marketListing === null && !marketError && (
-            <div className="text-muted-foreground rounded border border-dashed p-8 text-center text-sm">
-              {t("extensionCenter.loading")}
-            </div>
-          )}
-
-          {marketListing?.revokedHits.length ? (
-            <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-800">
-              <p className="font-semibold">{t("extensionCenter.market.revokedBanner")}</p>
-              <ul className="mt-1 list-inside list-disc text-xs">
-                {marketListing.revokedHits.map((hit) => (
-                  <li key={hit.id}>
-                    {hit.id} @ {hit.version} — {hit.reason}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {marketListing?.extensions.map((entry) => {
-            const hit = revokedById.get(entry.id)
-            const busy = entry.versions.some((version) =>
-              busyIds.includes(`${entry.id}@${version.version}`),
-            )
-            return (
-              <div key={entry.id} className={hit ? "opacity-60" : undefined}>
-                <ExtensionCard
-                  entry={entry}
-                  t={t}
-                  revoked={Boolean(hit)}
-                  onInstall={(id, version) => {
-                    if (revokedById.has(id)) return
-                    void prepareInstall(id, version)
-                  }}
-                  busy={busy}
-                />
-                {hit && (
-                  <p className="mt-1 text-xs text-red-700">
-                    {t("extensionCenter.market.revokedNote").replace("{reason}", hit.reason)}
-                  </p>
-                )}
-              </div>
-            )
-          })}
-
-          {!marketLoading && !marketError && marketListing?.extensions.length === 0 && (
-            <div className="rounded border border-dashed p-6 text-center">
-              <p className="text-sm font-medium">{t("extensionCenter.market.empty")}</p>
-            </div>
-          )}
-        </section>
-      )}
-
-      {showNativeApps && (
-        <NativeAppMarketSection
-          apps={nativeMarket.apps}
-          loading={nativeMarket.loading}
-          error={nativeMarket.error}
-          busyIds={nativeMarket.busyIds}
-          refresh={() => void nativeMarket.refresh()}
-          runAction={(appId, action) => nativeMarket.runAction(appId, action)}
-        />
-      )}
     </div>
   )
 }

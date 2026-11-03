@@ -45,6 +45,14 @@ export const commandCenterUseCases = {
     return commandCenterRepository.importCommandCards(path)
   },
 
+  listMarket() {
+    return commandCenterRepository.listMarketCommands()
+  },
+
+  installMarketCommand(id: string) {
+    return commandCenterRepository.installMarketCommand(id)
+  },
+
   createDraft(): CommandCard {
     const now = Date.now()
     return {

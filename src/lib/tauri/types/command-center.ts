@@ -32,12 +32,16 @@ export interface MarketCommandSummary {
   kind: CardKind
   installed: boolean
   upgradable: boolean
+  /** 本地已装的市场版本；未装 / 命令库不可读时为 null。 */
+  installedVersion: string | null
 }
 
 /** 命令市场列表（Rust CommandMarketListing）。 */
 export interface CommandMarketListing {
   source: string | null
   updatedAt: string | null
+  /** 本地命令库不可读的原因（此时已安装状态未知）；正常为 null。 */
+  localStoreError: string | null
   commands: MarketCommandSummary[]
 }
 

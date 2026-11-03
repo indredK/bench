@@ -19,7 +19,7 @@ const runNativeAppAction = {
   uninstall: uninstallNativeMarketApp,
 } satisfies Record<NativeAppAction, (appId: NativeAppMarketItem["id"]) => Promise<unknown>>
 
-export function useNativeAppMarketController() {
+export function useNativeAppsController() {
   const { t } = useTranslation()
   const [apps, setApps] = useState<NativeAppMarketItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -55,15 +55,15 @@ export function useNativeAppMarketController() {
       try {
         const result = await runNativeAppAction[action](appId)
         if (!result.success) {
-          toast.error(t(`extensionCenter.nativeApps.${action}Failed`), {
+          toast.error(t(`integrations.nativeApps.${action}Failed`), {
             description: result.message,
           })
           return
         }
-        toast.success(t(`extensionCenter.nativeApps.${action}Success`))
+        toast.success(t(`integrations.nativeApps.${action}Success`))
         await refresh()
       } catch (rawError) {
-        toast.error(translateError(t, rawError, t(`extensionCenter.nativeApps.${action}Failed`)))
+        toast.error(translateError(t, rawError, t(`integrations.nativeApps.${action}Failed`)))
       } finally {
         actionsInFlightRef.current.delete(appId)
         setBusyIds((current) => current.filter((value) => value !== appId))

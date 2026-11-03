@@ -6,6 +6,7 @@
  */
 import { useEffect, useState, useCallback, useMemo } from "react"
 import { useTranslation } from "react-i18next"
+import { PageHeader, PageShell, PageTabs } from "@/components/layout/PageHeader"
 import { toast } from "sonner"
 import { Loader2Icon, ExternalLink, FolderOpen, Search, X } from "lucide-react"
 import { systemSettingsUseCases } from "@/features/system-settings/services/system-settings.use-cases"
@@ -20,7 +21,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { ScrollableArea } from "@/components/common/ScrollableArea"
-import { cn } from "@/lib/utils"
 import {
   Select,
   SelectContent,
@@ -1159,54 +1159,44 @@ export default function SystemSettings(_props: SystemSettingsProps) {
 
   return (
     <FeatureErrorBoundary titleKey="systemSettings.loadFailedTitle">
-      <div className="flex h-full flex-col">
-        {/* Search bar */}
-        <div className="shrink-0 border-b px-4 py-2">
-          <div className="relative">
-            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t("systemSettings.search.placeholder")}
-              className="h-8 pr-8 pl-8 text-sm"
+      <PageShell>
+        <PageHeader
+          title={t("sidebar.systemSettings")}
+          subtitle={t("systemSettings.subtitle")}
+          nav={
+            <PageTabs
+              ariaLabel={t("sidebar.systemSettings")}
+              value={store.activeTab}
+              onChange={handleTabChange}
+              items={TAB_IDS.map((tabId) => ({ id: tabId, label: tabLabels[tabId] }))}
             />
-            {searchQuery && (
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => setSearchQuery("")}
-                className="absolute top-1/2 right-2 -translate-y-1/2"
-                aria-label={t("systemSettings.search.clear")}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Horizontal tab bar — hidden while searching */}
-        {!searchQuery && (
-          <div className="flex shrink-0 gap-1 border-b px-4">
-            {TAB_IDS.map((tabId) => (
-              <Button
-                key={tabId}
-                variant="ghost"
-                onClick={() => handleTabChange(tabId)}
-                className={cn(
-                  "-mb-[1px] rounded-none border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
-                  store.activeTab === tabId
-                    ? "border-primary text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:border-border border-transparent",
-                )}
-              >
-                {tabLabels[tabId]}
-              </Button>
-            ))}
-          </div>
-        )}
+          }
+          actions={
+            <div className="relative w-56">
+              <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t("systemSettings.search.placeholder")}
+                className="h-8 pr-8 pl-8 text-sm"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute top-1/2 right-2 -translate-y-1/2"
+                  aria-label={t("systemSettings.search.clear")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          }
+        />
 
         {/* Content area */}
-        <ScrollableArea className="flex-1 space-y-4 p-4" wrapperClassName="flex flex-1 min-h-0">
+        <ScrollableArea className="flex-1 space-y-4 py-1" wrapperClassName="flex flex-1 min-h-0">
           {searchQuery ? (
             searchResults.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center text-sm">
@@ -1274,7 +1264,7 @@ export default function SystemSettings(_props: SystemSettingsProps) {
             }}
           />
         )}
-      </div>
+      </PageShell>
     </FeatureErrorBoundary>
   )
 }

@@ -7,6 +7,7 @@
 - **强制**：页面根容器使用稳定的 `h-full/min-h-0/overflow-hidden` 约束，只让内容区或列表滚动。
 - **强制**：主内容使用 `min-w-0 flex-1`，列表使用 `min-h-0 flex-1 overflow-y-auto`；工具栏 `shrink-0`。
 - **强制**：多子功能页面使用既有的侧栏或顶部 Tab 模式，不在同一模块混用；内容优先于装饰性 Card。
+- **强制**：模块页顶部统一用 `components/layout/PageHeader`（`h-12`：标题+副标题 | 页内导航 | 操作），主体用 `PageBody` 作为唯一滚动容器；1280×800 下内容放得下时不得出现页面级滚动条。
 - **建议**：标题和主要操作保持单行紧凑工具栏；重复项才使用 Card，页面 section 不套 Card。
 - **建议**：固定格式控件和列表项使用稳定尺寸、grid track 或 aspect ratio，避免动态内容导致布局跳动。
 

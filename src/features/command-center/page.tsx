@@ -5,21 +5,26 @@
  * 原 CommandCardDetail 弹窗与 RunDrawer 已移除。确认弹窗（提权/删除）
  * 因安全约束保留。复制成功等提示走 sonner 右下角通知。
  */
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Terminal } from "lucide-react"
+import { Download, Loader2, Plus, RefreshCw, Terminal, Upload } from "lucide-react"
 import { toast } from "sonner"
 import { DestructiveConfirmDialog } from "@/components/common/DestructiveConfirmDialog"
+import { Button } from "@/components/ui/button"
+import { PageBody, PageHeader, PageShell, PageTabs } from "@/components/layout/PageHeader"
 import { RuntimeFeatureGate } from "@/components/common/RuntimeFeatureGate"
 import { CommandCardEditor } from "@/features/command-center/components/CommandCardEditor"
-import { CommandMarketDialog } from "@/features/command-center/components/CommandMarketDialog"
+import { CommandMarketPanel } from "@/features/command-center/components/CommandMarketPanel"
 import { CommandCenterPageContent } from "@/features/command-center/components/CommandCenterPageContent"
 import { RunDetailDrawer } from "@/features/command-center/components/RunDetailDrawer"
 import { useCommandCenterController } from "@/features/command-center/hooks/useCommandCenterController"
+import { useCommandMarketController } from "@/features/command-center/hooks/useCommandMarketController"
 import { useCommandCenterStore } from "@/features/command-center/store"
 import type { FeatureDescriptor } from "@/platform/capabilities"
 import { openPlatformDialog, savePlatformDialog } from "@/platform/dialog"
-import type { CommandCard } from "@/lib/tauri/types/command-center"
+import type { CommandCard, MarketCommandSummary } from "@/lib/tauri/types/command-center"
+
+type CommandCenterTab = "mine" | "market"
 
 export default function CommandCenter({ feature }: { feature?: FeatureDescriptor }) {
   const { t } = useTranslation()
@@ -31,7 +36,26 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
   const [confirmRun, setConfirmRun] = useState<CommandCard | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<CommandCard | null>(null)
   const [ioBusy, setIoBusy] = useState<"export" | "import" | null>(null)
-  const [marketOpen, setMarketOpen] = useState(false)
+  const [tab, setTab] = useState<CommandCenterTab>("mine")
+  const [confirmUninstall, setConfirmUninstall] = useState<MarketCommandSummary | null>(null)
+
+  const market = useCommandMarketController({ onCardsChanged: () => void controller.loadCards() })
+  const refreshMarket = market.refresh
+
+  // 进页面就静默拉一次目录：标签上的「可更新」角标和卡片版本徽标依赖它；失败只在市场标签里展示。
+  useEffect(() => {
+    void refreshMarket()
+  }, [refreshMarket])
+
+  const updatableIds = useMemo(
+    () =>
+      new Set(
+        (market.market?.commands ?? [])
+          .filter((entry) => entry.upgradable)
+          .map((entry) => entry.id),
+      ),
+    [market.market],
+  )
 
   const handleAdd = useCallback(() => {
     setEditorCard(controller.createDraft())
@@ -164,25 +188,107 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
       title={t("commandCenter.title")}
       icon={<Terminal size={32} className="opacity-40" />}
     >
-      <CommandCenterPageContent
-        cards={controller.cards}
-        loading={controller.loading}
-        error={controller.error}
-        runningIds={controller.runningIds}
-        onAdd={handleAdd}
-        onEdit={setEditorCard}
-        onRun={handleRunRequest}
-        onDelete={setConfirmDelete}
-        onExpand={(card) => setExpandedId(card.id)}
-        onTerminate={cancelRun}
-        onExport={handleExport}
-        onImport={handleImport}
-        onOpenMarket={() => setMarketOpen(true)}
-        ioBusy={ioBusy}
-        onReorder={handleReorder}
-        onDismissError={controller.clearError}
-        hasResult={hasResult}
-      />
+      <PageShell>
+        <PageHeader
+          title={t("commandCenter.title")}
+          subtitle={t("commandCenter.subtitle")}
+          nav={
+            <PageTabs
+              ariaLabel={t("commandCenter.title")}
+              value={tab}
+              onChange={setTab}
+              items={[
+                { id: "mine", label: t("commandCenter.tabMine") },
+                {
+                  id: "market",
+                  label: t("commandCenter.tabMarket"),
+                  badge: market.upgradableCount,
+                },
+              ]}
+            />
+          }
+          actions={
+            tab === "mine" ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleImport}
+                  disabled={ioBusy !== null}
+                >
+                  {ioBusy === "import" ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Download size={14} />
+                  )}
+                  {t("commandCenter.io.import")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExport}
+                  disabled={ioBusy !== null}
+                >
+                  {ioBusy === "export" ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Upload size={14} />
+                  )}
+                  {t("commandCenter.io.export")}
+                </Button>
+                <Button size="sm" onClick={handleAdd}>
+                  <Plus size={14} />
+                  {t("commandCenter.addCard")}
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void market.refresh()}
+                disabled={market.loading}
+              >
+                {market.loading ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={14} />
+                )}
+                {t("commandCenter.market.refresh")}
+              </Button>
+            )
+          }
+        />
+        <PageBody>
+          {tab === "mine" ? (
+            <CommandCenterPageContent
+              cards={controller.cards}
+              loading={controller.loading}
+              error={controller.error}
+              runningIds={controller.runningIds}
+              onAdd={handleAdd}
+              onEdit={setEditorCard}
+              onRun={handleRunRequest}
+              onDelete={setConfirmDelete}
+              onExpand={(card) => setExpandedId(card.id)}
+              onTerminate={cancelRun}
+              onReorder={handleReorder}
+              onDismissError={controller.clearError}
+              hasResult={hasResult}
+              updatableIds={updatableIds}
+            />
+          ) : (
+            <CommandMarketPanel
+              listing={market.market}
+              loading={market.loading}
+              error={market.error}
+              busyId={market.busyId}
+              onRefresh={() => void market.refresh()}
+              onInstall={(entry) => void market.install(entry)}
+              onUninstall={setConfirmUninstall}
+            />
+          )}
+        </PageBody>
+      </PageShell>
 
       <RunDetailDrawer
         card={expandedCard}
@@ -200,12 +306,6 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
         onOpenChange={(open) => {
           if (!open) setExpandedId(null)
         }}
-      />
-
-      <CommandMarketDialog
-        open={marketOpen}
-        onOpenChange={setMarketOpen}
-        onInstalled={() => void controller.loadCards()}
       />
 
       <CommandCardEditor
@@ -232,6 +332,24 @@ export default function CommandCenter({ feature }: { feature?: FeatureDescriptor
           onConfirm={async () => {
             const card = confirmRun
             await runCard(card)
+          }}
+        />
+      )}
+
+      {confirmUninstall && (
+        <DestructiveConfirmDialog
+          open={confirmUninstall !== null}
+          onOpenChange={(open) => {
+            if (!open) setConfirmUninstall(null)
+          }}
+          title={t("commandCenter.market.uninstallConfirm.title")}
+          description={t("commandCenter.market.uninstallConfirm.description", {
+            title: confirmUninstall.title,
+          })}
+          confirmLabel={t("commandCenter.market.uninstall")}
+          cancelLabel={t("common.cancel")}
+          onConfirm={async () => {
+            await market.uninstall(confirmUninstall)
           }}
         />
       )}

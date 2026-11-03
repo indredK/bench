@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
+import { PageHeader, PageShell, PageTabs } from "@/components/layout/PageHeader"
 import { envDetectorFeature } from "@/features/env-detector/feature"
 import { portManagerFeature } from "@/features/port-manager/feature"
 import type { AppFeature } from "@/features/types"
@@ -532,31 +532,30 @@ export default function DevToolbox(_props: DevToolboxProps) {
   ]
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="-mx-3 flex h-12 shrink-0 gap-1 overflow-x-auto border-b px-3">
-        {tabs.map(({ id, labelKey, icon: Icon }) => (
-          <Button
-            key={id}
-            variant="ghost"
-            onClick={() => setActiveTab(id)}
-            className={cn(
-              "-mb-[1px] flex h-full shrink-0 items-center gap-1.5 rounded-none border-b-2 px-3 text-xs font-medium whitespace-nowrap transition-colors",
-              activeTab === id
-                ? "border-primary text-primary"
-                : "text-muted-foreground hover:text-foreground hover:border-border border-transparent",
-            )}
-          >
-            <Icon size={13} /> {t(labelKey)}
-          </Button>
-        ))}
-      </div>
+    <PageShell>
+      <PageHeader
+        title={t("devToolbox.title")}
+        subtitle={t("devToolbox.subtitle")}
+        nav={
+          <PageTabs
+            ariaLabel={t("devToolbox.title")}
+            value={activeTab}
+            onChange={setActiveTab}
+            items={tabs.map(({ id, labelKey, icon: Icon }) => ({
+              id,
+              label: t(labelKey),
+              icon: <Icon size={13} />,
+            }))}
+          />
+        }
+      />
       {FULL_PAGE_TOOL_TABS.has(activeTab) ? (
         <div className="min-h-0 flex-1">{renderFullPageTool()}</div>
       ) : (
-        <ScrollableArea className="flex-1 p-4" wrapperClassName="flex flex-1 min-h-0">
+        <ScrollableArea className="flex-1 py-1" wrapperClassName="flex flex-1 min-h-0">
           {renderFullPageTool()}
         </ScrollableArea>
       )}
-    </div>
+    </PageShell>
   )
 }

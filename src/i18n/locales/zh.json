@@ -12,7 +12,8 @@
     "restart": "重新启动软件",
     "settings": "设置",
     "preferences": "软件设置",
-    "extensionCenter": "插件中心"
+    "extensionCenter": "插件中心",
+    "integrations": "跨端接入"
   },
   "systemSettings": {
     "tabs": {
@@ -295,7 +296,8 @@
       "lockScreen": "锁定屏幕设置",
       "languageRegion": "语言与地区",
       "keyboard": "键盘设置"
-    }
+    },
+    "subtitle": "外观、安全与系统行为"
   },
   "accountManager": {
     "stationTitle": "站点列表",
@@ -1050,7 +1052,8 @@
       "accountAction": "账号操作失败，请重试。",
       "detailAction": "会话探测失败，请重试。",
       "fingerprintCapture": "登录指纹采样失败，请重试。"
-    }
+    },
+    "subtitle": "站点、账号与登录态管理"
   },
   "envDetector": {
     "title": "环境检测",
@@ -1485,11 +1488,12 @@
     "title": "开发工具箱",
     "devtools": "开发工具",
     "diagnostics": "网络诊断",
-    "info": "系统信息"
+    "info": "系统信息",
+    "subtitle": "端口、环境与常用开发小工具"
   },
   "commandCenter": {
     "title": "命令中心",
-    "subtitle": "把常用命令、脚本和快捷操作保存为卡片，一键运行。",
+    "subtitle": "保存常用命令，一键运行",
     "addCard": "新建卡片",
     "empty": "还没有命令卡片，点击新建开始添加。",
     "kind": {
@@ -1577,21 +1581,41 @@
       "importCanceled": "已取消导入"
     },
     "market": {
-      "open": "命令市场",
       "title": "命令市场",
       "sourceLabel": "市场源",
       "empty": "命令市场暂无内容",
-      "emptyHint": "配置市场源环境变量（BENCH_COMMAND_MARKET_URL 指向远程 registry.json，或 BENCH_COMMAND_MARKET_DIR 指向本地市场目录）后，即可在此浏览并安装命令。",
       "install": "安装",
       "update": "更新",
       "installed": "已安装",
       "upgradable": "可更新",
-      "installSuccess": "命令已安装到本地卡片库",
       "installFailed": "安装失败",
       "badgeTitle": "来自命令市场 v{{version}}",
-      "toastInstalled": "命令已安装到本地卡片库",
-      "refresh": "重新加载"
-    }
+      "toastInstalled": "已安装「{{title}}」",
+      "refresh": "刷新",
+      "uninstall": "卸载",
+      "notInstalled": "未安装",
+      "col": {
+        "name": "命令",
+        "kind": "类型",
+        "version": "版本",
+        "status": "状态",
+        "actions": "操作"
+      },
+      "badgeTitleUpdatable": "来自命令市场 v{{version}}，市场有新版本，可在「命令市场」更新",
+      "toastUpdated": "已更新「{{title}}」",
+      "toastUninstalled": "已卸载「{{title}}」",
+      "uninstallFailed": "卸载失败",
+      "loadFailed": "命令市场加载失败",
+      "loadFailedHint": "市场目录托管在 GitHub（raw.githubusercontent.com）。请确认网络或代理可用后重试；错误详情已列在上方。",
+      "refreshFailed": "刷新失败，当前显示的是上次加载的目录",
+      "localStoreError": "本地命令库不可读，已安装状态未知；安装/卸载会失败，请先修复命令库目录",
+      "uninstallConfirm": {
+        "title": "卸载市场命令？",
+        "description": "将从本地命令库移除「{{title}}」。之后可随时在命令市场重新安装。"
+      }
+    },
+    "tabMine": "我的命令",
+    "tabMarket": "命令市场"
   },
   "closeBehavior": {
     "title": "关闭行为",
@@ -2542,11 +2566,12 @@
       "globalpingFailed": "Globalping 远程探测失败。",
       "globalpingInvalidTarget": "请输入公网主机或 HTTP(S) 地址；不允许本机、局域网或内网目标。",
       "globalpingTokenFailed": "无法访问系统钥匙串，请检查系统提示后重试。"
-    }
+    },
+    "headerSubtitle": "急救诊断与主动探测"
   },
   "extensionCenter": {
     "title": "插件中心",
-    "subtitle": "已安装的官方与第三方能力（bundled / market）",
+    "subtitle": "Bench 插件的安装、更新、启停与卸载",
     "name": "名称",
     "version": "版本",
     "distribution": {
@@ -2579,15 +2604,9 @@
     "uninstallFailed": "卸载插件失败",
     "loading": "加载中…",
     "tabInstalled": "已安装",
-    "tabMarket": "市场",
+    "tabMarket": "插件市场",
     "tabDiagnostics": "诊断",
     "market": {
-      "typeLabel": "市场类型",
-      "type": {
-        "all": "全部",
-        "extensions": "插件",
-        "nativeApps": "原生应用"
-      },
       "loadFailed": "市场加载失败",
       "empty": "市场暂无可用插件",
       "install": "安装",
@@ -2608,8 +2627,54 @@
       "installing": "安装中…",
       "prepareFailed": "安装校验未通过",
       "commitFailed": "安装失败",
-      "toastInstalled": "插件已安装"
+      "toastInstalled": "插件已安装",
+      "latest": "最新版本",
+      "notInstalled": "未安装",
+      "refreshFailed": "刷新失败，当前显示上次加载的目录"
     },
+    "diagnostics": {
+      "hint": "插件审计日志与运行时错误（最近 200 条）",
+      "audit": "审计日志 ext-audit.log",
+      "runtime": "运行时诊断 ext-diagnostics.jsonl",
+      "empty": "暂无记录"
+    }
+  },
+  "integrations": {
+    "browser": {
+      "export": "导出浏览器扩展",
+      "exporting": "导出中…",
+      "exported": "已导出",
+      "exportedVersion": "已导出 Bench Companion v{{version}}",
+      "extVersion": "扩展版本",
+      "notExported": "未导出",
+      "extDir": "扩展目录",
+      "locationHint": "导出前会让你选位置，扩展写进该位置下的 bench-companion 文件夹；上次的选择会被记住并作为下次的默认起点。换位置后需在浏览器扩展页移除旧目录、重新加载新目录。",
+      "extId": "扩展 ID",
+      "nmTitle": "Native Messaging 注册状态",
+      "browsers": "本机浏览器",
+      "openExtensionsPage": "打开扩展页",
+      "openFailed": "打开浏览器扩展页失败",
+      "stepsTitle": "安装步骤",
+      "step1": "1. 点击「导出浏览器扩展」，产物写入本机扩展目录并完成 NM 注册",
+      "step2": "2. 打开浏览器扩展管理页，开启右上角「开发者模式」",
+      "step3": "3. 点「加载已解压的扩展程序」，选择扩展目录",
+      "step4": "4. 安装后点击工具栏 Bench 图标即可使用（需 Bench 保持运行）",
+      "title": "浏览器扩展"
+    },
+    "mcp": {
+      "title": "AI 客户端（MCP）",
+      "hint": "勾选客户端后一键写入配置（保留既有配置，写入前自动备份）。写入后请重启对应客户端。",
+      "configured": "已配置",
+      "write": "写入所选客户端",
+      "writing": "写入中…",
+      "done": "MCP 配置写入完成",
+      "failed": "部分客户端写入失败",
+      "empty": "未探测到支持的 MCP 客户端"
+    },
+    "statusError": "状态加载失败",
+    "refresh": "刷新状态",
+    "hostMissing": "未找到 bench-host 可执行文件（需先构建 cargo build -p bench-host）",
+    "copy": "复制",
     "nativeApps": {
       "title": "自用原生应用",
       "loadFailed": "原生应用列表加载失败",
@@ -2641,46 +2706,14 @@
           "name": "ABB 开发工具箱",
           "description": "ABB 项目开发与本地研发流程工具。"
         }
-      }
+      },
+      "installed": "已安装",
+      "install": "安装"
     },
-    "diagnostics": {
-      "hint": "插件审计日志与运行时错误（最近 200 条）",
-      "audit": "审计日志 ext-audit.log",
-      "runtime": "运行时诊断 ext-diagnostics.jsonl",
-      "empty": "暂无记录"
-    },
-    "tabBridge": "跨端接入",
-    "bridgeTitle": "浏览器扩展与 MCP 接入",
-    "bridgeSubtitle": "把 Bench 能力带出桌面应用：浏览器扩展（bench-companion）与 AI 客户端（MCP）共用本机 bench-host。",
-    "bridgeExportBtn": "导出浏览器扩展",
-    "bridgeExporting": "导出中…",
-    "bridgeExported": "已导出",
-    "bridgeExportedVersion": "已导出 Bench Companion v{{version}}",
-    "bridgeExtVersion": "扩展版本",
-    "bridgeNotExported": "未导出",
-    "bridgeHostMissing": "未找到 bench-host 可执行文件（需先构建 cargo build -p bench-host）",
-    "bridgeExtDir": "扩展目录",
-    "bridgeExportLocationHint": "导出前会让你选位置，扩展写进该位置下的 bench-companion 文件夹；上次的选择会被记住并作为下次的默认起点。换位置后需在浏览器扩展页移除旧目录、重新加载新目录。",
-    "bridgeExtId": "扩展 ID",
-    "bridgeCopy": "复制",
-    "bridgeCopied": "已复制",
-    "bridgeNmTitle": "Native Messaging 注册状态",
-    "bridgeBrowsers": "本机浏览器",
-    "bridgeOpenExtensionsPage": "打开扩展页",
-    "bridgeOpenFailed": "打开浏览器扩展页失败",
-    "bridgeStepsTitle": "安装步骤",
-    "bridgeStep1": "1. 点击「导出浏览器扩展」，产物写入本机扩展目录并完成 NM 注册",
-    "bridgeStep2": "2. 打开浏览器扩展管理页，开启右上角「开发者模式」",
-    "bridgeStep3": "3. 点「加载已解压的扩展程序」，选择扩展目录",
-    "bridgeStep4": "4. 安装后点击工具栏 Bench 图标即可使用（需 Bench 保持运行）",
-    "bridgeMcpTitle": "AI 客户端（MCP）",
-    "bridgeMcpHint": "勾选客户端后一键写入配置（保留既有配置，写入前自动备份）。写入后请重启对应客户端。",
-    "bridgeMcpInstalled": "已配置",
-    "bridgeMcpWrite": "写入所选客户端",
-    "bridgeMcpWriting": "写入中…",
-    "bridgeMcpDone": "MCP 配置写入完成",
-    "bridgeMcpFailed": "部分客户端写入失败",
-    "bridgeStatusError": "状态加载失败",
-    "bridgeRefresh": "刷新状态"
+    "title": "跨端接入",
+    "subtitle": "浏览器扩展、AI 客户端（MCP）与自用原生应用",
+    "loading": "加载中…",
+    "retry": "重试",
+    "cancel": "取消"
   }
 }
