@@ -1482,7 +1482,18 @@
     "proxyUnavailableTitle": "Proxy unavailable",
     "proxyUnavailableDescription": "Could not reach the update server through the configured proxy. Check your proxy settings or network and retry.",
     "installFailedStateTitle": "Downloaded, but install failed",
-    "installFailedStateDescription": "The update package was downloaded but could not be installed. Your progress is kept; you can retry the install."
+    "installFailedStateDescription": "The update package was downloaded but could not be installed. Your progress is kept; you can retry the install.",
+    "eta": "{{time}} left",
+    "continueInBackground": "Continue in background",
+    "backgroundHint": "You can close this window; the download and install continue in the background and progress shows at the bottom right.",
+    "chip": {
+      "available": "Update {{version}} available",
+      "downloading": "Downloading update…",
+      "downloadingPercent": "Downloading update {{percent}}%",
+      "readyToRestart": "Update ready — click to restart",
+      "installFailed": "Update install failed — click for details",
+      "dismiss": "Dismiss for this version"
+    }
   },
   "devToolbox": {
     "title": "Dev Toolbox",

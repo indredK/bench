@@ -21,6 +21,7 @@ import {
 } from "@/features/updater/error-classifier"
 import { parseCommandError } from "@/lib/tauri/errors"
 import { useUpdaterStore } from "@/features/updater/store"
+import { nextSpeed } from "@/features/updater/services/download-progress"
 import {
   readUpdaterPolicy,
   writeUpdaterPolicy,
@@ -48,6 +49,7 @@ export function useUpdaterController() {
   const errorInfo = useUpdaterStore((s) => s.errorInfo)
   const downloadedBytes = useUpdaterStore((s) => s.downloadedBytes)
   const totalBytes = useUpdaterStore((s) => s.totalBytes)
+  const speedBytesPerSec = useUpdaterStore((s) => s.speedBytesPerSec)
   const lastCheckedAt = useUpdaterStore((s) => s.lastCheckedAt)
   const autoCheckEnabled = useUpdaterStore((s) => s.autoCheckEnabled)
   const autoCheckFailureCount = useUpdaterStore((s) => s.autoCheckFailureCount)
@@ -125,6 +127,8 @@ export function useUpdaterController() {
         updateInfo: null,
         downloadedBytes: 0,
         totalBytes: null,
+        speedBytesPerSec: null,
+        progressSampledAt: 0,
       })
 
       try {
@@ -133,7 +137,8 @@ export function useUpdaterController() {
           currentVersion: result.currentVersion,
           updateInfo: result,
           status: result.available ? "available" : "upToDate",
-          open: interactive || result.available,
+          // 静默检查发现新版本不再弹模态框打断工作：由右下角的更新提示条承接，点开才看详情。
+          open: interactive ? true : useUpdaterStore.getState().open,
           lastCheckedAt: Date.now(),
           autoCheckFailureCount: 0,
           lastAutoCheckFailureAt: 0,
@@ -199,13 +204,21 @@ export function useUpdaterController() {
       errorInfo: null,
       downloadedBytes: 0,
       totalBytes: null,
+      speedBytesPerSec: null,
+      progressSampledAt: 0,
     })
     cancelRequestedRef.current = false
 
     try {
       await downloadAndInstallAppUpdate()
       if (cancelRequestedRef.current) return
-      useUpdaterStore.setState({ status: "readyToRestart", error: "", errorInfo: null })
+      useUpdaterStore.setState((state) => ({
+        status: "readyToRestart",
+        error: "",
+        errorInfo: null,
+        // 节流后最后一条进度可能没到总长度：完成即 100%，不让进度条停在 99%。
+        downloadedBytes: state.totalBytes ?? state.downloadedBytes,
+      }))
     } catch (error) {
       if (cancelRequestedRef.current) return
       // User-initiated cancel returns a stable code. Keep the available update so it can be retried.
@@ -214,6 +227,8 @@ export function useUpdaterController() {
           status: state.updateInfo?.available ? "available" : "idle",
           downloadedBytes: 0,
           totalBytes: null,
+          speedBytesPerSec: null,
+          progressSampledAt: 0,
           error: "",
           errorInfo: null,
         }))
@@ -240,6 +255,8 @@ export function useUpdaterController() {
         status: state.updateInfo?.available ? "available" : "idle",
         downloadedBytes: 0,
         totalBytes: null,
+        speedBytesPerSec: null,
+        progressSampledAt: 0,
         error: "",
         errorInfo: null,
       }))
@@ -264,12 +281,14 @@ export function useUpdaterController() {
     }
   }, [t])
 
+  /** 收起对话框：下载/安装在后台继续（进度由右下角提示条显示），不会中断任务。 */
   const closeDialog = useCallback(() => {
-    if (status === "downloading" || status === "cancelling" || status === "installing") {
-      return
-    }
     setOpen(false)
-  }, [setOpen, status])
+  }, [setOpen])
+
+  const openDialog = useCallback(() => {
+    setOpen(true)
+  }, [setOpen])
 
   const dismissDialog = useCallback(() => {
     if (status === "downloading" || status === "cancelling" || status === "installing") return
@@ -366,14 +385,29 @@ export function useUpdaterController() {
           status: "downloading",
           downloadedBytes: 0,
           totalBytes: toFiniteOrNull(payload.contentLength),
+          speedBytesPerSec: null,
+          progressSampledAt: Date.now(),
         })
         return
       }
       if (payload.event === "progress") {
+        const now = Date.now()
+        const bytes = toFiniteOrZero(payload.downloadedBytes)
+        const previous = useUpdaterStore.getState()
         useUpdaterStore.setState({
           status: "downloading",
-          downloadedBytes: toFiniteOrZero(payload.downloadedBytes),
+          downloadedBytes: bytes,
           totalBytes: toFiniteOrNull(payload.contentLength),
+          speedBytesPerSec: nextSpeed(
+            {
+              speed: previous.speedBytesPerSec,
+              bytes: previous.downloadedBytes,
+              at: previous.progressSampledAt,
+            },
+            bytes,
+            now,
+          ),
+          progressSampledAt: now,
         })
         return
       }
@@ -382,6 +416,8 @@ export function useUpdaterController() {
           status: useUpdaterStore.getState().updateInfo?.available ? "available" : "idle",
           downloadedBytes: 0,
           totalBytes: null,
+          speedBytesPerSec: null,
+          progressSampledAt: 0,
         })
         return
       }
@@ -412,9 +448,11 @@ export function useUpdaterController() {
     errorInfo,
     downloadedBytes,
     totalBytes,
+    speedBytesPerSec,
     lastCheckedAt,
     autoCheckEnabled,
     checkUpdates,
+    openDialog,
     setAutoCheckEnabled,
     downloadAndInstall,
     cancelDownload,

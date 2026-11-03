@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import type { ComponentProps, ReactNode } from "react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { BasicView } from "@/features/network-probe/components/BasicView"
 
 vi.mock("react-i18next", () => ({
@@ -56,28 +56,6 @@ vi.mock("@/features/network-probe/components/EgressPanel", () => ({
     <div data-testid="egress-panel" data-embedded={String(dualFrom === "offline")} />
   ),
 }))
-
-const originalScrollIntoView = HTMLElement.prototype.scrollIntoView
-const scrollIntoView = vi.fn()
-
-beforeEach(() => {
-  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-    configurable: true,
-    value: scrollIntoView,
-  })
-})
-
-afterEach(() => {
-  scrollIntoView.mockClear()
-  if (originalScrollIntoView) {
-    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-      configurable: true,
-      value: originalScrollIntoView,
-    })
-  } else {
-    Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView")
-  }
-})
 
 function renderBasicView(
   focus: ComponentProps<typeof BasicView>["offline"]["focus"] = "all",
@@ -147,35 +125,40 @@ function renderBasicView(
 }
 
 describe("BasicView", () => {
-  it("renders the six basic sections in one page without nested scrollers", () => {
+  it("shows one section at a time instead of one long scrolling page", () => {
     renderBasicView()
 
-    for (const section of ["overview", "tree", "opinion", "offline", "fix", "report"]) {
-      expect(
-        screen.getByRole("heading", { name: `networkProbe.l2.${section}` }),
-      ).toBeInTheDocument()
-    }
+    // 6 个标签，默认只显示「概览」
+    expect(screen.getAllByRole("tab")).toHaveLength(6)
+    expect(screen.getByRole("tab", { name: "networkProbe.l2.overview" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
     expect(screen.getAllByTestId("basic-scroll-area")).toHaveLength(1)
     expect(screen.getByTestId("overview-panel")).toHaveAttribute("data-embedded", "true")
-    expect(screen.getByTestId("health-panel")).toHaveAttribute("data-embedded", "true")
-    expect(screen.getByTestId("opinion-panel")).toHaveAttribute("data-embedded", "true")
-    expect(screen.getByTestId("fix-panel")).toHaveAttribute("data-embedded", "true")
-    expect(screen.getByTestId("report-panel")).toHaveAttribute("data-embedded", "true")
-    expect(screen.getByTestId("ipv6-panel")).toHaveAttribute("data-embedded", "true")
-    expect(screen.getByTestId("mtu-panel")).toHaveAttribute("data-embedded", "true")
+    for (const hidden of [
+      "health-panel",
+      "opinion-panel",
+      "offline-panel",
+      "fix-panel",
+      "report-panel",
+    ]) {
+      expect(screen.queryByTestId(hidden)).not.toBeInTheDocument()
+    }
   })
 
-  it("jumps to a section and keeps the offline focus control stateful", () => {
+  it("switches sections and keeps the offline focus control stateful", () => {
     const onSelectFocus = vi.fn()
     renderBasicView("all", onSelectFocus)
 
-    fireEvent.click(screen.getByRole("button", { name: "networkProbe.l2.tree" }))
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" })
+    fireEvent.click(screen.getByRole("tab", { name: "networkProbe.l2.tree" }))
+    expect(screen.getByTestId("health-panel")).toHaveAttribute("data-embedded", "true")
+    expect(screen.queryByTestId("overview-panel")).not.toBeInTheDocument()
 
-    const ipv6Button = screen.getByRole("button", {
-      name: "networkProbe.offline.sub.ipv6",
-    })
-    fireEvent.click(ipv6Button)
+    fireEvent.click(screen.getByRole("tab", { name: "networkProbe.l2.offline" }))
+    expect(screen.getByTestId("ipv6-panel")).toHaveAttribute("data-embedded", "true")
+    expect(screen.getByTestId("mtu-panel")).toHaveAttribute("data-embedded", "true")
+    fireEvent.click(screen.getByRole("button", { name: "networkProbe.offline.sub.ipv6" }))
     expect(onSelectFocus).toHaveBeenCalledWith("ipv6")
   })
 })

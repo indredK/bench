@@ -2,6 +2,8 @@
 
 AI 从 [`AGENTS.md`](../AGENTS.md) 开始，按其必读清单读取规范后按关键词路由进工作流；人类新人从本文件的象限导航按需进入。
 
+> **当前产品方向与开发路线：[roadmap/DIRECTION.md](./roadmap/DIRECTION.md)**；发布与合并流程：[how-to/release-workflow.md](./how-to/release-workflow.md)。
+>
 > 裁决优先级：`.cursorrules > AGENTS.md > docs/*.md`。`AGENTS.md` 是逻辑入口，`.cursorrules` 是最高优先级规则。不确定、规则冲突或需要危险操作时停止并询问用户。
 
 ## 文档结构（Diátaxis 视角）

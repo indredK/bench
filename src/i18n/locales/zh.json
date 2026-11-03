@@ -1482,7 +1482,18 @@
     "proxyUnavailableTitle": "代理不可用",
     "proxyUnavailableDescription": "无法通过已配置的代理连接更新服务器。请检查代理设置或网络后重试。",
     "installFailedStateTitle": "已下载，安装失败",
-    "installFailedStateDescription": "更新包已下载但未能安装，进度已保留。可直接重试安装。"
+    "installFailedStateDescription": "更新包已下载但未能安装，进度已保留。可直接重试安装。",
+    "eta": "剩余 {{time}}",
+    "continueInBackground": "后台继续",
+    "backgroundHint": "可以收起窗口，下载与安装会在后台继续，右下角会显示进度。",
+    "chip": {
+      "available": "发现新版本 {{version}}",
+      "downloading": "正在下载更新…",
+      "downloadingPercent": "正在下载更新 {{percent}}%",
+      "readyToRestart": "更新已就绪，点击重启",
+      "installFailed": "更新安装失败，点击查看",
+      "dismiss": "忽略此版本提示"
+    }
   },
   "devToolbox": {
     "title": "开发工具箱",

@@ -266,6 +266,44 @@ describe("UpdateDialog", () => {
     expect(screen.queryByText("0%")).not.toBeInTheDocument()
   })
 
+  it("shows a determinate progress bar with percent, speed and a background button while downloading", () => {
+    const closeDialog = vi.fn()
+    render(
+      <UpdateDialog
+        open={true}
+        status="downloading"
+        currentVersion="1.6.0"
+        updateInfo={{
+          available: true,
+          currentVersion: "1.6.0",
+          version: "1.7.0",
+          date: "2026-05-22",
+          body: null,
+        }}
+        errorInfo={null}
+        error=""
+        downloadedBytes={512 * 1024}
+        totalBytes={2048 * 1024}
+        speedBytesPerSec={256 * 1024}
+        lastCheckedAt={0}
+        checkUpdates={vi.fn(async () => {})}
+        downloadAndInstall={vi.fn(async () => {})}
+        restartNow={vi.fn(async () => {})}
+        closeDialog={closeDialog}
+        dismissDialog={vi.fn()}
+        cancelDownload={vi.fn(async () => {})}
+        openReleasesPage={vi.fn()}
+      />,
+    )
+
+    const bar = screen.getByRole("progressbar")
+    expect(bar).toHaveAttribute("aria-valuenow", "25")
+    expect(screen.getByText("25%")).toBeInTheDocument()
+    expect(screen.getByText(/256\.0 KB\/s/)).toBeInTheDocument()
+    screen.getByRole("button", { name: "updater.continueInBackground" }).click()
+    expect(closeDialog).toHaveBeenCalled()
+  })
+
   it("shows a human-readable retry state without echoing current version as latest on check failure", () => {
     render(
       <UpdateDialog

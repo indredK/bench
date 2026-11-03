@@ -27,6 +27,10 @@ interface UpdaterState {
   errorInfo: UpdaterErrorInfo | null
   downloadedBytes: number
   totalBytes: number | null
+  /** 平滑后的下载速度（字节/秒）；未知为 null。 */
+  speedBytesPerSec: number | null
+  /** 上一次进度采样时间（ms，0=未采样），与 downloadedBytes 配对算速度。 */
+  progressSampledAt: number
   lastCheckedAt: number
   autoCheckEnabled: boolean
   autoCheckFailureCount: number
@@ -54,6 +58,8 @@ export const useUpdaterStore = create<UpdaterState>((set) => ({
   errorInfo: null,
   downloadedBytes: 0,
   totalBytes: null,
+  speedBytesPerSec: null,
+  progressSampledAt: 0,
   lastCheckedAt: 0,
   autoCheckEnabled: true,
   autoCheckFailureCount: 0,
@@ -68,7 +74,8 @@ export const useUpdaterStore = create<UpdaterState>((set) => ({
   setErrorInfo: (errorInfo) => set({ errorInfo }),
   setProgress: (downloadedBytes, totalBytes) => set({ downloadedBytes, totalBytes }),
   setLastCheckedAt: (lastCheckedAt) => set({ lastCheckedAt }),
-  resetProgress: () => set({ downloadedBytes: 0, totalBytes: null }),
+  resetProgress: () =>
+    set({ downloadedBytes: 0, totalBytes: null, speedBytesPerSec: null, progressSampledAt: 0 }),
   resetTransientState: () =>
     set((state) => ({
       open: state.open,
@@ -84,5 +91,7 @@ export const useUpdaterStore = create<UpdaterState>((set) => ({
       errorInfo: null,
       downloadedBytes: 0,
       totalBytes: null,
+      speedBytesPerSec: null,
+      progressSampledAt: 0,
     })),
 }))
