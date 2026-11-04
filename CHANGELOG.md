@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.41.0](https://github.com/indredK/bench/compare/v1.40.0...v1.41.0) (2026-11-03)
+
+
+### Features
+
+* **ui:** refine compact layouts and custom backgrounds ([9a69c05](https://github.com/indredK/bench/commit/9a69c05e570f5d911fc7b9ebf4bef0f5b9f832df))
+* **ui:** 紧凑布局与可自定义背景 ([d14a8b6](https://github.com/indredK/bench/commit/d14a8b687a42893d595117d6c26544ac63715848))
+* updater progress, network-probe refactor, batched dependency updates ([4c99128](https://github.com/indredK/bench/commit/4c99128fd95e14df176cf45905e22f98783084d1))
+* **updater:** show real download progress and keep updates running in background ([bb682e9](https://github.com/indredK/bench/commit/bb682e9a97743dd0d110d1d2fe098f3480aee7a3))
+* 拆分跨端接入模块并重构页面架构 ([31a4df3](https://github.com/indredK/bench/commit/31a4df3c548aa6f668e4335c4a3a7bf1baada36e))
+
+
+### Bug Fixes
+
+* **deps:** restore pnpm 12 lockfile after batched dependency bumps ([cff0fc0](https://github.com/indredK/bench/commit/cff0fc012d42f41e9122c81e644b8f10aeb3991f))
+* **deps:** update yanked async-executor to 1.14.1 ([c7f5006](https://github.com/indredK/bench/commit/c7f50063508b29041101ef91a8aac8af98ecc09b))
+
 ## [1.40.0](https://github.com/indredK/bench/compare/v1.39.0...v1.40.0) (2026-10-29)
 
 
