@@ -80,7 +80,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "i18next": "^26.5.12",
+    "i18next": "^26.7.2",
     "ipaddr.js": "2.5.0",
     "lucide-react": "^1.65.0",
     "motion": "^14.9.0",
