@@ -66,9 +66,9 @@ dependencies = [
 
 [[package]]
 name = "affinidi-net-guard"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e524260bbe8f8e6d0d5439cd4a10ed65af1cf64756e2a751f187da4e822a473"
+checksum = "054a7ab7aeb20fa206ba24ba6cf22597f60f8adc3d6a9f274a265406fd18791b"
 dependencies = [
  "reqwest",
  "thiserror 2.0.21",
